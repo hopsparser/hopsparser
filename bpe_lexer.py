@@ -27,15 +27,15 @@ class DatasetBPE:
       def to_bpe(self,sent_list,dataset_id):
             # write sentences to tmp file
             ostream = open('/tmp/%s'%(dataset_id,), 'w')
-            for s in sent_list:
+            for s in sent_list: 
                   print(s,file=ostream)
             #print(file=ostream) 
             ostream.close() 
             # apply bpe to tmp file
-            print('%s applybpe /tmp/%s.bpe /tmp/%s %s'% (fastbpe,dataset_id,dataset_id,codes))
-            os.system('%s applybpe /tmp/%s.bpe /tmp/%s %s'% (fastbpe,dataset_id,dataset_id,codes))
+            print('%s applybpe /tmp/%s.bpe /tmp/%s %s'% (fastbpe,dataset_id,dataset_id,codes))    
+            os.system('%s applybpe /tmp/%s.bpe /tmp/%s %s'% (fastbpe,dataset_id,dataset_id,codes)) 
     
-            # load bpe-ized sentences
+            # load bpe-ized sentences 
             sentences_bpe = [ ]
             istream = open('/tmp/%s.bpe'%(dataset_id))
             for line in istream:
@@ -43,7 +43,7 @@ class DatasetBPE:
             istream.close()
             return sentences_bpe
 
-      def __getitem__(self,idx):
+      def __getitem__(self,idx): 
         return self.sentences[idx]
           
       def reset(self):
@@ -113,11 +113,15 @@ class LexerBPE(nn.Module):
           emb_buffer    = []
           word_sequence = []
           for (bpe_tok,bpe_vec) in zip(bpe_sequence,bpe_tensor):
-              emb_buffer.append(self.tanh(self.W(bpe_vec))) #if crash here, check the bpe_embeddings_size of the model
+              try:
+                  emb_buffer.append(self.tanh(self.W(bpe_vec))) #if crash here, check the bpe_embeddings_size of the model
+              except RuntimeError:
+                  print('Illegal embedding problem in this sentence', bpe_string)
               if not bpe_tok.endswith('@@'):
                   word_sequence.append(torch.stack(emb_buffer).sum(dim=0))
                   emb_buffer.clear()
           return torch.stack(word_sequence) 
+
       
 if __name__ == '__main__':
     
