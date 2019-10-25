@@ -29,6 +29,7 @@ class DatasetBPE:
             ostream = open('/tmp/%s'%(dataset_id,), 'w')
             for s in sent_list:
                   print(s,file=ostream)
+            #print(file=ostream) 
             ostream.close() 
             # apply bpe to tmp file
             print('%s applybpe /tmp/%s.bpe /tmp/%s %s'% (fastbpe,dataset_id,dataset_id,codes))
@@ -121,7 +122,7 @@ class LexerBPE(nn.Module):
 if __name__ == '__main__':
     
     dataset = DatasetBPE('/Users/bcrabbe/Desktop/MCVF_CORPUS/script/example.txt','train-01')
-    
+     
     print(dataset.sentences)
     lexer = LexerBPE('frwiki_embed1024_layers12_heads16/model-002.pth',256,1024)
     for seq in dataset:

@@ -314,6 +314,7 @@ class CovingtonParser(nn.Module):
         """
         loss_fn = nn.NLLLoss(reduction='sum') 
         optimizer = optim.SGD(list(self.parameters())+list(lexer.parameters()), lr=learning_rate)
+        print(len(train_trees), len(bpe_trainset) )
         assert ( len(train_trees) == len(bpe_trainset) )
         
         idxes = list(range(len(train_trees)))        
@@ -470,8 +471,8 @@ class CovingtonParser(nn.Module):
         return D
 
 if __name__ == "__main__":
-    src_train   = '/Users/bcrabbe/Desktop/MCVF_CORPUS/script/spmrl/train.French.gold.conll'
-    src_valid   = '/Users/bcrabbe/Desktop/MCVF_CORPUS/script/spmrl/dev.French.gold.conll'
+    src_train   = 'spmrl/train.French.gold.conll'
+    src_valid   = 'spmrl/dev.French.gold.conll'
 
     def read_graphlist(src_file):
         istream = open(src_file)
