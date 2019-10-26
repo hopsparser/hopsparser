@@ -115,11 +115,7 @@ class LexerBPE(nn.Module):
           emb_buffer    = []
           word_sequence = []
           for (bpe_tok,bpe_vec) in zip(bpe_sequence,bpe_tensor):
-              try:
                   emb_buffer.append(self.tanh(self.W(bpe_vec))) #if crash here, check the bpe_embeddings_size of the model
-              except RuntimeError:
-                  print('Illegal embedding problem in this sentence', bpe_string)
-                  print(bpe_tensor)
               if not bpe_tok.endswith('@@'):
                   word_sequence.append(torch.stack(emb_buffer).sum(dim=0))
                   emb_buffer.clear()
