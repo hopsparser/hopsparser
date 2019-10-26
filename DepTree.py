@@ -277,11 +277,11 @@ class CovingtonParser(nn.Module):
         if not successes:
             return [ ]
         
-        successes.sort(reverse=True)
+        successes.sort(reverse=True,key=lambda x:x[1])
         (S1,S2,B,Graph), score = successes[0]
         return Graph
     
-    def parse_corpus(self,bpe_dataset,sentlist,lexer,K=8):
+    def parse_corpus(self,bpe_dataset,sentlist,lexer,K=8): 
         """
         Parses a list of raw sentences and yields a sequence of dep trees
         Args:
@@ -291,12 +291,12 @@ class CovingtonParser(nn.Module):
         KwArgs:
             K                   (int): the beam size
         """
-        assert ( len(sentlist) == len(bpe_dataset) )
+        assert ( len(sentlist) == len(bpe_dataset))
         with torch.no_grad():
             for idx in range(len(sentlist)):
                 bpe_toks    = bpe_dataset[idx]
                 xembeddings = lexer.forward(bpe_toks)
-                print(sentlist[idx])
+                #print(sentlist[idx])
                 deptree = self.forward(xembeddings,K)      
                 deptree.words = sentlist[idx]
                 yield deptree
@@ -314,7 +314,7 @@ class CovingtonParser(nn.Module):
         """
         loss_fn = nn.NLLLoss(reduction='sum') 
         optimizer = optim.SGD(list(self.parameters())+list(lexer.parameters()), lr=learning_rate)
-        print(len(train_trees), len(bpe_trainset) )
+        #print(len(train_trees), len(bpe_trainset) )
         assert ( len(train_trees) == len(bpe_trainset) )
         
         idxes = list(range(len(train_trees)))        
@@ -472,6 +472,7 @@ class CovingtonParser(nn.Module):
 
 if __name__ == "__main__":
     src_train   = 'spmrl/train.French.gold.conll'
+    #src_train   = 'spmrl/example.txt'
     src_valid   = 'spmrl/dev.French.gold.conll'
 
     def read_graphlist(src_file):
