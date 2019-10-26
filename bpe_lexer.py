@@ -108,9 +108,9 @@ class LexerBPE(nn.Module):
           sidxes       = torch.LongTensor([self.dico.index(w) for w in bpe_sequence]).unsqueeze(dim=1)
           L            = torch.LongTensor([len(bpe_sequence)])
           bpe_tensor   = self.transformer('fwd',x=sidxes,lengths= L,langs=None, causal=False).contiguous()
+          bpe_tensor   = bpe_tensor.detach() #prevents backprop into the transformer
           bpe_tensor   = bpe_tensor.squeeze() if bpe_tensor.dim() > 2 else bpe_tensor
           bpe_tensor   = bpe_tensor.unsqueeze(dim=0) if bpe_tensor.dim() < 2 else bpe_tensor
-          bpe_tensor   = bpe_tensor.detach() #prevents backprop into the transformer
 
           emb_buffer    = [ ]
           word_sequence = [ ]
