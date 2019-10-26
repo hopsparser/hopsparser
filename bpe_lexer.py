@@ -109,17 +109,17 @@ class LexerBPE(nn.Module):
           L            = torch.LongTensor([len(bpe_sequence)])
           bpe_tensor   = self.transformer('fwd',x=sidxes,lengths= L,langs=None, causal=False).contiguous()
           bpe_tensor   = bpe_tensor.squeeze() if bpe_tensor.dim() > 2 else bpe_tensor
-          bpe_tensor   = bpe_tensor.unsqueeze(dim=0) if bpe_tensor.dim() == 1 else bpe_tensor
+          bpe_tensor   = bpe_tensor.unsqueeze(dim=0) if bpe_tensor.dim() < 2 else bpe_tensor
           bpe_tensor   = bpe_tensor.detach() #prevents backprop into the transformer
 
-          emb_buffer    = []
-          word_sequence = []
+          emb_buffer    = [ ]
+          word_sequence = [ ]
           for (bpe_tok,bpe_vec) in zip(bpe_sequence,bpe_tensor):
                   emb_buffer.append(self.tanh(self.W(bpe_vec))) #if crash here, check the bpe_embeddings_size of the model
               if not bpe_tok.endswith('@@'):
                   word_sequence.append(torch.stack(emb_buffer).sum(dim=0))
                   emb_buffer.clear()
-          return torch.stack(word_sequence) 
+          return torch.stack(word_sequence)
 
       
 if __name__ == '__main__':

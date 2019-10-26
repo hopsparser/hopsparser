@@ -345,7 +345,7 @@ class CovingtonParser(nn.Module):
                 bestNLL = validNLL
                 torch.save(self.state_dict(),'parser.params')
                 torch.save(lexer.state_dict(),'lexer.params')
-            print('epoch %d'%(epoch,),'train loss (avg NLL) = %f'%(L/N,),'valid loss (avg NLL) = %f'%(validNLL,)) 
+            print('epoch %d'%(epoch,),'train loss (avg NLL) = %f'%(L/N,),'valid loss (avg NLL) = %f'%(validNLL,),flush=True) 
 
     def valid_model(self,bpe_dataset,ref_trees,lexer):
         """
