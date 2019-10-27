@@ -331,7 +331,7 @@ class CovingtonParser(nn.Module):
             learning_rate      (int): a learning rate
         """
         loss_fn = nn.NLLLoss(reduction='sum') 
-        optimizer = optim.SGD(list(self.parameters())+list(lexer.parameters()), lr=learning_rate)
+        optimizer = optim.Adam(list(self.parameters())+list(lexer.parameters()), lr=learning_rate)
         #print(len(train_trees), len(bpe_trainset) )
         assert ( len(train_trees) == len(bpe_trainset) )
         
