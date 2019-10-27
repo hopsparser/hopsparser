@@ -214,7 +214,7 @@ class CovingtonParser(nn.Module):
 
     @staticmethod
     def load(self,prefix_path):
-        model = CovingtonParser('10',[]):
+        model = CovingtonParser('10',[])
         model.load_state_dict(torch.load(prefix_path+'.parser.params'))
         codes = open(prefix_path+'.codes')
         model.itoa = [ (action,label) for (action,label) in codes ]
