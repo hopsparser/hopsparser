@@ -204,6 +204,24 @@ class CovingtonParser(nn.Module):
           + [ (CovingtonParser.RIGHT_ARC,lbl) for lbl in dep_labels ]
         self.atoi = dict( [ (A,idx) for (idx,A) in enumerate(self.itoa)])
 
+    def save(self,model_prefix):
+        torch.save(self.state_dict(),model_prefix+'.parser.params')
+        torch.save(lexer.state_dict(),model_prefix+'.lexer.params')
+        codes = open(param_prefix+'.codes','w')
+        for action,label in self.itoa:
+            print('%s\t%s'%(action,label),file=codes)
+        codes.close()
+
+    @staticmethod
+    def load(self,prefix_path):
+        model = CovingtonParser('10',[]):
+        model.load_state_dict(torch.load(prefix_path+'.parser.params'))
+        codes = open(prefix_path+'.codes')
+        model.itoa = [ (action,label) for (action,label) in codes ]
+        model.atoi = dict( [ (A,idx) for (idx,A) in enumerate(self.itoa)])
+        codes.close()
+        return model
+    
     def score_actions(self,xembeddings,S1,S2,B,graph):
         """
         Scores all action and returns the softmaxed vector
@@ -301,7 +319,7 @@ class CovingtonParser(nn.Module):
                 deptree.words = sentlist[idx]
                 yield deptree
                 
-    def train_model(self,bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,epochs,learning_rate=0.001):
+    def train_model(self,bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,epochs,learning_rate=0.001,modelname='xlm'):
         """
         Args:
             bpe_trainset(DatasetBPE): a Dataset with BPE encoded sentences
@@ -313,7 +331,7 @@ class CovingtonParser(nn.Module):
             learning_rate      (int): a learning rate
         """
         loss_fn = nn.NLLLoss(reduction='sum') 
-        optimizer = optim.SGD(list(self.parameters())+list(lexer.parameters()), lr=learning_rate)
+        optimizer = optim.Adam(list(self.parameters())+list(lexer.parameters()), lr=learning_rate)
         #print(len(train_trees), len(bpe_trainset) )
         assert ( len(train_trees) == len(bpe_trainset) )
         
@@ -343,8 +361,7 @@ class CovingtonParser(nn.Module):
             validNLL = self.valid_model(bpe_validset,valid_trees,lexer)
             if validNLL < bestNLL:
                 bestNLL = validNLL
-                torch.save(self.state_dict(),'parser.params')
-                torch.save(lexer.state_dict(),'lexer.params')
+                self.save(modelname)
             print('\nepoch %d'%(epoch,),'train loss (avg NLL) = %f'%(L/N,),'valid loss (avg NLL) = %f'%(validNLL,),flush=True) 
 
     def valid_model(self,bpe_dataset,ref_trees,lexer):
@@ -471,10 +488,13 @@ class CovingtonParser(nn.Module):
         return D
 
 if __name__ == "__main__":
+    
     src_train   = 'spmrl/train.French.gold.conll'
     #src_train   = 'spmrl/example.txt'
     src_valid   = 'spmrl/dev.French.gold.conll'
 
+    modelname  =  'xlm.adam' 
+    
     def read_graphlist(src_file):
         istream = open(src_file)
         graphList   = [ ]
@@ -490,15 +510,17 @@ if __name__ == "__main__":
     labels,train_trees = read_graphlist(src_train)
     _,valid_trees      = read_graphlist(src_valid)
 
-    bpe_trainset = DatasetBPE([ ' '.join(graph.words) for graph in train_trees],'train-spmrl')
-    bpe_validset = DatasetBPE([ ' '.join(graph.words) for graph in valid_trees],'dev-spmrl')
+    bpe_trainset = DatasetBPE([ ' '.join(graph.words) for graph in train_trees],modelname + '.train-spmrl')
+    bpe_validset = DatasetBPE([ ' '.join(graph.words) for graph in valid_trees],modelname + '.dev-spmrl')
 
     lexer   = LexerBPE('frwiki_embed1024_layers12_heads16/model-002.pth',256,1024)
     parser  = CovingtonParser(256,labels) 
-    parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,5,learning_rate=0.001)
+    parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.001,modelname=modelname)
 
-    for g in parser.parse_corpus(bpe_validset,[ graph.words for graph in valid_trees],lexer,K=8):
-        print(g)
-    
+    out = open(modelname+'.test','w')
+    for g in parser.parse_corpus(bpe_validset,[ graph.words for graph in valid_trees],lexer,K=64):
+        print(g,filename=out)
+        print()
+    out.close()
 
 

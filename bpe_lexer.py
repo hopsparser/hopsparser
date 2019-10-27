@@ -72,10 +72,15 @@ class LexerBPE(nn.Module):
                model_path (string): path to model 
             """
             super(LexerBPE, self).__init__()
-            self.load(model_path)
+            self.load_transformer(model_path)
             self.allocate(word_embedding_size,bpe_embedding_size)
 
-      def load(self,path):
+      @staticmethod
+      def load(lexer_path,transformer_path):
+            model = LexerBPE(transformer_path,10,10)
+            model.load_state_dict(torch.load(lexer_path+'.lexer.params'))
+            
+      def load_transformer(self,path):
           reloaded = torch.load(path,map_location=torch.device('cpu'))
           params = AttrDict(reloaded['params']) 
           self.dico = Dictionary(reloaded['dico_id2word'], reloaded['dico_word2id'], reloaded['dico_counts'])
