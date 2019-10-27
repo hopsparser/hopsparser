@@ -345,7 +345,7 @@ class CovingtonParser(nn.Module):
                 bestNLL = validNLL
                 torch.save(self.state_dict(),'parser.params')
                 torch.save(lexer.state_dict(),'lexer.params')
-            print('epoch %d'%(epoch,),'train loss (avg NLL) = %f'%(L/N,),'valid loss (avg NLL) = %f'%(validNLL,),flush=True) 
+            print('\nepoch %d'%(epoch,),'train loss (avg NLL) = %f'%(L/N,),'valid loss (avg NLL) = %f'%(validNLL,),flush=True) 
 
     def valid_model(self,bpe_dataset,ref_trees,lexer):
         """
@@ -478,8 +478,8 @@ if __name__ == "__main__":
     def read_graphlist(src_file):
         istream = open(src_file)
         graphList   = [ ]
-        labels  = set() 
-        graph   = DepGraph.read_tree(istream)
+        labels      = set() 
+        graph       = DepGraph.read_tree(istream)
         while not graph is None:
             graphList.append( graph )
             labels.update(graph.get_all_labels()) 
