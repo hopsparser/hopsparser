@@ -207,7 +207,7 @@ class CovingtonParser(nn.Module):
     def save(self,model_prefix):
         torch.save(self.state_dict(),model_prefix+'.parser.params')
         torch.save(lexer.state_dict(),model_prefix+'.lexer.params')
-        codes = open(param_prefix+'.codes','w')
+        codes = open(model_prefix+'.codes','w')
         for action,label in self.itoa:
             print('%s\t%s'%(action,label),file=codes)
         codes.close()
@@ -517,8 +517,8 @@ if __name__ == "__main__":
     parser  = CovingtonParser(256,labels) 
     parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.001,modelname=modelname)
 
-    out = open(modelname+'.test','w')
-    for g in parser.parse_corpus(bpe_validset,[ graph.words for graph in valid_trees],lexer,K=64):
+    out = open(modelname+'.valid','w')
+    for g in parser.parse_corpus(bpe_validset,[ graph.words for graph in valid_trees ],lexer,K=64):
         print(g,filename=out)
         print()
     out.close()
