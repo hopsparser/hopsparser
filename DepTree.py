@@ -287,6 +287,7 @@ class CovingtonParser(nn.Module):
                         mask_val[CovingtonParser.SHIFT] = -float('Inf')
                 
             if len(B) == 1 and i not in graph.has_gov:
+                print(i,j)
                 if i == j-1:
                     mask_val[CovingtonParser.RIGHT_ARC] = -float('Inf')
                 mask_val[CovingtonParser.NO_ARC] = -float('Inf')
@@ -320,8 +321,6 @@ class CovingtonParser(nn.Module):
             Beam = [ ( self.exec_action(action,config), score) for (config,action,score) in nextBeam ]
 
         if not successes:
-            print('here')
-            exit(0)
             return [ ]
         
         successes.sort(reverse=True,key=lambda x:x[1])
