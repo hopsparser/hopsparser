@@ -280,12 +280,13 @@ class CovingtonParser(nn.Module):
                     #cannot perform the last shift if graph is not connected
                     if not all(  k in graph.has_gov for k in range(0,j+1)  ):
                         mask_val[CovingtonParser.SHIFT] = -float('Inf')
+                        print([(action,label,mask_val[action]) for (action,label) in self.itoa])
                     else:
                         print('Wordlist',list(range(j+1)))
                         print('B',B)
                         print('Governed',graph.has_gov)
                         print(' -> shift allowed.')
-                    
+                        
         mask = torch.tensor([ mask_val[action]  for (action,label) in self.itoa ])
         return mask + xinput
  
