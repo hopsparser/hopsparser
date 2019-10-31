@@ -162,7 +162,7 @@ class DepGraph:
         revdeps  = dict([ (dep,(label,gov)) for node in self.gov2dep for (gov,label,dep) in self.gov2dep[node] ])
         
         for node in sorted(self.has_gov):
-            L = ['-']*10
+            L = ['-']*11
             L[0] = str(node+1)
             L[1] = self.words[node]
             if self.pos_tags:
@@ -322,6 +322,7 @@ class CovingtonParser(nn.Module):
                 #print(sentlist[idx])
                 deptree = self.forward(xembeddings,K)      
                 deptree.words = sentlist[idx]
+                print(deptree.gov2dep)
                 yield deptree
                 
     def train_model(self,bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,epochs,learning_rate=0.001,modelname='xlm'):
@@ -532,7 +533,8 @@ if __name__ == "__main__":
     out = open(modelname+'.test.conll','w')
     for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=32):
         print(g,file=out,flush=True)
-        print('\n',file=out)
+        print('',file=out)
+        break
     out.close()
 
 
