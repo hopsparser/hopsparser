@@ -160,8 +160,6 @@ class DepGraph:
         """
         lines    = [ ]
         revdeps  = dict([ (dep,(label,gov)) for node in self.gov2dep for (gov,label,dep) in self.gov2dep[node] ])
-        print(self.gov2dep)
-        print(self.has_gov)
         for node in sorted(self.has_gov):
             L = ['-']*11
             L[0] = str(node+1)
@@ -279,11 +277,6 @@ class CovingtonParser(nn.Module):
                 if len(B) == 1:
                     #cannot perform the last shift if graph is not connected
                     if not all(  k in graph.has_gov for k in range(0,j+1)  ):
-                        print('last shift',j,'govlist',graph.has_gov)
-                        for k in range(0,j+1) :
-                            if k not in graph.has_gov:
-                                print(k,'<<')
-                                break
                         mask_val[CovingtonParser.SHIFT] = -float('Inf')
                 
             if len(B) == 1 and i not in graph.has_gov: #before last shift, ensure connected
