@@ -554,7 +554,7 @@ if __name__ == "__main__":
     lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
     parser = CovingtonParser.load(modelname)
     out = open(modelname+'.test.conll','w')
-    for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=32):
+    for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=1):
         print(g,file=out,flush=True)
         print('',file=out)
         break
