@@ -263,19 +263,19 @@ class CovingtonParser(nn.Module):
         if S1 and B:
             i = S1[-1]
             j = B[0]
-            if  mask_val[CovingtonParser.LEFT_ARC]:
+            if  mask_val[CovingtonParser.LEFT_ARC] > -float('Inf'):
                 if i == -1:# <-> i is artificial root
                     mask_val[CovingtonParser.LEFT_ARC]  = -float('Inf')
                 elif graph.is_dag_add(j,i):
                     mask_val[CovingtonParser.LEFT_ARC]  = -float('Inf')
                 elif  graph.is_cyclic_add(j,i):
                     mask_val[CovingtonParser.LEFT_ARC]  = -float('Inf')
-            if  mask_val[CovingtonParser.RIGHT_ARC]:
+            if  mask_val[CovingtonParser.RIGHT_ARC] > -float('Inf'):
                 if graph.is_dag_add(i,j):
                     mask_val[CovingtonParser.RIGHT_ARC] = -float('Inf')
                 elif graph.is_cyclic_add(i,j):
                     mask_val[CovingtonParser.RIGHT_ARC] = -float('Inf')
-            if mask_val[CovingtonParser.SHIFT]:
+            if mask_val[CovingtonParser.SHIFT] > -float('Inf'):
                 if len(B) == 1:
                     #cannot perform the last shift if graph is not connected
                     print(list(range(j+1)))
