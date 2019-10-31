@@ -280,6 +280,10 @@ class CovingtonParser(nn.Module):
                     #cannot perform the last shift if graph is not connected
                     if not all(  k in graph.has_gov for k in range(0,j+1)  ):
                         print('last shift',j,'govlist',graph.has_gov)
+                        for k in range(0,j+1) :
+                            if k not in graph.has_gov:
+                                print(k,'<<')
+                                break
                         mask_val[CovingtonParser.SHIFT] = -float('Inf')
                 
             if len(B) == 1 and i not in graph.has_gov:
