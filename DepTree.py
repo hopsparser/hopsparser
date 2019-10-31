@@ -283,6 +283,8 @@ class CovingtonParser(nn.Module):
                         mask_val[CovingtonParser.SHIFT] = -float('Inf')
                 
             if len(B) == 1 and i not in graph.has_gov:
+                if i == j-1:
+                    mask_val[CovingtonParser.RIGHT_ARC] = -float('Inf')
                 mask_val[CovingtonParser.NO_ARC] = -float('Inf')
                 print('Left arc',i,mask_val[CovingtonParser.LEFT_ARC],graph.is_cyclic_add(i,j),graph.is_dag_add(j,i))
                 print('Right arc',mask_val[CovingtonParser.RIGHT_ARC])
