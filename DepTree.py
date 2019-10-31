@@ -222,6 +222,7 @@ class CovingtonParser(nn.Module):
         deplabels  = set([lbl for a,lbl in itoa]) 
         codes.close()
         model      = CovingtonParser(256,deplabels)
+        print(len(model.itoa),model.itoa)
         model.load_state_dict(torch.load(prefix_path+'.parser.params'))
         model.itoa = itoa
         model.atoi = atoi
