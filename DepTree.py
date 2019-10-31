@@ -219,7 +219,7 @@ class CovingtonParser(nn.Module):
         itoa       = [ tuple(line.split()) for line in codes ]
         print(len(itoa),itoa)
         atoi       = dict( [ (A,idx) for (idx,A) in enumerate(itoa)])
-        deplabels  = set([lbl for a,lbl in itoa]) 
+        deplabels  = set([lbl for a,lbl in itoa if lbl != '-']) 
         codes.close()
         model      = CovingtonParser(256,deplabels)
         print(len(model.itoa),model.itoa)
