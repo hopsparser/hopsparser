@@ -531,8 +531,8 @@ if __name__ == "__main__":
     parser = CovingtonParser.load(modelname)
     out = open(modelname+'.test.conll','w')
     for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=64):
-        print(g,file=out)
-        print()
+        print(g,file=out,flush=True)
+        print('\n')
     out.close()
 
 
