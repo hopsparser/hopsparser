@@ -288,6 +288,8 @@ class CovingtonParser(nn.Module):
                         print('B',B)
                         print('Governed',graph.has_gov)
                         print(' -> shift allowed.')
+            if len(B) == 1 and i not in graph.has_gov:
+                mask_val[CovingtonParser.NO_ARC] = -float('Inf')
                         
         mask = torch.tensor([ mask_val[action]  for (action,label) in self.itoa ])
         return mask + xinput
