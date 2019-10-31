@@ -286,16 +286,9 @@ class CovingtonParser(nn.Module):
                                 break
                         mask_val[CovingtonParser.SHIFT] = -float('Inf')
                 
-            if len(B) == 1 and i not in graph.has_gov:
-                
+            if len(B) == 1 and i not in graph.has_gov: #before last shift, ensure connected
                 mask_val[CovingtonParser.RIGHT_ARC] = -float('Inf')
                 mask_val[CovingtonParser.NO_ARC] = -float('Inf')
-                print('Left arc',i,mask_val[CovingtonParser.LEFT_ARC],graph.is_cyclic_add(i,j),graph.is_dag_add(j,i))
-                print('Right arc',mask_val[CovingtonParser.RIGHT_ARC])
-                print('Shift',mask_val[CovingtonParser.SHIFT])
-
-                print()
-
                         
         mask = torch.tensor([ mask_val[action]  for (action,label) in self.itoa ])
         return mask + xinput
@@ -552,10 +545,9 @@ if __name__ == "__main__":
     lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
     parser = CovingtonParser.load(modelname)
     out = open(modelname+'.test.conll','w')
-    for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=1):
+    for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=32):
         print(g,file=out,flush=True)
         print('',file=out)
-        break
     out.close()
 
 
