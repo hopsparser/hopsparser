@@ -285,6 +285,8 @@ class CovingtonParser(nn.Module):
                 mask_val[CovingtonParser.NO_ARC] = -float('Inf')
                 print('Left arc',i,mask_val[CovingtonParser.LEFT_ARC],graph.is_cyclic_add(i,j),graph.is_dag_add(j,i))
                 print('Right arc',mask_val[CovingtonParser.RIGHT_ARC])
+                print('Shift',mask_val[CovingtonParser.SHIFT])
+
                 print()
 
                         
