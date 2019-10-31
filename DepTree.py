@@ -214,12 +214,16 @@ class CovingtonParser(nn.Module):
 
     @staticmethod
     def load(prefix_path):
-        model = CovingtonParser(256,[ ])
-        model.load_state_dict(torch.load(prefix_path+'.parser.params'))
-        codes = open(prefix_path+'.codes')
-        model.itoa = [ (action,label) for (action,label) in codes ]
-        model.atoi = dict( [ (A,idx) for (idx,A) in enumerate(self.itoa)])
+        
+        codes      = open(prefix_path+'.codes')
+        itoa       = [ (action,label) for (action,label) in codes ]
+        atoi       = dict( [ (A,idx) for (idx,A) in enumerate(self.itoa)])
+        deplabels  = set([lbl for a,L in itoa]) 
         codes.close()
+        model      = CovingtonParser(256,deplabels)
+        model.load_state_dict(torch.load(prefix_path+'.parser.params'))
+        model.itoa = itoa
+        model.atoi = atoi
         return model
     
     def score_actions(self,xembeddings,S1,S2,B,graph):
