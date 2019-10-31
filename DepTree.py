@@ -86,7 +86,7 @@ class DepGraph:
         Checks if the addition of an arc from gov to dep would create
         a Dag
         """
-        return self.has_gov(dep)
+        return dep in self.has_gov
 
     def span(self,gov):
         """
