@@ -236,8 +236,6 @@ class CovingtonParser(nn.Module):
            B             (list): the buffer, a list of int
            graph      (DepTree): a Dependency Tree object
         """
-        #print('S1',S1,"S2",S2,'B',B)
-        #print('E',xembeddings.size())
         X1 = xembeddings[S1[-1]] if S1 else self.null_vec
         X2 = xembeddings[S2[0]]  if S2 else self.null_vec
         X3 = xembeddings[B[0]]   if B  else self.null_vec
@@ -277,6 +275,7 @@ class CovingtonParser(nn.Module):
                 if len(B) == 1:
                     #cannot perform the last shift if graph is not connected
                     if not all(  k in graph.has_gov for k in range(0,j+1)  ):
+                        print(graph.has_gov)
                         mask_val[CovingtonParser.SHIFT] = -float('Inf')
                 
             if len(B) == 1 and i not in graph.has_gov: #before last shift, ensure connected
@@ -286,7 +285,7 @@ class CovingtonParser(nn.Module):
         mask = torch.tensor([ mask_val[action]  for (action,label) in self.itoa ])
         return mask + xinput
  
-    def forward(self,xembeddings,K=8): 
+    def forward(self,xembeddings,K=8):  
         """
         This method performs parsing with a beam of size K
         """
