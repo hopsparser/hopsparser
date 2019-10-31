@@ -77,7 +77,7 @@ class LexerBPE(nn.Module):
 
       @staticmethod
       def load(lexer_path,transformer_path):
-            model = LexerBPE(transformer_path,10,10)
+            model = LexerBPE(transformer_path,256,1024)
             model.load_state_dict(torch.load(lexer_path+'.lexer.params'))
             
       def load_transformer(self,path):
