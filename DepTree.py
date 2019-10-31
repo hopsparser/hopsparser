@@ -213,7 +213,7 @@ class CovingtonParser(nn.Module):
         codes.close( )
 
     @staticmethod
-    def load(self,prefix_path):
+    def load(prefix_path):
         model = CovingtonParser('10',[ ])
         model.load_state_dict(torch.load(prefix_path+'.parser.params'))
         codes = open(prefix_path+'.codes')
