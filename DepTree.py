@@ -217,6 +217,7 @@ class CovingtonParser(nn.Module):
         
         codes      = open(prefix_path+'.codes')
         itoa       = [ tuple(line.split()) for line in codes ]
+        print(itoa)
         atoi       = dict( [ (A,idx) for (idx,A) in enumerate(itoa)])
         deplabels  = set([lbl for a,lbl in itoa]) 
         codes.close()
