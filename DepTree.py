@@ -275,6 +275,12 @@ class CovingtonParser(nn.Module):
                     mask_val[CovingtonParser.RIGHT_ARC] = -float('Inf')
                 elif graph.is_cyclic_add(i,j):
                     mask_val[CovingtonParser.RIGHT_ARC] = -float('Inf')
+            if mask_val[CovingtonParser.SHIFT]:
+                if len(B) == 1:
+                    #cannot perform the last shift if graph is not connected
+                    if not all( [ k in graph.has_gov for k in range(0,j+1) ] )
+                        mask_val[CovingtonParser.SHIFT] = -float('Inf')
+            
                     
         mask = torch.tensor([ mask_val[action]  for (action,label) in self.itoa ])
         return mask + xinput
