@@ -316,7 +316,7 @@ class CovingtonParser(nn.Module):
         """
         assert ( len(sentlist) == len(bpe_dataset))
         with torch.no_grad():
-            for idx in range(len(sentlist)):
+            for idx in tqdm(range(len(sentlist))):
                 bpe_toks    = bpe_dataset[idx]
                 xembeddings = lexer.forward(bpe_toks)
                 #print(sentlist[idx])
@@ -529,7 +529,7 @@ if __name__ == "__main__":
 
     lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
     parser = CovingtonParser.load(modelname)
-    out = open(modelname+'.test','w')
+    out = open(modelname+'.test.conll','w')
     for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=64):
         print(g,file=out)
         print()
