@@ -280,6 +280,7 @@ class CovingtonParser(nn.Module):
                     #cannot perform the last shift if graph is not connected
                     if not all(  k in graph.has_gov for k in range(0,j+1)  ):
                         mask_val[CovingtonParser.SHIFT] = -float('Inf')
+                        print('S1',S1)
                         print([(action,label,mask_val[action]) for (action,label) in self.itoa])
                     else:
                         print('Wordlist',list(range(j+1)))
