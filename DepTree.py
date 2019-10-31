@@ -210,11 +210,11 @@ class CovingtonParser(nn.Module):
         codes = open(model_prefix+'.codes','w')
         for action,label in self.itoa:
             print('%s\t%s'%(action,label),file=codes)
-        codes.close()
+        codes.close( )
 
     @staticmethod
     def load(self,prefix_path):
-        model = CovingtonParser('10',[])
+        model = CovingtonParser('10',[ ])
         model.load_state_dict(torch.load(prefix_path+'.parser.params'))
         codes = open(prefix_path+'.codes')
         model.itoa = [ (action,label) for (action,label) in codes ]
@@ -334,36 +334,38 @@ class CovingtonParser(nn.Module):
         optimizer = optim.Adam(list(self.parameters())+list(lexer.parameters()), lr=learning_rate)
         #print(len(train_trees), len(bpe_trainset) )
         assert ( len(train_trees) == len(bpe_trainset) )
-        
         idxes = list(range(len(train_trees)))        
         for epoch in range(epochs):
             L = 0
             N = 0
             bestNLL = 10000000000000000
-            for idx in tqdm(sample(idxes,len(idxes))):
-                refD        = CovingtonParser.oracle_derivation( train_trees[idx] )
-                bpe_toks    = bpe_trainset[idx]
-                xembeddings = lexer.forward(bpe_toks)
-                config      = self.init_config(len(train_trees[idx].words))
-                optimizer.zero_grad() 
-                for (act_type,label) in refD:
-                    S1,S2,B,Arcs = config
-                    output       = self.score_actions(xembeddings,S1,S2,B,Arcs)
-                    reference    = torch.tensor([self.atoi[(act_type,label)]])
-                    loss         = loss_fn(output.unsqueeze(dim=0),reference)
-                    loss.backward(retain_graph=True)
-                    L += loss.item()
-                    config    = self.exec_action( (act_type,label), config)
-                    
+            try:
+                for idx in tqdm(sample(idxes,len(idxes))):
+                    refD        = CovingtonParser.oracle_derivation( train_trees[idx] )
+                    bpe_toks    = bpe_trainset[idx]
+                    xembeddings = lexer.forward(bpe_toks)
+                    config      = self.init_config(len(train_trees[idx].words))
+                    optimizer.zero_grad() 
+                    for (act_type,label) in refD:
+                        S1,S2,B,Arcs = config
+                        output       = self.score_actions(xembeddings,S1,S2,B,Arcs)
+                        reference    = torch.tensor([self.atoi[(act_type,label)]])
+                        loss         = loss_fn(output.unsqueeze(dim=0),reference)
+                        loss.backward(retain_graph=True)
+                        L += loss.item()
+                        config    = self.exec_action( (act_type,label), config)
                 optimizer.step() 
                 N += len(refD)
+                validNLL = self.valid_model(bpe_validset,valid_trees,lexer)
+                if validNLL < bestNLL:
+                    bestNLL = validNLL
+                    self.save(modelname)
+                print('\nepoch %d'%(epoch,),'train loss (avg NLL) = %f'%(L/N,),'valid loss (avg NLL) = %f'%(validNLL,),flush=True) 
+            except KeyboardInterrupt:
+                print('Caught SIGINT signal. aborting training immediately.')
+                return None
+            
                 
-            validNLL = self.valid_model(bpe_validset,valid_trees,lexer)
-            if validNLL < bestNLL:
-                bestNLL = validNLL
-                self.save(modelname)
-            print('\nepoch %d'%(epoch,),'train loss (avg NLL) = %f'%(L/N,),'valid loss (avg NLL) = %f'%(validNLL,),flush=True) 
-
     def valid_model(self,bpe_dataset,ref_trees,lexer):
         """
         Performs the validation of the model on derivation sequences
@@ -489,9 +491,10 @@ class CovingtonParser(nn.Module):
 
 if __name__ == "__main__":
     
-    src_train   = 'spmrl/train.French.gold.conll'
+    #src_train   = 'spmrl/train.French.gold.conll'
     #src_train   = 'spmrl/example.txt'
-    src_valid   = 'spmrl/dev.French.gold.conll'
+    #src_valid   = 'spmrl/dev.French.gold.conll'
+    src_test   = 'spmrl/test.French.gold.conll'
 
     modelname  =  'xlm.adam' 
     
@@ -507,19 +510,23 @@ if __name__ == "__main__":
         istream.close()
         return labels,graphList
 
-    labels,train_trees = read_graphlist(src_train)
-    _,valid_trees      = read_graphlist(src_valid)
+    #labels,train_trees = read_graphlist(src_train)
+    #_,valid_trees      = read_graphlist(src_valid)
+    _,test_trees      = read_graphlist(src_test)
 
-    bpe_trainset = DatasetBPE([ ' '.join(graph.words) for graph in train_trees],modelname + '.train-spmrl')
-    bpe_validset = DatasetBPE([ ' '.join(graph.words) for graph in valid_trees],modelname + '.dev-spmrl')
+    #bpe_trainset = DatasetBPE([ ' '.join(graph.words) for graph in train_trees],modelname + '.train-spmrl')
+    #bpe_validset = DatasetBPE([ ' '.join(graph.words) for graph in valid_trees],modelname + '.dev-spmrl')
+    bpe_testset = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')
 
-    lexer   = LexerBPE('frwiki_embed1024_layers12_heads16/model-002.pth',256,1024)
-    parser  = CovingtonParser(256,labels) 
-    parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.001,modelname=modelname)
+    #lexer   = LexerBPE('frwiki_embed1024_layers12_heads16/model-002.pth',256,1024)
+    #parser  = CovingtonParser(256,labels) 
+    #parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.001,modelname=modelname)
 
-    out = open(modelname+'.valid','w')
-    for g in parser.parse_corpus(bpe_validset,[ graph.words for graph in valid_trees ],lexer,K=64):
-        print(g,filename=out)
+    lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
+    parser = CovingtonParser.load(modelname)
+    out = open(modelname+'.test','w')
+    for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=64):
+        print(g,file=out)
         print()
     out.close()
 

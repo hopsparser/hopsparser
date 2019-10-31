@@ -100,7 +100,7 @@ class LexerBPE(nn.Module):
           self.W = nn.Linear(bpe_embedding_size,word_embedding_size)
           self.tanh = nn.Tanh()
     
-      def forward(self,bpe_string): 
+      def forward(self,bpe_string):  
           """
           Aggregates a BPE to yield a word sequence encoding.
           Works for a single sentence. Does not support batching.
