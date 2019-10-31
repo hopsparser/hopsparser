@@ -314,6 +314,8 @@ class CovingtonParser(nn.Module):
             Beam = [ ( self.exec_action(action,config), score) for (config,action,score) in nextBeam ]
 
         if not successes:
+            print('here')
+            exit(0)
             return [ ]
         
         successes.sort(reverse=True,key=lambda x:x[1])
