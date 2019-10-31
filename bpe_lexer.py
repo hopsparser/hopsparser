@@ -79,7 +79,8 @@ class LexerBPE(nn.Module):
       def load(lexer_path,transformer_path):
             model = LexerBPE(transformer_path,256,1024)
             model.load_state_dict(torch.load(lexer_path+'.lexer.params'))
-            
+            return model
+        
       def load_transformer(self,path):
           reloaded = torch.load(path,map_location=torch.device('cpu'))
           params = AttrDict(reloaded['params']) 
