@@ -169,7 +169,6 @@ class DepGraph:
             label,head = revdeps[node] if node in revdeps else ('root', 0)
             L[6] = str(head+1)
             L[7] = label
-            print(label)
             lines.append( '\t'.join(L) ) 
         return '\n'.join(lines)
 
