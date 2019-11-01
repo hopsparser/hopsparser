@@ -166,7 +166,7 @@ class DepGraph:
             L[1] = self.words[node]
             if self.pos_tags:
                 L[3] = self.pos_tags[node]
-            label,head = revdeps[node] if node in revdeps else 'root',0
+            label,head = revdeps[node] if node in revdeps else ('root', 0)
             L[6] = str(head+1)
             L[7] = label
             lines.append( '\t'.join(L) ) 
