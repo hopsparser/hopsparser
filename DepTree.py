@@ -278,7 +278,6 @@ class CovingtonParser(nn.Module):
         """
         This method performs parsing with a beam of size K
         """
-        print(K)
         Beam      = [ (self.init_config(xembeddings.size(0)),0.0)]
         successes = [ ]
         while Beam:
