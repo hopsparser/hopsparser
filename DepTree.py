@@ -191,7 +191,7 @@ class CovingtonParser(nn.Module):
     def allocate(self,word_embedding_size):
 
         nactions = len(self.itoa)
-        self.W        = nn.Linear(word_embedding_size*3,nactions)
+        self.W        = nn.Linear(word_embedding_size*6,nactions)
         self.softmax  = nn.LogSoftmax(dim=0)
         self.null_vec = torch.zeros(word_embedding_size)
 
@@ -236,8 +236,14 @@ class CovingtonParser(nn.Module):
            graph      (DepTree): a Dependency Tree object
         """
         X1 = xembeddings[S1[-1]] if S1 else self.null_vec
-        X2 = xembeddings[S2[0]]  if S2 else self.null_vec
-        X3 = xembeddings[B[0]]   if B  else self.null_vec
+        X2 = xembeddings[S1[-2]] if len(S1) > 1 else self.null_vec
+
+        X3 = xembeddings[S2[0]]  if S2 else self.null_vec
+        X4 = xembeddings[S2[-1]] if S2 else self.null_vec
+
+        X5 = xembeddings[B[0]]   if B  else self.null_vec
+        X6 = xembeddings[B[1]]   if B  else self.null_vec
+
         xinput = torch.cat([X1,X2,X3])
         return self.softmax(self.action_mask(self.W(xinput),S1,S2,B,graph))
 
@@ -492,9 +498,9 @@ class CovingtonParser(nn.Module):
 
 if __name__ == "__main__":
     
-    #src_train   = 'spmrl/train.French.gold.conll'
+    src_train   = 'spmrl/train.French.gold.conll'
     #src_train   = 'spmrl/example.txt'
-    #src_valid   = 'spmrl/dev.French.gold.conll'
+    src_valid   = 'spmrl/dev.French.gold.conll'
     src_test   = 'spmrl/test.French.gold.conll'
 
     modelname  =  'xlm.adam' 
@@ -511,20 +517,20 @@ if __name__ == "__main__":
         istream.close()
         return labels,graphList
 
-    #labels,train_trees = read_graphlist(src_train)
-    #_,valid_trees      = read_graphlist(src_valid)
+    labels,train_trees = read_graphlist(src_train)
+    _,valid_trees      = read_graphlist(src_valid)
     _,test_trees      = read_graphlist(src_test)
 
-    #bpe_trainset = DatasetBPE([ ' '.join(graph.words) for graph in train_trees],modelname + '.train-spmrl')
-    #bpe_validset = DatasetBPE([ ' '.join(graph.words) for graph in valid_trees],modelname + '.dev-spmrl')
+    bpe_trainset = DatasetBPE([ ' '.join(graph.words) for graph in train_trees],modelname + '.train-spmrl')
+    bpe_validset = DatasetBPE([ ' '.join(graph.words) for graph in valid_trees],modelname + '.dev-spmrl')
     bpe_testset = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')
 
-    #lexer   = LexerBPE('frwiki_embed1024_layers12_heads16/model-002.pth',256,1024)
-    #parser  = CovingtonParser(256,labels) 
-    #parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.001,modelname=modelname)
+    lexer   = LexerBPE('frwiki_embed1024_layers12_heads16/model-002.pth',256,1024)
+    parser  = CovingtonParser(256,labels) 
+    parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,4,learning_rate=0.001,modelname=modelname)
 
-    lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
-    parser = CovingtonParser.load(modelname)
+    #lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
+    #parser = CovingtonParser.load(modelname)
     out = open(modelname+'.test.conll','w')
     for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=32):
         print(g,file=out,flush=True)
