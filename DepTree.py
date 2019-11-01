@@ -286,6 +286,7 @@ class CovingtonParser(nn.Module):
             if len(B) == 1 and j not in graph.has_gov and i in graph.has_gov and len([elt for elt in graph.has_gov if elt <= i]) == 1:
                  mask_val[CovingtonParser.NO_ARC]   = -float('Inf')
                  mask_val[CovingtonParser.LEFT_ARC] = -float('Inf')
+                 print(i,j)
                  print('RA',mask_val[CovingtonParser.RIGHT_ARC])
                  print('LA',mask_val[CovingtonParser.LEFT_ARC])
                  print('NA',mask_val[CovingtonParser.NO_ARC])
