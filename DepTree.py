@@ -159,9 +159,9 @@ class DepGraph:
         Conll string for the dep tree
         """
         lines    = [ ]
-        revdeps  = dict([ (dep,(label,gov)) for node in self.gov2dep for (gov,label,dep) in self.gov2dep[node] ])
-        for node in range(len(self.words)):
-            L = ['-']*11
+        revdeps  = dict([( dep, (label,gov) ) for node in self.gov2dep for (gov,label,dep) in self.gov2dep[node] ])
+        for node in range( len(self.words)  ):
+            L    = ['-']*11
             L[0] = str(node+1)
             L[1] = self.words[node]
             if self.pos_tags:
@@ -169,13 +169,13 @@ class DepGraph:
             label,head = revdeps[node] if node in revdeps else ('root', 0)
             L[6] = str(head+1)
             L[7] = label
+            print(label)
             lines.append( '\t'.join(L) ) 
         return '\n'.join(lines)
 
     def __len__(self):
         return len(self.words)
 
-    
 class CovingtonParser(nn.Module):
 
     NO_ARC    = 'N'
