@@ -275,7 +275,8 @@ class CovingtonParser(nn.Module):
                 if len(B) == 1:
                     #cannot perform the last shift if graph is not connected
                     if not all(  k in graph.has_gov for k in range(0,j+1)  ):
-                        print(graph.has_gov)
+                        print('govlist',graph.has_gov)
+                        print('range',list(range(0,j+1) ))
                         mask_val[CovingtonParser.SHIFT] = -float('Inf')
                 
             if len(B) == 1 and i not in graph.has_gov: #before last shift, ensure connected
