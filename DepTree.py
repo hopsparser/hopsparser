@@ -166,7 +166,7 @@ class DepGraph:
             L[1] = self.words[node]
             if self.pos_tags:
                 L[3] = self.pos_tags[node]
-            label,head = revdeps[node] if node in revdeps else ('root', 0)
+            label,head = revdeps[node] if node in revdeps else ('root', -1)
             L[6] = str(head+1)
             L[7] = label
             lines.append( '\t'.join(L) ) 
@@ -499,8 +499,8 @@ if __name__ == "__main__":
 
     modelname  =  'xlm.adam' 
     
-    def read_graphlist(src_file):
-        istream = open(src_file)
+    def read_graphlist(src_file): 
+        istream = open(src_file) 
         graphList   = [ ]
         labels      = set() 
         graph       = DepGraph.read_tree(istream)
