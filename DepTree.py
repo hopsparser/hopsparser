@@ -56,11 +56,11 @@ class DepGraph:
         if -1 not in self.gov2dep:
             root = list(set(self.gov2dep) - self.has_gov)
             if len(root) == 1:
-                self.add_arc(-1,'ROOT',root[0])
+                self.add_arc(-1,'root',root[0])
             elif len(root) == 0:
-                self.add_arc(-1,'ROOT',0)
+                self.add_arc(-1,'root',0)
             else:
-                print(len(root))
+                print(len(root)) 
                 assert(False) #no single root... problem.
             
     def add_arc(self,gov,label,dep):
@@ -160,13 +160,13 @@ class DepGraph:
         """
         lines    = [ ]
         revdeps  = dict([ (dep,(label,gov)) for node in self.gov2dep for (gov,label,dep) in self.gov2dep[node] ])
-        for node in sorted(self.has_gov):
+        for node in range(len(self.words)):
             L = ['-']*11
             L[0] = str(node+1)
             L[1] = self.words[node]
             if self.pos_tags:
                 L[3] = self.pos_tags[node]
-            label,head = revdeps[node]
+            label,head = revdeps[node] if node in revdeps else 'root',0
             L[6] = str(head+1)
             L[7] = label
             lines.append( '\t'.join(L) ) 
@@ -271,25 +271,6 @@ class CovingtonParser(nn.Module):
                     mask_val[CovingtonParser.RIGHT_ARC] = -float('Inf')
                 elif graph.is_cyclic_add(i,j):
                     mask_val[CovingtonParser.RIGHT_ARC] = -float('Inf')
-            if mask_val[CovingtonParser.SHIFT] > -float('Inf') :
-                if len(B) == 1:
-                    #cannot perform the last shift if graph is not connected
-                    if not all(  k in graph.has_gov for k in range(0,j+1)  ):
-                        print(j,'***')
-                        print('govlist',graph.has_gov)
-                        print('range',list(range(0,j+1) ))
-                        mask_val[CovingtonParser.SHIFT] = -float('Inf')
-                
-            if len(B) == 1 and i not in graph.has_gov: #before last shift, ensure connected
-                mask_val[CovingtonParser.RIGHT_ARC] = -float('Inf')
-                mask_val[CovingtonParser.NO_ARC] = -float('Inf')
-            if len(B) == 1 and j not in graph.has_gov and i in graph.has_gov and len([elt for elt in graph.has_gov if elt <= i]) == 1:
-                 mask_val[CovingtonParser.NO_ARC]   = -float('Inf')
-                 mask_val[CovingtonParser.LEFT_ARC] = -float('Inf')
-                 print(i,j)
-                 print('RA',mask_val[CovingtonParser.RIGHT_ARC])
-                 print('LA',mask_val[CovingtonParser.LEFT_ARC])
-                 print('NA',mask_val[CovingtonParser.NO_ARC])
 
         mask = torch.tensor([ mask_val[action]  for (action,label) in self.itoa ])
         return mask + xinput
