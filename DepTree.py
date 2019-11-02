@@ -361,8 +361,8 @@ class CovingtonParser(nn.Module):
                         loss.backward(retain_graph=True)
                         L += loss.item()
                         config    = self.exec_action( (act_type,label), config)
-                optimizer.step() 
-                N += len(refD)
+                    optimizer.step() 
+                    N += len(refD)
                 validNLL = self.valid_model(bpe_validset,valid_trees,lexer)
                 if validNLL < bestNLL:
                     bestNLL = validNLL
@@ -505,7 +505,7 @@ if __name__ == "__main__":
 
     modelname  =  'xlm.adam' 
     
-    def read_graphlist(src_file): 
+    def read_graphlist(src_file):  
         istream = open(src_file) 
         graphList   = [ ]
         labels      = set() 
