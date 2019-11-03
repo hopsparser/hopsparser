@@ -182,17 +182,19 @@ class CovingtonParser(nn.Module):
     RIGHT_ARC = 'R'
     SHIFT     = 'S'
  
-    def __init__(self,word_embedding_size,dep_labels):
+    def __init__(self,word_embedding_size,hidden_size,dep_labels):
 
         super(CovingtonParser, self).__init__()
         self.code_actions(dep_labels)
-        self.allocate(word_embedding_size) 
+        self.allocate(word_embedding_size,hidden_size) 
         
-    def allocate(self,word_embedding_size):
+    def allocate(self,word_embedding_size,hidden_size):
 
-        nactions = len(self.itoa)
-        self.W        = nn.Linear(word_embedding_size*6,nactions)
+        nactions      = len(self.itoa)
+        self.Wup      = nn.Linear(hidden_size,nactions)
+        self.Wbot     = nn.Linear(word_embedding_size*8,hidden_size)
         self.softmax  = nn.LogSoftmax(dim=0)
+        self.tanh     = nn.Tanh()
         self.null_vec = torch.zeros(word_embedding_size)
 
     def code_actions(self,dep_labels,nolabel='-'):
@@ -217,13 +219,16 @@ class CovingtonParser(nn.Module):
         itoa       = [ tuple(line.split()) for line in codes ]
         atoi       = dict( [ (A,idx) for (idx,A) in enumerate(itoa)])
         deplabels  = set([lbl for a,lbl in itoa if lbl != '-']) 
-        codes.close()
-        
-        model      = CovingtonParser(256,deplabels)
-        model.load_state_dict(torch.load(prefix_path+'.parser.params'))
+        codes.close() 
+
+        model_state         = torch.load(prefix_path+'.parser.params')
+        hidden_size         = len(model_state['Wbot'].bias)
+        word_embedding_size = int( torch.Size(model_state['Wbot'].weight.size(1)) / 8)
+        model               = CovingtonParser(word_embedding_size,hidden_size,deplabels)
+        model.load_state_dict(model_state)
         model.itoa = itoa
         model.atoi = atoi
-        return model
+        return model 
     
     def score_actions(self,xembeddings,S1,S2,B,graph):
         """
@@ -243,8 +248,10 @@ class CovingtonParser(nn.Module):
 
         X5 = xembeddings[B[0]]   if B  else self.null_vec
         X6 = xembeddings[B[1]]   if len(B) > 1  else self.null_vec
+        X7 = xembeddings[B[2]]   if len(B) > 2  else self.null_vec
+        X8 = xembeddings[B[3]]   if len(B) > 3  else self.null_vec
 
-        xinput = torch.cat([X1,X2,X3,X4,X5,X6])
+        xinput = torch.cat([X1,X2,X3,X4,X5,X6,X7,X8])
         return self.softmax(self.action_mask(self.W(xinput),S1,S2,B,graph))
 
     def action_mask(self,xinput,S1,S2,B,graph):
@@ -526,7 +533,7 @@ if __name__ == "__main__":
     bpe_testset = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')
 
     lexer   = LexerBPE('frwiki_embed1024_layers12_heads16/model-002.pth',256,1024)
-    parser  = CovingtonParser(256,labels) 
+    parser  = CovingtonParser(256,128,labels) 
     parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,4,learning_rate=0.001,modelname=modelname)
 
     #lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')

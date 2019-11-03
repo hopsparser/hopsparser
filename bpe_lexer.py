@@ -10,7 +10,6 @@ from XLM.src.model.transformer import TransformerModel
 codes = "frwiki_embed1024_layers12_heads16/BPE/codes"
 fastbpe = os.path.join(os.getcwd(), 'XLM/tools/fastBPE/fast')
 
-
 class DatasetBPE:
       """
       This is a dataset for yielding BPE tokenized sentences
