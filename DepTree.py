@@ -532,7 +532,8 @@ if __name__ == "__main__":
     vocabulary = set()
     for graph in train_trees:
         vocabulary.update(graph.words)
-    lexer = DefaultLexer(256,list(vocabulary))    
+    lexer = DefaultLexer(256,list(vocabulary))
+    parser  = CovingtonParser(256,256,labels) 
     parser.train_model([graph.words for graph in train_trees],train_trees,[graph.words for graph in valid_trees],valid_trees,lexer,4,learning_rate=0.001,modelname=modelname)
 
     out = open(modelname+'.test.conll','w')
