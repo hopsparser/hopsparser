@@ -74,7 +74,7 @@ class DefaultLexer(nn.Module):
         self.allocate(word_embedding_size)
         
       def code_symbols(self,vocabulary):
-        vocabulary.append(UNK_TOKEN)
+        vocabulary.append(DefaultLexer.UNK_TOKEN)
         self.itos = list(vocabulary)
         self.stoi = dict([(word,idx) for idx,word in enumerate(vocabulary)])
         
