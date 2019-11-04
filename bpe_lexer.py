@@ -59,7 +59,34 @@ class DatasetBPE:
           self.idx += 1
           return self.sentences[self.idx]
         raise StopIteration
+
+class DefaultLexer(nn.Module):
+      """
+      That's a default lexer with simple embeddings
+      """
+      UNK_TOKEN = '<unk>'
       
+      def __init__(self,word_embedding_size,vocabulary):
+
+        super(DefaultLexer, self).__init__()
+
+        self.code_symbols(vocabulary)
+        self.allocate(word_embedding_size)
+        
+      def code_symbols(self,vocabulary):
+        vocabulary.append(UNK_TOKEN)
+        self.itos = list(vocabulary)
+        self.stoi = dict([(word,idx) for idx,word in enumerate(vocabulary)])
+        
+      def allocate(self,word_embedding_size):
+        self.embedding = nn.Embedding(len(self.itos),word_embedding_size)
+
+
+      def forward(self,word_sequence):
+        xinput = torch.LongTensor( [self.stoi.get(elt,self.stoi[DefaultLexer.UNK_TOKEN]) for elt in word_sequence] )
+        return.self.embedding(xinput)
+
+  
 class LexerBPE(nn.Module):
       """
       This class merges BPE vectors into word vectors.

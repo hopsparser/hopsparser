@@ -346,7 +346,7 @@ class CovingtonParser(nn.Module):
             learning_rate      (int): a learning rate
         """
         loss_fn = nn.NLLLoss(reduction='sum') 
-        optimizer = optim.Adam(list(self.parameters())+list(lexer.parameters()), lr=learning_rate)
+        optimizer = optim.Adagrad(list(self.parameters())+list(lexer.parameters()))# lr=learning_rate)
         #print(len(train_trees), len(bpe_trainset) )
         assert ( len(train_trees) == len(bpe_trainset) )
         idxes = list(range(len(train_trees)))        
@@ -529,6 +529,21 @@ if __name__ == "__main__":
     _,valid_trees      = read_graphlist(src_valid)
     _,test_trees      = read_graphlist(src_test)
 
+    vocabulary = set()
+    for graph in train_trees:
+        vocabulary.update(graph.words)
+    lexer = DefaultLexer(256,vocabulary)    
+    parser.train_model([graph.words for graph in train_trees],train_trees,[graph.words for graph in valid_trees],valid_trees,lexer,4,learning_rate=0.001,modelname=modelname)
+
+    out = open(modelname+'.test.conll','w')
+    for g in parser.parse_corpus([ graph.words for graph in test_trees ],[ graph.words for graph in test_trees ],lexer,K=32):
+        print(g,file=out,flush=True)
+        print('',file=out)
+    out.close()
+
+    exit(0)
+    
+    
     bpe_trainset = DatasetBPE([ ' '.join(graph.words) for graph in train_trees],modelname + '.train-spmrl')
     bpe_validset = DatasetBPE([ ' '.join(graph.words) for graph in valid_trees],modelname + '.dev-spmrl')
     bpe_testset = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')
