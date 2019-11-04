@@ -84,7 +84,7 @@ class DefaultLexer(nn.Module):
 
       def forward(self,word_sequence):
         xinput = torch.LongTensor( [self.stoi.get(elt,self.stoi[DefaultLexer.UNK_TOKEN]) for elt in word_sequence] )
-        return.self.embedding(xinput)
+        return self.embedding(xinput)
 
   
 class LexerBPE(nn.Module):
