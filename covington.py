@@ -240,7 +240,7 @@ class CovingtonParser(nn.Module):
                 refD        = CovingtonParser.oracle_derivation( ref_trees[idx] )
                 bpe_toks    = bpe_dataset[idx]
                 xembeddings = lexer.forward(bpe_toks)
-                lembeddings = self.lstm(xembeddings.unsqueeze(dim=0))
+                lembeddings,_ = self.lstm(xembeddings.unsqueeze(dim=0))
                 lembeddings = lembeddings.squeeze(dim=0) 
                 config      = self.init_config(len(ref_trees[idx].words))
                 for (act_type,label) in refD:
