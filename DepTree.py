@@ -196,7 +196,7 @@ class CovingtonParser(nn.Module):
         self.lstm     = nn.LSTM(word_embedding_size,word_embedding_size,1,bidirectional=True)
         self.softmax  = nn.LogSoftmax(dim=0)
         self.tanh     = nn.Tanh()
-        self.null_vec = torch.zeros(word_embedding_size)
+        self.null_vec = torch.zeros(word_embedding_size*2) # x2 because bi-lstm
 
     def code_actions(self,dep_labels,nolabel='-'):
 
