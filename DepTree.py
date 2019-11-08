@@ -241,8 +241,6 @@ class CovingtonParser(nn.Module):
            B             (list): the buffer, a list of int
            graph      (DepTree): a Dependency Tree object
         """
-        print(xembeddings)
-        print('***',xembeddings.size())
         X1 = xembeddings[S1[-1]] if S1 else self.null_vec
         X2 = xembeddings[S1[-2]] if len(S1) > 1 else self.null_vec
 
@@ -367,10 +365,8 @@ class CovingtonParser(nn.Module):
                     refD          = CovingtonParser.oracle_derivation( train_trees[idx] )
                     bpe_toks      = bpe_trainset[idx]
                     xembeddings   = lexer.forward(bpe_toks)
-                    print(xembeddings)
                     lembeddings,_ = self.lstm(xembeddings.unsqueeze(dim=0))
                     lembeddings   = lembeddings.squeeze(dim=0) 
-                    print(lembeddings)
 
                     config        = self.init_config(len(train_trees[idx].words))
                     optimizer.zero_grad() 
