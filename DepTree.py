@@ -294,7 +294,7 @@ class CovingtonParser(nn.Module):
         This method performs parsing with a beam of size K
         """
         #run a bilstm on input first
-        lembeddings,_ = self.lstm(xembeddings)
+        lembeddings,_ = self.lstm(xembeddings.unsqueeze(dim=0))
         
         Beam      = [ (self.init_config(lembeddings.size(0)),0.0)]
         successes = [ ]
@@ -363,7 +363,7 @@ class CovingtonParser(nn.Module):
                     refD          = CovingtonParser.oracle_derivation( train_trees[idx] )
                     bpe_toks      = bpe_trainset[idx]
                     xembeddings   = lexer.forward(bpe_toks)
-                    lembeddings,_ = self.lstm(xembeddings)
+                    lembeddings,_ = self.lstm(xembeddings.unsqueeze(dim=0))
                     config        = self.init_config(len(train_trees[idx].words))
                     optimizer.zero_grad() 
                     for (act_type,label) in refD:
@@ -407,10 +407,11 @@ class CovingtonParser(nn.Module):
                 refD        = CovingtonParser.oracle_derivation( ref_trees[idx] )
                 bpe_toks    = bpe_dataset[idx]
                 xembeddings = lexer.forward(bpe_toks)
+                lembeddings = self.lstm(xembeddings.unsqueeze(dim=0))
                 config      = self.init_config(len(ref_trees[idx].words))
                 for (act_type,label) in refD:
                     S1,S2,B,Arcs = config
-                    output    = self.score_actions(xembeddings,S1,S2,B,Arcs)
+                    output    = self.score_actions(lembeddings,S1,S2,B,Arcs)
                     reference = torch.tensor([self.atoi[(act_type,label)]])
                     loss      = loss_fn(output.unsqueeze(dim=0),reference)
                     L += loss.item()
