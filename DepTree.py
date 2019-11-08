@@ -295,7 +295,8 @@ class CovingtonParser(nn.Module):
         """
         #run a bilstm on input first
         lembeddings,_ = self.lstm(xembeddings.unsqueeze(dim=0))
-        
+        lembeddings   = lembeddings.squeeze(dim=0) 
+                            
         Beam      = [ (self.init_config(lembeddings.size(0)),0.0)]
         successes = [ ]
         while Beam:
@@ -365,6 +366,7 @@ class CovingtonParser(nn.Module):
                     xembeddings   = lexer.forward(bpe_toks)
                     print(xembeddings)
                     lembeddings,_ = self.lstm(xembeddings.unsqueeze(dim=0))
+                    lembeddings   = lembeddings.squeeze(dim=0) 
                     print(lembeddings)
 
                     config        = self.init_config(len(train_trees[idx].words))
@@ -411,6 +413,7 @@ class CovingtonParser(nn.Module):
                 bpe_toks    = bpe_dataset[idx]
                 xembeddings = lexer.forward(bpe_toks)
                 lembeddings = self.lstm(xembeddings.unsqueeze(dim=0))
+                lembeddings   = lembeddings.squeeze(dim=0) 
                 config      = self.init_config(len(ref_trees[idx].words))
                 for (act_type,label) in refD:
                     S1,S2,B,Arcs = config
