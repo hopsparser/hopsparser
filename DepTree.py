@@ -192,7 +192,8 @@ class CovingtonParser(nn.Module):
 
         nactions      = len(self.itoa)
         self.Wup      = nn.Linear(hidden_size,nactions)
-        self.Wbot     = nn.Linear(word_embedding_size*8,hidden_size)
+        self.Wbot     = nn.Linear(word_embedding_size*2*8,hidden_size)
+        self.lstm     = nn.LSTM(word_embedding_size,word_embedding_size,1,bidirectional=True)
         self.softmax  = nn.LogSoftmax(dim=0)
         self.tanh     = nn.Tanh()
         self.null_vec = torch.zeros(word_embedding_size)
@@ -292,7 +293,10 @@ class CovingtonParser(nn.Module):
         """
         This method performs parsing with a beam of size K
         """
-        Beam      = [ (self.init_config(xembeddings.size(0)),0.0)]
+        #run a bilstm on input first
+        lembeddings,_ = self.lstm(xembeddings)
+        
+        Beam      = [ (self.init_config(lembeddings.size(0)),0.0)]
         successes = [ ]
         while Beam:
             nextBeam = [ ]
@@ -301,7 +305,7 @@ class CovingtonParser(nn.Module):
                 if not B:
                     successes.append((config,prefix_score))
                 else:
-                    ascores = self.score_actions(xembeddings,S1,S2,B,Arcs)
+                    ascores = self.score_actions(lembeddings,S1,S2,B,Arcs)
                     nextBeam.extend( (config,action,prefix_score+local_score) for (action,local_score) in zip( self.itoa , ascores) if local_score > -float('Inf'))
             nextBeam.sort(reverse=True,key=lambda x:x[2])
             nextBeam = nextBeam[:K]
@@ -334,7 +338,7 @@ class CovingtonParser(nn.Module):
                 deptree.words = sentlist[idx]
                 yield deptree
                 
-    def train_model(self,bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,epochs,learning_rate=0.001,modelname='xlm'):
+    def train_model(self,bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,epochs,learning_rate=0.01,modelname='xlm'):
         """
         Args:
             bpe_trainset(DatasetBPE): a Dataset with BPE encoded sentences
@@ -346,7 +350,7 @@ class CovingtonParser(nn.Module):
             learning_rate      (int): a learning rate
         """
         loss_fn = nn.NLLLoss(reduction='sum') 
-        optimizer = optim.Adagrad(list(self.parameters())+list(lexer.parameters()))# lr=learning_rate)
+        optimizer = optim.Adagrad(list(self.parameters())+list(lexer.parameters()),lr=learning_rate)
         #print(len(train_trees), len(bpe_trainset) )
         assert ( len(train_trees) == len(bpe_trainset) )
         idxes = list(range(len(train_trees)))        
@@ -356,14 +360,15 @@ class CovingtonParser(nn.Module):
             bestNLL = 10000000000000000
             try:
                 for idx in tqdm(sample(idxes,len(idxes))):
-                    refD        = CovingtonParser.oracle_derivation( train_trees[idx] )
-                    bpe_toks    = bpe_trainset[idx]
-                    xembeddings = lexer.forward(bpe_toks)
-                    config      = self.init_config(len(train_trees[idx].words))
+                    refD          = CovingtonParser.oracle_derivation( train_trees[idx] )
+                    bpe_toks      = bpe_trainset[idx]
+                    xembeddings   = lexer.forward(bpe_toks)
+                    lembeddings,_ = self.lstm(xembeddings)
+                    config        = self.init_config(len(train_trees[idx].words))
                     optimizer.zero_grad() 
                     for (act_type,label) in refD:
                         S1,S2,B,Arcs = config
-                        output       = self.score_actions(xembeddings,S1,S2,B,Arcs)
+                        output       = self.score_actions(lembeddings,S1,S2,B,Arcs)
                         reference    = torch.tensor([self.atoi[(act_type,label)]])
                         loss         = loss_fn(output.unsqueeze(dim=0),reference)
                         loss.backward(retain_graph=True)
@@ -378,7 +383,7 @@ class CovingtonParser(nn.Module):
                 print('\nepoch %d'%(epoch,),'train loss (avg NLL) = %f'%(L/N,),'valid loss (avg NLL) = %f'%(validNLL,),flush=True) 
             except KeyboardInterrupt:
                 print('Caught SIGINT signal. aborting training immediately.')
-                return None
+                return None 
             
                 
     def valid_model(self,bpe_dataset,ref_trees,lexer):
