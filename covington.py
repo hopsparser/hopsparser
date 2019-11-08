@@ -391,7 +391,7 @@ if __name__ == "__main__":
 
     lexer   = LexerBPE('frwiki_embed1024_layers12_heads16/model-002.pth',512,1024)
     parser  = CovingtonParser(512,512,labels)  
-    parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.001,modelname=modelname)
+    parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
 
     #lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
     #parser = CovingtonParser.load(modelname)
