@@ -82,7 +82,7 @@ class CovingtonParser(nn.Module):
         #X7 = xembeddings[B[2]]   if len(B) > 2  else self.null_vec
         #X8 = xembeddings[B[3]]   if len(B) > 3  else self.null_vec
 
-        xinput = torch.cat([X1,X2,X3,X4,X5,X6,X7,X8])
+        xinput = torch.cat([X1,X2,X3,X4,X5,X6])
         h = self.tanh(self.Wbot(xinput))
         return self.softmax(self.action_mask(self.Wup(h),S1,S2,B,graph))
 

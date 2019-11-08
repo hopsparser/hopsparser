@@ -1,11 +1,10 @@
 
 
-
 class DepGraph:
     def __init__(self,edges,wordlist=None,pos_tags=None,with_root=False):
         
         self.gov2dep = { }
-        self.has_gov = set( )            #set of nodes with a governor
+        self.has_gov = set()            #set of nodes with a governor
 
         for (gov,label,dep) in edges:
             self.add_arc(gov,label,dep)
