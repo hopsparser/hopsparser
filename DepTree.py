@@ -241,6 +241,8 @@ class CovingtonParser(nn.Module):
            B             (list): the buffer, a list of int
            graph      (DepTree): a Dependency Tree object
         """
+        print(xembeddings)
+        print('***',xembeddings.size())
         X1 = xembeddings[S1[-1]] if S1 else self.null_vec
         X2 = xembeddings[S1[-2]] if len(S1) > 1 else self.null_vec
 
