@@ -149,8 +149,8 @@ class LexerBPE(nn.Module):
           for (bpe_tok,bpe_vec) in zip(bpe_sequence,bpe_tensor):
                 emb_buffer.append(self.tanh(self.W(bpe_vec))) #if crash here, check the bpe_embeddings_size of the model
                 if not bpe_tok.endswith('@@'):
-                  word_sequence.append(torch.stack(emb_buffer).sum(dim=0))
-                  #word_sequence.append(emb_buffer[0]) #first bpe only !
+                  #word_sequence.append(torch.stack(emb_buffer).sum(dim=0))
+                  word_sequence.append(emb_buffer[0]) #first bpe only !
                   emb_buffer.clear()
           return torch.stack(word_sequence)
 
