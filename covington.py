@@ -188,7 +188,11 @@ class CovingtonParser(nn.Module):
         optimizer = optim.Adagrad(list(self.parameters())+list(lexer.parameters()),lr=learning_rate)
         #print(len(train_trees), len(bpe_trainset) )
         assert ( len(train_trees) == len(bpe_trainset) )
-        idxes = list(range(len(train_trees)))        
+        idxes = list(range(len(train_trees)))
+
+
+        self.save(modelname)
+        
         for epoch in range(epochs):
             self.train()
             L = 0
