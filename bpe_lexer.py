@@ -86,8 +86,65 @@ class DefaultLexer(nn.Module):
         xinput = torch.LongTensor( [self.stoi.get(elt,self.stoi[DefaultLexer.UNK_TOKEN]) for elt in word_sequence] )
         return self.embedding(xinput)
 
-  
-class LexerBPE(nn.Module):
+    
+class SelectiveBPELexer(nn.Module):
+    """
+    This class selects one BPE to be the the word vector.
+    """    
+    def __init__(self,model_path,bpe_embedding_size):
+        """
+        Args:
+        model_path (string): path to model 
+        """
+        super(SelectiveBPELexer, self).__init__()
+        self.load_transformer(model_path)
+
+    def load_transformer(self,path):
+      """
+      Loads the transformer model from path
+      """
+      reloaded = torch.load(path,map_location=torch.device('cpu'))
+      params = AttrDict(reloaded['params']) 
+      self.dico = Dictionary(reloaded['dico_id2word'], reloaded['dico_word2id'], reloaded['dico_counts'])
+      params.n_words    = len(self.dico)
+      params.bos_index  = self.dico.index(BOS_WORD)
+      params.eos_index  = self.dico.index(EOS_WORD)
+      params.pad_index  = self.dico.index(PAD_WORD)
+      params.unk_index  = self.dico.index(UNK_WORD)
+      params.mask_index = self.dico.index(MASK_WORD)
+      # build model / reload weights
+      self.transformer = TransformerModel(params, self.dico, True, True)
+      self.transformer.eval()
+      self.transformer.load_state_dict(reloaded['model'])          
+
+    def forward(self,bpe_string):  
+      """
+      Aggregates a BPE to yield a word sequence encoding.
+      Works for a single sentence. Does not support batching.
+      Args:
+          bpe_string (list): a list of strings, the BPE
+          Returns:
+             a tensor with n rows. Each row is the embedding of a word in a sentence w_1 ... w_N
+      """
+      bpe_sequence = bpe_string.split()
+      sidxes       = torch.LongTensor([self.dico.index(w) for w in bpe_sequence]).unsqueeze(dim=1)
+      L            = torch.LongTensor([len(bpe_sequence)])
+      bpe_tensor   = self.transformer('fwd',x=sidxes,lengths= L,langs=None, causal=False).contiguous()
+      bpe_tensor   = bpe_tensor.detach() #prevents backprop into the transformer
+      bpe_tensor   = bpe_tensor.squeeze() if bpe_tensor.dim() > 2 else bpe_tensor
+      bpe_tensor   = bpe_tensor.unsqueeze(dim=0) if bpe_tensor.dim() < 2 else bpe_tensor
+
+      emb_buffer    = [ ]
+      word_sequence = [ ]
+      for (bpe_tok,bpe_vec) in zip(bpe_sequence,bpe_tensor):
+        emb_buffer.append(bpe_vec) #if crash here, check the bpe_embeddings_size of the model
+        if not bpe_tok.endswith('@@'):
+          word_sequence.append(emb_buffer[0]) #first bpe only !
+          emb_buffer.clear()
+      return torch.stack(word_sequence)
+
+        
+class AveragingBPELexer(nn.Module):
       """
       This class merges BPE vectors into word vectors.
       This is a bag of words method with dimensionality reduction
@@ -97,7 +154,7 @@ class LexerBPE(nn.Module):
             Args:
                model_path (string): path to model 
             """
-            super(LexerBPE, self).__init__()
+            super(AveragingBPELexer, self).__init__()
             self.load_transformer(model_path)
             self.allocate(word_embedding_size,bpe_embedding_size)
 
@@ -149,8 +206,8 @@ class LexerBPE(nn.Module):
           for (bpe_tok,bpe_vec) in zip(bpe_sequence,bpe_tensor):
                 emb_buffer.append(self.tanh(self.W(bpe_vec))) #if crash here, check the bpe_embeddings_size of the model
                 if not bpe_tok.endswith('@@'):
-                  #word_sequence.append(torch.stack(emb_buffer).sum(dim=0))
-                  word_sequence.append(emb_buffer[0]) #first bpe only !
+                  word_sequence.append(torch.stack(emb_buffer).sum(dim=0))
+                  #word_sequence.append(emb_buffer[0]) #first bpe only !
                   emb_buffer.clear()
           return torch.stack(word_sequence)
 

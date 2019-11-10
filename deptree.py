@@ -1,5 +1,3 @@
-
-
 class DepGraph:
     def __init__(self,edges,wordlist=None,pos_tags=None,with_root=False):
         

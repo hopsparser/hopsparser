@@ -6,24 +6,24 @@ from bpe_lexer import *
 from deptree import *
 
 class CovingtonParser(nn.Module):
-
+ 
     NO_ARC    = 'N'
     LEFT_ARC  = 'L'
     RIGHT_ARC = 'R'
     SHIFT     = 'S'
  
-    def __init__(self,word_embedding_size,hidden_size,dep_labels):
+    def __init__(self,word_embedding_size,hidden_size,dep_labels,dropout=0.0):
 
         super(CovingtonParser, self).__init__()
         self.code_actions(dep_labels)
-        self.allocate(word_embedding_size,hidden_size) 
+        self.allocate(word_embedding_size,hidden_size,dropout) 
         
-    def allocate(self,word_embedding_size,hidden_size):
+    def allocate(self,word_embedding_size,hidden_size,dropout):
 
         nactions      = len(self.itoa)
         self.Wup      = nn.Linear(hidden_size,nactions)
         self.Wbot     = nn.Linear(word_embedding_size*2*6,hidden_size)
-        self.lstm     = nn.LSTM(word_embedding_size,word_embedding_size,1,bidirectional=True)
+        self.lstm     = nn.LSTM(word_embedding_size,word_embedding_size,1,dropout=dropout,bidirectional=True)
         self.softmax  = nn.LogSoftmax(dim=0)
         self.tanh     = nn.Tanh()
         self.null_vec = torch.zeros(word_embedding_size*2) # x2 because bi-lstm
@@ -54,7 +54,7 @@ class CovingtonParser(nn.Module):
 
         model_state         = torch.load(prefix_path+'.parser.params')
         hidden_size         = len(model_state['Wbot'].bias)
-        word_embedding_size = int( torch.Size(model_state['Wbot'].weight.size(1)) / 6)
+        word_embedding_size = int( torch.Size(model_state['Wbot'].weight.size(1)) / (6*2) )
         model               = CovingtonParser(word_embedding_size,hidden_size,deplabels)
         model.load_state_dict(model_state)
         model.itoa = itoa
@@ -79,8 +79,6 @@ class CovingtonParser(nn.Module):
 
         X5 = xembeddings[B[0]]   if B  else self.null_vec
         X6 = xembeddings[B[1]]   if len(B) > 1  else self.null_vec
-        #X7 = xembeddings[B[2]]   if len(B) > 2  else self.null_vec
-        #X8 = xembeddings[B[3]]   if len(B) > 3  else self.null_vec
 
         xinput = torch.cat([X1,X2,X3,X4,X5,X6])
         h = self.tanh(self.Wbot(xinput))
@@ -161,6 +159,7 @@ class CovingtonParser(nn.Module):
         """
         assert ( len(sentlist) == len(bpe_dataset))
         with torch.no_grad():
+            self.eval()
             for idx in tqdm(range(len(sentlist))):
                 bpe_toks    = bpe_dataset[idx]
                 xembeddings = lexer.forward(bpe_toks)
@@ -186,6 +185,7 @@ class CovingtonParser(nn.Module):
         assert ( len(train_trees) == len(bpe_trainset) )
         idxes = list(range(len(train_trees)))        
         for epoch in range(epochs):
+            self.train()
             L = 0
             N = 0
             bestNLL = 10000000000000000
@@ -232,6 +232,7 @@ class CovingtonParser(nn.Module):
         L = 0
         N = 0
         with torch.no_grad():
+            self.eval()
             loss_fn = nn.NLLLoss(reduction='sum') 
             assert ( len(ref_trees) == len(bpe_dataset) )
         
@@ -367,7 +368,7 @@ if __name__ == "__main__":
 
     labels,train_trees = read_graphlist(src_train)
     _,valid_trees      = read_graphlist(src_valid)
-    _,test_trees      = read_graphlist(src_test)
+    _,test_trees       = read_graphlist(src_test)
 
     #vocabulary = set()
     #for graph in train_trees:
@@ -382,19 +383,18 @@ if __name__ == "__main__":
     #    print('',file=out)
     #out.close()
 
-    #exit(0)
+    #exit(0) 
     
-     
     bpe_trainset = DatasetBPE([ ' '.join(graph.words) for graph in train_trees],modelname + '.train-spmrl')
     bpe_validset = DatasetBPE([ ' '.join(graph.words) for graph in valid_trees],modelname + '.dev-spmrl')
     bpe_testset  = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')
 
-    lexer   = LexerBPE('frwiki_embed1024_layers12_heads16/model-002.pth',256,1024)
-    parser  = CovingtonParser(256,256,labels)  
+    lexer   = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
+    parser  = CovingtonParser(1024,256,labels,dropout=0.3)  
     parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
 
     #lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
-    #parser = CovingtonParser.load(modelname)
+    parser = CovingtonParser.load(modelname)
     out = open(modelname+'.test.conll','w')
     for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=32):
         print(g,file=out,flush=True)
