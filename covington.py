@@ -30,7 +30,7 @@ class CovingtonParser(nn.Module):
         self.embedding_size = word_embedding_size
         self.lstm_size      = lstm_hidden_size
         self.hidden_size    = hidden_size
-        self.dropout        = nnDropout(dropout)
+        self.dropout        = nn.Dropout(dropout)
 
     def code_actions(self,dep_labels,nolabel='-'):
 
