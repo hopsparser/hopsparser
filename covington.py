@@ -63,6 +63,7 @@ class CovingtonParser(nn.Module):
 
         matrix_reloaded     = torch.load(prefix_path+'.parser.params')
         hidden_size         = matrix_reloaded['hidden_size']
+        lstm_hidden_size    = matrix_reloaded['lstm_hidden_size']
         word_embedding_size = matrix_reloaded['embedding_size']
         model               = CovingtonParser(word_embedding_size,lstm_hidden_size,hidden_size,deplabels)
         model.load_state_dict(matrix_reloaded['params'])
