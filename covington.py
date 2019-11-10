@@ -36,7 +36,10 @@ class CovingtonParser(nn.Module):
         self.atoi = dict( [ (A,idx) for (idx,A) in enumerate(self.itoa)])
 
     def save(self,model_prefix):
-        torch.save(self.state_dict(),model_prefix+'.parser.params')
+        torch.save({'embedding_size':int(len(self.null_vec)/2),\
+                    'hidden_size'   :len(self.Wbot.bias),\
+                    'params'        : self.state_dict(),\
+                    model_prefix+'.parser.params')
         torch.save(lexer.state_dict(),model_prefix+'.lexer.params')
         codes = open(model_prefix+'.codes','w')
         for action,label in self.itoa:
@@ -52,11 +55,11 @@ class CovingtonParser(nn.Module):
         deplabels  = set([lbl for a,lbl in itoa if lbl != '-']) 
         codes.close() 
 
-        model_state         = torch.load(prefix_path+'.parser.params')
-        hidden_size         = len(model_state['Wbot'].bias)
-        word_embedding_size = int( torch.Size(model_state['Wbot'].weight.size(1)) / (6*2) )
+        matrix_reloaded     = torch.load(prefix_path+'.parser.params')
+        hidden_size         = matrix_reloaded['hidden_size']
+        word_embedding_size = matrix_reloaded['embedding_size']
         model               = CovingtonParser(word_embedding_size,hidden_size,deplabels)
-        model.load_state_dict(model_state)
+        model.load_state_dict(matrix_reloaded['params'])
         model.itoa = itoa
         model.atoi = atoi
         return model 
