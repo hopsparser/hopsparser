@@ -45,10 +45,12 @@ class CovingtonParser(nn.Module):
         for action,label in self.itoa:
             print('%s\t%s'%(action,label),file=codes)
         codes.close( )
+        print('SAVE',model_prefix+'.parser.params')
 
     @staticmethod
     def load(prefix_path):
-        
+        print('LOAD',prefix_path+'.parser.params')
+
         codes      = open(prefix_path+'.codes')
         itoa       = [ tuple(line.split()) for line in codes ]
         atoi       = dict( [ (A,idx) for (idx,A) in enumerate(itoa)])
