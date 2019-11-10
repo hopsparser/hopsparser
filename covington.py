@@ -30,7 +30,7 @@ class CovingtonParser(nn.Module):
         self.embedding_size = word_embedding_size
         self.lstm_size      = lstm_hidden_size
         self.hidden_size    = hidden_size
-        self.dropout        = nn.Dropout(dropout)
+        self.dropout        = nn.Dropout(p=dropout)
 
     def code_actions(self,dep_labels,nolabel='-'):
 
@@ -51,11 +51,10 @@ class CovingtonParser(nn.Module):
         for action,label in self.itoa:
             print('%s\t%s'%(action,label),file=codes)
         codes.close( )
-        print('SAVE',model_prefix+'.parser.params')
+        print('  => params saved.')
 
     @staticmethod
     def load(prefix_path):
-        print('LOAD',prefix_path+'.parser.params')
 
         codes      = open(prefix_path+'.codes')
         itoa       = [ tuple(line.split()) for line in codes ]
@@ -407,7 +406,7 @@ if __name__ == "__main__":
     bpe_testset  = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')
 
     lexer   = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
-    parser  = CovingtonParser(1024,512,256,labels,dropout=0.3)  
+    parser  = CovingtonParser(1024,1024,256,labels,dropout=0.3)  
     parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
 
     #lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
