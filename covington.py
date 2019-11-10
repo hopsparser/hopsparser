@@ -38,8 +38,8 @@ class CovingtonParser(nn.Module):
     def save(self,model_prefix):
         torch.save({'embedding_size':int(len(self.null_vec)/2),\
                     'hidden_size'   :len(self.Wbot.bias),\
-                    'params'        : self.state_dict(),\
-                    model_prefix+'.parser.params'})
+                    'params'        : self.state_dict()},\
+                    model_prefix+'.parser.params')
         torch.save(lexer.state_dict(),model_prefix+'.lexer.params')
         codes = open(model_prefix+'.codes','w')
         for action,label in self.itoa:
