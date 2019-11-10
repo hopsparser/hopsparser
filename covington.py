@@ -12,18 +12,18 @@ class CovingtonParser(nn.Module):
     RIGHT_ARC = 'R'
     SHIFT     = 'S'
  
-    def __init__(self,word_embedding_size,hidden_size,dep_labels,dropout=0.0):
+    def __init__(self,word_embedding_size,lstm_hidden_size,hidden_size,dep_labels,dropout=0.0):
 
         super(CovingtonParser, self).__init__()
         self.code_actions(dep_labels)
         self.allocate(word_embedding_size,hidden_size,dropout) 
         
-    def allocate(self,word_embedding_size,hidden_size,dropout):
+    def allocate(self,word_embedding_size,lstm_hidden_size,hidden_size,dropout):
 
         nactions      = len(self.itoa)
         self.Wup      = nn.Linear(hidden_size,nactions)
         self.Wbot     = nn.Linear(word_embedding_size*2*6,hidden_size)
-        self.lstm     = nn.LSTM(word_embedding_size,word_embedding_size,1,dropout=dropout,bidirectional=True)
+        self.lstm     = nn.LSTM(word_embedding_size,lstm_hidden_size,1,dropout=dropout,bidirectional=True)
         self.softmax  = nn.LogSoftmax(dim=0)
         self.tanh     = nn.Tanh()
         self.null_vec = torch.zeros(word_embedding_size*2) # x2 because bi-lstm
@@ -399,7 +399,7 @@ if __name__ == "__main__":
     bpe_testset  = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')
 
     lexer   = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
-    parser  = CovingtonParser(1024,256,labels,dropout=0.3)  
+    parser  = CovingtonParser(1024,512,256,labels,dropout=0.0)  
     parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
 
     #lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
