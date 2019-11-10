@@ -20,13 +20,13 @@ class CovingtonParser(nn.Module):
         
     def allocate(self,word_embedding_size,lstm_hidden_size,hidden_size,dropout):
 
-        nactions      = len(self.itoa)
-        self.Wup      = nn.Linear(hidden_size,nactions)
-        self.Wbot     = nn.Linear(word_embedding_size*2*6,hidden_size)
-        self.lstm     = nn.LSTM(word_embedding_size,lstm_hidden_size,1,dropout=dropout,bidirectional=True)
-        self.softmax  = nn.LogSoftmax(dim=0)
-        self.tanh     = nn.Tanh()
-        self.null_vec = torch.zeros(word_embedding_size*2) # x2 because bi-lstm
+        nactions            = len(self.itoa)
+        self.Wup            = nn.Linear(hidden_size,nactions)
+        self.Wbot           = nn.Linear(lstm_hidden_size*2*6,hidden_size)
+        self.lstm           = nn.LSTM(word_embedding_size,lstm_hidden_size,1,dropout=dropout,bidirectional=True)
+        self.softmax        = nn.LogSoftmax(dim=0)
+        self.tanh           = nn.Tanh()
+        self.null_vec       = torch.zeros(lstm_hidden_size*2) # x2 because bi-lstm
         self.embedding_size = word_embedding_size
         self.lstm_size      = lstm_hidden_size
         self.hidden_size    = hidden_size
