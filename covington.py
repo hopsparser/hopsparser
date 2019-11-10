@@ -23,13 +23,14 @@ class CovingtonParser(nn.Module):
         nactions            = len(self.itoa)
         self.Wup            = nn.Linear(hidden_size,nactions)
         self.Wbot           = nn.Linear(lstm_hidden_size*2*6,hidden_size)
-        self.lstm           = nn.LSTM(word_embedding_size,lstm_hidden_size,1,dropout=dropout,bidirectional=True)
+        self.lstm           = nn.LSTM(word_embedding_size,lstm_hidden_size,1,bidirectional=True)
         self.softmax        = nn.LogSoftmax(dim=0)
         self.tanh           = nn.Tanh()
         self.null_vec       = torch.zeros(lstm_hidden_size*2) # x2 because bi-lstm
         self.embedding_size = word_embedding_size
         self.lstm_size      = lstm_hidden_size
         self.hidden_size    = hidden_size
+        self.dropout        = nnDropout(dropout)
 
     def code_actions(self,dep_labels,nolabel='-'):
 
@@ -42,6 +43,7 @@ class CovingtonParser(nn.Module):
         torch.save({'embedding_size'  : self.embedding_size,\
                     'lstm_hidden_size': self.lstm_size,\
                     'hidden_size'     : self.hidden_size,\
+                    'dropout'         : self.dropout,\
                     'params'          : self.state_dict()},\
                     model_prefix+'.parser.params')
         torch.save(lexer.state_dict(),model_prefix+'.lexer.params')
@@ -65,7 +67,8 @@ class CovingtonParser(nn.Module):
         hidden_size         = matrix_reloaded['hidden_size']
         lstm_hidden_size    = matrix_reloaded['lstm_hidden_size']
         word_embedding_size = matrix_reloaded['embedding_size']
-        model               = CovingtonParser(word_embedding_size,lstm_hidden_size,hidden_size,deplabels)
+        dropout             = matrix_reloaded['dropout']
+        model               = CovingtonParser(word_embedding_size,lstm_hidden_size,hidden_size,deplabels,dropout)
         model.load_state_dict(matrix_reloaded['params'])
         model.itoa = itoa
         model.atoi = atoi
@@ -90,7 +93,7 @@ class CovingtonParser(nn.Module):
         X5 = xembeddings[B[0]]   if B  else self.null_vec
         X6 = xembeddings[B[1]]   if len(B) > 1  else self.null_vec
 
-        xinput = torch.cat([X1,X2,X3,X4,X5,X6])
+        xinput = self.dropout(torch.cat([X1,X2,X3,X4,X5,X6]))
         h = self.tanh(self.Wbot(xinput))
         return self.softmax(self.action_mask(self.Wup(h),S1,S2,B,graph))
 
