@@ -16,7 +16,7 @@ class CovingtonParser(nn.Module):
 
         super(CovingtonParser, self).__init__()
         self.code_actions(dep_labels)
-        self.allocate(word_embedding_size,hidden_size,dropout) 
+        self.allocate(word_embedding_size,lstm_hidden_size,hidden_size,dropout) 
         
     def allocate(self,word_embedding_size,lstm_hidden_size,hidden_size,dropout):
 
@@ -27,6 +27,9 @@ class CovingtonParser(nn.Module):
         self.softmax  = nn.LogSoftmax(dim=0)
         self.tanh     = nn.Tanh()
         self.null_vec = torch.zeros(word_embedding_size*2) # x2 because bi-lstm
+        self.embedding_size = word_embedding_size
+        self.lstm_size      = lstm_hidden_size
+        self.hidden_size    = hidden_size
 
     def code_actions(self,dep_labels,nolabel='-'):
 
@@ -36,9 +39,10 @@ class CovingtonParser(nn.Module):
         self.atoi = dict( [ (A,idx) for (idx,A) in enumerate(self.itoa)])
 
     def save(self,model_prefix):
-        torch.save({'embedding_size':int(len(self.null_vec)/2),\
-                    'hidden_size'   :len(self.Wbot.bias),\
-                    'params'        : self.state_dict()},\
+        torch.save({'embedding_size'  : self.embedding_size,\
+                    'lstm_hidden_size': self.lstm_size,\
+                    'hidden_size'     : self.hidden_size,\
+                    'params'          : self.state_dict()},\
                     model_prefix+'.parser.params')
         torch.save(lexer.state_dict(),model_prefix+'.lexer.params')
         codes = open(model_prefix+'.codes','w')
@@ -60,7 +64,7 @@ class CovingtonParser(nn.Module):
         matrix_reloaded     = torch.load(prefix_path+'.parser.params')
         hidden_size         = matrix_reloaded['hidden_size']
         word_embedding_size = matrix_reloaded['embedding_size']
-        model               = CovingtonParser(word_embedding_size,hidden_size,deplabels)
+        model               = CovingtonParser(word_embedding_size,lstm_hidden_size,hidden_size,deplabels)
         model.load_state_dict(matrix_reloaded['params'])
         model.itoa = itoa
         model.atoi = atoi
