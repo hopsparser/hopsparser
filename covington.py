@@ -195,11 +195,7 @@ class CovingtonParser(nn.Module):
         optimizer = optim.Adagrad(list(self.parameters())+list(lexer.parameters()),lr=learning_rate)
         #print(len(train_trees), len(bpe_trainset) )
         assert ( len(train_trees) == len(bpe_trainset) )
-        idxes = list(range(len(train_trees)))
-
-
-        self.save(modelname)
-        
+        idxes = list(range(len(train_trees)))        
         for epoch in range(epochs):
             self.train()
             L = 0
@@ -370,14 +366,15 @@ if __name__ == "__main__":
 
     modelname  =  'xlm.adam' 
     
-    def read_graphlist(src_file):  
+    def read_graphlist(src_file):
+        
         istream = open(src_file) 
         graphList   = [ ]
         labels      = set() 
         graph       = DepGraph.read_tree(istream)
         while not graph is None:
             graphList.append( graph )
-            labels.update(graph.get_all_labels()) 
+            labels.update(graph.get_all_labels())
             graph   = DepGraph.read_tree(istream)
         istream.close()
         return labels,graphList
@@ -386,6 +383,7 @@ if __name__ == "__main__":
     _,valid_trees      = read_graphlist(src_valid)
     _,test_trees       = read_graphlist(src_test) 
 
+    
     #vocabulary = set()
     #for graph in train_trees:
     #    vocabulary.update(graph.words)
@@ -406,7 +404,7 @@ if __name__ == "__main__":
     bpe_testset  = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')
 
     lexer   = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
-    parser  = CovingtonParser(1024,1024,256,labels,dropout=0.3)  
+    parser  = CovingtonParser(1024,512,256,labels,dropout=0.3)  
     parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
 
     #lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
