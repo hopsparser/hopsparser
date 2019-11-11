@@ -92,7 +92,7 @@ class CovingtonParser(nn.Module):
         X5 = xembeddings[B[0]]   if B  else self.null_vec
         X6 = xembeddings[B[1]]   if len(B) > 1  else self.null_vec
 
-        xinput = self.dropout(torch.cat([X1,X2,X3,X4,X5,X6]))
+        xinput = torch.cat([X1,X2,X3,X4,X5,X6])
         h = self.tanh(self.Wbot(xinput))
         return self.softmax(self.action_mask(self.Wup(h),S1,S2,B,graph))
 
@@ -134,6 +134,7 @@ class CovingtonParser(nn.Module):
         This method performs parsing with a beam of size K
         """
         #run a bilstm on input first
+        xembeddings   = self.dropout(xembeddings)
         lembeddings,_ = self.lstm(xembeddings.unsqueeze(dim=0))
         lembeddings   = lembeddings.squeeze(dim=0) 
                             
@@ -280,7 +281,6 @@ class CovingtonParser(nn.Module):
             return self.left_arc(label,S1,S2,B,Arcs)
         elif  act_type == CovingtonParser.RIGHT_ARC:
             return self.right_arc(label,S1,S2,B,Arcs)
-
         
     def init_config(self,N):
         """
@@ -366,22 +366,22 @@ if __name__ == "__main__":
 
     modelname  =  'xlm.adam' 
     
-    def read_graphlist(src_file):
+    def read_graphlist( src_file ):
         
-        istream = open(src_file) 
+        istream = open( src_file ) 
         graphList   = [ ]
         labels      = set() 
-        graph       = DepGraph.read_tree(istream)
+        graph       = DepGraph.read_tree( istream )
         while not graph is None:
             graphList.append( graph )
-            labels.update(graph.get_all_labels())
-            graph   = DepGraph.read_tree(istream)
+            labels.update( graph.get_all_labels() )
+            graph   = DepGraph.read_tree( istream )
         istream.close()
         return labels,graphList
 
-    labels,train_trees = read_graphlist(src_train)
-    _,valid_trees      = read_graphlist(src_valid)
-    _,test_trees       = read_graphlist(src_test) 
+    labels,train_trees = read_graphlist( src_train )
+    _,valid_trees      = read_graphlist( src_valid ) 
+    _,test_trees       = read_graphlist( src_test ) 
 
     
     #vocabulary = set()
@@ -404,7 +404,7 @@ if __name__ == "__main__":
     bpe_testset  = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')
 
     lexer   = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
-    parser  = CovingtonParser(1024,512,256,labels,dropout=0.3)  
+    parser  = CovingtonParser(1024,512,256,labels,dropout=0.5)  
     parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
 
     #lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
