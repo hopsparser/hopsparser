@@ -218,14 +218,15 @@ class CovingtonParser(nn.Module):
                         reference    = torch.tensor([self.atoi[(act_type,label)]])
                         loss         = loss_fn(output.unsqueeze(dim=0),reference)
                         loss.backward(retain_graph=True)
-                        L += loss.item()
+                        L += loss.item() 
                         config    = self.exec_action( (act_type,label), config)
                     optimizer.step() 
                     N += len(refD)
                 validNLL = self.valid_model(bpe_validset,valid_trees,lexer)
                 if validNLL < bestNLL:
-                    bestNLL = validNLL
-                    self.save(modelname)
+                    print(validNLL,bestNLL)
+                    bestNLL = validNLL  
+                    self.save(modelname) 
                 print('\nepoch %d'%(epoch,),'train loss (avg NLL) = %f'%(L/N,),'valid loss (avg NLL) = %f'%(validNLL,),flush=True) 
             except KeyboardInterrupt:
                 print('Caught SIGINT signal. aborting training immediately.')
@@ -406,7 +407,7 @@ if __name__ == "__main__":
     lexer   = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
     parser  = CovingtonParser(1024,512,64,labels,dropout=0.5)  
     parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
-
+ 
     #lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
     parser = CovingtonParser.load(modelname)
     out = open(modelname+'.test.conll','w')
