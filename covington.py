@@ -92,7 +92,7 @@ class CovingtonParser(nn.Module):
         X5 = xembeddings[B[0]]   if B  else self.null_vec
         X6 = xembeddings[B[1]]   if len(B) > 1  else self.null_vec
 
-        xinput = torch.cat([X1,X2,X3,X4,X5,X6])
+        xinput = self.dropout(torch.cat([X1,X2,X3,X4,X5,X6]))
         h = self.tanh(self.Wbot(xinput))
         return self.softmax(self.action_mask(self.Wup(h),S1,S2,B,graph))
 
@@ -196,12 +196,12 @@ class CovingtonParser(nn.Module):
         optimizer = optim.Adagrad(list(self.parameters())+list(lexer.parameters()),lr=learning_rate)
         #print(len(train_trees), len(bpe_trainset) )
         assert ( len(train_trees) == len(bpe_trainset) )
-        idxes = list(range(len(train_trees)))        
+        idxes = list(range(len(train_trees)))
+        bestNLL = 10000000000000000
         for epoch in range(epochs):
             self.train()
             L = 0
             N = 0
-            bestNLL = 10000000000000000
             try:
                 for idx in tqdm(sample(idxes,len(idxes))):
                     refD          = CovingtonParser.oracle_derivation( train_trees[idx] )
@@ -224,7 +224,6 @@ class CovingtonParser(nn.Module):
                     N += len(refD)
                 validNLL = self.valid_model(bpe_validset,valid_trees,lexer)
                 if validNLL < bestNLL:
-                    print(validNLL,bestNLL)
                     bestNLL = validNLL  
                     self.save(modelname) 
                 print('\nepoch %d'%(epoch,),'train loss (avg NLL) = %f'%(L/N,),'valid loss (avg NLL) = %f'%(validNLL,),flush=True) 
@@ -405,7 +404,7 @@ if __name__ == "__main__":
     bpe_testset  = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')
 
     lexer   = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
-    parser  = CovingtonParser(1024,512,64,labels,dropout=0.5)  
+    parser  = CovingtonParser(1024,512,128,labels,dropout=0.5)  
     parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
  
     #lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
