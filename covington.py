@@ -67,6 +67,7 @@ class CovingtonParser(nn.Module):
         lstm_hidden_size    = matrix_reloaded['lstm_hidden_size']
         word_embedding_size = matrix_reloaded['embedding_size']
         dropout             = matrix_reloaded['dropout']
+        print(dropout)
         model               = CovingtonParser(word_embedding_size,lstm_hidden_size,hidden_size,deplabels,dropout)
         model.load_state_dict(matrix_reloaded['params'])
         model.itoa = itoa
@@ -383,7 +384,6 @@ if __name__ == "__main__":
     _,valid_trees      = read_graphlist( src_valid ) 
     _,test_trees       = read_graphlist( src_test ) 
 
-    
     #vocabulary = set()
     #for graph in train_trees:
     #    vocabulary.update(graph.words)
@@ -404,7 +404,7 @@ if __name__ == "__main__":
     bpe_testset  = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')  
 
     lexer   = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
-    parser  = CovingtonParser(1024,512,512,labels,dropout=0.5)  
+    parser  = CovingtonParser(1024,512,256,labels,dropout=0.7)  
     parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
   
     #lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
