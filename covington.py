@@ -67,8 +67,7 @@ class CovingtonParser(nn.Module):
         lstm_hidden_size    = matrix_reloaded['lstm_hidden_size']
         word_embedding_size = matrix_reloaded['embedding_size']
         dropout             = matrix_reloaded['dropout']
-        print(dropout.p)
-        model               = CovingtonParser(word_embedding_size,lstm_hidden_size,hidden_size,deplabels,dropout.p)
+        model               = CovingtonParser(word_embedding_size,lstm_hidden_size,hidden_size,deplabels,dropout)
         model.load_state_dict(matrix_reloaded['params'])
         model.itoa = itoa
         model.atoi = atoi
