@@ -380,8 +380,8 @@ if __name__ == "__main__":
         istream.close()
         return labels,graphList
 
-    #labels,train_trees = read_graphlist( src_train )
-    #_,valid_trees      = read_graphlist( src_valid ) 
+    labels,train_trees = read_graphlist( src_train )
+    _,valid_trees      = read_graphlist( src_valid ) 
     _,test_trees       = read_graphlist( src_test ) 
 
     #vocabulary = set()
@@ -399,16 +399,16 @@ if __name__ == "__main__":
 
     #exit(0) 
     
-    #bpe_trainset = DatasetBPE([ ' '.join(graph.words) for graph in train_trees],modelname + '.train-spmrl')
-    #bpe_validset = DatasetBPE([ ' '.join(graph.words) for graph in valid_trees],modelname + '.dev-spmrl')  
+    bpe_trainset = DatasetBPE([ ' '.join(graph.words) for graph in train_trees],modelname + '.train-spmrl')
+    bpe_validset = DatasetBPE([ ' '.join(graph.words) for graph in valid_trees],modelname + '.dev-spmrl')  
     bpe_testset  = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')  
 
-    #lexer   = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
-    #parser  = CovingtonParser(1024,512,256,labels,dropout=0.7)  
-    #parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
+    lexer   = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
+    parser  = CovingtonParser(1024,512,256,labels,dropout=0.7)  
+    parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
   
-    lexer  = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
-    parser = CovingtonParser.load(modelname)
+    #lexer  = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
+    #parser = CovingtonParser.load(modelname)
     out = open(modelname+'.test.conll','w')
     for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=16):
         print(g,file=out,flush=True)
