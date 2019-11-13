@@ -54,7 +54,7 @@ class CovingtonParser(nn.Module):
         print('  => params saved.')
 
     @staticmethod
-    def load(prefix_path):
+    def load(prefix_path): 
 
         codes      = open(prefix_path+'.codes')
         itoa       = [ tuple(line.split()) for line in codes ]
