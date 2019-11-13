@@ -43,7 +43,7 @@ class CovingtonParser(nn.Module):
         torch.save({'embedding_size'  : self.embedding_size,\
                     'lstm_hidden_size': self.lstm_size,\
                     'hidden_size'     : self.hidden_size,\
-                    'dropout'         : self.dropout,\
+                    'dropout'         : self.dropout.p,\
                     'params'          : self.state_dict()},\
                     model_prefix+'.parser.params')
         torch.save(lexer.state_dict(),model_prefix+'.lexer.params')
@@ -67,8 +67,8 @@ class CovingtonParser(nn.Module):
         lstm_hidden_size    = matrix_reloaded['lstm_hidden_size']
         word_embedding_size = matrix_reloaded['embedding_size']
         dropout             = matrix_reloaded['dropout']
-        print(dropout)
-        model               = CovingtonParser(word_embedding_size,lstm_hidden_size,hidden_size,deplabels,dropout)
+        print(dropout.p)
+        model               = CovingtonParser(word_embedding_size,lstm_hidden_size,hidden_size,deplabels,dropout.p)
         model.load_state_dict(matrix_reloaded['params'])
         model.itoa = itoa
         model.atoi = atoi
