@@ -407,7 +407,7 @@ if __name__ == "__main__":
     #parser  = CovingtonParser(1024,512,256,labels,dropout=0.7)  
     #parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
   
-    lexer  = SelectiveBPELexer(modelname,1024)
+    lexer  = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
     parser = CovingtonParser.load(modelname)
     out = open(modelname+'.test.conll','w')
     for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=16):
