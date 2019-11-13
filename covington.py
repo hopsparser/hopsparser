@@ -400,13 +400,13 @@ if __name__ == "__main__":
     #exit(0) 
     
     bpe_trainset = DatasetBPE([ ' '.join(graph.words) for graph in train_trees],modelname + '.train-spmrl')
-    bpe_validset = DatasetBPE([ ' '.join(graph.words) for graph in valid_trees],modelname + '.dev-spmrl')
-    bpe_testset  = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')
+    bpe_validset = DatasetBPE([ ' '.join(graph.words) for graph in valid_trees],modelname + '.dev-spmrl')  
+    bpe_testset  = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')  
 
     lexer   = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
-    parser  = CovingtonParser(1024,512,256,labels,dropout=0.5)  
+    parser  = CovingtonParser(1024,512,512,labels,dropout=0.5)  
     parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
- 
+  
     #lexer  = LexerBPE.load(modelname,'frwiki_embed1024_layers12_heads16/model-002.pth')
     parser = CovingtonParser.load(modelname)
     out = open(modelname+'.test.conll','w')
