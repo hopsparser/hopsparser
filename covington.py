@@ -382,7 +382,7 @@ if __name__ == "__main__":
 
     #labels,train_trees = read_graphlist( src_train )
     #_,valid_trees      = read_graphlist( src_valid ) 
-    #_,test_trees       = read_graphlist( src_test ) 
+    _,test_trees       = read_graphlist( src_test ) 
 
     #vocabulary = set()
     #for graph in train_trees:
@@ -401,7 +401,7 @@ if __name__ == "__main__":
     
     #bpe_trainset = DatasetBPE([ ' '.join(graph.words) for graph in train_trees],modelname + '.train-spmrl')
     #bpe_validset = DatasetBPE([ ' '.join(graph.words) for graph in valid_trees],modelname + '.dev-spmrl')  
-    #bpe_testset  = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')  
+    bpe_testset  = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')  
 
     #lexer   = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
     #parser  = CovingtonParser(1024,512,256,labels,dropout=0.7)  
