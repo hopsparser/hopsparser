@@ -7,7 +7,7 @@ from XLM.src.utils import AttrDict
 from XLM.src.data.dictionary import Dictionary, BOS_WORD, EOS_WORD, PAD_WORD, UNK_WORD, MASK_WORD
 from XLM.src.model.transformer import TransformerModel
 
-codes = "BERT_BASE/BPE/codes"
+codes = "bert-base-lowercase/BPE/codes"
 fastbpe = os.path.join(os.getcwd(), 'XLM/tools/fastBPE/fast')
 
 class DatasetBPE:
@@ -60,6 +60,7 @@ class DatasetBPE:
           return self.sentences[self.idx]
         raise StopIteration
 
+  
 class DefaultLexer(nn.Module):
       """
       That's a default lexer with simple embeddings
