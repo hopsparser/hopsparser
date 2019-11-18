@@ -99,11 +99,12 @@ class SelectiveBPELexer(nn.Module):
         """
         super(SelectiveBPELexer, self).__init__()
         self.load_transformer(model_path)
-
+        
     def load_transformer(self,path):
       """
       Loads the transformer model from path
       """
+      print('***',path)
       reloaded = torch.load(path,map_location=torch.device('cpu'))
       params = AttrDict(reloaded['params']) 
       self.dico = Dictionary(reloaded['dico_id2word'], reloaded['dico_word2id'], reloaded['dico_counts'])

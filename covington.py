@@ -402,7 +402,7 @@ if __name__ == "__main__":
     bpe_validset = DatasetBPE([ ' '.join(graph.words) for graph in valid_trees],modelname + '.dev-spmrl')  
     bpe_testset  = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')  
 
-    lexer   = SelectiveBPELexer('bert-base-lowercase/checkpoint.pth',1024)
+    lexer   = SelectiveBPELexer('bert-base-lowercase/best-valid_fr_mlm_ppl.pth',1024)
     parser  = CovingtonParser( 1024,512,256,labels,dropout=0.7)  
     parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
   
