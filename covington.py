@@ -3,10 +3,10 @@ import torch.nn as nn
 from tqdm import tqdm
 from random import sample
 from bpe_lexer import *
-from deptree import *
+from deptree   import *
 
 class CovingtonParser(nn.Module):
- 
+    
     NO_ARC    = 'N'
     LEFT_ARC  = 'L'
     RIGHT_ARC = 'R'
@@ -402,8 +402,8 @@ if __name__ == "__main__":
     bpe_validset = DatasetBPE([ ' '.join(graph.words) for graph in valid_trees],modelname + '.dev-spmrl')  
     bpe_testset  = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')  
 
-    lexer   = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
-    parser  = CovingtonParser(1024,512,256,labels,dropout=0.7)  
+    lexer   = SelectiveBPELexer('BERT_BASE/checkpoint.pth',1024)
+    parser  = CovingtonParser( 1024,512,256,labels,dropout=0.7)  
     parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
   
     #lexer  = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)

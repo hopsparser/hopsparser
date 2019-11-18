@@ -7,7 +7,7 @@ from XLM.src.utils import AttrDict
 from XLM.src.data.dictionary import Dictionary, BOS_WORD, EOS_WORD, PAD_WORD, UNK_WORD, MASK_WORD
 from XLM.src.model.transformer import TransformerModel
 
-codes = "frwiki_embed1024_layers12_heads16/BPE/codes"
+codes = "BERT_BASE/BPE/codes"
 fastbpe = os.path.join(os.getcwd(), 'XLM/tools/fastBPE/fast')
 
 class DatasetBPE:
@@ -127,7 +127,7 @@ class SelectiveBPELexer(nn.Module):
              a tensor with n rows. Each row is the embedding of a word in a sentence w_1 ... w_N
       """
       bpe_sequence = bpe_string.split()
-      sidxes       = torch.LongTensor([self.dico.index(w) for w in bpe_sequence]).unsqueeze(dim=1)
+      sidxes       = torch.LongTensor([self.dico.index(w.lower()) for w in bpe_sequence]).unsqueeze(dim=1)
       L            = torch.LongTensor([len(bpe_sequence)])
       bpe_tensor   = self.transformer('fwd',x=sidxes,lengths= L,langs=None, causal=False).contiguous()
       bpe_tensor   = bpe_tensor.detach() #prevents backprop into the transformer

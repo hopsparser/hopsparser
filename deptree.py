@@ -1,4 +1,6 @@
+
 class DepGraph:
+    
     def __init__(self,edges,wordlist=None,pos_tags=None,with_root=False):
         
         self.gov2dep = { }
@@ -6,7 +8,7 @@ class DepGraph:
 
         for (gov,label,dep) in edges:
             self.add_arc(gov,label,dep)
-
+ 
         if with_root:
             self.add_root()
 
@@ -17,9 +19,15 @@ class DepGraph:
         """
         copy edges only not word nor tags
         """
-        edgelist = list(self.gov2dep.values())
+        edgelist = list( self.gov2dep.values() )
         flatlist = [edge for sublist in edgelist for edge in sublist]
         return DepGraph(flatlist)
+
+    def get_all_edges(self):
+        """
+        Returns the list of edges found in this graph
+        """
+        return [ edge for gov in self.gov2dep for edge in self.gov2dep[gov]]
         
     def get_all_labels(self):
         """
@@ -163,7 +171,7 @@ class DepGraph:
             label,head = revdeps[node] if node in revdeps else ('root', -1)
             L[6] = str(head+1)
             L[7] = label
-            lines.append( '\t'.join(L) ) 
+            lines.append( '\t'.join(L)) 
         return '\n'.join(lines)
 
     def __len__(self):
