@@ -27,7 +27,7 @@ class DatasetBPE:
             # write sentences to tmp file
             ostream = open('/tmp/%s'%(dataset_id,), 'w')
             for s in sent_list: 
-                  print(s,file=ostream)
+                  print(s.lower(),file=ostream)
             #print(file=ostream) 
             ostream.close() 
             # apply bpe to tmp file
@@ -138,7 +138,7 @@ class SelectiveBPELexer(nn.Module):
              a tensor with n rows. Each row is the embedding of a word in a sentence w_1 ... w_N
       """
       bpe_sequence = bpe_string.split()
-      sidxes       = torch.LongTensor([self.dico.index(w.lower()) for w in bpe_sequence]).unsqueeze(dim=1)
+      sidxes       = torch.LongTensor([self.dico.index(w) for w in bpe_sequence]).unsqueeze(dim=1)
       L            = torch.LongTensor([len(bpe_sequence)])
       bpe_tensor   = self.transformer('fwd',x=sidxes,lengths= L,langs=None, causal=False).contiguous()
       bpe_tensor   = bpe_tensor.detach() #prevents backprop into the transformer
