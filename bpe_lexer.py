@@ -27,7 +27,7 @@ class DatasetBPE:
             # write sentences to tmp file
             ostream = open('/tmp/%s'%(dataset_id,), 'w')
             for s in sent_list: 
-                  print(s.lower(),file=ostream)
+                  print(s.lower(),file=ostream) #lowers the full dataset
             #print(file=ostream) 
             ostream.close() 
             # apply bpe to tmp file
