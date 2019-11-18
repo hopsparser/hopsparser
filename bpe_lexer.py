@@ -21,7 +21,7 @@ class DatasetBPE:
                dataset_id  (str): a unique ID specific to this datasetfile
             """
             self.sentences = self.to_bpe(sent_list,dataset_id)
-            self.reset()
+            self.reset() 
       
       def to_bpe(self,sent_list,dataset_id):
             # write sentences to tmp file
@@ -104,7 +104,16 @@ class SelectiveBPELexer(nn.Module):
       """
       Loads the transformer model from path
       """
-      print('***',path)
+      def fix_state_dict(state_dict):
+        # create new OrderedDict that does not contain `module.`
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            name = k[7:] # remove `module.`
+            new_state_dict[name] = v
+      return new_state_dict
+
+  
       reloaded = torch.load(path,map_location=torch.device('cpu'))
       params = AttrDict(reloaded['params']) 
       self.dico = Dictionary(reloaded['dico_id2word'], reloaded['dico_word2id'], reloaded['dico_counts'])
@@ -117,7 +126,7 @@ class SelectiveBPELexer(nn.Module):
       # build model / reload weights
       self.transformer = TransformerModel(params, self.dico, True, True)
       self.transformer.eval()
-      self.transformer.load_state_dict(reloaded['model'])          
+      self.transformer.load_state_dict(fix_state_dict(reloaded['model']))          
 
     def forward(self,bpe_string):  
       """
