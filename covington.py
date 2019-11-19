@@ -364,7 +364,7 @@ if __name__ == "__main__":
     src_valid   = 'spmrl/dev.French.gold.conll'
     src_test   = 'spmrl/test.French.gold.conll'
 
-    modelname  =  'xlm.adam' 
+    modelname  =  'xlm.adam.nodropout' 
     
     def read_graphlist( src_file ):
         
@@ -403,15 +403,15 @@ if __name__ == "__main__":
     bpe_testset  = DatasetBPE([ ' '.join(graph.words) for graph in test_trees],modelname + '.test-spmrl')  
 
     lexer   = SelectiveBPELexer('bert-base-lowercase/best-valid_fr_mlm_ppl.pth',768)
-    parser  = CovingtonParser( 768,512,256,labels,dropout=0.7)  
+    parser  = CovingtonParser(768,512,256,labels,dropout=0.0)   
     parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,10,learning_rate=0.01,modelname=modelname)
   
     #lexer  = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
     #parser = CovingtonParser.load(modelname)
     out = open(modelname+'.test.conll','w')
-    for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=16):
+    for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=32):
         print(g,file=out,flush=True)
-        print('',file=out)
+        print('',file=out)          
     out.close()
 
 

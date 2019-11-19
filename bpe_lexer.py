@@ -26,8 +26,9 @@ class DatasetBPE:
       def to_bpe(self,sent_list,dataset_id):
             # write sentences to tmp file
             ostream = open('/tmp/%s'%(dataset_id,), 'w')
-            for s in sent_list: 
-                  print(s.lower(),file=ostream) #lowers the full dataset
+            for s in sent_list:
+                  s = s.replace('-RRB-',')').replace('-LRB-','(').lower()
+                  print(s,file=ostream) #rebrackets and lowers the full dataset
             #print(file=ostream) 
             ostream.close() 
             # apply bpe to tmp file
@@ -87,7 +88,6 @@ class DefaultLexer(nn.Module):
         xinput = torch.LongTensor( [self.stoi.get(elt,self.stoi[DefaultLexer.UNK_TOKEN]) for elt in word_sequence] )
         return self.embedding(xinput)
 
-    
 class SelectiveBPELexer(nn.Module):
     """
     This class selects one BPE to be the the word vector.
@@ -154,7 +154,6 @@ class SelectiveBPELexer(nn.Module):
           emb_buffer.clear()
       return torch.stack(word_sequence)
 
-        
 class AveragingBPELexer(nn.Module):
       """
       This class merges BPE vectors into word vectors.
