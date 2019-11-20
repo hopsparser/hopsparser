@@ -178,7 +178,7 @@ class CovingtonParser(nn.Module):
                     bpe_toks  = lexer.encode2bpe(' '.join(train_trees[idx].words))
                 else:
                     bpe_toks  = bpe_trainset[idx]
-                xembeddings = lexer.forward(bpe_toks)
+                xembeddings = lexer.forward(' '.join(bpe_toks) )
                 #print(sentlist[idx])
                 deptree = self.forward(xembeddings,K)      
                 deptree.words = sentlist[idx]
@@ -261,7 +261,7 @@ class CovingtonParser(nn.Module):
                     bpe_toks  = lexer.encode2bpe(' '.join(train_trees[idx].words))
                 else:
                     bpe_toks  = bpe_trainset[idx]
-                xembeddings = lexer.forward(bpe_toks)
+                xembeddings = lexer.forward(' '.join(bpe_toks) )
                 lembeddings,_ = self.lstm(xembeddings.unsqueeze(dim=0))
                 lembeddings = lembeddings.squeeze(dim=0) 
                 config      = self.init_config(len(ref_trees[idx].words))
