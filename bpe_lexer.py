@@ -112,10 +112,10 @@ class MultilingualLexer(nn.Module):
         return self.transformer(tok_tensor)
         
 
-lexer = MultilingualLexer()
-enc = lexer.encode2bpe("Bonjour les gens !")
-print(lexer(enc))
-exit(0)
+#lexer = MultilingualLexer()
+#enc = lexer.encode2bpe("Bonjour les gens !")
+#print(lexer(enc))
+#exit(0)
         
 class SelectiveBPELexer(nn.Module):
     """
