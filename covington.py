@@ -160,7 +160,7 @@ class CovingtonParser(nn.Module):
         (S1,S2,B,Graph), score = successes[0]
         return Graph
     
-    def parse_corpus(self,bpe_dataset,sentlist,lexer,K=8): 
+    def parse_corpus(self,bpe_dataset,sentlist,lexer,K=8,multilingual=True): 
         """
         Parses a list of raw sentences and yields a sequence of dep trees
         Args:
@@ -227,7 +227,7 @@ class CovingtonParser(nn.Module):
                         config    = self.exec_action( (act_type,label), config)
                     optimizer.step() 
                     N += len(refD)
-                validNLL = self.valid_model(bpe_validset,valid_trees,lexer)
+                validNLL = self.valid_model(bpe_validset,valid_trees,lexer,multilingual)
                 if validNLL < bestNLL:
                     bestNLL = validNLL  
                     self.save(modelname) 
@@ -237,7 +237,7 @@ class CovingtonParser(nn.Module):
                 return None 
             
                 
-    def valid_model(self,bpe_dataset,ref_trees,lexer):
+    def valid_model(self,bpe_dataset,ref_trees,lexer,multilingual):
         """
         Performs the validation of the model on derivation sequences
         Args:
@@ -412,13 +412,13 @@ if __name__ == "__main__":
 
     #lexer   = SelectiveBPELexer('bert-base-lowercase/best-valid_fr_mlm_ppl.pth',768)
     lexer   = MultilingualLexer( ) 
-    parser  = CovingtonParser(768,512,256,labels,dropout=0.3,multilingual=True)   
-    parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,15,learning_rate=0.01,modelname=modelname)
+    parser  = CovingtonParser(768,512,256,labels,dropout=0.3)   
+    parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,15,learning_rate=0.01,modelname=modelname,multilingual=True)
   
     #lexer  = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
     #parser = CovingtonParser.load(modelname)
     out = open(modelname+'.test.conll','w')
-    for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=32):
+    for g in parser.parse_corpus(bpe_testset,[ graph.words for graph in test_trees ],lexer,K=32,multilingual=True):
         print(g,file=out,flush=True)
         print('',file=out)          
     out.close()
