@@ -6,6 +6,8 @@ import torch.optim as optim
 from XLM.src.utils import AttrDict
 from XLM.src.data.dictionary import Dictionary, BOS_WORD, EOS_WORD, PAD_WORD, UNK_WORD, MASK_WORD
 from XLM.src.model.transformer import TransformerModel
+from transformers import *
+
 
 codes = "bert-base-lowercase/BPE/codes"
 fastbpe = os.path.join(os.getcwd(), 'XLM/tools/fastBPE/fast')
@@ -88,6 +90,33 @@ class DefaultLexer(nn.Module):
         xinput = torch.LongTensor( [self.stoi.get(elt,self.stoi[DefaultLexer.UNK_TOKEN]) for elt in word_sequence] )
         return self.embedding(xinput)
 
+class MultilingualLexer(nn.Module):
+    """
+    This returns embeddings from multilingual BERT
+    """
+    def __init__(self):
+        self.tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-uncased')
+        self.transformer = BertModel.from_pretrained('bert-base-multilingual-uncased')
+
+    def encode2bpe(self,text):
+        """
+        Turns a normal string into a list of bpe string
+        """
+        return self.tokenizer.tokenize(text)
+        
+    def forward(self,bpe_string):
+        """
+        Generates an embedding sequence for the bpe encoded sentence
+        """
+        tok_tensor = torch.tensor([self.tokenizer.convert_tokens_to_ids(bpe_string)])
+        return self.transformer(tok_tensor)
+        
+
+lexer = MultilingualLexer()
+enc = lexer.encode2bpe("Bonjour les gens !")
+print(lexer(enc))
+exit(0)
+        
 class SelectiveBPELexer(nn.Module):
     """
     This class selects one BPE to be the the word vector.
@@ -105,7 +134,7 @@ class SelectiveBPELexer(nn.Module):
       Loads the transformer model from path
       """
       def fix_state_dict(state_dict):
-        # create new OrderedDict that does not contain `module.`
+        # create a new OrderedDict that does not contain `module.`
         from collections import OrderedDict
         new_state_dict = OrderedDict()
         for k, v in state_dict.items():
@@ -113,7 +142,7 @@ class SelectiveBPELexer(nn.Module):
             new_state_dict[name] = v
         return new_state_dict
 
-  
+   
       reloaded = torch.load(path,map_location=torch.device('cpu'))
       params = AttrDict(reloaded['params']) 
       self.dico = Dictionary(reloaded['dico_id2word'], reloaded['dico_word2id'], reloaded['dico_counts'])
