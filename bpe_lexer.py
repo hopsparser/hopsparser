@@ -111,7 +111,6 @@ class MultilingualLexer(nn.Module):
         Generates an embedding sequence for the bpe encoded sentence
         """
         bpe_sequence = bpe_sequence.split()
-        print(bpe_sequence)
         bpe_sequence = [bpe_tok for bpe_tok in bpe_sequence if not bpe_tok.startswith('##')]
         tok_tensor = torch.tensor([self.tokenizer.convert_tokens_to_ids(bpe_sequence)])
         hidden,attention = self.transformer(tok_tensor)
