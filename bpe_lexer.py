@@ -95,6 +95,8 @@ class MultilingualLexer(nn.Module):
     This returns embeddings from multilingual BERT
     """
     def __init__(self):
+
+        super(MultilingualLexer, self).__init__()
         self.tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-uncased')
         self.transformer = BertModel.from_pretrained('bert-base-multilingual-uncased')
 
@@ -104,18 +106,14 @@ class MultilingualLexer(nn.Module):
         """
         return self.tokenizer.tokenize(text)
         
-    def forward(self,bpe_string):
+    def forward(self,bpe_sequence):
         """
         Generates an embedding sequence for the bpe encoded sentence
         """
-        tok_tensor = torch.tensor([self.tokenizer.convert_tokens_to_ids(bpe_string)])
-        return self.transformer(tok_tensor)
-        
-
-#lexer = MultilingualLexer()
-#enc = lexer.encode2bpe("Bonjour les gens !")
-#print(lexer(enc))
-#exit(0)
+        bpe_sequence = [bpe_tok for bpe_tok in bpe_sequence if not bpe_tok.startswith('##')]
+        tok_tensor = torch.tensor([self.tokenizer.convert_tokens_to_ids(bpe_sequence)])
+        hidden,attention = self.transformer(tok_tensor)
+        return hidden
         
 class SelectiveBPELexer(nn.Module):
     """
@@ -155,7 +153,8 @@ class SelectiveBPELexer(nn.Module):
       # build model / reload weights
       self.transformer = TransformerModel(params, self.dico, True, True)
       self.transformer.eval()
-      self.transformer.load_state_dict(fix_state_dict(reloaded['model']))          
+      #self.transformer.load_state_dict(fix_state_dict(reloaded['model']))          
+      self.transformer.load_state_dict(reloaded['model'])          
 
     def forward(self,bpe_string):  
       """
@@ -252,11 +251,18 @@ class AveragingBPELexer(nn.Module):
 
       
 if __name__ == '__main__':
-    
+
+
+          
+#lexer = MultilingualLexer()
+#enc = lexer.encode2bpe("Bonjour les gens !")
+#print(enc)
+#print(lexer(enc),lexer(enc).size())
+#exit(0)
     dataset = DatasetBPE('/Users/bcrabbe/Desktop/MCVF_CORPUS/script/example.txt','train-01')
      
     print(dataset.sentences)
-    lexer = LexerBPE('frwiki_embed1024_layers12_heads16/model-002.pth',256,1024)
+    lexer =  SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
     for seq in dataset:
         embeddings = lexer(seq)
         print(embeddings.size()) 
