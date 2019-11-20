@@ -104,6 +104,7 @@ class MultilingualLexer(nn.Module):
         """
         Turns a normal string into a bpe string
         """
+        print(text)
         return ' '.join(self.tokenizer.tokenize(text))
         
     def forward(self,bpe_sequence):
