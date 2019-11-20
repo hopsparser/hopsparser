@@ -102,14 +102,15 @@ class MultilingualLexer(nn.Module):
 
     def encode2bpe(self,text):
         """
-        Turns a normal string into a list of bpe string
+        Turns a normal string into a bpe string
         """
-        return self.tokenizer.tokenize(text)
+        return ' '.join(self.tokenizer.tokenize(text))
         
     def forward(self,bpe_sequence):
         """
         Generates an embedding sequence for the bpe encoded sentence
         """
+        bpe_sequences = bpe.sequence.split()
         bpe_sequence = [bpe_tok for bpe_tok in bpe_sequence if not bpe_tok.startswith('##')]
         tok_tensor = torch.tensor([self.tokenizer.convert_tokens_to_ids(bpe_sequence)])
         hidden,attention = self.transformer(tok_tensor)

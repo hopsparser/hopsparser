@@ -174,14 +174,17 @@ class CovingtonParser(nn.Module):
         with torch.no_grad():
             self.eval()
             for idx in tqdm(range(len(sentlist))):
-                bpe_toks    = bpe_dataset[idx]
+                if multilingual:
+                    bpe_toks  = lexer.encode2bpe(' '.join(train_trees[idx].words))
+                else:
+                    bpe_toks  = bpe_trainset[idx]
                 xembeddings = lexer.forward(bpe_toks)
                 #print(sentlist[idx])
                 deptree = self.forward(xembeddings,K)      
                 deptree.words = sentlist[idx]
                 yield deptree
                 
-    def train_model(self,bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,epochs,learning_rate=0.01,modelname='xlm'):
+    def train_model(self,bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,epochs,learning_rate=0.01,modelname='xlm',multilingual=True):
         """
         Args:
             bpe_trainset(DatasetBPE): a Dataset with BPE encoded sentences
@@ -205,11 +208,13 @@ class CovingtonParser(nn.Module):
             try:
                 for idx in tqdm(sample(idxes,len(idxes))):
                     refD          = CovingtonParser.oracle_derivation( train_trees[idx] )
-                    bpe_toks      = bpe_trainset[idx]
-                    xembeddings   = lexer.forward(bpe_toks)
-                    lembeddings,_ = self.lstm(xembeddings.unsqueeze(dim=0))
+                    if multilingual:
+                        bpe_toks  = lexer.encode2bpe(' '.join(train_trees[idx].words))
+                    else:
+                        bpe_toks  = bpe_trainset[idx]
+                    xembeddings   = lexer.forward(' '.join(bpe_toks) )
+                    lembeddings,_ = self.lstm(xembeddings.unsqueeze(dim = 0)) 
                     lembeddings   = lembeddings.squeeze(dim=0) 
-
                     config        = self.init_config(len(train_trees[idx].words))
                     optimizer.zero_grad() 
                     for (act_type,label) in refD:
@@ -252,7 +257,10 @@ class CovingtonParser(nn.Module):
             idxes = list(range(len(ref_trees)))        
             for idx in tqdm(sample(idxes,len(idxes))):
                 refD        = CovingtonParser.oracle_derivation( ref_trees[idx] )
-                bpe_toks    = bpe_dataset[idx]
+                if multilingual:
+                    bpe_toks  = lexer.encode2bpe(' '.join(train_trees[idx].words))
+                else:
+                    bpe_toks  = bpe_trainset[idx]
                 xembeddings = lexer.forward(bpe_toks)
                 lembeddings,_ = self.lstm(xembeddings.unsqueeze(dim=0))
                 lembeddings = lembeddings.squeeze(dim=0) 
@@ -404,7 +412,7 @@ if __name__ == "__main__":
 
     #lexer   = SelectiveBPELexer('bert-base-lowercase/best-valid_fr_mlm_ppl.pth',768)
     lexer   = MultilingualLexer( ) 
-    parser  = CovingtonParser(768,512,256,labels,dropout=0.3)   
+    parser  = CovingtonParser(768,512,256,labels,dropout=0.3,multilingual=True)   
     parser.train_model(bpe_trainset,train_trees,bpe_validset,valid_trees,lexer,15,learning_rate=0.01,modelname=modelname)
   
     #lexer  = SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
