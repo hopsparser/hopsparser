@@ -115,7 +115,7 @@ class MultilingualLexer(nn.Module):
         hidden,attention = self.transformer(tok_tensor)
         hidden = hidden.squeeze(dim=0)
         hidden = hidden.detach()
-        return return  hidden
+        return hidden
         
 class SelectiveBPELexer(nn.Module):
     """
