@@ -113,8 +113,9 @@ class MultilingualLexer(nn.Module):
         bpe_sequence = [bpe_tok for bpe_tok in bpe_sequence if not bpe_tok.startswith('##')]
         tok_tensor = torch.tensor([self.tokenizer.convert_tokens_to_ids(bpe_sequence)])
         hidden,attention = self.transformer(tok_tensor)
-        #hidden = hidden.detach()
-        return hidden.squeeze(dim=0).detach()
+        hidden = hidden.squeeze(dim=0)
+        hidden = hidden.detach()
+        return return  hidden
         
 class SelectiveBPELexer(nn.Module):
     """
@@ -236,9 +237,9 @@ class AveragingBPELexer(nn.Module):
           sidxes       = torch.LongTensor([self.dico.index(w) for w in bpe_sequence]).unsqueeze(dim=1)
           L            = torch.LongTensor([len(bpe_sequence)])
           bpe_tensor   = self.transformer('fwd',x=sidxes,lengths= L,langs=None, causal=False).contiguous()
-          bpe_tensor   = bpe_tensor.detach() #prevents backprop into the transformer
-          bpe_tensor   = bpe_tensor.squeeze() if bpe_tensor.dim() > 2 else bpe_tensor
-          bpe_tensor   = bpe_tensor.unsqueeze(dim=0) if bpe_tensor.dim() < 2 else bpe_tensor
+          bpe_tensor   = bpe_tensor.detach () #prevents backprop into the transformer
+          bpe_tensor   = bpe_tensor.squeeze()        if bpe_tensor.dim() > 2 else bpe_tensor 
+          bpe_tensor   = bpe_tensor.unsqueeze(dim=0) if bpe_tensor.dim() < 2 else bpe_tensor 
 
           emb_buffer    = [ ]
           word_sequence = [ ]
