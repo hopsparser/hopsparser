@@ -247,8 +247,8 @@ class GraphParser(nn.Module):
                     lloss  = label_loss_fn(label_predictions,ref_labels)
                     lloss.backward( )
                     optimizer.step( )
-                if batch_idx % 100 == 0:
-                    print('processed',(1+batch_idx)*32,'trees')
+                if batch_idx > 0 and batch_idx % 100 == 0:
+                    print(batch_idx,'processed',(1+batch_idx)*32,'trees')
 
                 
     def predict(self,wordlist):
