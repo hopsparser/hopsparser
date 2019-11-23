@@ -286,7 +286,7 @@ class GraphParser(nn.Module):
                     gov_embeddings    = input_seq[ref_gov_idxes]
                     print('depsembeddings',deps_embeddings)
                     print(ref_deps_idxes)
-                    print([tok_sequence[dep] for dep in ref_deps_idxes.cpu().numpy() if dep != -1])
+                    print([tok_sequence[dep-1] for dep in ref_deps_idxes.cpu().numpy() if dep != -1])
                     label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
                     print('preds',label_predictions)
                     lloss  = label_loss_fn(label_predictions,ref_labels)
