@@ -86,7 +86,7 @@ class DependencyDataset(data.Dataset):
         self.refgovs   = [ ]
         self.reflabels = [ ]
         for tree in self.treelist:
-            print(tree) # +1 comes from the dummy root padding
+            #print(tree) # +1 comes from the dummy root padding
             self.refgovs.append(   [gov+1 for (gov,lbl,dep) in tree.get_all_edges()] )
             self.refdeps.append(   [dep+1 for (gov,lbl,dep) in tree.get_all_edges()] )
             self.reflabels.append( [self.labtoi[lbl] for (gov,lbl,dep) in tree.get_all_edges()] ) 
@@ -213,6 +213,7 @@ class GraphParser(nn.Module):
         return self.labB(dep_embeddings,head_embeddings) 
     
     def train(self,dataset,epochs):
+        
         print("N =",len(dataset))
         edge_loss_fn  = nn.CrossEntropyLoss(reduction = 'sum',ignore_index=DependencyDataset.ROOT_GOV_IDX) #ignores the dummy root index
         label_loss_fn = nn.CrossEntropyLoss(reduction = 'sum') 
