@@ -281,7 +281,7 @@ arc_mlp     = 75
 lab_mlp     = 75
 lstm_hidden = 300
 model       = GraphParser(dataset.itos,dataset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
-model.train(dataset,1000)
+model.train(dataset,1000) 
 #for tree in treelist:
 #    print(tree)
 #    print() 
