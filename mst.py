@@ -32,7 +32,7 @@ class DependencyDataset(data.Dataset):
         while tree:
             if len(tree) < 40:
                 self.treelist.append(tree)
-                tree = DepGraph.read_tree(istream)             
+            tree = DepGraph.read_tree(istream)             
         istream.close()
         shuffle(self.treelist)
         #self.treelist.sort(key=lambda x:len(x)) # we do not make real batches later
