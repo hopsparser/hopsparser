@@ -290,7 +290,7 @@ class GraphParser(nn.Module):
         
     def predict(self,dataset):
 
-        softmax = nn.Softmax(dim=1)
+        softmax = nn.LogSoftmax(dim=1)
         
         with torch.no_grad():
             dataloader = DataLoader(dataset,batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
