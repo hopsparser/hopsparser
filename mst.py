@@ -246,7 +246,7 @@ class GraphParser(nn.Module):
                     lloss.backward( )
                     lN   += len(ref_labels)
                     lNLL += lloss.item()
-                    print('train dep labels',torch.cat(ref_deps_idxes,ref_gov_idxes,ref_labels))
+                    print('train dep labels',torch.cat([ref_deps_idxes,ref_gov_idxes,ref_labels]))
                     optimizer.step( )
             print("epoch",ep)
             print('TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
