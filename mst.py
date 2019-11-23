@@ -332,7 +332,7 @@ model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc
 model.to(xdevice)
 model.train(trainset,devset,1)
 print('running test')
-ostream = open('testout.conll')
+ostream = open('testout.conll','w')
 for tree in model.predict(testset):
     print(tree,file=ostream)
 ostream.close()
