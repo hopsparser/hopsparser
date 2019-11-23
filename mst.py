@@ -32,7 +32,6 @@ class DependencyDataset(data.Dataset):
         while tree:
             if len(tree) <= 15: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
-                break
             else:
                 print('sentence discarded',len(tree))
             tree = DepGraph.read_tree(istream)             
@@ -307,9 +306,9 @@ class GraphParser(nn.Module):
                     attention_scores  = self.edge_biaffine(self.dep_arc(deps_embeddings),self.head_arc(gov_embeddings))
                     attention_matrix  = attention_scores.view(N,N)
                     #3. Compute max spanning tree
-                    M                   = attention_matrix.cpu().numpy()[1:,1:]                #log-normalize scores ?
+                    M                   = attention_matrix.cpu().numpy()[1:,1:].T         
                     G                   = nx.from_numpy_matrix(M,create_using=nx.DiGraph)
-                    A                   = nx.maximum_spanning_arborescence(G,default=0)    #this performs a sum
+                    A                   = nx.maximum_spanning_arborescence(G,default=0)    #this performs a max (sum of scores)
                     #4. Compute edge labels 
                     edgelist            = list(A.edges)
                     gov_embeddings      = input_seq [ torch.tensor( [ gov for (gov,dep) in edgelist ] ) ]
