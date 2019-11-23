@@ -30,7 +30,7 @@ class DependencyDataset(data.Dataset):
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
         while tree:
-            if len(tree) < 75: #problem of memory explosion later with very long sentences.
+            if len(tree) < 10: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
             else:
                 print('sentence discarded',len(tree))
@@ -43,6 +43,7 @@ class DependencyDataset(data.Dataset):
             self.stoi = {token:idx for idx,token in enumerate(self.itos)}
         else:
             self.init_vocab(self.treelist)
+            
         if use_labels:
             self.itolab = use_labels
             self.labtoi = {label:idx for idx,label in enumerate(self.itolab)}
@@ -126,6 +127,7 @@ def dep_collate_fn(batch):
     """
     That's the collate function for batching edges
     """
+    print(batch)
     return [ ((torch.tensor(elt['xdep']), torch.tensor(elt['refidx'])),(torch.tensor(elt['refdeps']), torch.tensor(elt['refgovs']),torch.tensor(elt['reflabels']))) for elt in batch ]
 
 
