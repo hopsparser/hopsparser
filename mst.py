@@ -270,6 +270,7 @@ class GraphParser(nn.Module):
                     embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
                     input_seq,end     = self.rnn(embeddings)
                     input_seq         = input_seq.squeeze(dim=0)
+                    print('lstm',input_seq)
                     #2.  Compute edge attention from flat matrix representation
                     deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
                     gov_embeddings    = input_seq.repeat(N,1)
@@ -304,6 +305,7 @@ class GraphParser(nn.Module):
                     #1. Run LSTM on raw input and get word embeddings
                     embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
                     input_seq,end     = self.rnn(embeddings)
+                    print('lstm',input_seq)
                     input_seq         = input_seq.squeeze(dim=0)
                     #2.  Compute edge attention from flat matrix representation
                     deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
