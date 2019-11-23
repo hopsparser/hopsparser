@@ -307,7 +307,7 @@ class GraphParser(nn.Module):
                     attention_scores  = self.edge_biaffine(self.dep_arc(deps_embeddings),self.head_arc(gov_embeddings))
                     attention_matrix  = attention_scores.view(N,N)
                     #3. Compute max spanning tree
-                    M                   = attention_matrix.cpu().numpy()[1:,1:].T                #log-normalize scores ?
+                    M                   = attention_matrix.cpu().numpy()[1:,1:]                #log-normalize scores ?
                     G                   = nx.from_numpy_matrix(M,create_using=nx.DiGraph)
                     A                   = nx.maximum_spanning_arborescence(G,default=0)    #this performs a sum
                     #4. Compute edge labels 
