@@ -326,7 +326,7 @@ class GraphParser(nn.Module):
                         gov_embeddings      = input_seq [ torch.tensor( [ gov-1 for (gov,dep) in edgelist ] ) ]
                         deps_embeddings     = input_seq [ torch.tensor( [ dep-1 for (gov,dep) in edgelist ] ) ]                        
                         print('depsembeddings',deps_embeddings)
-                        print([tok_sequence[dep] for dep in deps_embeddings.cpu().numpy()])
+                        print([tok_sequence[dep-1] for dep in for (_,dep) in edgelist])
                         label_predictions   = softmax(self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings)))
                         pred_idxes          = torch.argmax(label_predictions,dim=1)
                         pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
