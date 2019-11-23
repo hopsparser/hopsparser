@@ -266,8 +266,10 @@ class GraphParser(nn.Module):
             dg          = DepGraph([(gov,label,dep) for ((gov,dep),label) in zip(A.edges,pred_labels)],wordlist=wordlist)
             print(dg)
 
-torch.cuda.set_device(1)
-            
+
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+print('device',device)
+
 dataset = DependencyDataset('spmrl/dev.French.gold.conll')
             
 #istream = open('spmrl/dev.French.gold.conll')
@@ -281,6 +283,7 @@ arc_mlp     = 75
 lab_mlp     = 75
 lstm_hidden = 300
 model       = GraphParser(dataset.itos,dataset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
+model.to(device)
 model.train(dataset,1000) 
 #for tree in treelist:
 #    print(tree)
