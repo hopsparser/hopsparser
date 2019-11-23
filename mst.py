@@ -30,7 +30,7 @@ class DependencyDataset(data.Dataset):
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
         while tree:
-            if len(tree) <= 100: #problem of memory explosion later with very long sentences.
+            if len(tree) <= 75: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
             else:
                 print('sentence discarded',len(tree))
@@ -102,7 +102,7 @@ class DependencyDataset(data.Dataset):
             #print(tree) # +1 comes from the dummy root padding
             self.refgovs.append(   [gov+1 for (gov,lbl,dep) in tree.get_all_edges()] )
             self.refdeps.append(   [dep+1 for (gov,lbl,dep) in tree.get_all_edges()] )
-            self.reflabels.append( [self.labtoi[lbl] for (gov,lbl,dep) in tree.get_all_edges()] ) 
+            self.reflabels.append( [self.labtoi[lbl] for (gov,lbl,dep) in tree.get_all_edges() if lbl in self.labtoi] ) #in case the label is unknown, skip it ! 
         
     def __len__(self):      
         return len(self.treelist)
