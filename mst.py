@@ -19,8 +19,8 @@ class DependencyDataset(data.Dataset):
     A representation of the DepBank for efficient processing.
     This is a sorted dataset
     """
-    UNK_WORD = '<unk>'
-    PAD_WORD = '<pad>'
+    UNK_WORD     = '<unk>'
+    PAD_WORD     = '<pad>'
     PAD_WORD_IDX = -1
     ROOT         = '<root>'
     ROOT_GOV_IDX = -1
@@ -30,7 +30,7 @@ class DependencyDataset(data.Dataset):
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
         while tree:
-            if len(tree) < 40:
+            if len(tree) < 40: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
             tree = DepGraph.read_tree(istream)             
         istream.close()
@@ -213,16 +213,16 @@ class GraphParser(nn.Module):
         """
         return self.labB(dep_embeddings,head_embeddings) 
     
-    def train(self,dataset,epochs):
+    def train(self,trainset,devset,epochs):
         
-        print("N =",len(dataset))
+        print("N =",len(trainset))
         edge_loss_fn  = nn.CrossEntropyLoss(reduction = 'sum',ignore_index=DependencyDataset.ROOT_GOV_IDX) #ignores the dummy root index
         label_loss_fn = nn.CrossEntropyLoss(reduction = 'sum') 
         optimizer     = optim.Adam( self.parameters() )
 
         for ep in range(epochs):
             eNLL,eN,lNLL,lN = 0,0,0,0
-            dataloader = DataLoader(dataset, batch_size=16,shuffle=False, num_workers=4,collate_fn=dep_collate_fn)
+            dataloader = DataLoader(trainset, batch_size=16,shuffle=False, num_workers=4,collate_fn=dep_collate_fn)
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                 for (edgedata,labeldata) in batch:
                     optimizer.zero_grad()  
@@ -252,9 +252,47 @@ class GraphParser(nn.Module):
                     lN   += len(ref_labels)
                     lNLL += lloss.item()
                     optimizer.step( )
-            print("epoch",ep,'mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
+            print("epoch",ep)
+            print('TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
+            deveNLL,devlNLL = self.eval(devset)
+            print('DEV  : mean NLL(edges)',deveNLL,'mean NLL(labels)',devlNLL)
 
-                
+    def eval(self,dataset):
+        
+        edge_loss_fn  = nn.CrossEntropyLoss(reduction = 'sum',ignore_index=DependencyDataset.ROOT_GOV_IDX) #ignores the dummy root index
+        label_loss_fn = nn.CrossEntropyLoss(reduction = 'sum')
+        
+        with torch.no_grad:
+            eNLL,eN,lNLL,lN = 0,0,0,0
+            dataloader = DataLoader(dataset, batch_size=16,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler())
+            for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
+                for (edgedata,labeldata) in batch:
+                    optimizer.zero_grad()  
+                    word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
+                    N = len(word_emb_idxes)
+                    #1. Run LSTM on raw input and get word embeddings
+                    embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
+                    input_seq,end     = self.rnn(embeddings)
+                    input_seq         = input_seq.squeeze(dim=0)
+                    #2.  Compute edge attention from flat matrix representation
+                    deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
+                    gov_embeddings    = input_seq.repeat(N,1)
+                    attention_scores  = self.edge_biaffine(self.dep_arc(deps_embeddings),self.head_arc(gov_embeddings))
+                    attention_matrix  = attention_scores.view(N,N)
+                    #3. Compute loss for edges
+                    eloss = edge_loss_fn(attention_matrix,ref_gov_idxes)
+                    eN   += N
+                    eNLL += eloss.item()
+                    #4. Compute loss for labels
+                    ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice),labeldata[2].to(xdevice)
+                    deps_embeddings   = input_seq[ref_deps_idxes]
+                    gov_embeddings    = input_seq[ref_gov_idxes]
+                    label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
+                    lloss  = label_loss_fn(label_predictions,ref_labels)
+                    lN   += len(ref_labels)
+                    lNLL += lloss.item()
+            return (eNLL/eN,lNLL/lN)
+        
     def predict(self,wordlist):
         
         with torch.no_grad():
@@ -280,8 +318,10 @@ class GraphParser(nn.Module):
 xdevice = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 print('device',xdevice)
 
-dataset = DependencyDataset('spmrl/train.French.gold.conll')
-            
+trainset = DependencyDataset('spmrl/train.French.gold.conll')
+devset   = DependencyDataset('spmrl/dev.French.gold.conll')
+
+
 #istream = open('spmrl/dev.French.gold.conll')
 #treelist = [ DepGraph.read_tree(istream) for _ in range(100)    ]
 #treelist = [ tree  for tree in treelist if len(tree.words) < 20 ]
@@ -292,9 +332,9 @@ emb_size    = 300
 arc_mlp     = 75
 lab_mlp     = 75
 lstm_hidden = 300
-model       = GraphParser(dataset.itos,dataset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
+model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
 model.to(xdevice)
-model.train(dataset,10) 
+model.train(trainset,devset,10) 
 #for tree in treelist:
 #    print(tree)
 #    print() 
