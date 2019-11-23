@@ -221,7 +221,7 @@ class GraphParser(nn.Module):
                     optimizer.zero_grad()  
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
-                    print(list(zip(range(N),ref_gov_idxes.cpu().numpy())))
+                    print(list(zip(ref_gov_idxes.cpu().numpy(),range(N))))
                     #1. Run LSTM on raw input and get word embeddings
                     embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
                     input_seq,end     = self.rnn(embeddings)
