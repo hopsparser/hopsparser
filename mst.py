@@ -29,7 +29,7 @@ class DependencyDataset(data.Dataset):
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
         while tree:
-            if len(tree) <= 15: #problem of memory explosion later with very long sentences.
+            if len(tree) < 15: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
                 print(tree)
                 print('',flush=True)
@@ -222,7 +222,7 @@ class GraphParser(nn.Module):
                     optimizer.zero_grad()  
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
-                    print(list(zip(ref_gov_idxes.cpu().numpy(),range(N))))
+                    print('edges',list(zip(ref_gov_idxes.cpu().numpy(),range(N))))
                     #1. Run LSTM on raw input and get word embeddings
                     embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
                     input_seq,end     = self.rnn(embeddings)
@@ -241,6 +241,7 @@ class GraphParser(nn.Module):
                     ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice),labeldata[2].to(xdevice)
                     deps_embeddings   = input_seq[ref_deps_idxes]
                     gov_embeddings    = input_seq[ref_gov_idxes]
+                    print('labels',list(zip(ref_deps_idxes.cpu().numpy(),ref_gov_idxes.cpu().numpy(),ref_labels.cpu().numpy()))) 
                     label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
                     lloss  = label_loss_fn(label_predictions,ref_labels)
                     lloss.backward( )
