@@ -311,7 +311,9 @@ class GraphParser(nn.Module):
                     #3. Compute max spanning tree
                     M                   = attention_matrix.cpu().numpy()[1:,1:].T                #log-normalize scores ?
                     G                   = nx.from_numpy_matrix(M,create_using=nx.DiGraph)
+                    print('Full graph',G.edges)
                     A                   = nx.maximum_spanning_arborescence(G,default=0)    #this performs a sum
+                    print('MST',A)
                     #4. Compute edge labels 
                     edgelist            = list(A.edges)
                     gov_embeddings      = input_seq [ torch.tensor( [ gov for (gov,dep) in edgelist ] ) ]
