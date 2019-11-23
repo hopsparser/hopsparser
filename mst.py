@@ -217,7 +217,7 @@ class GraphParser(nn.Module):
         for ep in range(epochs):
             if ep % 100 == 0:
                 print(ep)
-            dataloader = DataLoader(dataset, batch_size=2,shuffle=False, num_workers=1,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
+            dataloader = DataLoader(dataset, batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in enumerate(dataloader):
                 for (edgedata,labeldata) in batch:
                     optimizer.zero_grad() 
