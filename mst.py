@@ -220,10 +220,9 @@ class GraphParser(nn.Module):
         optimizer     = optim.Adam( self.parameters() )
 
         for ep in range(epochs):
-           
+            print("epoch",e)
             dataloader = DataLoader(dataset, batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
-            for batch_idx, batch in enumerate(dataloader):
-                print(batch_idx)
+            for batch_idx, batch in tqdm(enumerate(dataloader)):
                 for (edgedata,labeldata) in batch:
                     optimizer.zero_grad() 
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
@@ -248,8 +247,6 @@ class GraphParser(nn.Module):
                     lloss  = label_loss_fn(label_predictions,ref_labels)
                     lloss.backward( )
                     optimizer.step( )
-                if batch_idx > 0 and batch_idx % 100 == 0:
-                    print(batch_idx,'processed',(1+batch_idx)*32,'trees')
 
                 
     def predict(self,wordlist):
