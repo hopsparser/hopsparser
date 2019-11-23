@@ -30,8 +30,10 @@ class DependencyDataset(data.Dataset):
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
         while tree:
-            if len(tree) < 40: #problem of memory explosion later with very long sentences.
+            if len(tree) < 60: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
+            else:
+                print('sentence discarded',len(tree))
             tree = DepGraph.read_tree(istream)             
         istream.close()
         shuffle(self.treelist)
@@ -262,7 +264,7 @@ class GraphParser(nn.Module):
         edge_loss_fn  = nn.CrossEntropyLoss(reduction = 'sum',ignore_index=DependencyDataset.ROOT_GOV_IDX) #ignores the dummy root index
         label_loss_fn = nn.CrossEntropyLoss(reduction = 'sum')
         
-        with torch.no_grad:
+        with torch.no_grad():
             eNLL,eN,lNLL,lN = 0,0,0,0
             dataloader = DataLoader(dataset, batch_size=16,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler())
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
