@@ -115,7 +115,7 @@ def dep_collate_fn(batch):
     #print(batch_len)
     #xdep     = [ torch.tensor(elt['xdep']   + [DependencyDataset.PAD_WORD_IDX]*(batch_len - len(elt['xdep']))) for elt in batch]
     #refidxes = [ torch.tensor(elt['refidx'] + [DependencyDataset.PAD_WORD_IDX]*(batch_len - len(elt['refidx']))) for elt in batch]
-    return [ ((torch.tensor(elt['xdep'],device=xdevice), torch.tensor(elt['refidx'],device=xdevice)),(torch.tensor(elt['refdeps'],device=xdevice), torch.tensor(elt['refgovs'],device=xdevice),torch.tensor(elt['reflabels'],device=xdevice))) for elt in batch ]
+    return [ ((torch.tensor(elt['xdep']), torch.tensor(elt['refidx'])),(torch.tensor(elt['refdeps']), torch.tensor(elt['refgovs']),torch.tensor(elt['reflabels']))) for elt in batch ]
    
 
     
@@ -221,7 +221,7 @@ class GraphParser(nn.Module):
             for batch_idx, batch in enumerate(dataloader):
                 for (edgedata,labeldata) in batch:
                     optimizer.zero_grad() 
-                    word_emb_idxes,ref_gov_idxes = edgedata
+                    word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
                     #1. Run LSTM on raw input and get word embeddings
                     embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
@@ -236,7 +236,7 @@ class GraphParser(nn.Module):
                     eloss = edge_loss_fn(attention_matrix,ref_gov_idxes)
                     eloss.backward(retain_graph=True)
                     #4. Compute loss and backprop for labels
-                    ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata
+                    ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice)
                     deps_embeddings   = input_seq[ref_deps_idxes]
                     gov_embeddings    = input_seq[ref_gov_idxes]
                     label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
