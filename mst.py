@@ -30,8 +30,9 @@ class DependencyDataset(data.Dataset):
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
         while tree:
-            if len(tree) <= 75: #problem of memory explosion later with very long sentences.
+            if len(tree) <= 15: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
+                break
             else:
                 print('sentence discarded',len(tree))
             tree = DepGraph.read_tree(istream)             
@@ -305,6 +306,7 @@ class GraphParser(nn.Module):
                     gov_embeddings      = input_seq [ torch.tensor( [ gov for (gov,dep) in edgelist ] ) ]
                     deps_embeddings     = input_seq [ torch.tensor( [ dep for (gov,dep) in edgelist ] ) ]
                     label_predictions   = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
+                    print(label_predictions)
                     pred_idxes          = torch.argmax(label_predictions)
                     pred_labels         = [ self.itolab[idx] for idx in pred_idxes ]
                     dg                  = DepGraph([(gov,label,dep) for ((gov,dep),label) in zip(edgelist,pred_labels)],wordlist=wordlist)
@@ -330,9 +332,9 @@ lab_mlp     = 75
 lstm_hidden = 300
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
 model.to(xdevice)
-model.train(trainset,devset,1)
+model.train(trainset,trainset,1)
 print('running test')
 ostream = open('testout.conll','w')
-for tree in model.predict(testset):
+for tree in model.predict(trainset):
     print(tree,file=ostream)
 ostream.close()
