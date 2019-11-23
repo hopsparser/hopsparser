@@ -30,7 +30,7 @@ class DependencyDataset(data.Dataset):
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
         while tree:
-            if len(tree) < 60: #problem of memory explosion later with very long sentences.
+            if len(tree) < 75: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
             else:
                 print('sentence discarded',len(tree))
@@ -64,7 +64,7 @@ class DependencyDataset(data.Dataset):
         labels      = set([ lbl for tree in treelist for (gov,lbl,dep) in tree.get_all_edges()])
         self.itolab = list(labels)
         self.labtoi = {label:idx for idx,label in enumerate(self.itolab)}
-        
+
     def preprocess_edges(self):
         """
         Encodes the dataset and makes it ready for processing.
@@ -266,7 +266,7 @@ class GraphParser(nn.Module):
         
         with torch.no_grad():
             eNLL,eN,lNLL,lN = 0,0,0,0
-            dataloader = DataLoader(dataset, batch_size=16,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler())
+            dataloader = DataLoader(dataset, batch_size=16,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                 for (edgedata,labeldata) in batch:
                     optimizer.zero_grad()  
