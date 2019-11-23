@@ -102,8 +102,8 @@ class DependencyDataset(data.Dataset):
         self.tokens    = [ ]
         for tree in self.treelist:
             #print(tree) # +1 comes from the dummy root padding
-            self.refgovs.append(   [gov+1 for (gov,lbl,dep) in tree.get_all_edges()] )
-            self.refdeps.append(   [dep+1 for (gov,lbl,dep) in tree.get_all_edges()] )
+            self.refgovs.append(   [gov for (gov,lbl,dep) in tree.get_all_edges()] )
+            self.refdeps.append(   [dep for (gov,lbl,dep) in tree.get_all_edges()] )
             self.reflabels.append( [self.labtoi[lbl] for (gov,lbl,dep) in tree.get_all_edges() if lbl in self.labtoi] ) #in case the label is unknown, skip it ! 
             self.tokens.append(tree.words)
             
