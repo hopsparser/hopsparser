@@ -241,7 +241,8 @@ class GraphParser(nn.Module):
                     ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice),labeldata[2].to(xdevice)
                     deps_embeddings   = input_seq[ref_deps_idxes]
                     gov_embeddings    = input_seq[ref_gov_idxes]
-                    print('labels',list(zip(ref_deps_idxes.cpu().numpy(),ref_gov_idxes.cpu().numpy(),ref_labels.cpu().numpy()))) 
+                    print('labels',list(zip(ref_gov_idxes.cpu().numpy(),ref_deps_idxes.cpu().numpy(),ref_labels.cpu().numpy())))
+                    print(self.itolab)
                     label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
                     lloss  = label_loss_fn(label_predictions,ref_labels)
                     lloss.backward( )
