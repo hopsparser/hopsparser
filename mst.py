@@ -27,7 +27,11 @@ class DependencyDataset(data.Dataset):
     
     def __init__(self,filename):
         istream       = open(filename)
-        self.treelist = [ DepGraph.read_tree(istream) for _ in range(1) ]
+        self.treelist = []
+        tree = DepGraph.read_tree(istream) 
+        while tree:
+            self.treelist.append(tree)
+            tree = DepGraph.read_tree(istream)             
         istream.close()
         shuffle(self.treelist)
         #self.treelist.sort(key=lambda x:len(x)) # we do not make real batches later
@@ -217,6 +221,7 @@ class GraphParser(nn.Module):
         for ep in range(epochs):
             if ep % 100 == 0:
                 print(ep)
+            
             dataloader = DataLoader(dataset, batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in enumerate(dataloader):
                 for (edgedata,labeldata) in batch:
@@ -284,7 +289,7 @@ lab_mlp     = 75
 lstm_hidden = 300
 model       = GraphParser(dataset.itos,dataset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
 model.to(xdevice)
-model.train(dataset,1000) 
+model.train(dataset,10) 
 #for tree in treelist:
 #    print(tree)
 #    print() 
