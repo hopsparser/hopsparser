@@ -333,6 +333,6 @@ model.to(xdevice)
 model.train(trainset,devset,1)
 print('running test')
 ostream = open('testout.conll')
-for tree in model.predict(testset)
+for tree in model.predict(testset):
     print(tree,file=ostream)
 ostream.close()
