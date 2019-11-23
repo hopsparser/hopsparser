@@ -319,7 +319,7 @@ class GraphParser(nn.Module):
                     if edgelist:
                         deps_embeddings     = input_seq [ torch.tensor( [ dep for (gov,dep) in edgelist ] ) ]
                         gov_embeddings      = input_seq [ torch.tensor( [ gov for (gov,dep) in edgelist ] ) ]
-                        label_predictions   = self.label_biaffine(self.head_lab(gov_embeddings),self.dep_lab(deps_embeddings))
+                        label_predictions   = softmax(self.label_biaffine(self.head_lab(gov_embeddings),self.dep_lab(deps_embeddings)))
                         pred_idxes          = torch.argmax(label_predictions,dim=1)
                         pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
                         print(label_predictions)
@@ -343,7 +343,7 @@ testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.
 #vocab    = [ word  for tree in treelist for word in tree.words  ]
 #labels   = [ label for tree in treelist for label in tree.get_all_labels() ]
 
-emb_size    = 10
+emb_size    = 30
 arc_mlp     = 150
 lab_mlp     = 50
 lstm_hidden = 100
