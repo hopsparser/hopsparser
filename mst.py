@@ -236,7 +236,7 @@ class GraphParser(nn.Module):
                     eloss = edge_loss_fn(attention_matrix,ref_gov_idxes)
                     eloss.backward(retain_graph=True)
                     #4. Compute loss and backprop for labels
-                    ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice)
+                    ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice),labeldata[2].to(xdevice)
                     deps_embeddings   = input_seq[ref_deps_idxes]
                     gov_embeddings    = input_seq[ref_gov_idxes]
                     label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
