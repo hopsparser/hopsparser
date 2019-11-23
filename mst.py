@@ -307,7 +307,7 @@ class GraphParser(nn.Module):
                     deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
                     gov_embeddings    = input_seq.repeat(N,1)
                     attention_scores  = self.edge_biaffine(self.head_arc(gov_embeddings),self.dep_arc(deps_embeddings))
-                    attention_matrix  = softmax(attention_scores.view(N,N))
+                    attention_matrix  = attention_scores.view(N,N)
                     #3. Compute max spanning tree
                     M                   = attention_matrix.cpu().numpy()[1:,1:].T         
                     G                   = nx.from_numpy_matrix(M,create_using=nx.DiGraph)
@@ -320,7 +320,8 @@ class GraphParser(nn.Module):
                     if edgelist:
                         deps_embeddings     = input_seq [ torch.tensor( [ dep for (gov,dep) in edgelist ] ) ]
                         gov_embeddings      = input_seq [ torch.tensor( [ gov for (gov,dep) in edgelist ] ) ]
-                        label_predictions   = self.label_biaffine(self.head_lab(gov_embeddings),self.dep_lab(deps_embeddings),)
+                        label_predictions   = self.label_biaffine(self.head_lab(gov_embeddings),self.dep_lab(deps_embeddings))
+                        print(label_predictions)
                         pred_idxes          = torch.argmax(label_predictions,dim=1)
                         pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
                         dg                  = DepGraph([(gov,label,dep) for ((gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
