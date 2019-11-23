@@ -31,8 +31,8 @@ class DependencyDataset(data.Dataset):
         while tree:
             if len(tree) <= 15: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
-            else:
-                print('sentence discarded',len(tree))
+                print(tree)
+                break
             tree = DepGraph.read_tree(istream)             
         istream.close()
         shuffle(self.treelist)
@@ -221,6 +221,7 @@ class GraphParser(nn.Module):
                     optimizer.zero_grad()  
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
+                    print(list(zip(range(N),ref_gov_idxes)))
                     #1. Run LSTM on raw input and get word embeddings
                     embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
                     input_seq,end     = self.rnn(embeddings)
@@ -311,7 +312,6 @@ class GraphParser(nn.Module):
                     #4. Compute edge labels 
                     edgelist            = list(A.edges)
                     if edgelist:
-                        print(edgelist)
                         gov_embeddings      = input_seq [ torch.tensor( [ gov for (gov,dep) in edgelist ] ) ]
                         deps_embeddings     = input_seq [ torch.tensor( [ dep for (gov,dep) in edgelist ] ) ]
                         label_predictions   = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
@@ -346,4 +346,5 @@ print('running test')
 ostream = open('testout.conll','w')
 for tree in model.predict(trainset):
     print(tree,file=ostream)
+    print('',file=ostream)
 ostream.close()
