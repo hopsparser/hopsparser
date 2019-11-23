@@ -223,6 +223,7 @@ class GraphParser(nn.Module):
            
             dataloader = DataLoader(dataset, batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in enumerate(dataloader):
+                print(batch_idx)
                 for (edgedata,labeldata) in batch:
                     optimizer.zero_grad() 
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
