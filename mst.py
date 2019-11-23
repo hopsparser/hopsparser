@@ -99,17 +99,24 @@ class DependencyDataset(data.Dataset):
         self.refdeps   = [ ]
         self.refgovs   = [ ]
         self.reflabels = [ ]
+        self.tokens    = [ ]
         for tree in self.treelist:
             #print(tree) # +1 comes from the dummy root padding
             self.refgovs.append(   [gov+1 for (gov,lbl,dep) in tree.get_all_edges()] )
             self.refdeps.append(   [dep+1 for (gov,lbl,dep) in tree.get_all_edges()] )
             self.reflabels.append( [self.labtoi[lbl] for (gov,lbl,dep) in tree.get_all_edges() if lbl in self.labtoi] ) #in case the label is unknown, skip it ! 
-        
+            self.tokens.append(tree.words)
+            
     def __len__(self):      
         return len(self.treelist)
     
     def __getitem__(self,idx):
-        return {'xdep':self.xdep[idx],'refidx':self.refidxes[idx],'refdeps':self.refdeps[idx],'refgovs':self.refgovs[idx],'reflabels':self.reflabels[idx]}
+        return {'xdep':self.xdep[idx],\
+                'refidx':self.refidxes[idx],\
+                'refdeps':self.refdeps[idx],\
+                'refgovs':self.refgovs[idx],\
+                'reflabels':self.reflabels[idx],\
+                'wordlist':self.tokens[idx]}
 
     @staticmethod
     def oracle_ancestors(depgraph):
@@ -128,7 +135,7 @@ def dep_collate_fn(batch):
     """
     That's the collate function for batching edges
     """
-    return [ ((torch.tensor(elt['xdep']), torch.tensor(elt['refidx'])),(torch.tensor(elt['refdeps']), torch.tensor(elt['refgovs']),torch.tensor(elt['reflabels']))) for elt in batch ]
+    return [ ((torch.tensor(elt['xdep']), torch.tensor(elt['refidx'])),(torch.tensor(elt['refdeps']), torch.tensor(elt['refgovs']),torch.tensor(elt['reflabels'])),elt['wordlist']) for elt in batch ]
 
 
 class MLP(nn.Module):
@@ -212,7 +219,7 @@ class GraphParser(nn.Module):
             eNLL,eN,lNLL,lN = 0,0,0,0
             dataloader = DataLoader(trainset, batch_size=16,shuffle=False, num_workers=4,collate_fn=dep_collate_fn)
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
-                for (edgedata,labeldata) in batch:
+                for (edgedata,labeldata,tok_sequence) in batch:
                     optimizer.zero_grad()  
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
@@ -254,7 +261,7 @@ class GraphParser(nn.Module):
             eNLL,eN,lNLL,lN = 0,0,0,0
             dataloader = DataLoader(dataset, batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
-                for (edgedata,labeldata) in batch:
+                for (edgedata,labeldata,tok_sequence) in batch:
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
                     #1. Run LSTM on raw input and get word embeddings
@@ -285,7 +292,7 @@ class GraphParser(nn.Module):
         with torch.no_grad():
             dataloader = DataLoader(dataset,batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
-                for (edgedata,labeldata) in batch:
+                for (edgedata,labeldata,tok_sequence) in batch:
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
                     #1. Run LSTM on raw input and get word embeddings
@@ -309,7 +316,7 @@ class GraphParser(nn.Module):
                     print(label_predictions)
                     pred_idxes          = torch.argmax(label_predictions,dim=1)
                     pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
-                    dg                  = DepGraph([(gov,label,dep) for ((gov,dep),label) in zip(edgelist,pred_labels)],wordlist=wordlist)
+                    dg                  = DepGraph([(gov,label,dep) for ((gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
                     yield dg
 
 
