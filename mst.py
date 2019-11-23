@@ -25,7 +25,7 @@ class DependencyDataset(data.Dataset):
     ROOT         = '<root>'
     ROOT_GOV_IDX = -1
     
-    def __init__(self,filename):
+    def __init__(self,filename,use_vocab=None,use_labels=None):
         istream       = open(filename)
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
@@ -38,8 +38,17 @@ class DependencyDataset(data.Dataset):
         istream.close()
         shuffle(self.treelist)
         #self.treelist.sort(key=lambda x:len(x)) # we do not make real batches later
-        self.init_vocab(self.treelist)
-        self.init_labels(self.treelist)
+        if use_vocab:
+            self.itos = use_vocab
+            self.stoi = {token:idx for idx,token in enumerate(self.itos)}
+        else:
+            self.init_vocab(self.treelist)
+        if use_labels:
+            self.itolab = use_labels
+            self.labtoi = {label:idx for idx,label in enumerate(self.itolab)}
+        else:
+            self.init_labels(self.treelist)
+            
         self.preprocess_edges()
         self.preprocess_labels()
 
@@ -117,15 +126,9 @@ def dep_collate_fn(batch):
     """
     That's the collate function for batching edges
     """
-    #WARNING: I currently commented out padding since I do not take advantage of batch structure at the moment
-    #batch_len = max(len(elt['xdep']) for elt in batch)
-    #print(batch_len)
-    #xdep     = [ torch.tensor(elt['xdep']   + [DependencyDataset.PAD_WORD_IDX]*(batch_len - len(elt['xdep']))) for elt in batch]
-    #refidxes = [ torch.tensor(elt['refidx'] + [DependencyDataset.PAD_WORD_IDX]*(batch_len - len(elt['refidx']))) for elt in batch]
     return [ ((torch.tensor(elt['xdep']), torch.tensor(elt['refidx'])),(torch.tensor(elt['refdeps']), torch.tensor(elt['refgovs']),torch.tensor(elt['reflabels']))) for elt in batch ]
-   
 
-    
+
 class MLP(nn.Module):
 
     def __init__(self,input_size,hidden_size,output_size):
@@ -136,8 +139,7 @@ class MLP(nn.Module):
         
     def forward(self,input):
         return self.Wup(self.g(self.Wdown(input)))
-
-        
+     
 class Biaffine(nn.Module):
     """
     Biaffine module whose implementation works efficiently on GPU too
@@ -165,24 +167,14 @@ class Biaffine(nn.Module):
 
         dephead = torch.cat([xdep,xhead],dim=1).t()
         return self.B(xdep,xhead) + (self.W @ dephead).t() + self.b
-
-#batch_size = 10
-#emb_size   = 4
-#nlabels    = 7
-
-#xdep  = torch.ones(batch_size,emb_size)
-#xhead = torch.ones(batch_size,emb_size)*0.5
-#B = Biaffine(emb_size,nlabels)
-#print(B(xdep,xhead))
-#exit(0)        
-        
+             
 class GraphParser(nn.Module):
     
     def __init__(self,vocab,labels,word_embedding_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden):
         
         super(GraphParser, self).__init__()
-        self.code_vocab(vocab)
-        self.code_labels(labels)
+        #self.code_vocab(vocab)
+        #self.code_labels(labels)
         self.allocate(word_embedding_size,len(self.itolab),lstm_hidden,arc_mlp_hidden,lab_mlp_hidden)
 
     def code_vocab(self,vocab):
@@ -269,7 +261,6 @@ class GraphParser(nn.Module):
             dataloader = DataLoader(dataset, batch_size=16,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                 for (edgedata,labeldata) in batch:
-                    optimizer.zero_grad()  
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
                     #1. Run LSTM on raw input and get word embeddings
@@ -295,7 +286,7 @@ class GraphParser(nn.Module):
                     lNLL += lloss.item()
             return (eNLL/eN,lNLL/lN)
         
-    def predict(self,wordlist):
+    def predict(self,dataset):
         
         with torch.no_grad():
             
@@ -321,7 +312,7 @@ xdevice = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 print('device',xdevice)
 
 trainset = DependencyDataset('spmrl/train.French.gold.conll')
-devset   = DependencyDataset('spmrl/dev.French.gold.conll')
+devset   = DependencyDataset('spmrl/dev.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
 
 
 #istream = open('spmrl/dev.French.gold.conll')
