@@ -343,10 +343,10 @@ testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.
 #vocab    = [ word  for tree in treelist for word in tree.words  ]
 #labels   = [ label for tree in treelist for label in tree.get_all_labels() ]
 
-emb_size    = 100
-arc_mlp     = 500
-lab_mlp     = 100
-lstm_hidden = 400
+emb_size    = 10
+arc_mlp     = 50
+lab_mlp     = 10
+lstm_hidden = 40
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
 model.to(xdevice)
 model.train(trainset,trainset,75)
