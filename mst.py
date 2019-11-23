@@ -315,7 +315,7 @@ class GraphParser(nn.Module):
                     label_predictions   = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
                     pred_idxes          = torch.argmax(label_predictions,dim=1)
                     pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
-                    dg                  = DepGraph([(gov,label,dep) for ((gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
+                    dg                  = DepGraph([(gov-1,label,dep-1) for ((gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
                     yield dg
 
 
