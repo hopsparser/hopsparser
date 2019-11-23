@@ -321,7 +321,7 @@ class GraphParser(nn.Module):
                     pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
                     print([(gov,dep) for (gov,dep) in edgelist])
                     print(tok_sequence)
-                    dg                  = DepGraph([(gov,label,dep-1) for ((gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
+                    dg                  = DepGraph([(gov,"--",dep) for ((gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
                     yield dg
 
 
