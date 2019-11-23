@@ -1,9 +1,9 @@
-import networkx as nx
 import numpy as np
 import numpy.random as rd
 import torch
 import torch.optim as optim
 import torch.nn as nn
+import networkx as nx
 
 from deptree import *
 from torch.nn.functional import pad
