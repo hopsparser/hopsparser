@@ -113,7 +113,7 @@ class DependencyDataset(data.Dataset):
     @staticmethod
     def oracle_ancestors(depgraph):
         """
-        Returns a list where each element list[i] is the one-hot index of
+        Returns a list where each element list[i] is the index of
         the position of the governor of the word at position i.
         Returns:
         a tensor of size N.
@@ -121,7 +121,7 @@ class DependencyDataset(data.Dataset):
         N         = len(depgraph)
         edges     = depgraph.get_all_edges()
         rev_edges = dict([(dep,gov) for (gov,label,dep) in edges])
-        return [rev_edges.get(idx,-1)+1 for idx in range(N)]  
+        return [rev_edges.get(idx,-1)+1 for idx in range(N)]           #<--- check +1 addition here !!
 
 def dep_collate_fn(batch):
     """
@@ -251,7 +251,7 @@ class GraphParser(nn.Module):
         
         with torch.no_grad():
             eNLL,eN,lNLL,lN = 0,0,0,0
-            dataloader = DataLoader(dataset, batch_size=16,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
+            dataloader = DataLoader(dataset, batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                 for (edgedata,labeldata) in batch:
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
@@ -282,31 +282,41 @@ class GraphParser(nn.Module):
     def predict(self,dataset):
         
         with torch.no_grad():
-            
-            word_seq      = [DependencyDataset.ROOT]+wordlist
-            xembeddings   = self.E(torch.tensor([self.stoi[word] for word in word_seq])).unsqueeze(dim=0)
-            xembeddings,_ = self.rnn(xembeddings) 
-            xembeddings   = xembeddings.squeeze(dim=0)
-            preds         = self.forward_edges(self.dep_arc(xembeddings),self.head_arc(xembeddings))
-            M             = preds.numpy()[1:,1:].T  
-            G             = nx.from_numpy_matrix(M,create_using=nx.DiGraph)
-            A             = nx.maximum_spanning_arborescence(G,default=0)
-
-            edgelist    = list(A.edges)
-            head_emb    = xembeddings[ torch.tensor( [ gov for (gov,dep) in edgelist ] ) ]
-            dep_emb     = xembeddings[ torch.tensor( [ dep for (gov,dep) in edgelist ] ) ]
-            pred_idxes  = torch.argmax(self.forward_labels(self.dep_lab(dep_emb),self.head_lab(head_emb)),dim=1).tolist()
-            pred_labels = [ self.itolab[idx] for idx in pred_idxes ]
-            dg          = DepGraph([(gov,label,dep) for ((gov,dep),label) in zip(A.edges,pred_labels)],wordlist=wordlist)
-            print(dg)
+            dataloader = DataLoader(dataset,batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
+            for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
+                for (edgedata,labeldata) in batch:
+                    word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
+                    N = len(word_emb_idxes)
+                    #1. Run LSTM on raw input and get word embeddings
+                    embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
+                    input_seq,end     = self.rnn(embeddings)
+                    input_seq         = input_seq.squeeze(dim=0)
+                    #2.  Compute edge attention from flat matrix representation
+                    deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
+                    gov_embeddings    = input_seq.repeat(N,1)
+                    attention_scores  = self.edge_biaffine(self.dep_arc(deps_embeddings),self.head_arc(gov_embeddings))
+                    attention_matrix  = attention_scores.view(N,N) 
+                    #3. Compute max spanning tree
+                    M                   = attention_matrix.numpy()[1:,1:].T                #log-normalize scores ?
+                    G                   = nx.from_numpy_matrix(M,create_using=nx.DiGraph)
+                    A                   = nx.maximum_spanning_arborescence(G,default=0)    #this performs a sum
+                    #4. Compute edge labels
+                    edgelist            = list(A.edges)
+                    gov_embeddings      = input_seq [ torch.tensor( [ gov for (gov,dep) in edgelist ] ) ]
+                    deps_embeddings     = input_seq [ torch.tensor( [ dep for (gov,dep) in edgelist ] ) ]
+                    label_predictions   = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
+                    pred_idxes          = torch.argmax(label_predictions)
+                    pred_labels         = [ self.itolab[idx] for idx in pred_idxes ]
+                    dg                  = DepGraph([(gov,label,dep) for ((gov,dep),label) in zip(edgelist,pred_labels)],wordlist=wordlist)
+                    yield dg
 
 
 xdevice = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 print('device',xdevice)
 
-trainset = DependencyDataset('spmrl/train.French.gold.conll')
-devset   = DependencyDataset('spmrl/dev.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
-
+trainset  = DependencyDataset('spmrl/train.French.gold.conll')
+devset    = DependencyDataset('spmrl/dev.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
+testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
 
 #istream = open('spmrl/dev.French.gold.conll')
 #treelist = [ DepGraph.read_tree(istream) for _ in range(100)    ]
@@ -320,9 +330,9 @@ lab_mlp     = 75
 lstm_hidden = 300
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
 model.to(xdevice)
-model.train(trainset,devset,10) 
-#for tree in treelist:
-#    print(tree)
-#    print() 
-#    model.predict(tree.words)
-#    print('-'*40)
+model.train(trainset,devset,1)
+print('running test')
+ostream = open('testout.conll')
+for tree in model.predict(testset)
+    print(tree,file=ostream)
+ostream.close()
