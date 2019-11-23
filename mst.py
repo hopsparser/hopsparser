@@ -220,9 +220,7 @@ class GraphParser(nn.Module):
         optimizer     = optim.Adam( self.parameters() )
 
         for ep in range(epochs):
-            if ep % 100 == 0:
-                print(ep)
-            
+           
             dataloader = DataLoader(dataset, batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in enumerate(dataloader):
                 for (edgedata,labeldata) in batch:
@@ -249,6 +247,8 @@ class GraphParser(nn.Module):
                     lloss  = label_loss_fn(label_predictions,ref_labels)
                     lloss.backward( )
                     optimizer.step( )
+                if batch_idx % 100 == 0:
+                    print('processed',batch_idx*32,'trees')
 
                 
     def predict(self,wordlist):
