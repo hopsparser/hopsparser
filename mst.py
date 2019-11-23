@@ -85,7 +85,7 @@ class DependencyDataset(data.Dataset):
         
         for tree in self.treelist:
             word_seq      = [DependencyDataset.ROOT] + tree.words
-            depword_idxes = [self.stoi.get(tok,DependencyDataset.UNK_WORD) for tok in word_seq]
+            depword_idxes = [self.stoi.get(tok,self.stoi[DependencyDataset.UNK_WORD]) for tok in word_seq]
             gov_idxes     = [DependencyDataset.ROOT_GOV_IDX] + DependencyDataset.oracle_ancestors(tree)
             self.xdep.append(depword_idxes)
             self.refidxes.append(gov_idxes)
@@ -127,7 +127,6 @@ def dep_collate_fn(batch):
     """
     That's the collate function for batching edges
     """
-    print(batch)
     return [ ((torch.tensor(elt['xdep']), torch.tensor(elt['refidx'])),(torch.tensor(elt['refdeps']), torch.tensor(elt['refgovs']),torch.tensor(elt['reflabels']))) for elt in batch ]
 
 
