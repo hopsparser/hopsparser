@@ -220,7 +220,7 @@ class GraphParser(nn.Module):
         optimizer     = optim.Adam( self.parameters() )
 
         for ep in range(epochs):
-            print("epoch",e)
+            print("epoch",ep)
             dataloader = DataLoader(dataset, batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader)):
                 for (edgedata,labeldata) in batch:
