@@ -13,7 +13,6 @@ from math import sqrt
 from tqdm import tqdm
 from random import sample,shuffle
 
-
 class DependencyDataset(data.Dataset):
     """
     A representation of the DepBank for efficient processing.
@@ -339,7 +338,7 @@ lab_mlp     = 75
 lstm_hidden = 300
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
 model.to(xdevice)
-model.train(trainset,trainset,50)
+model.train(trainset,trainset,5)
 print('running test')
 ostream = open('testout.conll','w')
 for tree in model.predict(trainset):
