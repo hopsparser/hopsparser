@@ -32,6 +32,7 @@ class DependencyDataset(data.Dataset):
             if len(tree) <= 15: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
                 print(tree)
+                print('',flush=True)
                 break
             tree = DepGraph.read_tree(istream)             
         istream.close()
