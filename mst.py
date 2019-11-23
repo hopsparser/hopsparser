@@ -270,7 +270,6 @@ class GraphParser(nn.Module):
                     embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
                     input_seq,end     = self.rnn(embeddings)
                     input_seq         = input_seq.squeeze(dim=0)
-                    print('lstm',input_seq)
                     #2.  Compute edge attention from flat matrix representation
                     deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
                     gov_embeddings    = input_seq.repeat(N,1)
@@ -285,6 +284,8 @@ class GraphParser(nn.Module):
                     print('labels',list(zip(ref_gov_idxes.cpu().numpy(),ref_deps_idxes.cpu().numpy(),ref_labels.cpu().numpy())))
                     deps_embeddings   = input_seq[ref_deps_idxes]
                     gov_embeddings    = input_seq[ref_gov_idxes]
+                    print('depsembeddings',deps_embeddings)
+                    print('govembeddings',gov_embeddings)
                     label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
                     print('preds',label_predictions)
                     lloss  = label_loss_fn(label_predictions,ref_labels)
@@ -323,6 +324,8 @@ class GraphParser(nn.Module):
                     if edgelist:
                         gov_embeddings      = input_seq [ torch.tensor( [ gov-1 for (gov,dep) in edgelist ] ) ]
                         deps_embeddings     = input_seq [ torch.tensor( [ dep-1 for (gov,dep) in edgelist ] ) ]
+                        print('depsembeddings',deps_embeddings)
+                        print('govembeddings',gov_embeddings)
                         label_predictions   = softmax(self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings)))
                         pred_idxes          = torch.argmax(label_predictions,dim=1)
                         pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
