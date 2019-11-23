@@ -222,7 +222,7 @@ class GraphParser(nn.Module):
                     optimizer.zero_grad()  
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
-                    print('edges',list(zip(ref_gov_idxes.cpu().numpy(),range(N))))
+                    #print('edges',list(zip(ref_gov_idxes.cpu().numpy(),range(N))))
                     #1. Run LSTM on raw input and get word embeddings
                     embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
                     input_seq,end     = self.rnn(embeddings)
@@ -241,8 +241,8 @@ class GraphParser(nn.Module):
                     ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice),labeldata[2].to(xdevice)
                     deps_embeddings   = input_seq[ref_deps_idxes]
                     gov_embeddings    = input_seq[ref_gov_idxes]
-                    print('labels',list(zip(ref_gov_idxes.cpu().numpy(),ref_deps_idxes.cpu().numpy(),ref_labels.cpu().numpy())))
-                    print(trainset.itolab)
+                    #print('labels',list(zip(ref_gov_idxes.cpu().numpy(),ref_deps_idxes.cpu().numpy(),ref_labels.cpu().numpy())))
+                    #print(trainset.itolab)
                     label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
                     lloss  = label_loss_fn(label_predictions,ref_labels)
                     lloss.backward( )
@@ -338,10 +338,10 @@ testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.
 #vocab    = [ word  for tree in treelist for word in tree.words  ]
 #labels   = [ label for tree in treelist for label in tree.get_all_labels() ]
 
-emb_size    = 300
-arc_mlp     = 75
-lab_mlp     = 75
-lstm_hidden = 300
+emb_size    = 100
+arc_mlp     = 500
+lab_mlp     = 100
+lstm_hidden = 400
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
 model.to(xdevice)
 model.train(trainset,trainset,1)
