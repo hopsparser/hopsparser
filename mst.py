@@ -246,6 +246,7 @@ class GraphParser(nn.Module):
                     lloss.backward( )
                     lN   += len(ref_labels)
                     lNLL += lloss.item()
+                    print('train dep labels',torch.cat(ref_deps_idxes,ref_gov_idxes,ref_labels))
                     optimizer.step( )
             print("epoch",ep)
             print('TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
@@ -315,6 +316,7 @@ class GraphParser(nn.Module):
                     label_predictions   = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
                     pred_idxes          = torch.argmax(label_predictions,dim=1)
                     pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
+                    print([(gov,dep) for (gov,dep) in edgelist])
                     dg                  = DepGraph([(gov,label,dep-1) for ((gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
                     yield dg
 
