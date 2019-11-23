@@ -319,8 +319,8 @@ class GraphParser(nn.Module):
                     print('edges',edgelist)
                      #print('labels',list(zip(ref_gov_idxes.cpu().numpy(),ref_deps_idxes.cpu().numpy(),ref_labels.cpu().numpy())))
                     if edgelist:
-                        gov_embeddings      = input_seq [ torch.tensor( [ gov for (gov,dep) in edgelist ] ) ]
-                        deps_embeddings     = input_seq [ torch.tensor( [ dep for (gov,dep) in edgelist ] ) ]
+                        gov_embeddings      = input_seq [ torch.tensor( [ gov-1 for (gov,dep) in edgelist ] ) ]
+                        deps_embeddings     = input_seq [ torch.tensor( [ dep-1 for (gov,dep) in edgelist ] ) ]
                         label_predictions   = softmax(self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings)))
                         pred_idxes          = torch.argmax(label_predictions,dim=1)
                         pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
@@ -351,7 +351,7 @@ lab_mlp     = 150
 lstm_hidden = 200
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
 model.to(xdevice)
-model.train(trainset,trainset,30)
+model.train(trainset,trainset,100)
 print('running test')
 ostream = open('testout.conll','w')
 for tree in model.predict(trainset):
