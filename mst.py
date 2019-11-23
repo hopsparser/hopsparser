@@ -221,7 +221,7 @@ class GraphParser(nn.Module):
         optimizer     = optim.Adam( self.parameters() )
 
         for ep in range(epochs):
-            print("epoch",ep)
+            eNLL,eN,lNLL,lN = 0,0,0,0
             dataloader = DataLoader(dataset, batch_size=16,shuffle=False, num_workers=4,collate_fn=dep_collate_fn)
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                 for (edgedata,labeldata) in batch:
@@ -240,6 +240,8 @@ class GraphParser(nn.Module):
                     #3. Compute loss and backprop for edges
                     eloss = edge_loss_fn(attention_matrix,ref_gov_idxes)
                     eloss.backward(retain_graph=True)
+                    eN   += N
+                    eNLL += eloss.item()
                     #4. Compute loss and backprop for labels
                     ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice),labeldata[2].to(xdevice)
                     deps_embeddings   = input_seq[ref_deps_idxes]
@@ -247,7 +249,10 @@ class GraphParser(nn.Module):
                     label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
                     lloss  = label_loss_fn(label_predictions,ref_labels)
                     lloss.backward( )
+                    lN   += len(ref_labels)
+                    lNLL += lloss.item()
                     optimizer.step( )
+            print("epoch",ep,'mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
 
                 
     def predict(self,wordlist):
