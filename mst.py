@@ -224,7 +224,7 @@ class GraphParser(nn.Module):
             dataloader = DataLoader(dataset, batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                 for (edgedata,labeldata) in batch:
-                    optimizer.zero_grad() 
+                    optimizer.zero_grad()  
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
                     #1. Run LSTM on raw input and get word embeddings
@@ -274,7 +274,7 @@ class GraphParser(nn.Module):
 xdevice = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 print('device',xdevice)
 
-dataset = DependencyDataset('spmrl/dev.French.gold.conll')
+dataset = DependencyDataset('spmrl/train.French.gold.conll')
             
 #istream = open('spmrl/dev.French.gold.conll')
 #treelist = [ DepGraph.read_tree(istream) for _ in range(100)    ]
