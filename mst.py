@@ -290,7 +290,7 @@ class GraphParser(nn.Module):
         
     def predict(self,dataset):
 
-        logsoftmax = nn.Logsoftmax(dim=1)
+        logsoftmax = nn.LogSoftmax(dim=1)
         
         with torch.no_grad():
             dataloader = DataLoader(dataset,batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
@@ -310,6 +310,7 @@ class GraphParser(nn.Module):
                     #3. Compute max spanning tree
                     M                   = attention_matrix.cpu().numpy()[1:,1:].T                #log-normalize scores ?
                     G                   = nx.from_numpy_matrix(M,create_using=nx.DiGraph)
+                    print(np.exp(G))
                     A                   = nx.maximum_spanning_arborescence(G,default=0)    #this performs a sum
                     #4. Compute edge labels 
                     edgelist            = list(A.edges)
