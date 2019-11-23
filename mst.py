@@ -281,6 +281,7 @@ class GraphParser(nn.Module):
                     eNLL += eloss.item()
                     #4. Compute loss for labels
                     ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice),labeldata[2].to(xdevice)
+                    print('labels',list(zip(ref_deps_idxes.numpy(),ref_gov_idxes.numpy(),ref_labels.numpy())))
                     deps_embeddings   = input_seq[ref_deps_idxes]
                     gov_embeddings    = input_seq[ref_gov_idxes]
                     label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
