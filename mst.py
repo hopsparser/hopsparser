@@ -115,7 +115,7 @@ def dep_collate_fn(batch):
     #print(batch_len)
     #xdep     = [ torch.tensor(elt['xdep']   + [DependencyDataset.PAD_WORD_IDX]*(batch_len - len(elt['xdep']))) for elt in batch]
     #refidxes = [ torch.tensor(elt['refidx'] + [DependencyDataset.PAD_WORD_IDX]*(batch_len - len(elt['refidx']))) for elt in batch]
-    return [ ((torch.tensor(elt['xdep']), torch.tensor(elt['refidx'])),(torch.tensor(elt['refdeps']), torch.tensor(elt['refgovs']),torch.tensor(elt['reflabels']))) for elt in batch ]
+    return [ ((torch.tensor(elt['xdep'],device=xdevice), torch.tensor(elt['refidx'],device=xdevice)),(torch.tensor(elt['refdeps'],device=xdevice), torch.tensor(elt['refgovs'],device=xdevice),torch.tensor(elt['reflabels'],device=xdevice))) for elt in batch ]
    
 
     
@@ -267,8 +267,8 @@ class GraphParser(nn.Module):
             print(dg)
 
 
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-print('device',device)
+mydevice = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+print('device',mydevice)
 
 dataset = DependencyDataset('spmrl/dev.French.gold.conll')
             
