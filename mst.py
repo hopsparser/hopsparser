@@ -316,14 +316,15 @@ class GraphParser(nn.Module):
                     edgelist            = list(A.edges)
                     print('edges',edgelist)
                      #print('labels',list(zip(ref_gov_idxes.cpu().numpy(),ref_deps_idxes.cpu().numpy(),ref_labels.cpu().numpy())))
-                    #print(trainset.itolab)
                     if edgelist:
                         deps_embeddings     = input_seq [ torch.tensor( [ dep for (gov,dep) in edgelist ] ) ]
                         gov_embeddings      = input_seq [ torch.tensor( [ gov for (gov,dep) in edgelist ] ) ]
                         label_predictions   = self.label_biaffine(self.head_lab(gov_embeddings),self.dep_lab(deps_embeddings))
-                        print(label_predictions)
                         pred_idxes          = torch.argmax(label_predictions,dim=1)
                         pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
+                        print(label_predictions)
+                        print( pred_labels)
+                        print(trainset.itolab)
                         dg                  = DepGraph([(gov,label,dep) for ((gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
                         yield dg
                     else:
