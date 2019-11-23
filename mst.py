@@ -306,7 +306,6 @@ class GraphParser(nn.Module):
                     gov_embeddings    = input_seq.repeat(N,1)
                     attention_scores  = self.edge_biaffine(self.dep_arc(deps_embeddings),self.head_arc(gov_embeddings))
                     attention_matrix  = attention_scores.view(N,N)
-                    print(attention_matrix)
                     #3. Compute max spanning tree
                     M                   = attention_matrix.cpu().numpy()[1:,1:].T                #log-normalize scores ?
                     G                   = nx.from_numpy_matrix(M,create_using=nx.DiGraph)
