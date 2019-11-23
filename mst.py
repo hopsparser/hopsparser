@@ -30,7 +30,7 @@ class DependencyDataset(data.Dataset):
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
         while tree:
-            if len(tree) < 10: #problem of memory explosion later with very long sentences.
+            if len(tree) <= 75: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
             else:
                 print('sentence discarded',len(tree))
