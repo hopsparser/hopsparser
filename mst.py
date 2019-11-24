@@ -321,7 +321,7 @@ class GraphParser(nn.Module):
                         dg                  = DepGraph([ (gov,label,dep) for ( (gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
                         yield dg
                     else: 
-                        print('failure.')
+                        print('failure.',tok_sequence)
                         print([ (x,y,A[x][y]['weight']) for (x,y) in A.edges])
                         print(G)
                         print([ (x,y,G[x][y]['weight']) for (x,y) in G.edges])
