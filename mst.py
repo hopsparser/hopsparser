@@ -321,7 +321,7 @@ class GraphParser(nn.Module):
                         pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
                         dg                  = DepGraph([ (gov,label,dep) for ( (gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
                         yield dg
-                    else:
+                    else: 
                         print('failure.')
                         print(G)
                         print([ (x,y,G[x][y]['weight']) for (x,y) in G.edges])
