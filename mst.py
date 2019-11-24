@@ -221,7 +221,7 @@ class GraphParser(nn.Module):
             eNLL,eN,lNLL,lN = 0,0,0,0
             print("epoch",ep)
             try:
-                dataloader = DataLoader(trainset, batch_size=64,shuffle=True, num_workers=16,collate_fn=dep_collate_fn)
+                dataloader = DataLoader(trainset, batch_size=32,shuffle=True, num_workers=4,collate_fn=dep_collate_fn)
                 for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                     for (edgedata,labeldata,tok_sequence) in batch:
                         optimizer.zero_grad()  
@@ -266,7 +266,7 @@ class GraphParser(nn.Module):
         with torch.no_grad():
             self.eval()
             eNLL,eN,lNLL,lN = 0,0,0,0
-            dataloader = DataLoader(dataset, batch_size=64,shuffle=False, num_workers=8,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
+            dataloader = DataLoader(dataset, batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                 for (edgedata,labeldata,tok_sequence) in batch:
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
@@ -300,7 +300,7 @@ class GraphParser(nn.Module):
         
         with torch.no_grad():
             self.eval()
-            dataloader = DataLoader(dataset,batch_size=64,shuffle=False, num_workers=8,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
+            dataloader = DataLoader(dataset,batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                 for (edgedata,labeldata,tok_sequence) in batch:
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
