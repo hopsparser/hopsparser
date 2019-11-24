@@ -315,7 +315,7 @@ class GraphParser(nn.Module):
                     A                   = nx.maximum_spanning_arborescence(G,default=0)    #this performs a max (sum of scores)
                     #4. Compute edge labels 
                     edgelist            = list(A.edges)
-                    print(edgelist)
+                    print(edgelist,N,tok_sequence)
                     gov_embeddings      = input_seq [ torch.tensor( [ gov+1 for (gov,dep) in edgelist ] ) ]
                     deps_embeddings     = input_seq [ torch.tensor( [ dep+1 for (gov,dep) in edgelist ] ) ]                        
                     label_predictions   = softmax(self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings)))
