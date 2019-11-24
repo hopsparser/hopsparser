@@ -336,7 +336,7 @@ emb_size    = 100
 arc_mlp     = 500
 lab_mlp     = 100
 lstm_hidden = 200                    
-xdevice = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+xdevice = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 print('device used',xdevice)
 
 trainset  = DependencyDataset('spmrl/train.French.gold.conll',min_vocab_freq=1)
