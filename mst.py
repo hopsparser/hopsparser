@@ -207,7 +207,7 @@ class GraphParser(nn.Module):
         """
         return self.labB(dep_embeddings,head_embeddings) 
     
-    def train(self,trainset,devset,epochs):
+    def train_model(self,trainset,devset,epochs):
         
         print("N =",len(trainset))
         edge_loss_fn  = nn.CrossEntropyLoss(reduction = 'sum',ignore_index=DependencyDataset.ROOT_GOV_IDX) #ignores the dummy root index
