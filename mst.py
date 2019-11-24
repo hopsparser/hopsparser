@@ -30,7 +30,7 @@ class DependencyDataset(data.Dataset):
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
         while tree:
-            if len(tree) < 15: #problem of memory explosion later with very long sentences.
+            if len(tree) <= 80: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
             tree = DepGraph.read_tree(istream)             
         istream.close()
@@ -151,7 +151,7 @@ class Biaffine(nn.Module):
     """
     Biaffine module whose implementation works efficiently on GPU too
     """
-    def __init__(self,input_size,label_size= 2 ):
+    def __init__(self,input_size,label_size= 2):
         super(Biaffine, self).__init__()
         sqrtk  = sqrt(input_size)
         self.B = nn.Bilinear(input_size,input_size,label_size,bias=False)
@@ -215,12 +215,12 @@ class GraphParser(nn.Module):
         optimizer     = optim.Adam( self.parameters() )
 
         for ep in range(epochs):
+            self.train()
             eNLL,eN,lNLL,lN = 0,0,0,0
             try:
-                dataloader = DataLoader(trainset, batch_size=16,shuffle=False, num_workers=4,collate_fn=dep_collate_fn)
+                dataloader = DataLoader(trainset, batch_size=16,shuffle=True, num_workers=4,collate_fn=dep_collate_fn)
                 for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                     for (edgedata,labeldata,tok_sequence) in batch:
-                        self.train()
                         optimizer.zero_grad()  
                         word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                         N = len(word_emb_idxes)
