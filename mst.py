@@ -182,9 +182,9 @@ class GraphParser(nn.Module):
         super(GraphParser, self).__init__()
         #self.code_vocab(vocab)
         #self.code_labels(labels)
-        self.allocate(word_embedding_size,len(vocab),len(labels),lstm_hidden,arc_mlp_hidden,lab_mlp_hidden)
+        self.allocate(word_embedding_size,len(vocab),len(labels),lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout)
         
-    def allocate(self,word_embedding_size,vocab_size,label_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden):
+    def allocate(self,word_embedding_size,vocab_size,label_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout):
         self.E              = nn.Embedding(vocab_size,word_embedding_size)
         self.edge_biaffine  = Biaffine(lstm_hidden,1)
         self.label_biaffine = Biaffine(lstm_hidden,label_size)
