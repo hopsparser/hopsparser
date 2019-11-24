@@ -290,7 +290,7 @@ class GraphParser(nn.Module):
         
     def predict(self,dataset):
 
-        softmax = nn.Softmax(dim=1) #should not be a softmax for Edmonds (sum of logs works worse)
+        softmax = nn.LogSoftmax(dim=1) #should not be a softmax for Edmonds (sum of logs works worse)
         
         with torch.no_grad():
             dataloader = DataLoader(dataset,batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
@@ -340,7 +340,7 @@ lstm_hidden = 200
 
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
 model.to(xdevice)
-model.train(trainset,trainset,30)
+model.train(trainset,trainset,50)
 print('running test')
 ostream = open('testout.conll','w')
 for tree in model.predict(trainset):
