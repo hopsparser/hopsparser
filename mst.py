@@ -192,7 +192,7 @@ class GraphParser(nn.Module):
         self.dep_arc        = MLP(lstm_hidden*2,arc_mlp_hidden,lstm_hidden,dropout=dropout)
         self.head_lab       = MLP(lstm_hidden*2,lab_mlp_hidden,lstm_hidden,dropout=dropout)
         self.dep_lab        = MLP(lstm_hidden*2,lab_mlp_hidden,lstm_hidden,dropout=dropout)
-        self.rnn            = nn.LSTM(word_embedding_size,lstm_hidden,bidirectional=True,dropout=dropout)
+        self.rnn            = nn.LSTM(word_embedding_size,lstm_hidden,bidirectional=True,num_layers=2,dropout=dropout)
         self.dropout        = nn.Dropout(p=dropout)
         
     def forward_edges(self,dep_embeddings,head_embeddings):
@@ -217,6 +217,7 @@ class GraphParser(nn.Module):
         for ep in range(epochs):
             self.train()
             eNLL,eN,lNLL,lN = 0,0,0,0
+            print("epoch",ep)
             try:
                 dataloader = DataLoader(trainset, batch_size=16,shuffle=True, num_workers=4,collate_fn=dep_collate_fn)
                 for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
@@ -248,7 +249,6 @@ class GraphParser(nn.Module):
                         lN   += len(ref_labels)
                         lNLL += lloss.item()
                         optimizer.step( )
-                print("epoch",ep)
                 print('  TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
                 deveNLL,devlNLL = self.eval_model(devset)
                 print('  DEV  : mean NLL(edges)',deveNLL,'mean NLL(labels)',devlNLL)
