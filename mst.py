@@ -259,7 +259,7 @@ class GraphParser(nn.Module):
                 deveNLL,devlNLL = self.eval_model(devset)
                 if deveNLL+devlNLL < bestNLL:
                     bestNLL = deveNLL+devlNLL
-                    torch.save(the_model.state_dict(),'test_biaffine.pt')
+                    torch.save(self.state_dict(),'test_biaffine.pt')
                 print('  DEV  : mean NLL(edges)',deveNLL,'mean NLL(labels)',devlNLL)
             except KeyboardInterrupt:
                 print('Received SIGINT. Aborting training.')
