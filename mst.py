@@ -250,13 +250,13 @@ class GraphParser(nn.Module):
                         optimizer.step( )
                 print("epoch",ep)
                 print('  TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
-                deveNLL,devlNLL = self.eval(devset)
+                deveNLL,devlNLL = self.eval_model(devset)
                 print('  DEV  : mean NLL(edges)',deveNLL,'mean NLL(labels)',devlNLL)
             except KeyboardInterrupt:
                 print('Received SIGINT. Aborting training.')
                 return
                 
-    def eval(self,dataset):
+    def eval_model(self,dataset):
         
         edge_loss_fn  = nn.CrossEntropyLoss(reduction = 'sum',ignore_index=DependencyDataset.ROOT_GOV_IDX) #ignores the dummy root index
         label_loss_fn = nn.CrossEntropyLoss(reduction = 'sum')
