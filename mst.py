@@ -31,7 +31,6 @@ class DependencyDataset(data.Dataset):
         while tree:
             if len(tree) < 15: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
-                break
             tree = DepGraph.read_tree(istream)             
         istream.close()
         shuffle(self.treelist)
@@ -340,10 +339,10 @@ lstm_hidden = 200
 
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
 model.to(xdevice)
-model.train(trainset,trainset,50)
+model.train(trainset,devset,30)
 print('running test')
 ostream = open('testout.conll','w')
-for tree in model.predict(trainset):
+for tree in model.predict(testset):
     print(tree,file=ostream)
     print('',file=ostream)
 ostream.close()
