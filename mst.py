@@ -219,6 +219,7 @@ class GraphParser(nn.Module):
         label_loss_fn = nn.CrossEntropyLoss(reduction = 'sum') 
         optimizer     = optim.Adam( self.parameters() )
 
+        bestNLL = 100
         for ep in range(epochs):
             self.train()
             eNLL,eN,lNLL,lN = 0,0,0,0
@@ -256,6 +257,9 @@ class GraphParser(nn.Module):
                         optimizer.step( )
                 print('  TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
                 deveNLL,devlNLL = self.eval_model(devset)
+                if deveNLL+devlNLL < bestNLL:
+                    bestNLL = deveNLL+devlNLL
+                    torch.save(the_model.state_dict(),'test_biaffine.pt')
                 print('  DEV  : mean NLL(edges)',deveNLL,'mean NLL(labels)',devlNLL)
             except KeyboardInterrupt:
                 print('Received SIGINT. Aborting training.')
@@ -348,7 +352,7 @@ testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.
 
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
 model.to(xdevice)
-model.train_model(trainset,devset,50)
+model.train_model(trainset,devset,30)
 print('running test')
 ostream = open('testout.conll','w')
 for tree in model.predict(testset):
