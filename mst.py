@@ -344,7 +344,7 @@ lstm_hidden = 200
 
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
 model.to(xdevice)
-model.train(trainset,devset,50)
+model.train_model(trainset,devset,50)
 print('running test')
 ostream = open('testout.conll','w')
 for tree in model.predict(testset):
