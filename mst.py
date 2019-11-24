@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader,SequentialSampler
 from math import sqrt
 from tqdm import tqdm
 from random import sample,shuffle
+from collections import Counter
 
 class DependencyDataset(data.Dataset):
     """
@@ -24,7 +25,7 @@ class DependencyDataset(data.Dataset):
     ROOT         = '<root>'
     ROOT_GOV_IDX = -1
     
-    def __init__(self,filename,use_vocab=None,use_labels=None):
+    def __init__(self,filename,use_vocab=None,use_labels=None,min_vocab_freq=0):
         istream       = open(filename)
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
@@ -39,8 +40,7 @@ class DependencyDataset(data.Dataset):
             self.itos = use_vocab
             self.stoi = {token:idx for idx,token in enumerate(self.itos)}
         else:
-            self.init_vocab(self.treelist)
-            
+            self.init_vocab(self.treelist,threshold=min_vocab_freq)
         if use_labels:
             self.itolab = use_labels
             self.labtoi = {label:idx for idx,label in enumerate(self.itolab)}
@@ -56,11 +56,12 @@ class DependencyDataset(data.Dataset):
         self.preprocess_edges()
         self.preprocess_labels()
     
-    def init_vocab(self,treelist):
+    def init_vocab(self,treelist,threshold):
         """
         Extracts the set of tokens found in the data and orders it 
         """
-        vocab = set([ word  for tree in treelist for word in tree.words ])
+        vocab = Counter([ word  for tree in treelist for word in tree.words ])
+        vocab = set([tok for (tok,counts) in vocab.most_common() if counts > threshold])
         vocab.update([DependencyDataset.ROOT,DependencyDataset.UNK_WORD,DependencyDataset.PAD_WORD])
 
         self.itos = list(vocab)
@@ -297,7 +298,7 @@ class GraphParser(nn.Module):
                 for (edgedata,labeldata,tok_sequence) in batch:
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
-                    if N == 2:#abort there is just a dummy root and a single token
+                    if N == 2:#abort. There is just a dummy root and a single token
                         yield DepGraph([(0,DependencyDataset.ROOT,1)],with_root=False,wordlist=tok_sequence)
                     #1. Run LSTM on raw input and get word embeddings
                     embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
@@ -321,14 +322,11 @@ class GraphParser(nn.Module):
                     pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
                     dg                  = DepGraph([ (gov,label,dep) for ( (gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
                     yield dg
-
-print(DepGraph([(0,DependencyDataset.ROOT,1)],with_root=False,wordlist=['xxx']))
-
                     
 xdevice = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 print('device',xdevice)
 
-trainset  = DependencyDataset('spmrl/train.French.gold.conll')
+trainset  = DependencyDataset('spmrl/train.French.gold.conll',min_vocab_freq=1)
 devset    = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=trainset.itos,use_labels=trainset.itolab)
 testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
 
