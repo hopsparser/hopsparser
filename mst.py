@@ -297,6 +297,8 @@ class GraphParser(nn.Module):
                 for (edgedata,labeldata,tok_sequence) in batch:
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
+                    if N == 2:#abort there is just a dummy root and a single token
+                        yield DepGraph([(0,DependencyDataset.ROOT,1)],with_root=False,wordlist=tok_sequence)
                     #1. Run LSTM on raw input and get word embeddings
                     embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
                     input_seq,end     = self.rnn(embeddings)
@@ -312,20 +314,17 @@ class GraphParser(nn.Module):
                     A                   = nx.maximum_spanning_arborescence(G,default=0)    #this performs a max (sum of scores)
                     #4. Compute edge labels 
                     edgelist            = list(A.edges)
-                    if edgelist:
-                        gov_embeddings      = input_seq [ torch.tensor( [ gov+1 for (gov,dep) in edgelist ] ) ]
-                        deps_embeddings     = input_seq [ torch.tensor( [ dep+1 for (gov,dep) in edgelist ] ) ]                        
-                        label_predictions   = softmax(self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings)))
-                        pred_idxes          = torch.argmax(label_predictions,dim=1)
-                        pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
-                        dg                  = DepGraph([ (gov,label,dep) for ( (gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
-                        yield dg
-                    else: 
-                        print('failure.',tok_sequence)
-                        print([ (x,y,A[x][y]['weight']) for (x,y) in A.edges])
-                        print(G)
-                        print([ (x,y,G[x][y]['weight']) for (x,y) in G.edges])
+                    gov_embeddings      = input_seq [ torch.tensor( [ gov+1 for (gov,dep) in edgelist ] ) ]
+                    deps_embeddings     = input_seq [ torch.tensor( [ dep+1 for (gov,dep) in edgelist ] ) ]                        
+                    label_predictions   = softmax(self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings)))
+                    pred_idxes          = torch.argmax(label_predictions,dim=1)
+                    pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
+                    dg                  = DepGraph([ (gov,label,dep) for ( (gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
+                    yield dg
 
+print(DepGraph([(0,DependencyDataset.ROOT,1)],with_root=False,wordlist=['xxx']))
+
+                    
 xdevice = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 print('device',xdevice)
 

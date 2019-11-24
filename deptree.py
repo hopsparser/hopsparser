@@ -2,7 +2,7 @@
 class DepGraph:
     
     def __init__(self,edges,wordlist=None,pos_tags=None,with_root=False):
-        
+         
         self.gov2dep = { }
         self.has_gov = set()            #set of nodes with a governor
 
@@ -58,9 +58,9 @@ class DepGraph:
         if -1 not in self.gov2dep:
             root = list(set(self.gov2dep) - self.has_gov)
             if len(root) == 1:
-                self.add_arc(-1,'root',root[0])
+                self.add_arc(-1,'<root>',root[0])
             elif len(root) == 0:
-                self.add_arc(-1,'root',0)
+                self.add_arc(-1,'<root>',0)
             else:
                 print(len(root)) 
                 assert(False) #no single root... problem.
