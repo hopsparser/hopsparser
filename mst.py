@@ -30,8 +30,10 @@ class DependencyDataset(data.Dataset):
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
         while tree:
-            if len(tree) <= 80: #problem of memory explosion later with very long sentences.
+            if len(tree) <= 100: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
+            else:
+                print('dropped sentence',len(tree))
             tree = DepGraph.read_tree(istream)             
         istream.close()
         shuffle(self.treelist)
@@ -219,7 +221,7 @@ class GraphParser(nn.Module):
             eNLL,eN,lNLL,lN = 0,0,0,0
             print("epoch",ep)
             try:
-                dataloader = DataLoader(trainset, batch_size=32,shuffle=True, num_workers=4,collate_fn=dep_collate_fn)
+                dataloader = DataLoader(trainset, batch_size=64,shuffle=True, num_workers=8,collate_fn=dep_collate_fn)
                 for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                     for (edgedata,labeldata,tok_sequence) in batch:
                         optimizer.zero_grad()  
@@ -264,7 +266,7 @@ class GraphParser(nn.Module):
         with torch.no_grad():
             self.eval()
             eNLL,eN,lNLL,lN = 0,0,0,0
-            dataloader = DataLoader(dataset, batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
+            dataloader = DataLoader(dataset, batch_size=64,shuffle=False, num_workers=8,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                 for (edgedata,labeldata,tok_sequence) in batch:
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
@@ -294,11 +296,11 @@ class GraphParser(nn.Module):
         
     def predict(self,dataset):
 
-        softmax = nn.LogSoftmax(dim=1) #should not be a softmax for Edmonds (sum of logs works worse)
+        softmax = nn.LogSoftmax(dim=1) #should not be a softmax for Edmonds (sum of logs works worse ??)
         
         with torch.no_grad():
             self.eval()
-            dataloader = DataLoader(dataset,batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
+            dataloader = DataLoader(dataset,batch_size=64,shuffle=False, num_workers=8,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                 for (edgedata,labeldata,tok_sequence) in batch:
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
@@ -329,18 +331,17 @@ class GraphParser(nn.Module):
                     pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
                     dg                  = DepGraph([ (gov,label,dep) for ( (gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
                     yield dg
-                    
-xdevice = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-print('device',xdevice)
-
-trainset  = DependencyDataset('spmrl/train.French.gold.conll',min_vocab_freq=1)
-devset    = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=trainset.itos,use_labels=trainset.itolab)
-testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
 
 emb_size    = 100
 arc_mlp     = 500
 lab_mlp     = 100
-lstm_hidden = 200
+lstm_hidden = 200                    
+xdevice = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+print('device used',xdevice)
+
+trainset  = DependencyDataset('spmrl/train.French.gold.conll',min_vocab_freq=1)
+devset    = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=trainset.itos,use_labels=trainset.itolab)
+testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
 
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
 model.to(xdevice)
