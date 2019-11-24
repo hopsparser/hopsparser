@@ -298,9 +298,10 @@ class GraphParser(nn.Module):
                 for (edgedata,labeldata,tok_sequence) in batch:
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
-                    if N == 2:#abort this sentence. There is just a dummy root and a single token
+                    if N == 2:
                         yield DepGraph([(0,DependencyDataset.ROOT,1)],with_root=False,wordlist=tok_sequence)
-                        continue
+                        continue #abort this sentence. There is just a dummy root and a single token
+                        
                     #1. Run LSTM on raw input and get word embeddings
                     embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
                     input_seq,end     = self.rnn(embeddings)
@@ -316,7 +317,6 @@ class GraphParser(nn.Module):
                     A                   = nx.maximum_spanning_arborescence(G,default=0)    #this performs a max (sum of scores)
                     #4. Compute edge labels 
                     edgelist            = list(A.edges)
-                    print(edgelist,N,tok_sequence)
                     gov_embeddings      = input_seq [ torch.tensor( [ gov+1 for (gov,dep) in edgelist ] ) ]
                     deps_embeddings     = input_seq [ torch.tensor( [ dep+1 for (gov,dep) in edgelist ] ) ]                        
                     label_predictions   = softmax(self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings)))
@@ -333,13 +333,13 @@ devset    = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=trainset.
 testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
 
 emb_size    = 50
-arc_mlp     = 150
+arc_mlp     = 250
 lab_mlp     = 50
 lstm_hidden = 200
 
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
 model.to(xdevice)
-model.train(trainset,devset,1)
+model.train(trainset,devset,30)
 print('running test')
 ostream = open('testout.conll','w')
 for tree in model.predict(testset):
