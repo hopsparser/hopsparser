@@ -298,8 +298,9 @@ class GraphParser(nn.Module):
                 for (edgedata,labeldata,tok_sequence) in batch:
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
-                    if N == 2:#abort. There is just a dummy root and a single token
+                    if N == 2:#abort this sentence. There is just a dummy root and a single token
                         yield DepGraph([(0,DependencyDataset.ROOT,1)],with_root=False,wordlist=tok_sequence)
+                        continue
                     #1. Run LSTM on raw input and get word embeddings
                     embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
                     input_seq,end     = self.rnn(embeddings)
