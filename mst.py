@@ -322,6 +322,7 @@ class GraphParser(nn.Module):
                         yield dg
                     else: 
                         print('failure.')
+                        print([ (x,y,A[x][y]['weight']) for (x,y) in A.edges])
                         print(G)
                         print([ (x,y,G[x][y]['weight']) for (x,y) in G.edges])
 
