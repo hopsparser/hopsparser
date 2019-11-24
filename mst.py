@@ -221,7 +221,7 @@ class GraphParser(nn.Module):
             eNLL,eN,lNLL,lN = 0,0,0,0
             print("epoch",ep)
             try:
-                dataloader = DataLoader(trainset, batch_size=64,shuffle=True, num_workers=4,collate_fn=dep_collate_fn)
+                dataloader = DataLoader(trainset, batch_size=64,shuffle=True, num_workers=16,collate_fn=dep_collate_fn)
                 for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                     for (edgedata,labeldata,tok_sequence) in batch:
                         optimizer.zero_grad()  
