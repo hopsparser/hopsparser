@@ -33,7 +33,6 @@ class DependencyDataset(data.Dataset):
                 self.treelist.append(tree)
                 print(tree)
                 print('',flush=True)
-                break
             tree = DepGraph.read_tree(istream)             
         istream.close()
         shuffle(self.treelist)
@@ -222,7 +221,6 @@ class GraphParser(nn.Module):
                     optimizer.zero_grad()  
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
-                    #print('edges',list(zip(ref_gov_idxes.cpu().numpy(),range(N))))
                     #1. Run LSTM on raw input and get word embeddings
                     embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
                     input_seq,end     = self.rnn(embeddings)
@@ -241,8 +239,6 @@ class GraphParser(nn.Module):
                     ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice),labeldata[2].to(xdevice)
                     deps_embeddings   = input_seq[ref_deps_idxes]
                     gov_embeddings    = input_seq[ref_gov_idxes]
-                    #print('labels',list(zip(ref_gov_idxes.cpu().numpy(),ref_deps_idxes.cpu().numpy(),ref_labels.cpu().numpy())))
-                    #print(trainset.itolab)
                     label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
                     lloss  = label_loss_fn(label_predictions,ref_labels)
                     lloss.backward( )
@@ -250,9 +246,9 @@ class GraphParser(nn.Module):
                     lNLL += lloss.item()
                     optimizer.step( )
             print("epoch",ep)
-            print('TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
+            print('  TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
             deveNLL,devlNLL = self.eval(devset)
-            print('DEV  : mean NLL(edges)',deveNLL,'mean NLL(labels)',devlNLL)
+            print('  DEV  : mean NLL(edges)',deveNLL,'mean NLL(labels)',devlNLL)
 
     def eval(self,dataset):
         
@@ -281,14 +277,9 @@ class GraphParser(nn.Module):
                     eNLL += eloss.item()
                     #4. Compute loss for labels
                     ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice),labeldata[2].to(xdevice)
-                    print('labels',list(zip(ref_gov_idxes.cpu().numpy(),ref_deps_idxes.cpu().numpy(),ref_labels.cpu().numpy())))
                     deps_embeddings   = input_seq[ref_deps_idxes]
                     gov_embeddings    = input_seq[ref_gov_idxes]
-                    print('depsembeddings',deps_embeddings)
-                    print(ref_deps_idxes)
-                    print([tok_sequence[dep-1] for dep in ref_deps_idxes.cpu().numpy() if dep != -1])
                     label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
-                    print('preds',label_predictions)
                     lloss  = label_loss_fn(label_predictions,ref_labels)
                     lN   += len(ref_labels)
                     lNLL += lloss.item()
@@ -307,7 +298,6 @@ class GraphParser(nn.Module):
                     #1. Run LSTM on raw input and get word embeddings
                     embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
                     input_seq,end     = self.rnn(embeddings)
-                    print('lstm',input_seq)
                     input_seq         = input_seq.squeeze(dim=0)
                     #2.  Compute edge attention from flat matrix representation
                     deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
@@ -320,19 +310,12 @@ class GraphParser(nn.Module):
                     A                   = nx.maximum_spanning_arborescence(G,default=0)    #this performs a max (sum of scores)
                     #4. Compute edge labels 
                     edgelist            = list(A.edges)
-                    print('edges',edgelist)
-                     #print('labels',list(zip(ref_gov_idxes.cpu().numpy(),ref_deps_idxes.cpu().numpy(),ref_labels.cpu().numpy())))
                     if edgelist:
                         gov_embeddings      = input_seq [ torch.tensor( [ gov+1 for (gov,dep) in edgelist ] ) ]
                         deps_embeddings     = input_seq [ torch.tensor( [ dep+1 for (gov,dep) in edgelist ] ) ]                        
-                        print('depsembeddings',deps_embeddings)
-                        print([tok_sequence[dep-1] for (_,dep) in edgelist])
                         label_predictions   = softmax(self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings)))
                         pred_idxes          = torch.argmax(label_predictions,dim=1)
                         pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
-                        print(label_predictions)
-                        print( pred_labels)
-                        print(trainset.itolab)
                         dg                  = DepGraph([ (gov,label,dep) for ( (gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
                         yield dg
                     else:
@@ -357,7 +340,7 @@ lab_mlp     = 150
 lstm_hidden = 200
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
 model.to(xdevice)
-model.train(trainset,trainset,100)
+model.train(trainset,trainset,30)
 print('running test')
 ostream = open('testout.conll','w')
 for tree in model.predict(trainset):
