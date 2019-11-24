@@ -137,14 +137,15 @@ def dep_collate_fn(batch):
 
 class MLP(nn.Module):
 
-    def __init__(self,input_size,hidden_size,output_size):
+    def __init__(self,input_size,hidden_size,output_size,dropout=0.0):
         super(MLP, self).__init__()
         self.Wdown = nn.Linear(input_size,hidden_size)
         self.Wup   = nn.Linear(hidden_size,output_size)
-        self.g     = nn.ReLU() 
+        self.g     = nn.ReLU()
+        self.dropout        = nn.Dropout(p=dropout)
         
     def forward(self,input):
-        return self.Wup(self.g(self.Wdown(input)))
+        return self.Wup(self.dropout(self.g(self.Wdown(input))))
      
 class Biaffine(nn.Module):
     """
@@ -176,7 +177,7 @@ class Biaffine(nn.Module):
              
 class GraphParser(nn.Module):
     
-    def __init__(self,vocab,labels,word_embedding_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden):
+    def __init__(self,vocab,labels,word_embedding_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout=0.0):
         
         super(GraphParser, self).__init__()
         #self.code_vocab(vocab)
@@ -187,12 +188,13 @@ class GraphParser(nn.Module):
         self.E              = nn.Embedding(vocab_size,word_embedding_size)
         self.edge_biaffine  = Biaffine(lstm_hidden,1)
         self.label_biaffine = Biaffine(lstm_hidden,label_size)
-        self.head_arc       = MLP(lstm_hidden*2,arc_mlp_hidden,lstm_hidden)
-        self.dep_arc        = MLP(lstm_hidden*2,arc_mlp_hidden,lstm_hidden)
-        self.head_lab       = MLP(lstm_hidden*2,lab_mlp_hidden,lstm_hidden)
-        self.dep_lab        = MLP(lstm_hidden*2,lab_mlp_hidden,lstm_hidden)
-        self.rnn            = nn.LSTM(word_embedding_size,lstm_hidden,bidirectional=True)
-         
+        self.head_arc       = MLP(lstm_hidden*2,arc_mlp_hidden,lstm_hidden,dropout=dropout)
+        self.dep_arc        = MLP(lstm_hidden*2,arc_mlp_hidden,lstm_hidden,dropout=dropout)
+        self.head_lab       = MLP(lstm_hidden*2,lab_mlp_hidden,lstm_hidden,dropout=dropout)
+        self.dep_lab        = MLP(lstm_hidden*2,lab_mlp_hidden,lstm_hidden,dropout=dropout)
+        self.rnn            = nn.LSTM(word_embedding_size,lstm_hidden,bidirectional=True,dropout=dropout)
+        self.dropout        = nn.Dropout(p=dropout)
+        
     def forward_edges(self,dep_embeddings,head_embeddings):
         """
         Performs predictions for pointing to roots 
@@ -218,11 +220,12 @@ class GraphParser(nn.Module):
                 dataloader = DataLoader(trainset, batch_size=16,shuffle=False, num_workers=4,collate_fn=dep_collate_fn)
                 for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                     for (edgedata,labeldata,tok_sequence) in batch:
+                        self.train()
                         optimizer.zero_grad()  
                         word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                         N = len(word_emb_idxes)
                         #1. Run LSTM on raw input and get word embeddings
-                        embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
+                        embeddings        = self.dropout(self.E(word_emb_idxes).unsqueeze(dim=0))
                         input_seq,end     = self.rnn(embeddings)
                         input_seq         = input_seq.squeeze(dim=0)
                         #2.  Compute edge attention from flat matrix representation
@@ -259,6 +262,7 @@ class GraphParser(nn.Module):
         label_loss_fn = nn.CrossEntropyLoss(reduction = 'sum')
         
         with torch.no_grad():
+            self.eval()
             eNLL,eN,lNLL,lN = 0,0,0,0
             dataloader = DataLoader(dataset, batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
@@ -293,12 +297,13 @@ class GraphParser(nn.Module):
         softmax = nn.LogSoftmax(dim=1) #should not be a softmax for Edmonds (sum of logs works worse)
         
         with torch.no_grad():
+            self.eval()
             dataloader = DataLoader(dataset,batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                 for (edgedata,labeldata,tok_sequence) in batch:
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
-                    if N == 2:
+                    if N == 2: 
                         yield DepGraph([(0,DependencyDataset.ROOT,1)],with_root=False,wordlist=tok_sequence)
                         continue #abort this sentence. There is just a dummy root and a single token
                         
@@ -333,13 +338,13 @@ devset    = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=trainset.
 testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
 
 emb_size    = 50
-arc_mlp     = 250
-lab_mlp     = 50
+arc_mlp     = 500
+lab_mlp     = 100
 lstm_hidden = 200
 
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
 model.to(xdevice)
-model.train(trainset,devset,30)
+model.train(trainset,devset,50)
 print('running test')
 ostream = open('testout.conll','w')
 for tree in model.predict(testset):
