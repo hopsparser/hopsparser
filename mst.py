@@ -14,6 +14,9 @@ from tqdm import tqdm
 from random import sample,shuffle
 from collections import Counter
 
+torch.multiprocessing.set_sharing_strategy('file_system')
+
+
 class DependencyDataset(data.Dataset):
     """
     A representation of the DepBank for efficient processing.
@@ -141,14 +144,15 @@ class MLP(nn.Module):
 
     def __init__(self,input_size,hidden_size,output_size,dropout=0.0):
         super(MLP, self).__init__()
-        self.Wdown = nn.Linear(input_size,hidden_size)
-        self.Wup   = nn.Linear(hidden_size,output_size)
-        self.g     = nn.ReLU()
-        self.dropout        = nn.Dropout(p=dropout)
+        self.Wdown    = nn.Linear(input_size,hidden_size)
+        self.Wup      = nn.Linear(hidden_size,output_size)
+        self.g        = nn.ReLU()
+        self.dropout  = nn.Dropout(p=dropout)
         
     def forward(self,input):
         return self.Wup(self.dropout(self.g(self.Wdown(input))))
-     
+
+    
 class Biaffine(nn.Module):
     """
     Biaffine module whose implementation works efficiently on GPU too
@@ -195,7 +199,6 @@ class GraphParser(nn.Module):
         self.head_lab       = MLP(lstm_hidden*2,lab_mlp_hidden,lstm_hidden,dropout=dropout)
         self.dep_lab        = MLP(lstm_hidden*2,lab_mlp_hidden,lstm_hidden,dropout=dropout)
         self.rnn            = nn.LSTM(word_embedding_size,lstm_hidden,bidirectional=True,num_layers=2,dropout=dropout)
-        self.dropout        = nn.Dropout(p=dropout)
         
     def forward_edges(self,dep_embeddings,head_embeddings):
         """
@@ -228,7 +231,7 @@ class GraphParser(nn.Module):
                         word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                         N = len(word_emb_idxes)
                         #1. Run LSTM on raw input and get word embeddings
-                        embeddings        = self.dropout(self.E(word_emb_idxes).unsqueeze(dim=0))
+                        embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
                         input_seq,end     = self.rnn(embeddings)
                         input_seq         = input_seq.squeeze(dim=0)
                         #2.  Compute edge attention from flat matrix representation
