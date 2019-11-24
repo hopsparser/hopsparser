@@ -260,7 +260,7 @@ class GraphParser(nn.Module):
         
         with torch.no_grad():
             eNLL,eN,lNLL,lN = 0,0,0,0
-            dataloader = DataLoader(dataset, batch_size=64,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
+            dataloader = DataLoader(dataset, batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                 for (edgedata,labeldata,tok_sequence) in batch:
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
@@ -293,7 +293,7 @@ class GraphParser(nn.Module):
         softmax = nn.Softmax(dim=1) #should not be a softmax for Edmonds (sum of logs works worse)
         
         with torch.no_grad():
-            dataloader = DataLoader(dataset,batch_size=64,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
+            dataloader = DataLoader(dataset,batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                 for (edgedata,labeldata,tok_sequence) in batch:
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
@@ -340,7 +340,7 @@ lstm_hidden = 200
 
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp)
 model.to(xdevice)
-model.train(trainset,devset,50)
+model.train(trainset,devset,30)
 print('running test')
 ostream = open('testout.conll','w')
 for tree in model.predict(testset):
