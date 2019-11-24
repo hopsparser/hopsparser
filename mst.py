@@ -337,7 +337,7 @@ trainset  = DependencyDataset('spmrl/train.French.gold.conll',min_vocab_freq=1)
 devset    = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=trainset.itos,use_labels=trainset.itolab)
 testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
 
-emb_size    = 50
+emb_size    = 100
 arc_mlp     = 500
 lab_mlp     = 100
 lstm_hidden = 200
