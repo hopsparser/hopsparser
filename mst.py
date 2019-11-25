@@ -11,7 +11,7 @@ from torch.utils import data
 from torch.utils.data import DataLoader,SequentialSampler
 from math import sqrt
 from tqdm import tqdm
-from random import sample,shuffle
+from random import sample,shuffle,random
 from collections import Counter
 
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -54,7 +54,8 @@ class DependencyDataset(data.Dataset):
             
         self.preprocess_edges()
         self.preprocess_labels()
-
+        self.word_dropout = 0.0
+        
     def shuffle(self):
         self.treelist.shuffle()
         self.treelist.sort(key=lambda x:len(x))
@@ -85,10 +86,15 @@ class DependencyDataset(data.Dataset):
         """ 
         self.xdep     = [ ] 
         self.refidxes = [ ] 
-        
+
+        def word_sampler(word_idx,dropout):
+            return self.stoi[DependencyDataset.UNK_WORD]  if random() < dropout else word_idx
+          
         for tree in self.treelist:
             word_seq      = [DependencyDataset.ROOT] + tree.words
             depword_idxes = [self.stoi.get(tok,self.stoi[DependencyDataset.UNK_WORD]) for tok in word_seq]
+            if self.word_dropout:
+                depword_idxes = [word_sampler(widx,self.word_dropout) for widx in depword_idxes]
             gov_idxes     = [DependencyDataset.ROOT_GOV_IDX] + DependencyDataset.oracle_ancestors(tree)
             self.xdep.append(depword_idxes)
             self.refidxes.append(gov_idxes)
@@ -212,13 +218,14 @@ class GraphParser(nn.Module):
         """
         return self.labB(dep_embeddings,head_embeddings) 
     
-    def train_model(self,trainset,devset,epochs):
-        
+    def train_model(self,trainset,devset,epochs,dropout=0.0):
+
+        trainset.word_dropout = dropout
         print("N =",len(trainset))
         edge_loss_fn  = nn.CrossEntropyLoss(reduction = 'sum',ignore_index=DependencyDataset.ROOT_GOV_IDX) #ignores the dummy root index
         label_loss_fn = nn.CrossEntropyLoss(reduction = 'sum') 
         optimizer     = optim.Adam( self.parameters() )
-
+        
         bestNLL = 100
         for ep in range(epochs):
             self.train()
@@ -255,11 +262,11 @@ class GraphParser(nn.Module):
                         lN   += len(ref_labels)
                         lNLL += lloss.item()
                         optimizer.step( )
-                print('  TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
                 deveNLL,devlNLL = self.eval_model(devset)
                 if deveNLL+devlNLL < bestNLL:
                     bestNLL = deveNLL+devlNLL
                     torch.save(self.state_dict(),'test_biaffine.pt2')
+                print('\n  TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
                 print('  DEV  : mean NLL(edges)',deveNLL,'mean NLL(labels)',devlNLL)
             except KeyboardInterrupt:
                 print('Received SIGINT. Aborting training.')
@@ -350,9 +357,9 @@ trainset  = DependencyDataset('spmrl/train.French.gold.conll',min_vocab_freq=1)
 devset    = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=trainset.itos,use_labels=trainset.itolab)
 testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
 
-model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.2)
+model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
 model.to(xdevice)
-model.train_model(trainset,devset,30)
+model.train_model(trainset,devset,100)
 print('running test')
 ostream = open('testout.conll2','w')
 for tree in model.predict(testset):
