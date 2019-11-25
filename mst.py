@@ -51,10 +51,10 @@ class DependencyDataset(data.Dataset):
             self.labtoi = {label:idx for idx,label in enumerate(self.itolab)}
         else:
             self.init_labels(self.treelist)
-            
+
+        self.word_dropout = 0.0
         self.preprocess_edges()
         self.preprocess_labels()
-        self.word_dropout = 0.0
         
     def shuffle(self):
         self.treelist.shuffle()
