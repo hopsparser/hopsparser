@@ -259,7 +259,7 @@ class GraphParser(nn.Module):
                 deveNLL,devlNLL = self.eval_model(devset)
                 if deveNLL+devlNLL < bestNLL:
                     bestNLL = deveNLL+devlNLL
-                    torch.save(self.state_dict(),'test_biaffine.pt')
+                    torch.save(self.state_dict(),'test_biaffine.pt2')
                 print('  DEV  : mean NLL(edges)',deveNLL,'mean NLL(labels)',devlNLL)
             except KeyboardInterrupt:
                 print('Received SIGINT. Aborting training.')
@@ -350,11 +350,11 @@ trainset  = DependencyDataset('spmrl/train.French.gold.conll',min_vocab_freq=1)
 devset    = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=trainset.itos,use_labels=trainset.itolab)
 testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
 
-model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
+model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.1)
 model.to(xdevice)
 model.train_model(trainset,devset,30)
 print('running test')
-ostream = open('testout.conll','w')
+ostream = open('testout.conll2','w')
 for tree in model.predict(testset):
     print(tree,file=ostream)
     print('',file=ostream)
