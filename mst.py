@@ -350,7 +350,7 @@ trainset  = DependencyDataset('spmrl/train.French.gold.conll',min_vocab_freq=1)
 devset    = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=trainset.itos,use_labels=trainset.itolab)
 testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
 
-model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.1)
+model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.2)
 model.to(xdevice)
 model.train_model(trainset,devset,30)
 print('running test')
