@@ -214,7 +214,7 @@ class GraphParser(nn.Module):
                     'word_embedding_size':word_embedding_size,\
                     'lstm_hidden':lstm_hidden_size,\
                     'arc_mlp_hidden':arc_mlp_hidden,\
-                    'lab_mlp_hidden':lab_mlp_hidden,\ 
+                    'lab_mlp_hidden':lab_mlp_hidden,\
                     'state_dict':self.state_dict()},filename)
         
     def allocate(self,word_embedding_size,vocab_size,label_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout):
