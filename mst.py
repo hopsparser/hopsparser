@@ -201,7 +201,7 @@ class GraphParser(nn.Module):
         reloaded = torch.load(filename)
         model    = GraphParser([0]*reloaded['vocab_len'],[0]*reloaded['label_len'],\
                                    reloaded['word_embedding_size'],reloaded['lstm_hidden'],reloaded['arc_mlp_hidden'],reloaded['lab_mlp_hidden'])
-        model.load_state_dict(reloaded(['state_dict'])
+        model.load_state_dict(reloaded(['state_dict']))
         return model
                                 
     def save_model(filename):
