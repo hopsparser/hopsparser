@@ -211,7 +211,7 @@ class GraphParser(nn.Module):
         _,lab_mlp_hidden                = tuple(self.head_lab.Wdown.weight.size())
 
         torch.save({'vocab_len':vocab_len,\
-                    'label_len':labels_len,\
+                    'label_len':label_len,\
                     'word_embedding_size':word_embedding_size,\
                     'lstm_hidden':lstm_hidden_size,\
                     'arc_mlp_hidden':arc_mlp_hidden,\
