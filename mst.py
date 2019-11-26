@@ -363,8 +363,6 @@ for tree in testset:
     print(tree,file=ostream)
 ostream.close()
     
-for tree in testset:
-
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
 model.to(xdevice)
 model.train_model(trainset,devset,50)
