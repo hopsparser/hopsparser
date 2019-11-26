@@ -311,7 +311,7 @@ class GraphParser(nn.Module):
     def predict(self,dataset):
 
         softmax = nn.LogSoftmax(dim=1) #should not be a softmax for Edmonds (sum of logs works worse ??)
-        
+        sigmoid = nn.Sigmoid() 
         with torch.no_grad():
             self.eval()
             dataloader = DataLoader(dataset,batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
@@ -331,7 +331,8 @@ class GraphParser(nn.Module):
                     deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
                     gov_embeddings    = input_seq.repeat(N,1)
                     attention_scores  = self.edge_biaffine(self.dep_arc(deps_embeddings),self.head_arc(gov_embeddings))
-                    attention_matrix  = softmax(attention_scores.view(N,N))
+                    #attention_matrix  = softmax(attention_scores.view(N,N))
+                    attention_matrix  = sigmoid(attention_scores.view(N,N)) #use normalized raw scores to compute the MST 
                     #3. Compute max spanning tree
                     M                   = attention_matrix.cpu().numpy()[1:,1:].T         
                     G                   = nx.from_numpy_matrix(M,create_using=nx.DiGraph)
@@ -357,9 +358,16 @@ trainset  = DependencyDataset('spmrl/train.French.gold.conll',min_vocab_freq=1)
 devset    = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=trainset.itos,use_labels=trainset.itolab)
 testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
 
+ostream = open('testoutref.conll','w')
+for tree in testset:
+    print(tree,file=ostream)
+ostream.close()
+    
+for tree in testset:
+
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
 model.to(xdevice)
-model.train_model(trainset,devset,100)
+model.train_model(trainset,devset,50)
 print('running test')
 ostream = open('testout.conll2','w')
 for tree in model.predict(testset):
