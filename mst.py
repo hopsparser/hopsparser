@@ -359,7 +359,7 @@ devset    = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=trainset.
 testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
 
 ostream = open('testoutref.conll','w')
-for tree in testset:
+for tree in testset.treelist:
     print(tree,file=ostream)
 ostream.close()
     
