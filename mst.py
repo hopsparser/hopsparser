@@ -33,7 +33,7 @@ class DependencyDataset(data.Dataset):
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
         while tree:
-            if len(tree) <= 100: #problem of memory explosion later with very long sentences.
+            if len(tree) <= 10: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
             else:
                 print('dropped sentence',len(tree))
@@ -204,7 +204,7 @@ class GraphParser(nn.Module):
         model.load_state_dict(reloaded(['state_dict']))
         return model
                                 
-    def save_model(filename):
+    def save_model(self,filename):
         vocab_len,word_embedding_size   = tuple(self.E.weight.size())
         lstm_hidden_size,arc_mlp_hidden = tuple(self.head_arc.Wdown.size())
         _,lab_mlp_hidden                = tuple(self.head_lab.Wdown.size())
@@ -334,7 +334,7 @@ class GraphParser(nn.Module):
     def predict(self,dataset):
 
         softmax = nn.LogSoftmax(dim=1) #should not be a softmax for Edmonds (sum of logs works worse ??)
-        sigmoid = nn.Sigmoid() 
+        sigmoid = nn.Tanh() 
         with torch.no_grad():
             self.eval()
             dataloader = DataLoader(dataset,batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
