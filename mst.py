@@ -195,6 +195,27 @@ class GraphParser(nn.Module):
         #self.code_vocab(vocab)
         #self.code_labels(labels)
         self.allocate(word_embedding_size,len(vocab),len(labels),lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout)
+
+    @staticmethod
+    def load_model(filename):
+        reloaded = torch.load(filename)
+        model    = GraphParser([0]*reloaded['vocab_len'],[0]*reloaded['label_len'],\
+                                   reloaded['word_embedding_size'],reloaded['lstm_hidden'],reloaded['arc_mlp_hidden'],reloaded['lab_mlp_hidden'])
+        model.load_state_dict(reloaded(['state_dict'])
+        return model
+                                
+    def save_model(filename):
+        vocab_len,word_embedding_size   = tuple(self.E.weight.size())
+        lstm_hidden_size,arc_mlp_hidden = tuple(self.head_arc.Wdown.size())
+        _,lab_mlp_hidden                = tuple(self.head_lab.Wdown.size())
+
+        torch.save({'vocab_len':vocab_len,\
+                    'label_len':labels_len,\
+                    'word_embedding_size':word_embedding_size,\
+                    'lstm_hidden':lstm_hidden_size,\
+                    'arc_mlp_hidden':arc_mlp_hidden,\
+                    'lab_mlp_hidden':lab_mlp_hidden,\ 
+                    'state_dict':self.state_dict()},filename)
         
     def allocate(self,word_embedding_size,vocab_size,label_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout):
         self.E              = nn.Embedding(vocab_size,word_embedding_size)
@@ -368,10 +389,12 @@ ostream.close()
     
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
 model.to(xdevice)
-model.train_model(trainset,devset,50)
+model.train_model(trainset,devset,1)
+model.save_model('test.pt')
+model = GraphParser.load_model('test.pt')
 print('running test')
 ostream = open('testout.conll2','w')
 for tree in model.predict(testset):
     print(tree,file=ostream)
-    print('',file=ostream)
+    print('',file=ostream,flush=True)
 ostream.close()
