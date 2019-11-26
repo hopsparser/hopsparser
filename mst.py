@@ -361,6 +361,7 @@ testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.
 ostream = open('testoutref.conll','w')
 for tree in testset.treelist:
     print(tree,file=ostream)
+    print('',file=ostream)
 ostream.close()
     
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
