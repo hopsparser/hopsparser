@@ -206,8 +206,8 @@ class GraphParser(nn.Module):
                                 
     def save_model(self,filename):
         vocab_len,word_embedding_size   = tuple(self.E.weight.size())
-        lstm_hidden_size,arc_mlp_hidden = tuple(self.head_arc.Wdown.size())
-        _,lab_mlp_hidden                = tuple(self.head_lab.Wdown.size())
+        lstm_hidden_size,arc_mlp_hidden = tuple(self.head_arc.Wdown.weight.size())
+        _,lab_mlp_hidden                = tuple(self.head_lab.Wdown.weight.size())
 
         torch.save({'vocab_len':vocab_len,\
                     'label_len':labels_len,\
