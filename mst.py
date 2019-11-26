@@ -270,7 +270,9 @@ class GraphParser(nn.Module):
                 print('  DEV  : mean NLL(edges)',deveNLL,'mean NLL(labels)',devlNLL)
             except KeyboardInterrupt:
                 print('Received SIGINT. Aborting training.')
+                self.load_state_dict(torch.load('test_biaffine.pt2'))
                 return
+        self.load_state_dict(torch.load('test_biaffine.pt2'))
                 
     def eval_model(self,dataset):
         
