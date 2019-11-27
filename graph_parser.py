@@ -300,9 +300,9 @@ class GraphParser(nn.Module):
                         gov_embeddings    = input_seq[ref_gov_idxes]
                         label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
                         lloss  = label_loss_fn(label_predictions,ref_labels)
-                        #lloss.backward( )
+                        lloss.backward( )
                         lN   += len(ref_labels)
-                        #lNLL += lloss.item()
+                        lNLL += lloss.item()
                         optimizer.step( )
                 deveNLL,devlNLL = self.eval_model(devset)
                 if deveNLL+devlNLL < bestNLL:
