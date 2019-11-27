@@ -391,7 +391,7 @@ class GraphParser(nn.Module):
                     yield dg
 
 emb_size    = 100
-arc_mlp     = 500
+arc_mlp     = 300
 lab_mlp     = 100
 lstm_hidden = 400                    
 xdevice = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
@@ -400,25 +400,25 @@ print('device used',xdevice)
 trainset    = DependencyDataset('spmrl/train.French.gold.conll',min_vocab_freq=1)
 itos,itolab = trainset.itos,trainset.itolab
 devset      = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=itos,use_labels=itolab)
-#trainset.save_vocab('model.vocab')
+trainset.save_vocab('model.vocab')
 
-#model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
-#model.to(xdevice)
-#model.train_model(trainset,devset,10)
+model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
+model.to(xdevice)
+model.train_model(trainset,devset,20)
 
-model       = GraphParser.load_model('test_biaffine.pt2')
-itos,itolab = DependencyDataset.load_vocab('model.vocab')
+#model       = GraphParser.load_model('test_biaffine.pt2')
+#itos,itolab = DependencyDataset.load_vocab('model.vocab')
 
-trainset     = DependencyDataset('spmrl/train.French.gold.conll',use_vocab=itos,use_labels=itolab)
-ostream   = open('testoutref.conll','w')
-for tree in trainset.treelist:
+testset     = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=itos,use_labels=itolab)
+ostream     = open('testoutref.conll','w')
+for tree in testset.treelist:
     print(tree,file=ostream)
     print('',file=ostream)
 ostream.close()
 
 print('running test')
 ostream = open('testout.conll2','w')
-for tree in model.predict(trainset):
+for tree in model.predict(testset):
     print(tree,file=ostream)
     print('',file=ostream,flush=True)
 ostream.close()
