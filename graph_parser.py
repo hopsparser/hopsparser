@@ -111,6 +111,9 @@ class DependencyDataset(data.Dataset):
             depword_idxes = [self.stoi.get(tok,self.stoi[DependencyDataset.UNK_WORD]) for tok in word_seq]
             if self.word_dropout:
                 depword_idxes = [word_sampler(widx,self.word_dropout) for widx in depword_idxes]
+            print(word_seq)
+            print(depword_idxes)
+            print('unk word idx',self.stoi[DependencyDataset.UNK_WORD])
             gov_idxes     = [DependencyDataset.ROOT_GOV_IDX] + DependencyDataset.oracle_ancestors(tree)
             self.xdep.append(depword_idxes)
             self.refidxes.append(gov_idxes)
@@ -353,7 +356,6 @@ class GraphParser(nn.Module):
     def predict(self,dataset):
 
         softmax = nn.Softmax(dim=1) #should not be a softmax for Edmonds (sum of logs works worse ??)
-        tanh = nn.Tanh() 
         with torch.no_grad():
             self.eval()
             dataloader = DataLoader(dataset,batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
@@ -373,7 +375,6 @@ class GraphParser(nn.Module):
                     deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
                     gov_embeddings    = input_seq.repeat(N,1)
                     attention_scores  = self.edge_biaffine(self.dep_arc(deps_embeddings),self.head_arc(gov_embeddings))
-                    #attention_matrix  = tanh(attention_scores.view(N,N))
                     attention_matrix  = attention_scores.view(N,N) #use normalized raw scores to compute the MST 
                     #3. Compute max spanning tree
                     M                   = attention_matrix.cpu().numpy()[1:,1:].T         
