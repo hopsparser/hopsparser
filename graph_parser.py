@@ -179,7 +179,7 @@ class MLP(nn.Module):
 
     
 class Biaffine(nn.Module):
-    """
+    """ 
     Biaffine module whose implementation works efficiently on GPU too
     """
     def __init__(self,input_size,label_size= 2):
@@ -204,11 +204,11 @@ class Biaffine(nn.Module):
         batch,emb = xdep.shape
 
         dephead = torch.cat([xdep,xhead],dim=1).t()
-        return self.B(xdep,xhead) + (self.W @ dephead).t() + self.b
+        return self.B(xdep,xhead) #+ (self.W @ dephead).t() + self.b
              
 class GraphParser(nn.Module):
     
-    def __init__(self,vocab,labels,word_embedding_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout=0.0):
+    def __init__(self,vocab,labels,word_embedding_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout=0.1):
         
         super(GraphParser, self).__init__()
         #self.code_vocab(vocab)
