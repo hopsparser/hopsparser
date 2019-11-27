@@ -32,12 +32,12 @@ class DependencyDataset(data.Dataset):
         istream       = open(filename)
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
-        while tree:
+        while tree and len(treelist) < 10:
             if len(tree) <= 10: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
             else:
                 print('dropped sentence',len(tree))
-            tree = DepGraph.read_tree(istream)             
+            tree = DepGraph.read_tree(istream)
         istream.close()
         shuffle(self.treelist)
         #self.treelist.sort(key=lambda x:len(x)) # we do not make real batches later
