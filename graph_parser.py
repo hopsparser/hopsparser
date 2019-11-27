@@ -204,7 +204,7 @@ class Biaffine(nn.Module):
         batch,emb = xdep.shape
 
         dephead = torch.cat([xdep,xhead],dim=1).t()
-        return self.B(xdep,xhead) #+ (self.W @ dephead).t() + self.b
+        return self.B(xdep,xhead) + (self.W @ dephead).t() + self.b
              
 class GraphParser(nn.Module):
     
@@ -246,7 +246,7 @@ class GraphParser(nn.Module):
         self.dep_arc        = MLP(lstm_hidden*2,arc_mlp_hidden,lstm_hidden,dropout=dropout)
         self.head_lab       = MLP(lstm_hidden*2,lab_mlp_hidden,lstm_hidden,dropout=dropout)
         self.dep_lab        = MLP(lstm_hidden*2,lab_mlp_hidden,lstm_hidden,dropout=dropout)
-        self.rnn            = nn.LSTM(word_embedding_size,lstm_hidden,bidirectional=True,num_layers=2,dropout=dropout)
+        self.rnn            = nn.LSTM(word_embedding_size,lstm_hidden,bidirectional=True,num_layers=3,dropout=dropout)
         
     def forward_edges(self,dep_embeddings,head_embeddings):
         """
@@ -393,7 +393,7 @@ class GraphParser(nn.Module):
 emb_size    = 50
 arc_mlp     = 100
 lab_mlp     = 32
-lstm_hidden = 50                    
+lstm_hidden = 100                    
 xdevice = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 print('device used',xdevice)
 
@@ -402,7 +402,7 @@ itos,itolab = trainset.itos,trainset.itolab
 devset      = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=itos,use_labels=itolab)
 trainset.save_vocab('model.vocab')
 
-model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.1)
+model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
 model.to(xdevice)
 model.train_model(trainset,devset,20)
 
