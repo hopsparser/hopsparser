@@ -397,7 +397,7 @@ for tree in testset.treelist:
 ostream.close()
     
 #model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
-model.to(xdevice)
+#model.to(xdevice)
 #model.train_model(trainset,devset,50)
 #model.save_model('test.pt')
 model = GraphParser.load_model('test_biaffine.pt2')
