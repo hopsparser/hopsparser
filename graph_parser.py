@@ -381,7 +381,7 @@ class GraphParser(nn.Module):
                     M                   = attention_matrix.cpu().numpy()[1:,1:].T         
                     G                   = mst.numpy2graph(M)
                     print('spanning tree')
-                    A                   = mst.mst_one_out_root(G,default=-1)    #this performs a max (sum of scores)
+                    A                   = mst.mst_one_out_root(G)    #this performs a max (sum of scores)
                     print('end spanning tree')
                     #4. Compute edge labels 
                     edgelist            = mst.edgelist(A)
