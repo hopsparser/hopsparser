@@ -240,6 +240,7 @@ class GraphParser(nn.Module):
                     'state_dict':self.state_dict()},filename)
         
     def allocate(self,word_embedding_size,vocab_size,label_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout):
+
         self.E              = nn.Embedding(vocab_size,word_embedding_size)
         self.edge_biaffine  = Biaffine(lstm_hidden,1)
         self.label_biaffine = Biaffine(lstm_hidden,label_size)
@@ -403,9 +404,9 @@ itos,itolab = trainset.itos,trainset.itolab
 devset      = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=itos,use_labels=itolab)
 trainset.save_vocab('model.vocab')
 
-model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
+model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.5)
 model.to(xdevice)
-model.train_model(trainset,devset,20)
+model.train_model(trainset,devset,50)
 
 #model       = GraphParser.load_model('test_biaffine.pt2')
 #itos,itolab = DependencyDataset.load_vocab('model.vocab')
@@ -416,10 +417,10 @@ for tree in testset.treelist:
     print(tree,file=ostream)
     print('',file=ostream)
 ostream.close()
-
+trainset.word_dropout=0.0
 print('running test')
 ostream = open('testout.conll2','w')
-for tree in model.predict(testset):
+for tree in model.predict(trainset):
     print(tree,file=ostream)
     print('',file=ostream,flush=True)
 ostream.close()
