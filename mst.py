@@ -311,7 +311,7 @@ class GraphParser(nn.Module):
                 print('Received SIGINT. Aborting training.')
                 self.load_state_dict(torch.load('test_biaffine.pt2'))
                 return
-        self.load_state_dict(torch.load('test_biaffine.pt2'))
+        self.load_state_dict(torch.load('test_biaffine.pt2')['state_dict'])
                 
     def eval_model(self,dataset):
         
@@ -352,7 +352,7 @@ class GraphParser(nn.Module):
     def predict(self,dataset):
 
         softmax = nn.LogSoftmax(dim=1) #should not be a softmax for Edmonds (sum of logs works worse ??)
-        sigmoid = nn.Tanh() 
+        tanh = nn.Tanh() 
         with torch.no_grad():
             self.eval()
             dataloader = DataLoader(dataset,batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
@@ -375,13 +375,13 @@ class GraphParser(nn.Module):
                     gov_embeddings    = input_seq.repeat(N,1)
                     attention_scores  = self.edge_biaffine(self.dep_arc(deps_embeddings),self.head_arc(gov_embeddings))
                     #attention_matrix  = softmax(attention_scores.view(N,N))
-                    attention_matrix  = sigmoid(attention_scores.view(N,N)) #use normalized raw scores to compute the MST 
+                    attention_matrix  = tanh(attention_scores.view(N,N)) #use normalized raw scores to compute the MST 
                     print('end matrix')
                     #3. Compute max spanning tree
                     M                   = attention_matrix.cpu().numpy()[1:,1:].T         
                     G                   = nx.from_numpy_matrix(M,create_using=nx.DiGraph)
                     print('spanning tree')
-                    A                   = nx.maximum_spanning_arborescence(G,default=0)    #this performs a max (sum of scores)
+                    A                   = nx.maximum_spanning_arborescence(G,default=-1)    #this performs a max (sum of scores)
                     print('end spanning tree')
                     #4. Compute edge labels 
                     edgelist            = list(A.edges)
@@ -393,7 +393,6 @@ class GraphParser(nn.Module):
                     dg                  = DepGraph([ (gov,label,dep) for ( (gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
                     yield dg
                     print('end batch')
-
 
 emb_size    = 100
 arc_mlp     = 500
@@ -413,9 +412,9 @@ for tree in testset.treelist:
 ostream.close()
 trainset.save_vocab('model.vocab')
 
-model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
-model.to(xdevice)
-model.train_model(trainset,devset,10)
+#model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
+#model.to(xdevice)
+#model.train_model(trainset,devset,10)
 
 model = GraphParser.load_model('test_biaffine.pt2')
 itos,itolab = DependencyDataset.load_vocab('model.vocab')
