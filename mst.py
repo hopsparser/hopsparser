@@ -226,6 +226,7 @@ class GraphParser(nn.Module):
                     'state_dict':self.state_dict()},filename)
         
     def allocate(self,word_embedding_size,vocab_size,label_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout):
+        print('alloc',lstm_hidden,label_size)
         self.E              = nn.Embedding(vocab_size,word_embedding_size)
         self.edge_biaffine  = Biaffine(lstm_hidden,1)
         self.label_biaffine = Biaffine(lstm_hidden,label_size)
