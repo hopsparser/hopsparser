@@ -401,12 +401,12 @@ itos,itolab = trainset.itos,trainset.itolab
 devset      = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=itos,use_labels=itolab)
 trainset.save_vocab('model.vocab')
 
-#model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
-#model.to(xdevice)
-#model.train_model(trainset,devset,40)
+model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
+model.to(xdevice)
+model.train_model(trainset,devset,40)
 
-model       = GraphParser.load_model('test_biaffine.pt2')
-itos,itolab = DependencyDataset.load_vocab('model.vocab')
+#model       = GraphParser.load_model('test_biaffine.pt2')
+#itos,itolab = DependencyDataset.load_vocab('model.vocab')
 
 testset     = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=itos,use_labels=itolab)
 ostream   = open('testoutref.conll','w')
