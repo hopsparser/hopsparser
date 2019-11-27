@@ -342,7 +342,7 @@ class GraphParser(nn.Module):
             dataloader = DataLoader(dataset,batch_size=32,shuffle=False, num_workers=4,collate_fn=dep_collate_fn,sampler=SequentialSampler(dataset))
             for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                 for (edgedata,labeldata,tok_sequence) in batch:
-                    #print('beg batch')
+                    print('beg batch')
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
                     if N == 2: 
@@ -354,19 +354,19 @@ class GraphParser(nn.Module):
                     input_seq,end     = self.rnn(embeddings)
                     input_seq         = input_seq.squeeze(dim=0)
                     #2.  Compute edge attention from flat matrix representation
-                    #print('beg matrix')
+                    print('beg matrix')
                     deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
                     gov_embeddings    = input_seq.repeat(N,1)
                     attention_scores  = self.edge_biaffine(self.dep_arc(deps_embeddings),self.head_arc(gov_embeddings))
                     #attention_matrix  = softmax(attention_scores.view(N,N))
                     attention_matrix  = sigmoid(attention_scores.view(N,N)) #use normalized raw scores to compute the MST 
-                    #print('end matrix')
+                    print('end matrix')
                     #3. Compute max spanning tree
                     M                   = attention_matrix.cpu().numpy()[1:,1:].T         
                     G                   = nx.from_numpy_matrix(M,create_using=nx.DiGraph)
-                    #print('spanning tree')
+                    print('spanning tree')
                     A                   = nx.maximum_spanning_arborescence(G,default=0)    #this performs a max (sum of scores)
-                    #print('end spanning tree')
+                    print('end spanning tree')
                     #4. Compute edge labels 
                     edgelist            = list(A.edges)
                     gov_embeddings      = input_seq [ torch.tensor( [ gov+1 for (gov,dep) in edgelist ] ) ]
@@ -376,7 +376,7 @@ class GraphParser(nn.Module):
                     pred_labels         = [ dataset.itolab[idx] for idx in pred_idxes ]
                     dg                  = DepGraph([ (gov,label,dep) for ( (gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
                     yield dg
-                    #print('end batch')
+                    print('end batch')
 
 
 emb_size    = 100
@@ -396,11 +396,11 @@ for tree in testset.treelist:
     print('',file=ostream)
 ostream.close()
     
-model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
+#model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
 model.to(xdevice)
-model.train_model(trainset,devset,50)
+#model.train_model(trainset,devset,50)
 #model.save_model('test.pt')
-#model = GraphParser.load_model('test.pt')
+model = GraphParser.load_model('test_biaffine.pt2')
 print('running test')
 ostream = open('testout.conll2','w')
 for tree in model.predict(testset):
