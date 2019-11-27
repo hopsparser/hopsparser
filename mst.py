@@ -207,8 +207,8 @@ class GraphParser(nn.Module):
     def save_model(self,filename):
         vocab_len,word_embedding_size   = tuple(self.E.weight.size())
         label_len,_                     = tuple(self.label_biaffine.W.size())
-        lstm_hidden_size,arc_mlp_hidden = tuple(self.dep_arc.Wdown.weight.size())
-        _,lab_mlp_hidden                = tuple(self.dep_lab.Wdown.weight.size())
+        arc_mlp_hidden,lstm_hidden_size = tuple(self.dep_arc.Wdown.weight.size())
+        lab_mlp_hidden,_                = tuple(self.dep_lab.Wdown.weight.size())
 
         print('saving',{'vocab_len':vocab_len,\
                     'label_len':label_len,\
