@@ -413,14 +413,13 @@ model.train_model(trainset,devset,50)
 
 testset     = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=itos,use_labels=itolab)
 ostream     = open('testoutref.conll','w')
-for tree in trainset.treelist:
+for tree in testset.treelist:
     print(tree,file=ostream)
     print('',file=ostream)
 ostream.close()
-trainset.word_dropout=0.0
 print('running test')
 ostream = open('testout.conll2','w')
-for tree in model.predict(trainset):
+for tree in model.predict(testset):
     print(tree,file=ostream)
     print('',file=ostream,flush=True)
 ostream.close()
