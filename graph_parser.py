@@ -409,17 +409,16 @@ devset      = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=itos,us
 model       = GraphParser.load_model('test_biaffine.pt2')
 itos,itolab = DependencyDataset.load_vocab('model.vocab')
 
-testset     = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=itos,use_labels=itolab)
+trainset     = DependencyDataset('spmrl/train.French.gold.conll',use_vocab=itos,use_labels=itolab)
 ostream   = open('testoutref.conll','w')
-for tree in testset.treelist:
+for tree in trainset.treelist:
     print(tree,file=ostream)
     print('',file=ostream)
 ostream.close()
 
-
 print('running test')
 ostream = open('testout.conll2','w')
-for tree in model.predict(testset):
+for tree in model.predict(trainset):
     print(tree,file=ostream)
     print('',file=ostream,flush=True)
 ostream.close()
