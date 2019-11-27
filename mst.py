@@ -220,13 +220,12 @@ class GraphParser(nn.Module):
         torch.save({'vocab_len':vocab_len,\
                     'label_len':label_len,\
                     'word_embedding_size':word_embedding_size,\
-                    'lstm_hidden':lstm_hidden_size/2,\
+                    'lstm_hidden':int(lstm_hidden_size/2),\
                     'arc_mlp_hidden':arc_mlp_hidden,\
                     'lab_mlp_hidden':lab_mlp_hidden,\
                     'state_dict':self.state_dict()},filename)
         
     def allocate(self,word_embedding_size,vocab_size,label_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout):
-        print('alloc',lstm_hidden,label_size)
         self.E              = nn.Embedding(vocab_size,word_embedding_size)
         self.edge_biaffine  = Biaffine(lstm_hidden,1)
         self.label_biaffine = Biaffine(lstm_hidden,label_size)
