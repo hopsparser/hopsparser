@@ -391,9 +391,9 @@ class GraphParser(nn.Module):
                     yield dg
 
 emb_size    = 100
-arc_mlp     = 300
+arc_mlp     = 100
 lab_mlp     = 100
-lstm_hidden = 400                    
+lstm_hidden = 100                    
 xdevice = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 print('device used',xdevice)
 
