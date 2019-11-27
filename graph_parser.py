@@ -33,7 +33,7 @@ class DependencyDataset(data.Dataset):
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
         while tree:
-            if len(tree) <= 30: #problem of memory explosion later with very long sentences.
+            if len(tree) <= 10: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
             else:
                 print('dropped sentence',len(tree))
@@ -297,12 +297,13 @@ class GraphParser(nn.Module):
                         gov_embeddings    = input_seq[ref_gov_idxes]
                         label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
                         lloss  = label_loss_fn(label_predictions,ref_labels)
-                        lloss.backward( )
+                        #lloss.backward( )
                         lN   += len(ref_labels)
-                        lNLL += lloss.item()
+                        #lNLL += lloss.item()
                         optimizer.step( )
                 deveNLL,devlNLL = self.eval_model(devset)
                 if deveNLL+devlNLL < bestNLL:
+                    print('   saving model.')
                     bestNLL = deveNLL+devlNLL
                     self.save_model('test_biaffine.pt2')
                 print('\n  TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
@@ -372,8 +373,8 @@ class GraphParser(nn.Module):
                     deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
                     gov_embeddings    = input_seq.repeat(N,1)
                     attention_scores  = self.edge_biaffine(self.dep_arc(deps_embeddings),self.head_arc(gov_embeddings))
-                    #attention_matrix  = softmax(attention_scores.view(N,N))
-                    attention_matrix  = attention_scores.view(N,N) #use normalized raw scores to compute the MST 
+                    attention_matrix  = softmax(attention_scores.view(N,N))
+                    #attention_matrix  = attention_scores.view(N,N) #use normalized raw scores to compute the MST 
                     #3. Compute max spanning tree
                     M                   = attention_matrix.cpu().numpy()[1:,1:].T         
                     G                   = mst.numpy2graph(M)
@@ -400,12 +401,12 @@ itos,itolab = trainset.itos,trainset.itolab
 devset      = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=itos,use_labels=itolab)
 trainset.save_vocab('model.vocab')
 
-model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
-model.to(xdevice)
-model.train_model(trainset,devset,40)
+#model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
+#model.to(xdevice)
+#model.train_model(trainset,devset,40)
 
-#model       = GraphParser.load_model('test_biaffine.pt2')
-#itos,itolab = DependencyDataset.load_vocab('model.vocab')
+model       = GraphParser.load_model('test_biaffine.pt2')
+itos,itolab = DependencyDataset.load_vocab('model.vocab')
 
 testset     = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=itos,use_labels=itolab)
 ostream   = open('testoutref.conll','w')
