@@ -32,7 +32,7 @@ class DependencyDataset(data.Dataset):
         istream       = open(filename)
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
-        while tree and len(self.treelist) < 10:
+        while tree and len(self.treelist) < 50:
             if len(tree) <= 10: #problem of memory explosion later with very long sentences.
                 self.treelist.append(tree)
             else:
