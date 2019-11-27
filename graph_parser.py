@@ -390,10 +390,10 @@ class GraphParser(nn.Module):
                     dg                  = DepGraph([ (gov,label,dep) for ( (gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
                     yield dg
 
-emb_size    = 100
+emb_size    = 50
 arc_mlp     = 100
-lab_mlp     = 100
-lstm_hidden = 100                    
+lab_mlp     = 32
+lstm_hidden = 50                    
 xdevice = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 print('device used',xdevice)
 
@@ -402,7 +402,7 @@ itos,itolab = trainset.itos,trainset.itolab
 devset      = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=itos,use_labels=itolab)
 trainset.save_vocab('model.vocab')
 
-model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
+model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.1)
 model.to(xdevice)
 model.train_model(trainset,devset,20)
 
