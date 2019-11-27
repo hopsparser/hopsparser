@@ -351,7 +351,7 @@ class GraphParser(nn.Module):
         
     def predict(self,dataset):
 
-        softmax = nn.LogSoftmax(dim=1) #should not be a softmax for Edmonds (sum of logs works worse ??)
+        softmax = nn.Softmax(dim=1) #should not be a softmax for Edmonds (sum of logs works worse ??)
         tanh = nn.Tanh() 
         with torch.no_grad():
             self.eval()
@@ -373,7 +373,7 @@ class GraphParser(nn.Module):
                     gov_embeddings    = input_seq.repeat(N,1)
                     attention_scores  = self.edge_biaffine(self.dep_arc(deps_embeddings),self.head_arc(gov_embeddings))
                     #attention_matrix  = softmax(attention_scores.view(N,N))
-                    attention_matrix  = softmax(attention_scores.view(N,N)) #use normalized raw scores to compute the MST 
+                    attention_matrix  = attention_scores.view(N,N) #use normalized raw scores to compute the MST 
                     #3. Compute max spanning tree
                     M                   = attention_matrix.cpu().numpy()[1:,1:].T         
                     G                   = mst.numpy2graph(M)
