@@ -207,13 +207,20 @@ class GraphParser(nn.Module):
     def save_model(self,filename):
         vocab_len,word_embedding_size   = tuple(self.E.weight.size())
         label_len,_                     = tuple(self.label_biaffine.W.size())
-        lstm_hidden_size,arc_mlp_hidden = tuple(self.head_arc.Wdown.weight.size())
-        _,lab_mlp_hidden                = tuple(self.head_lab.Wdown.weight.size())
+        lstm_hidden_size,arc_mlp_hidden = tuple(self.dep_arc.Wdown.weight.size())
+        _,lab_mlp_hidden                = tuple(self.dep_lab.Wdown.weight.size())
 
+        print('saving',{'vocab_len':vocab_len,\
+                    'label_len':label_len,\
+                    'word_embedding_size':word_embedding_size,\
+                    'lstm_hidden':lstm_hidden_size/2,\
+                    'arc_mlp_hidden':arc_mlp_hidden,\
+                    'lab_mlp_hidden':lab_mlp_hidden})
+        
         torch.save({'vocab_len':vocab_len,\
                     'label_len':label_len,\
                     'word_embedding_size':word_embedding_size,\
-                    'lstm_hidden':lstm_hidden_size,\
+                    'lstm_hidden':lstm_hidden_size/2,\
                     'arc_mlp_hidden':arc_mlp_hidden,\
                     'lab_mlp_hidden':lab_mlp_hidden,\
                     'state_dict':self.state_dict()},filename)
