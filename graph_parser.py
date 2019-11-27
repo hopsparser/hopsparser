@@ -373,8 +373,8 @@ class GraphParser(nn.Module):
                     deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
                     gov_embeddings    = input_seq.repeat(N,1)
                     attention_scores  = self.edge_biaffine(self.dep_arc(deps_embeddings),self.head_arc(gov_embeddings))
-                    attention_matrix  = tanh(attention_scores.view(N,N))
-                    #attention_matrix  = attention_scores.view(N,N) #use normalized raw scores to compute the MST 
+                    #attention_matrix  = tanh(attention_scores.view(N,N))
+                    attention_matrix  = attention_scores.view(N,N) #use normalized raw scores to compute the MST 
                     #3. Compute max spanning tree
                     M                   = attention_matrix.cpu().numpy()[1:,1:].T         
                     G                   = mst.numpy2graph(M)
@@ -399,14 +399,14 @@ print('device used',xdevice)
 trainset    = DependencyDataset('spmrl/train.French.gold.conll',min_vocab_freq=1)
 itos,itolab = trainset.itos,trainset.itolab
 devset      = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=itos,use_labels=itolab)
-trainset.save_vocab('model.vocab')
+#trainset.save_vocab('model.vocab')
 
-model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
-model.to(xdevice)
-model.train_model(trainset,devset,10)
+#model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
+#model.to(xdevice)
+#model.train_model(trainset,devset,10)
 
-#model       = GraphParser.load_model('test_biaffine.pt2')
-#itos,itolab = DependencyDataset.load_vocab('model.vocab')
+model       = GraphParser.load_model('test_biaffine.pt2')
+itos,itolab = DependencyDataset.load_vocab('model.vocab')
 
 testset     = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=itos,use_labels=itolab)
 ostream   = open('testoutref.conll','w')
