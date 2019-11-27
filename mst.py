@@ -202,7 +202,7 @@ class GraphParser(nn.Module):
         model    = GraphParser([0]*reloaded['vocab_len'],[0]*reloaded['label_len'],\
                                    reloaded['word_embedding_size'],reloaded['lstm_hidden'],reloaded['arc_mlp_hidden'],reloaded['lab_mlp_hidden'])
         model.load_state_dict(reloaded['state_dict'])
-        model = model.to(device)
+        model = model.to(xdevice)
         return model
                                 
     def save_model(self,filename):
