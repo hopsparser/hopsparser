@@ -55,6 +55,22 @@ class DependencyDataset(data.Dataset):
         self.word_dropout = 0.0
         self.preprocess_edges()
         self.preprocess_labels()
+
+    def save_vocab(self,filename):
+        
+        out = open(filename,'w')
+        print(' '.join(self.itos),file=out)
+        print(' '.join(self.itolab),file=out)
+        out.close()
+
+    @staticmethod
+    def load_vocab(filename):
+
+        reloaded = open(filename)
+        itos     = reloaded.readline().split()
+        itolab   = reloaded.readline().split()
+        reloaded.close()
+        return itos,itolab
         
     def shuffle(self):
         self.treelist.shuffle()
@@ -288,7 +304,7 @@ class GraphParser(nn.Module):
                 deveNLL,devlNLL = self.eval_model(devset)
                 if deveNLL+devlNLL < bestNLL:
                     bestNLL = deveNLL+devlNLL
-                    torch.save_model('test_biaffine.pt2')
+                    self.save_model('test_biaffine.pt2')
                 print('\n  TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
                 print('  DEV  : mean NLL(edges)',deveNLL,'mean NLL(labels)',devlNLL)
             except KeyboardInterrupt:
@@ -388,19 +404,23 @@ print('device used',xdevice)
 
 trainset  = DependencyDataset('spmrl/train.French.gold.conll',min_vocab_freq=1)
 devset    = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=trainset.itos,use_labels=trainset.itolab)
-testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
+#testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
 
 ostream = open('testoutref.conll','w')
 for tree in testset.treelist:
     print(tree,file=ostream)
     print('',file=ostream)
 ostream.close()
-    
-#model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
-#model.to(xdevice)
-#model.train_model(trainset,devset,10)
-#model.save_model('test.pt')
-model = GraphParser.load_model('test.pt')
+trainset.save_vocab('model.vocab')
+
+model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
+model.to(xdevice)
+model.train_model(trainset,devset,10)
+
+model = GraphParser.load_model('test_biaffine.pt2')
+itos,itolab = DependencyDataset.load_vocab('model.vocab')
+testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=itos,use_labels=itolab)
+
 print('running test')
 ostream = open('testout.conll2','w')
 for tree in model.predict(testset):
