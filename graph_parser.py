@@ -352,7 +352,7 @@ class GraphParser(nn.Module):
         
     def predict(self,dataset):
 
-        #softmax = nn.Softmax(dim=1) #should not be a softmax for Edmonds (sum of logs works worse ??)
+        softmax = nn.Softmax(dim=1) #should not be a softmax for Edmonds (sum of logs works worse ??)
         tanh = nn.Tanh() 
         with torch.no_grad():
             self.eval()
