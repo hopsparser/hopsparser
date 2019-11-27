@@ -408,8 +408,8 @@ devset      = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=itos,us
 #model.to(xdevice)
 #model.train_model(trainset,devset,50)
 
-#model       = GraphParser.load_model('test_biaffine.pt2')
-#itos,itolab = DependencyDataset.load_vocab('model.vocab')
+model       = GraphParser.load_model('test_biaffine.pt2')
+itos,itolab = DependencyDataset.load_vocab('model.vocab')
 
 testset     = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=itos,use_labels=itolab)
 ostream     = open('testoutref.conll','w')
@@ -420,7 +420,7 @@ ostream.close()
 trainset.word_dropout=0.0
 print('running test')
 #ostream = open('testout.conll2','w')
-#for tree in model.predict(trainset):
-#    print(tree,file=ostream)
-#    print('',file=ostream,flush=True)
+for tree in model.predict(trainset):
+    print(tree,file=ostream)
+    print('',file=ostream,flush=True)
 #ostream.close()
