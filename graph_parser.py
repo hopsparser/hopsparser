@@ -403,7 +403,7 @@ trainset.save_vocab('model.vocab')
 
 model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
 model.to(xdevice)
-model.train_model(trainset,devset,40)
+model.train_model(trainset,devset,10)
 
 #model       = GraphParser.load_model('test_biaffine.pt2')
 #itos,itolab = DependencyDataset.load_vocab('model.vocab')
