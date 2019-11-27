@@ -288,7 +288,7 @@ class GraphParser(nn.Module):
                 deveNLL,devlNLL = self.eval_model(devset)
                 if deveNLL+devlNLL < bestNLL:
                     bestNLL = deveNLL+devlNLL
-                    torch.save(self.state_dict(),'test_biaffine.pt2')
+                    torch.save_model('test_biaffine.pt2')
                 print('\n  TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
                 print('  DEV  : mean NLL(edges)',deveNLL,'mean NLL(labels)',devlNLL)
             except KeyboardInterrupt:
@@ -398,9 +398,9 @@ ostream.close()
     
 #model       = GraphParser(trainset.itos,trainset.itolab,emb_size,lstm_hidden,arc_mlp,lab_mlp,dropout=0.3)
 #model.to(xdevice)
-#model.train_model(trainset,devset,50)
+#model.train_model(trainset,devset,10)
 #model.save_model('test.pt')
-model = GraphParser.load_model('test_biaffine.pt2')
+model = GraphParser.load_model('test.pt')
 print('running test')
 ostream = open('testout.conll2','w')
 for tree in model.predict(testset):
