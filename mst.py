@@ -404,7 +404,7 @@ print('device used',xdevice)
 
 trainset  = DependencyDataset('spmrl/train.French.gold.conll',min_vocab_freq=1)
 devset    = DependencyDataset('spmrl/dev.French.gold.conll' ,use_vocab=trainset.itos,use_labels=trainset.itolab)
-#testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
+testset   = DependencyDataset('spmrl/test.French.gold.conll',use_vocab=trainset.itos,use_labels=trainset.itolab)
 
 ostream = open('testoutref.conll','w')
 for tree in testset.treelist:
