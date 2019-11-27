@@ -203,9 +203,10 @@ class Biaffine(nn.Module):
         assert(xdep.shape ==  xhead.shape)
         batch,emb = xdep.shape
 
-        dephead = torch.cat([xdep,xhead],dim=1).t()
-        return self.B(xdep,xhead) + (self.W @ dephead).t() + self.b
-             
+        #dephead = torch.cat([xdep,xhead],dim=1).t()
+        #return self.B(xdep,xhead) + (self.W @ dephead).t() + self.b
+        return self.B(xhead,xdep)
+    
 class GraphParser(nn.Module):
     
     def __init__(self,vocab,labels,word_embedding_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout=0.1):
