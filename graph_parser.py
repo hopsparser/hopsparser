@@ -419,8 +419,8 @@ for tree in trainset.treelist:
 ostream.close()
 trainset.word_dropout=0.0
 print('running test')
-#ostream = open('testout.conll2','w')
+ostream = open('testout.conll2','w')
 for tree in model.predict(trainset):
     print(tree,file=ostream)
     print('',file=ostream,flush=True)
-#ostream.close()
+ostream.close()
