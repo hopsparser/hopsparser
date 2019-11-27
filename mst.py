@@ -202,6 +202,7 @@ class GraphParser(nn.Module):
         model    = GraphParser([0]*reloaded['vocab_len'],[0]*reloaded['label_len'],\
                                    reloaded['word_embedding_size'],reloaded['lstm_hidden'],reloaded['arc_mlp_hidden'],reloaded['lab_mlp_hidden'])
         model.load_state_dict(reloaded['state_dict'])
+        model = model.to(device)
         return model
                                 
     def save_model(self,filename):
@@ -209,13 +210,6 @@ class GraphParser(nn.Module):
         label_len,_                     = tuple(self.label_biaffine.W.size())
         arc_mlp_hidden,lstm_hidden_size = tuple(self.dep_arc.Wdown.weight.size())
         lab_mlp_hidden,_                = tuple(self.dep_lab.Wdown.weight.size())
-
-        print('saving',{'vocab_len':vocab_len,\
-                    'label_len':label_len,\
-                    'word_embedding_size':word_embedding_size,\
-                    'lstm_hidden':lstm_hidden_size/2,\
-                    'arc_mlp_hidden':arc_mlp_hidden,\
-                    'lab_mlp_hidden':lab_mlp_hidden})
         
         torch.save({'vocab_len':vocab_len,\
                     'label_len':label_len,\
