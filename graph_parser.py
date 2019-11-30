@@ -309,19 +309,18 @@ class GraphParser(nn.Module):
                     #print('attention',attention_matr)
                     #3. Compute loss and backprop for edges
                     eloss = edge_loss_fn(attention_matrix,ref_gov_idxes)
-                    exit(0)
-                    eloss.backward(retain_graph=True)
+                    eloss.backward() #
                     eN   += N
                     eNLL += eloss.item()
                     #4. Compute loss and backprop for labels
-                    ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice),labeldata[2].to(xdevice)
-                    deps_embeddings   = input_seq[ref_deps_idxes]
-                    gov_embeddings    = input_seq[ref_gov_idxes]
-                    label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
-                    lloss  = label_loss_fn(label_predictions,ref_labels)
-                    lloss.backward( )
-                    lN   += len(ref_labels)
-                    lNLL += lloss.item()
+                    #ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice),labeldata[2].to(xdevice)
+                    #deps_embeddings   = input_seq[ref_deps_idxes]
+                    #gov_embeddings    = input_seq[ref_gov_idxes]
+                    #label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
+                    #lloss  = label_loss_fn(label_predictions,ref_labels)
+                    #lloss.backward( )
+                    #lN   += len(ref_labels)
+                    #lNLL += lloss.item()
                     optimizer.step( )
                 deveNLL,devlNLL = self.eval_model(devset)
                 if deveNLL+devlNLL < bestNLL:
