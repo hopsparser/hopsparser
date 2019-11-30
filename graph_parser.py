@@ -281,16 +281,19 @@ class GraphParser(nn.Module):
             eNLL,eN,lNLL,lN = 0,0,0,0
             print("epoch",ep)
             try:
+                
                 dataloader = DataLoader(trainset, batch_size=2,shuffle=True, num_workers=4,collate_fn=dep_collate_fn)
-                for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
+                for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)):
+                    
                     edgedata,labeldata,tok_sequence = batch
                     optimizer.zero_grad()
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
                     print('word idxes',word_emb_idxes)
                     
-                    #1. Run LSTM on raw input and get word embeddings
-                    embeddings        = self.E(word_emb_idxes) 
+                    #1. Run Lexer and LSTM on raw input and get word embeddings
+                    embeddings        = self.E(word_emb_idxes)
+
                     input_seq,end     = self.rnn(embeddings)
                     input_seq         = input_seq
                     print('lstm_repr',input_seq)
@@ -304,9 +307,9 @@ class GraphParser(nn.Module):
                     attention_scores  = self.edge_biaffine(head_vectors,dep_vectors)
                     #attention_matrix  = attention_scores.view(N,N)
                     print('attention',attention_scores)
-                    exit(0)
                     #3. Compute loss and backprop for edges
                     eloss = edge_loss_fn(attention_matrix,ref_gov_idxes)
+                    exit(0)
                     eloss.backward(retain_graph=True)
                     eN   += N
                     eNLL += eloss.item()
