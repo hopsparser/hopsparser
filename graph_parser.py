@@ -289,14 +289,14 @@ class GraphParser(nn.Module):
                     optimizer.zero_grad()
                     word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                     N = len(word_emb_idxes)
-                    print('word idxes',word_emb_idxes)
+                    #print('word idxes',word_emb_idxes)
                     
                     #1. Run Lexer and LSTM on raw input and get word embeddings
                     embeddings        = self.E(word_emb_idxes)
 
                     input_seq,end     = self.rnn(embeddings)
                     input_seq         = input_seq
-                    print('lstm_repr',input_seq)
+                    #print('lstm_repr',input_seq)
                         
                     dep_vectors  = self.dep_arc(input_seq)
                     head_vectors = self.head_arc(input_seq)
@@ -312,6 +312,7 @@ class GraphParser(nn.Module):
                     eloss.backward() #
                     eN   += N
                     eNLL += eloss.item()
+                    print(eNLL)
                     #4. Compute loss and backprop for labels
                     #ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice),labeldata[2].to(xdevice)
                     #deps_embeddings   = input_seq[ref_deps_idxes]
