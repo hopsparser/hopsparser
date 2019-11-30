@@ -312,7 +312,7 @@ class GraphParser(nn.Module):
                     eloss.backward() #
                     eN   += N
                     eNLL += eloss.item()
-                    print(eNLL/N)
+                    #print(eNLL/N)
                     #4. Compute loss and backprop for labels
                     #ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice),labeldata[2].to(xdevice)
                     #deps_embeddings   = input_seq[ref_deps_idxes]
