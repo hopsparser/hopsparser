@@ -273,7 +273,7 @@ class GraphParser(nn.Module):
                         input_seq,end     = self.rnn(embeddings)
                         input_seq         = input_seq.squeeze(dim=0)
                         print(input_seq)
-
+                        
                         dep_vectors  = self.dep_arc(input_seq)
                         head_vectors = self.head_arc(input_seq)
                         
@@ -389,7 +389,7 @@ emb_size    = 50
 arc_mlp     = 100
 lab_mlp     = 32
 lstm_hidden = 50                    
-xdevice = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+xdevice = 'cpu'#torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 print('device used',xdevice)
 
 trainset    = DependencyDataset('spmrl/train.French.gold.conll',min_vocab_freq=0)
