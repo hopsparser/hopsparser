@@ -323,11 +323,11 @@ class GraphParser(nn.Module):
                     #lN   += len(ref_labels)
                     #lNLL += lloss.item()
                     optimizer.step( )
-                deveNLL,devlNLL = self.eval_model(devset)
-                if deveNLL+devlNLL < bestNLL:
-                    print('   saving model.')
-                    bestNLL = deveNLL+devlNLL
-                    self.save_model('test_biaffine.pt2')
+                #deveNLL,devlNLL = self.eval_model(devset)
+                #if deveNLL+devlNLL < bestNLL:
+                #    print('   saving model.')
+                #    bestNLL = deveNLL+devlNLL
+                #    self.save_model('test_biaffine.pt2')
                 print('\n  TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
                 #print('  DEV  : mean NLL(edges)',deveNLL,'mean NLL(labels)',devlNLL)
             except KeyboardInterrupt:
