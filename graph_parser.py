@@ -328,7 +328,7 @@ class GraphParser(nn.Module):
                 #    print('   saving model.')
                 #    bestNLL = deveNLL+devlNLL
                 #    self.save_model('test_biaffine.pt2')
-                print('\n  TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)',lNLL/lN)
+                print('\n  TRAIN: mean NLL(edges)',eNLL/eN,'mean NLL(labels)')#,lNLL/lN)
                 #print('  DEV  : mean NLL(edges)',deveNLL,'mean NLL(labels)',devlNLL)
             except KeyboardInterrupt:
                 print('Received SIGINT. Aborting training.')
