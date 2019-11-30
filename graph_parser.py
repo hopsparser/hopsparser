@@ -271,7 +271,7 @@ class GraphParser(nn.Module):
 
         trainset.word_dropout = dropout
         print("N =",len(trainset))
-        edge_loss_fn  = nn.CrossEntropyLoss(reduction = 'sum',ignore_index=DependencyDataset.ROOT_GOV_IDX) #ignores the dummy root index
+        edge_loss_fn  = nn.CrossEntropyLoss(reduction = 'sum',ignore_index=[DependencyDataset.ROOT_GOV_IDX,DependencyDataset.PAD_WORD_IDX]) #ignores the dummy root index
         label_loss_fn = nn.CrossEntropyLoss(reduction = 'sum') 
         optimizer     = optim.Adam( self.parameters() )
         
