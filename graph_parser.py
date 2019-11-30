@@ -204,7 +204,7 @@ class Biaffine(nn.Module):
         super(Biaffine, self).__init__()
         self.input_dim  = input_dim
         self.output_dim = output_dim
-        self.U = nn.Parameter(torch.FloatTensor(output_dim, input_dim, input_dim))
+        self.U = nn.Parameter(torch.rand(output_dim, input_dim, input_dim)-0.5/sqrt(input_dim))
 
     def forward(self, Rh, Rd):
         Rh = Rh.unsqueeze(1)
