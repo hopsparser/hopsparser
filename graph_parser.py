@@ -281,45 +281,45 @@ class GraphParser(nn.Module):
             eNLL,eN,lNLL,lN = 0,0,0,0
             print("epoch",ep)
             try:
-                dataloader = DataLoader(trainset, batch_size=32,shuffle=True, num_workers=4,collate_fn=dep_collate_fn)
+                dataloader = DataLoader(trainset, batch_size=2,shuffle=True, num_workers=4,collate_fn=dep_collate_fn)
                 for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
-                    for (edgedata,labeldata,tok_sequence) in batch:
-                        optimizer.zero_grad()
-                        word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
-                        N = len(word_emb_idxes)
-                        print('word idxes',word_emb_idxes.unsqueeze(dim=0))
+                    edgedata,labeldata,tok_sequence = batch
+                    optimizer.zero_grad()
+                    word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
+                    N = len(word_emb_idxes)
+                    print('word idxes',word_emb_idxes)
                     
-                        #1. Run LSTM on raw input and get word embeddings
-                        embeddings        = self.E(word_emb_idxes.unsqueeze(dim=0)) #<- replace with real batch 
-                        input_seq,end     = self.rnn(embeddings)
-                        input_seq         = input_seq
-                        print('lstm_repr',input_seq)
+                    #1. Run LSTM on raw input and get word embeddings
+                    embeddings        = self.E(word_emb_idxes) 
+                    input_seq,end     = self.rnn(embeddings)
+                    input_seq         = input_seq
+                    print('lstm_repr',input_seq)
                         
-                        dep_vectors  = self.dep_arc(input_seq)
-                        head_vectors = self.head_arc(input_seq)
+                    dep_vectors  = self.dep_arc(input_seq)
+                    head_vectors = self.head_arc(input_seq)
                         
-                        #2.  Compute edge attention from flat matrix representation
-                        #deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
-                        #gov_embeddings    = input_seq.repeat(N,1)
-                        attention_scores  = self.edge_biaffine(head_vectors,dep_vectors)
-                        #attention_matrix  = attention_scores.view(N,N)
-                        print('attention',attention_scores)
-                        exit(0)
-                        #3. Compute loss and backprop for edges
-                        eloss = edge_loss_fn(attention_matrix,ref_gov_idxes)
-                        eloss.backward(retain_graph=True)
-                        eN   += N
-                        eNLL += eloss.item()
-                        #4. Compute loss and backprop for labels
-                        ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice),labeldata[2].to(xdevice)
-                        deps_embeddings   = input_seq[ref_deps_idxes]
-                        gov_embeddings    = input_seq[ref_gov_idxes]
-                        label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
-                        lloss  = label_loss_fn(label_predictions,ref_labels)
-                        lloss.backward( )
-                        lN   += len(ref_labels)
-                        lNLL += lloss.item()
-                        optimizer.step( )
+                    #2.  Compute edge attention from flat matrix representation
+                    #deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
+                    #gov_embeddings    = input_seq.repeat(N,1)
+                    attention_scores  = self.edge_biaffine(head_vectors,dep_vectors)
+                    #attention_matrix  = attention_scores.view(N,N)
+                    print('attention',attention_scores)
+                    exit(0)
+                    #3. Compute loss and backprop for edges
+                    eloss = edge_loss_fn(attention_matrix,ref_gov_idxes)
+                    eloss.backward(retain_graph=True)
+                    eN   += N
+                    eNLL += eloss.item()
+                    #4. Compute loss and backprop for labels
+                    ref_deps_idxes,ref_gov_idxes,ref_labels = labeldata[0].to(xdevice),labeldata[1].to(xdevice),labeldata[2].to(xdevice)
+                    deps_embeddings   = input_seq[ref_deps_idxes]
+                    gov_embeddings    = input_seq[ref_gov_idxes]
+                    label_predictions = self.label_biaffine(self.dep_lab(deps_embeddings),self.head_lab(gov_embeddings))
+                    lloss  = label_loss_fn(label_predictions,ref_labels)
+                    lloss.backward( )
+                    lN   += len(ref_labels)
+                    lNLL += lloss.item()
+                    optimizer.step( )
                 deveNLL,devlNLL = self.eval_model(devset)
                 if deveNLL+devlNLL < bestNLL:
                     print('   saving model.')
