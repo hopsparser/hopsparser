@@ -166,7 +166,7 @@ def pad_batch_matrix(batch_matrix):
     """
     batch_len = max( [ len(elt) for elt in batch_matrix] )
     
-    for line in batch_matrix
+    for line in batch_matrix:
         line.extend([DependencyDataset.PAD_WORD_IDX]*(batch_len-len(line)))
     return batch_matrix
         
