@@ -409,10 +409,10 @@ class GraphParser(nn.Module):
                     dg                  = DepGraph([ (gov,label,dep) for ( (gov,dep),label) in zip(edgelist,pred_labels)],wordlist=tok_sequence)
                     yield dg
 
-emb_size    = 5
-arc_mlp     = 10
+emb_size    = 50
+arc_mlp     = 100
 lab_mlp     = 15
-lstm_hidden = 10                    
+lstm_hidden = 200                    
 xdevice = 'cpu'#torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 print('device used',xdevice)
 
