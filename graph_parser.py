@@ -304,7 +304,7 @@ class GraphParser(nn.Module):
                     #2.  Compute edge attention from flat matrix representation
                     #deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
                     #gov_embeddings    = input_seq.repeat(N,1)
-                    attention_scores  = self.edge_biaffine(head_vectors,dep_vectors)
+                    attention_matrix  = self.edge_biaffine(head_vectors,dep_vectors)
                     #attention_matrix  = attention_scores.view(N,N)
                     print('attention',attention_scores)
                     #3. Compute loss and backprop for edges
