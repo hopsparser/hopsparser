@@ -3,7 +3,8 @@ import numpy.random as rd
 import torch
 import torch.optim as optim
 import torch.nn as nn
-import mst
+
+
 
 from deptree import *
 from torch.nn.functional import pad
@@ -177,45 +178,29 @@ class MLP(nn.Module):
     def forward(self,input):
         return self.Wup(self.dropout(self.g(self.Wdown(input))))
 
-    
 class Biaffine(nn.Module):
-    """ 
-    Biaffine module whose implementation works efficiently on GPU too
-    """
-    def __init__(self,input_size,label_size= 2):
-        super(Biaffine, self).__init__()
-        sqrtk  = sqrt(input_size)
-        self.B = nn.Bilinear(input_size,input_size,label_size,bias=False)
-        self.W = nn.Parameter( -sqrtk + torch.rand(label_size,input_size*2)/(2*sqrtk))      
-        self.b = nn.Parameter( -sqrtk + torch.rand(1)-0.5)        
-     
-    def forward(self,xdep,xhead):
-        """
-        Performs the forward pass on a batch of tokens.
-        This computes a score for each couple (xdep,xhead) or a vector
-        of label scores for each such couple.
+    
+    """Biaffine attention layer."""
+    def __init__(self, input_dim, output_dim):
+        super(BiAffine, self).__init__()
+        self.input_dim  = input_dim
+        self.output_dim = output_dim
+        self.U = nn.Parameter(torch.FloatTensor(output_dim, input_dim, input_dim))
 
-        Each argument as an expected input of dimension [batch,embedding_size]
-        The returned results are scores of dimension    [batch,nlabels]
-        """
-        assert(len(xdep.shape)  == 2)
-        assert(len(xhead.shape) == 2)
-        assert(xdep.shape ==  xhead.shape)
-        batch,emb = xdep.shape
-
-        #dephead = torch.cat([xdep,xhead],dim=1).t()
-        #return self.B(xdep,xhead) + (self.W @ dephead).t() + self.b
-        return self.B(xhead,xdep)
+    def forward(self, Rh, Rd):
+        Rh = Rh.unsqueeze(1)
+        Rd = Rd.unsqueeze(1)
+        S = Rh @ self.U @ Rd.transpose(-1, -2)
+        return S.squeeze(1)
+    
     
 class GraphParser(nn.Module):
-    
-    def __init__(self,vocab,labels,word_embedding_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout=0.1):
-        
-        super(GraphParser, self).__init__()
-        #self.code_vocab(vocab)
-        #self.code_labels(labels)
-        self.allocate(word_embedding_size,len(vocab),len(labels),lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout)
 
+    
+    def __init__(self,vocab,labels,word_embedding_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout=0.1):     
+        super(GraphParser, self).__init__()
+        self.allocate(word_embedding_size,len(vocab),len(labels),lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout)
+        
     @staticmethod
     def load_model(filename):
         reloaded = torch.load(filename)
@@ -224,7 +209,7 @@ class GraphParser(nn.Module):
         model.load_state_dict(reloaded['state_dict'])
         model = model.to(xdevice)
         return model
-                                
+    
     def save_model(self,filename):
         vocab_len,word_embedding_size   = tuple(self.E.weight.size())
         label_len,_                     = tuple(self.label_biaffine.W.size())
@@ -238,7 +223,7 @@ class GraphParser(nn.Module):
                     'arc_mlp_hidden':arc_mlp_hidden,\
                     'lab_mlp_hidden':lab_mlp_hidden,\
                     'state_dict':self.state_dict()},filename)
-        
+                    
     def allocate(self,word_embedding_size,vocab_size,label_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout):
 
         self.E              = nn.Embedding(vocab_size,word_embedding_size)
@@ -279,18 +264,26 @@ class GraphParser(nn.Module):
                 dataloader = DataLoader(trainset, batch_size=32,shuffle=True, num_workers=4,collate_fn=dep_collate_fn)
                 for batch_idx, batch in tqdm(enumerate(dataloader),total=len(dataloader)): 
                     for (edgedata,labeldata,tok_sequence) in batch:
-                        optimizer.zero_grad()  
+                        optimizer.zero_grad()
                         word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                         N = len(word_emb_idxes)
+                        
                         #1. Run LSTM on raw input and get word embeddings
                         embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
                         input_seq,end     = self.rnn(embeddings)
                         input_seq         = input_seq.squeeze(dim=0)
+                        print(input_seq)
+
+                        dep_vectors  = self.dep_arc(input_seq)
+                        head_vectors = self.head_arc(input_seq)
+                        
                         #2.  Compute edge attention from flat matrix representation
-                        deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
-                        gov_embeddings    = input_seq.repeat(N,1)
-                        attention_scores  = self.edge_biaffine(self.dep_arc(deps_embeddings),self.head_arc(gov_embeddings),)
-                        attention_matrix  = attention_scores.view(N,N)
+                        #deps_embeddings   = torch.repeat_interleave(input_seq,repeats=N,dim=0)
+                        #gov_embeddings    = input_seq.repeat(N,1)
+                        attention_scores  = self.edge_biaffine(head_vectors,dep_vectors)
+                        #attention_matrix  = attention_scores.view(N,N)
+                        print(attention_scores)
+                        exit(0)
                         #3. Compute loss and backprop for edges
                         eloss = edge_loss_fn(attention_matrix,ref_gov_idxes)
                         eloss.backward(retain_graph=True)
