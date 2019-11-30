@@ -273,7 +273,7 @@ class GraphParser(nn.Module):
                         #1. Run LSTM on raw input and get word embeddings
                         embeddings        = self.E(word_emb_idxes.unsqueeze(dim=0))
                         input_seq,end     = self.rnn(embeddings)
-                        input_seq         = input_seq.squeeze(dim=0)
+                        input_seq         = input_seq
                         print('lstm_repr',input_seq)
                         
                         dep_vectors  = self.dep_arc(input_seq)
