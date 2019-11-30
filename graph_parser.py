@@ -159,13 +159,32 @@ class DependencyDataset(data.Dataset):
         rev_edges = dict([(dep,gov) for (gov,label,dep) in edges])
         return [rev_edges.get(idx,-1)+1 for idx in range(N)]           #<--- check +1 addition here !!
 
+
+def pad_batch_matrix(batch_matrix):
+    """
+    Pads rightwards
+    """
+    batch_len = max( [ len(elt) for elt in batch_matrix] )
+    
+    for line in batch_matrix
+        line.extend([DependencyDataset.PAD_WORD_IDX]*(batch_len-len(line)))
+    return batch_matrix
+        
 def dep_collate_fn(batch):
     """
     That's the collate function for batching edges
     """
-    return [ ((torch.tensor(elt['xdep']), torch.tensor(elt['refidx'])),(torch.tensor(elt['refdeps']), torch.tensor(elt['refgovs']),torch.tensor(elt['reflabels'])),elt['wordlist']) for elt in batch ]
-
-
+    #edges
+    XDEP    = pad_batch_matrix( [ elt['xdep']    for elt in batch] )
+    REFGOV  = pad_batch_matrix( [ elt['refidx']  for elt in batch] )
+    #labels
+    LABDEPS = pad_batch_matrix( [ elt['refdeps'] for elt in batch] )
+    LABGOVS = pad_batch_matrix( [ elt['refgovs'] for elt in batch] )
+    LABVAL  = pad_batch_matrix( [ elt['reflabels'] for elt in batch] )
+    #tokens
+    TOKENS  = [elt['wordlist'] for elt in batch]
+    return (XDEP,REFGOV) , (LABDEPS,LABGOVS,LABVAL) , TOKENS
+    
 class MLP(nn.Module):
 
     def __init__(self,input_size,hidden_size,output_size,dropout=0.0):
@@ -196,10 +215,11 @@ class Biaffine(nn.Module):
     
 class GraphParser(nn.Module):
 
-    
-    def __init__(self,vocab,labels,word_embedding_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout=0.1):     
+    def __init__(self,vocab,labels,word_embedding_size,lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout=0.1):
+        
         super(GraphParser, self).__init__()
         self.allocate(word_embedding_size,len(vocab),len(labels),lstm_hidden,arc_mlp_hidden,lab_mlp_hidden,dropout)
+
         
     @staticmethod
     def load_model(filename):
@@ -267,11 +287,10 @@ class GraphParser(nn.Module):
                         optimizer.zero_grad()
                         word_emb_idxes,ref_gov_idxes = edgedata[0].to(xdevice),edgedata[1].to(xdevice)
                         N = len(word_emb_idxes)
-
                         print('word idxes',word_emb_idxes.unsqueeze(dim=0))
                     
                         #1. Run LSTM on raw input and get word embeddings
-                        embeddings        = self.E(word_emb_idxes.unsqueeze(dim=0))
+                        embeddings        = self.E(word_emb_idxes.unsqueeze(dim=0)) #<- replace with real batch 
                         input_seq,end     = self.rnn(embeddings)
                         input_seq         = input_seq
                         print('lstm_repr',input_seq)
