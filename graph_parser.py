@@ -115,7 +115,7 @@ class DependencyDataset(data.Dataset):
             print(word_seq)
             print(depword_idxes)
             print('unk word idx',self.stoi[DependencyDataset.UNK_WORD])
-            gov_idxes     = [DependencyDataset.ROOT_GOV_IDX] + DependencyDataset.oracle_ancestors(tree)
+            gov_idxes     = [DependencyDataset.PAD_WORD_IDX] + DependencyDataset.oracle_ancestors(tree)
             self.xdep.append(depword_idxes)
             self.refidxes.append(gov_idxes)
             
@@ -271,7 +271,7 @@ class GraphParser(nn.Module):
 
         trainset.word_dropout = dropout
         print("N =",len(trainset))
-        edge_loss_fn  = nn.CrossEntropyLoss(reduction = 'sum',ignore_index=[DependencyDataset.ROOT_GOV_IDX,DependencyDataset.PAD_WORD_IDX]) #ignores the dummy root index
+        edge_loss_fn  = nn.CrossEntropyLoss(reduction = 'sum',ignore_index=DependencyDataset.PAD_WORD_IDX) #ignores the dummy root/pad indexes
         label_loss_fn = nn.CrossEntropyLoss(reduction = 'sum') 
         optimizer     = optim.Adam( self.parameters() )
         
