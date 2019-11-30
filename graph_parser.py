@@ -272,7 +272,7 @@ class GraphParser(nn.Module):
                         embeddings        = self.E(word_emb_idxes).unsqueeze(dim=0)
                         input_seq,end     = self.rnn(embeddings)
                         input_seq         = input_seq.squeeze(dim=0)
-                        print(input_seq)
+                        print('lstm_repr',input_seq)
                         
                         dep_vectors  = self.dep_arc(input_seq)
                         head_vectors = self.head_arc(input_seq)
@@ -282,7 +282,7 @@ class GraphParser(nn.Module):
                         #gov_embeddings    = input_seq.repeat(N,1)
                         attention_scores  = self.edge_biaffine(head_vectors,dep_vectors)
                         #attention_matrix  = attention_scores.view(N,N)
-                        print(attention_scores)
+                        print('attention',attention_scores)
                         exit(0)
                         #3. Compute loss and backprop for edges
                         eloss = edge_loss_fn(attention_matrix,ref_gov_idxes)
