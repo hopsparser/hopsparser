@@ -183,7 +183,7 @@ def dep_collate_fn(batch):
     LABVAL  = pad_batch_matrix( [ elt['reflabels'] for elt in batch] )
     #tokens
     TOKENS  = [elt['wordlist'] for elt in batch]
-    return ( (XDEP,REFGOV) , (LABDEPS,LABGOVS,LABVAL) , TOKENS )
+    return ( (torch.tensor(XDEP),torch.tensor(REFGOV)) , (torch.tensor(LABDEPS),torch.tensor(LABGOVS),torch.tensor(LABVAL)) , TOKENS )
     
 class MLP(nn.Module):
 
