@@ -118,13 +118,13 @@ def main():
     table = mcvf_heads()
     decoratedTrees=open("headAnnotated.mrg",'w')
     #stockage des arbres non annotés depuis le fichier .mrg
-    mergedfile=open("../conll/mcvf.mrg","r")
+    mergedfile=open("mcvf.mrg","r")
 
 	#3 tests tree for debugs:
     #testTrees=(mcvf_read(merged))
 	#annotation du constree, sans modification des étiquettes
     #head_annotate_all(testTrees,debug=True)
-    ostream = open("../conll/mcvf.conll","w")
+    ostream = open("mcvf.conll","w")
 	#écriture du conll
     for line in mergedfile:
         try:
