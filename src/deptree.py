@@ -1,5 +1,7 @@
 
 class DepGraph:
+
+    ROOT_TOKEN = '<root>'
     
     def __init__(self,edges,wordlist=None,pos_tags=None,with_root=False):
          
@@ -10,10 +12,12 @@ class DepGraph:
             self.add_arc(gov,label,dep)
  
         if with_root:
-            self.add_root()
+            self.add_root( )
 
-        self.words    = wordlist
-        self.pos_tags = pos_tags
+        if wordlist is None:
+            wordlist  = [ ]
+        self.words    = [DepGraph.ROOT_TOKEN] + wordlist 
+        self.pos_tags = [DepGraph.ROOT_TOKEN] + pos_tags if pos_tags else None
         
     def fastcopy(self):
         """
@@ -55,16 +59,16 @@ class DepGraph:
 
     def add_root(self):
             
-        if -1 not in self.gov2dep:
+        if self.gov2dep and 0 not in self.gov2dep:
             root = list(set(self.gov2dep) - self.has_gov)
             if len(root) == 1:
-                self.add_arc(-1,'<root>',root[0])
-            elif len(root) == 0:
-                self.add_arc(-1,'<root>',0)
+                self.add_arc(0,'root',root[0])
             else:
-                print(len(root)) 
+                #print(self)
                 assert(False) #no single root... problem.
-            
+        elif not self.gov2dep: #single word sentence
+            self.add_arc(0,'root',1)
+                
     def add_arc(self,gov,label,dep):
         """
         Adds an arc to the dep graph
@@ -153,23 +157,23 @@ class DepGraph:
             if dataline[3] != '-':
                 postags.append(dataline[3])
             if dataline[6] != '0': #do not add root immediately
-                edges.append((int(dataline[6])-1,dataline[7],int(dataline[0])-1))
+                edges.append((int(dataline[6]),dataline[7],int(dataline[0]))) # shift indexes !
         return DepGraph(edges,words,pos_tags=postags,with_root=True)
-    
+
     def __str__(self):
         """
         Conll string for the dep tree
         """
         lines    = [ ]
         revdeps  = dict([( dep, (label,gov) ) for node in self.gov2dep for (gov,label,dep) in self.gov2dep[node] ])
-        for node in range( len(self.words)  ):
+        for node in range( 1, len(self.words)  ):
             L    = ['-']*11
-            L[0] = str(node+1)
+            L[0] = str(node)
             L[1] = self.words[node]
             if self.pos_tags:
                 L[3] = self.pos_tags[node]
-            label,head = revdeps[node] if node in revdeps else ('root', -1)
-            L[6] = str(head+1)
+            label,head = revdeps[node] if node in revdeps else ('root', 0)
+            L[6] = str(head)
             L[7] = label
             lines.append( '\t'.join(L)) 
         return '\n'.join(lines)
