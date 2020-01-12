@@ -444,7 +444,7 @@ class BiAffineParser(nn.Module):
             arc_scores_batch, lab_scores_batch = self.forward(deps)
             arc_scores_batch, lab_scores_batch = arc_scores_batch.cpu(), lab_scores_batch.cpu()  
 
-            _, pred = arc_scores.max(dim=-2)
+            _, pred = arc_scores_batch.max(dim=-2)
             print('pred',pred)
             print('heads',heads)
             for tokens,length,arc_scores,lab_scores in zip(words,SLENGTHS,arc_scores_batch, lab_scores_batch):
