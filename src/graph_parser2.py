@@ -435,7 +435,7 @@ class BiAffineParser(nn.Module):
         self.eval()
         test_batches = test_set.make_batches(batch_size) #keep natural order here
         for batch in test_batches:
-            words, deps,heads,labels = batch  #POTENTIAL BUG : check that the batches encodings are compliant with the other implementation
+            words, deps,heads,labels = batch
             deps, heads, labels = deps.to(self.device), heads.to(self.device), labels.to(self.device)
 
             SLENGTHS = (deps != DependencyDataset.PAD_IDX).long().sum(-1)
@@ -447,7 +447,7 @@ class BiAffineParser(nn.Module):
             for tokens,length,arc_scores,lab_scores,best_pred,ref_pred in zip(words,SLENGTHS,arc_scores_batch,lab_scores_batch,pred,heads):
                 # Predict heads
                 scores         = arc_scores.data.numpy()
-                mst_heads      = mst(scores)
+                mst_heads      = mst(scores) 
                 # Predict labels
                 select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
                 select         = Variable(select)
@@ -468,7 +468,7 @@ if __name__ == '__main__':
     encoder_dropout = 0.0
     mlp_input       = 150
     mlp_arc_hidden  = 500
-    mlp_lab_hidden  = 300
+    mlp_lab_hidden  = 100
     mlp_dropout     = 0.0
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
     trainset        = DependencyDataset('../spmrl/dev.French.gold.conll',min_vocab_freq=0)
