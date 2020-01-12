@@ -451,7 +451,7 @@ class BiAffineParser(nn.Module):
 
                 for tokens,length,arc_scores,lab_scores in zip(words,SLENGTHS,arc_scores_batch,lab_scores_batch):
                     # Predict heads
-                    probs          = arc_scores[:,:length].numpy().T
+                    probs          = softmax(arc_scores[:,:length]).numpy().T
                     mst_heads      = chuliu_edmonds(probs)
                     #mst_heads      = chuliu_edmonds(probs)
                     # Predict labels
@@ -465,7 +465,6 @@ class BiAffineParser(nn.Module):
                     print(dg)
                     print()
 
-            
 if __name__ == '__main__':
     
     embedding_size  = 100
