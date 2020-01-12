@@ -15,10 +15,11 @@ from random import sample,shuffle,random
 from collections import Counter
 from torch.autograd import Variable
 
+
 class DependencyDataset(data.Dataset):
     """
     A representation of the DepBank for efficient processing.
-    This is a sorted dataset
+    This is a sorted dataset.
     """
     PAD_IDX            = 0
     PAD_TOKEN          = '<pad>'

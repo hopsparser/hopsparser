@@ -165,8 +165,9 @@ class DepGraph:
         Conll string for the dep tree
         """
         lines    = [ ]
-        revdeps  = dict([( dep, (label,gov) ) for node in self.gov2dep for (gov,label,dep) in self.gov2dep[node] ])
-        for node in range( 1, len(self.words)  ):
+        revdeps  = [(dep, (label,gov)) for node in self.gov2dep for (gov,label,dep) in self.gov2dep[node] ]
+        revdeps = dict(revdeps)
+        for node in range( 1,len(self.words)):
             L    = ['-']*11
             L[0] = str(node)
             L[1] = self.words[node]
