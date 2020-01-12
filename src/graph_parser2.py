@@ -476,5 +476,5 @@ if __name__ == '__main__':
     
     parser      = BiAffineParser(len(itos),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
     parser.train_model(trainset,trainset,60,4)
-    parser.predict_batch(trainset,32)
+    parser.predict_batch(trainset,4)
     print('Device used', device)
