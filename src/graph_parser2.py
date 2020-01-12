@@ -382,7 +382,7 @@ class BiAffineParser(nn.Module):
         
     def train_model(self,train_set,dev_set,epochs,batch_size):
         loss_fnc   = nn.CrossEntropyLoss()
-        optimizer  = torch.optim.Adam(self.parameters(),lr=0.0001)
+        optimizer  = torch.optim.Adam(self.parameters(),lr=0.001)
         for e in range(epochs):
             print('----')
             TRAIN_LOSS    =  0
@@ -454,7 +454,8 @@ class BiAffineParser(nn.Module):
                 for tokens,length,arc_scores,lab_scores,best_pred,ref_pred in zip(words,SLENGTHS,arc_scores_batch,lab_scores_batch,pred,heads):
                     # Predict heads
                     probs          = softmax(arc_scores).numpy()
-                    mst_heads      = chuliu_edmonds(probs.T)
+                    print('as',arc_scores)
+                    mst_heads      = chuliu_edmonds(probs)
                     print('cle-heads',mst_heads)
                     # Predict labels
                     select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
@@ -474,7 +475,7 @@ if __name__ == '__main__':
     
     embedding_size  = 100
     encoder_dropout = 0.0
-    mlp_input       = 150
+    mlp_input       = 250
     mlp_arc_hidden  = 500
     mlp_lab_hidden  = 100
     mlp_dropout     = 0.0
