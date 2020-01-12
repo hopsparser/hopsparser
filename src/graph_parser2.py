@@ -419,7 +419,7 @@ class BiAffineParser(nn.Module):
                 TRAIN_LOSS   += loss.item()
 
             DEV_LOSS,DEV_ARC_ACC,DEV_LAB_ACC,DEV_TOKS  = self.eval_model(dev_set,batch_size)
-            
+            print(TRAIN_LOSS)
             print('Epoch ',e,'train mean loss',TRAIN_LOSS/TRAIN_TOKS,
                              'valid mean loss',DEV_LOSS/DEV_TOKS,
                              'valid arc acc',DEV_ARC_ACC/DEV_TOKS,
