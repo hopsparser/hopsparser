@@ -8,7 +8,6 @@ def tarjan(tree):
     stack = list()
     _index = [0]
     cycles = []
-    #-------------------------------------------------------------
     def strong_connect(i):
         _index[0] += 1
         index = _index[-1]
@@ -44,14 +43,11 @@ def tarjan(tree):
 
 def chuliu_edmonds(scores):
     """"""
-
     np.fill_diagonal(scores, -float('inf')) # prevent self-loops
     scores[0] = -float('inf')
     scores[0,0] = 0
     tree = np.argmax(scores, axis=1)
     cycles = tarjan(tree)
-    #print(scores)
-    #print(cycles)
     if not cycles:
         return tree
     else:

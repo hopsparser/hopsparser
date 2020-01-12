@@ -7,6 +7,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from random import sample,shuffle,random
 from collections import Counter,defaultdict
+from mst import chuliu_edmonds
 
 class DependencyDataset:
     """
@@ -431,9 +432,13 @@ class BiAffineParser(nn.Module):
         
     def predict_batch(self,test_set,batch_size):
         #that's semi-batched...
+
+
         
         self.eval()
         test_batches = test_set.make_batches(batch_size) #keep natural order here
+        softmax = torch.Softmax(dim=1)
+        
         for batch in test_batches:
             words, deps,heads,labels = batch
             deps, heads, labels = deps.to(self.device), heads.to(self.device), labels.to(self.device)
@@ -444,10 +449,12 @@ class BiAffineParser(nn.Module):
             arc_scores_batch, lab_scores_batch = arc_scores_batch.cpu(), lab_scores_batch.cpu()  
 
             _, pred = arc_scores_batch.max(dim=-2)
+            
             for tokens,length,arc_scores,lab_scores,best_pred,ref_pred in zip(words,SLENGTHS,arc_scores_batch,lab_scores_batch,pred,heads):
                 # Predict heads
-                scores         = arc_scores.data.numpy()
-                mst_heads      = mst(scores) 
+                probs          = softmax(arc_scores).numpy()
+                mst_heads      = chuliu_edmonds(probs)
+                print('cle-heads',mst_heads)
                 # Predict labels
                 select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
                 select         = Variable(select)
