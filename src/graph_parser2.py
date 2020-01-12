@@ -453,7 +453,7 @@ class BiAffineParser(nn.Module):
                 
                 for tokens,length,arc_scores,lab_scores,best_pred,ref_pred in zip(words,SLENGTHS,arc_scores_batch,lab_scores_batch,pred,heads):
                     # Predict heads
-                    probs          = softmax(arc_scores).numpy()
+                    probs          = arc_scores.numpy()
                     print('as',arc_scores)
                     mst_heads      = chuliu_edmonds(probs)
                     print('cle-heads',mst_heads)
