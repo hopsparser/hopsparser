@@ -437,7 +437,7 @@ class BiAffineParser(nn.Module):
         
         self.eval()
         test_batches = test_set.make_batches(batch_size) #keep natural order here
-        softmax = torch.Softmax(dim=1)
+        softmax = nn.Softmax(dim=1)
         
         for batch in test_batches:
             words, deps,heads,labels = batch
