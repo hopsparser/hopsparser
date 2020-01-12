@@ -474,10 +474,10 @@ if __name__ == '__main__':
     mlp_lab_hidden  = 100
     mlp_dropout     = 0.0
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
-    trainset        = DependencyDataset('../spmrl/example.txt',min_vocab_freq=0)
+    trainset        = DependencyDataset('../spmrl/dev.French.gold.conll',min_vocab_freq=0)
     itos,itolab     = trainset.itos,trainset.itolab
     
     parser          = BiAffineParser(len(itos),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
     parser.train_model(trainset,trainset,60,32)
-    parser.predict_batch(trainset,2)
+    parser.predict_batch(trainset,8)
     print('Device used', device)
