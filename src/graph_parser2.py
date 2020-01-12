@@ -444,7 +444,7 @@ class BiAffineParser(nn.Module):
 
             SLENGTHS = (deps != DependencyDataset.PAD_IDX).long().sum(-1)
             #batch prediction
-            arc_scores_batch, lab_scores_batch = self.forward(deps)
+            arc_scores_batch, lab_scores_batch = self.forward(deps).cpu()
             
             for tokens,length,arc_scores,lab_scores in zip(words,SLENGTHS,arc_scores_batch, lab_scores_batch):
                 # Predict heads
