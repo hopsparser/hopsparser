@@ -443,7 +443,10 @@ class BiAffineParser(nn.Module):
             #batch prediction
             arc_scores_batch, lab_scores_batch = self.forward(deps)
             arc_scores_batch, lab_scores_batch = arc_scores_batch.cpu(), lab_scores_batch.cpu()  
-            
+
+            _, pred = arc_scores.max(dim=-2)
+            print('pred',pred)
+            print('heads',heads)
             for tokens,length,arc_scores,lab_scores in zip(words,SLENGTHS,arc_scores_batch, lab_scores_batch):
                 # Predict heads
                 scores     = arc_scores.data.numpy()
@@ -475,5 +478,5 @@ if __name__ == '__main__':
     
     parser          = BiAffineParser(len(itos),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
     parser.train_model(trainset,trainset,60,32)
-    parser.predict_batch(trainset,32)
+    parser.predict_batch(trainset,8)
     print('Device used', device)
