@@ -454,8 +454,6 @@ class BiAffineParser(nn.Module):
                 selected       = torch.gather(lab_scores, 1, select.unsqueeze(1)).squeeze(1)
                 _, mst_labels  = selected.max(dim=0)
                 mst_labels     = mst_labels.data.numpy()
-                #print(tokens)
-                #print(mst_heads[:length], mst_labels[:length])
                 edges = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
                 dg = DepGraph(edges[1:],wordlist=tokens[1:])
                 print(dg)
@@ -466,15 +464,15 @@ if __name__ == '__main__':
     
     embedding_size  = 100
     encoder_dropout = 0.0
-    mlp_input       = 100
+    mlp_input       = 150
     mlp_arc_hidden  = 500
-    mlp_lab_hidden  = 100
+    mlp_lab_hidden  = 300
     mlp_dropout     = 0.0
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
-    trainset    = DependencyDataset('../spmrl/dev.French.gold.conll',min_vocab_freq=0)
-    itos,itolab = trainset.itos,trainset.itolab
+    trainset        = DependencyDataset('../spmrl/dev.French.gold.conll',min_vocab_freq=0)
+    itos,itolab     = trainset.itos,trainset.itolab
     
-    parser      = BiAffineParser(len(itos),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
+    parser          = BiAffineParser(len(itos),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
     parser.train_model(trainset,trainset,60,32)
     parser.predict_batch(trainset,32)
     print('Device used', device)
