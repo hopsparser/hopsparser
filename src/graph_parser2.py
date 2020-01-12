@@ -431,32 +431,28 @@ class BiAffineParser(nn.Module):
         #torch.load best model
         
     def predict_batch(self,test_set,batch_size):
+
         #that's semi-batched...
-
-
-        
         self.eval()
         test_batches = test_set.make_batches(batch_size) #keep natural order here
 
         with torch.no_grad():
             softmax = nn.Softmax(dim=1)
             for batch in test_batches:
+                
                 words, deps,heads,labels = batch
                 deps, heads, labels = deps.to(self.device), heads.to(self.device), labels.to(self.device)
 
                 SLENGTHS = (deps != DependencyDataset.PAD_IDX).long().sum(-1)
+                
                 #batch prediction
                 arc_scores_batch, lab_scores_batch = self.forward(deps)
                 arc_scores_batch, lab_scores_batch = arc_scores_batch.cpu(), lab_scores_batch.cpu()  
 
-                _, pred = arc_scores_batch.max(dim=-2)
-                
-                for tokens,length,arc_scores,lab_scores,best_pred,ref_pred in zip(words,SLENGTHS,arc_scores_batch,lab_scores_batch,pred,heads):
+                for tokens,length,arc_scores,lab_scores in zip(words,SLENGTHS,arc_scores_batch,lab_scores_batch):
                     # Predict heads
-                    probs          = arc_scores.numpy()
-                    print('as',arc_scores)
-                    mst_heads      = chuliu_edmonds(probs)
-                    print('cle-heads',mst_heads)
+                    probs          = arc_scores.numpy().T
+                    mst_heads      = chuliu_edmonds(probs[:,:length])
                     # Predict labels
                     select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
                     select         = Variable(select)
@@ -464,8 +460,6 @@ class BiAffineParser(nn.Module):
                     _, mst_labels  = selected.max(dim=0)
                     mst_labels     = mst_labels.data.numpy()
                     edges = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
-                    print('ref',ref_pred)
-                    print('pred',best_pred)
                     dg = DepGraph(edges[1:],wordlist=tokens[1:])
                     print(dg)
                     print()
@@ -480,10 +474,10 @@ if __name__ == '__main__':
     mlp_lab_hidden  = 100
     mlp_dropout     = 0.0
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
-    trainset        = DependencyDataset('../spmrl/dev.French.gold.conll',min_vocab_freq=0)
+    trainset        = DependencyDataset('../spmrl/example.txt',min_vocab_freq=0)
     itos,itolab     = trainset.itos,trainset.itolab
     
     parser          = BiAffineParser(len(itos),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
     parser.train_model(trainset,trainset,60,32)
-    parser.predict_batch(trainset,8)
+    parser.predict_batch(trainset,2)
     print('Device used', device)
