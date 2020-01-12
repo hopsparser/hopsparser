@@ -22,10 +22,7 @@ class DependencyDataset:
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
         while tree:
-            if len(tree) <= 30: 
-                self.treelist.append(tree)
-            else:
-                print('dropped sentence',len(tree))
+            self.treelist.append(tree)
             tree = DepGraph.read_tree(istream)
         istream.close()
         if use_vocab:
