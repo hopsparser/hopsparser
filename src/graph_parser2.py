@@ -419,7 +419,6 @@ class BiAffineParser(nn.Module):
                 TRAIN_LOSS   += loss.item()
 
             DEV_LOSS,DEV_ARC_ACC,DEV_LAB_ACC,DEV_TOKS  = self.eval_model(dev_set,batch_size)
-            print(TRAIN_LOSS)
             print('Epoch ',e,'train mean loss',TRAIN_LOSS/TRAIN_TOKS,
                              'valid mean loss',DEV_LOSS/DEV_TOKS,
                              'valid arc acc',DEV_ARC_ACC/DEV_TOKS,
@@ -445,12 +444,10 @@ class BiAffineParser(nn.Module):
             arc_scores_batch, lab_scores_batch = arc_scores_batch.cpu(), lab_scores_batch.cpu()  
 
             _, pred = arc_scores_batch.max(dim=-2)
-            print('pred',pred)
-            print('heads',heads)
-            for tokens,length,arc_scores,lab_scores in zip(words,SLENGTHS,arc_scores_batch, lab_scores_batch):
+            for tokens,length,arc_scores,lab_scores,best_pred,ref_pred in zip(words,SLENGTHS,arc_scores_batch,lab_scores_batch,pred,heads):
                 # Predict heads
-                scores     = arc_scores.data.numpy()
-                mst_heads  = mst(scores)
+                scores         = arc_scores.data.numpy()
+                mst_heads      = mst(scores)
                 # Predict labels
                 select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
                 select         = Variable(select)
@@ -458,7 +455,8 @@ class BiAffineParser(nn.Module):
                 _, mst_labels  = selected.max(dim=0)
                 mst_labels     = mst_labels.data.numpy()
                 edges = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
-                print(edges)
+                print('ref',ref_pred)
+                print('pred',best_pred)
                 dg = DepGraph(edges[1:],wordlist=tokens[1:])
                 print(dg)
                 print()
