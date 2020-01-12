@@ -451,9 +451,9 @@ class BiAffineParser(nn.Module):
 
                 for tokens,length,arc_scores,lab_scores in zip(words,SLENGTHS,arc_scores_batch,lab_scores_batch):
                     # Predict heads
-                    probs          = softmax(arc_scores[:,:length]).numpy().T
+                    probs          = arc_scores.numpy().T
                     mst_heads      = chuliu_edmonds(probs)
-                    #mst_heads      = chuliu_edmonds(probs)
+                    #mst_heads      = chuliu_edmonds(probs[:,:length])
                     # Predict labels
                     select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
                     select         = Variable(select)
