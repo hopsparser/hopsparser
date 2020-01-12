@@ -467,8 +467,8 @@ if __name__ == '__main__':
     embedding_size  = 100
     encoder_dropout = 0.0
     mlp_input       = 100
-    mlp_arc_hidden  = 50
-    mlp_lab_hidden  = 50
+    mlp_arc_hidden  = 500
+    mlp_lab_hidden  = 100
     mlp_dropout     = 0.0
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
     trainset    = DependencyDataset('../spmrl/dev.French.gold.conll',min_vocab_freq=0)
