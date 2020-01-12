@@ -437,36 +437,37 @@ class BiAffineParser(nn.Module):
         
         self.eval()
         test_batches = test_set.make_batches(batch_size) #keep natural order here
-        softmax = nn.Softmax(dim=1)
-        
-        for batch in test_batches:
-            words, deps,heads,labels = batch
-            deps, heads, labels = deps.to(self.device), heads.to(self.device), labels.to(self.device)
 
-            SLENGTHS = (deps != DependencyDataset.PAD_IDX).long().sum(-1)
-            #batch prediction
-            arc_scores_batch, lab_scores_batch = self.forward(deps)
-            arc_scores_batch, lab_scores_batch = arc_scores_batch.cpu(), lab_scores_batch.cpu()  
+        with torch.no_grad():
+            softmax = nn.Softmax(dim=1)
+            for batch in test_batches:
+                words, deps,heads,labels = batch
+                deps, heads, labels = deps.to(self.device), heads.to(self.device), labels.to(self.device)
 
-            _, pred = arc_scores_batch.max(dim=-2)
-            
-            for tokens,length,arc_scores,lab_scores,best_pred,ref_pred in zip(words,SLENGTHS,arc_scores_batch,lab_scores_batch,pred,heads):
-                # Predict heads
-                probs          = softmax(arc_scores).numpy()
-                mst_heads      = chuliu_edmonds(probs)
-                print('cle-heads',mst_heads)
-                # Predict labels
-                select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
-                select         = Variable(select)
-                selected       = torch.gather(lab_scores, 1, select.unsqueeze(1)).squeeze(1)
-                _, mst_labels  = selected.max(dim=0)
-                mst_labels     = mst_labels.data.numpy()
-                edges = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
-                print('ref',ref_pred)
-                print('pred',best_pred)
-                dg = DepGraph(edges[1:],wordlist=tokens[1:])
-                print(dg)
-                print()
+                SLENGTHS = (deps != DependencyDataset.PAD_IDX).long().sum(-1)
+                #batch prediction
+                arc_scores_batch, lab_scores_batch = self.forward(deps)
+                arc_scores_batch, lab_scores_batch = arc_scores_batch.cpu(), lab_scores_batch.cpu()  
+
+                _, pred = arc_scores_batch.max(dim=-2)
+                
+                for tokens,length,arc_scores,lab_scores,best_pred,ref_pred in zip(words,SLENGTHS,arc_scores_batch,lab_scores_batch,pred,heads):
+                    # Predict heads
+                    probs          = softmax(arc_scores).numpy()
+                    mst_heads      = chuliu_edmonds(probs)
+                    print('cle-heads',mst_heads)
+                    # Predict labels
+                    select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
+                    select         = Variable(select)
+                    selected       = torch.gather(lab_scores, 1, select.unsqueeze(1)).squeeze(1)
+                    _, mst_labels  = selected.max(dim=0)
+                    mst_labels     = mst_labels.data.numpy()
+                    edges = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
+                    print('ref',ref_pred)
+                    print('pred',best_pred)
+                    dg = DepGraph(edges[1:],wordlist=tokens[1:])
+                    print(dg)
+                    print()
 
             
 if __name__ == '__main__':
