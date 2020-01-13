@@ -250,8 +250,10 @@ class BiAffineParser(nn.Module):
         dev_batches = dev_set.make_batches(batch_size,shuffle_batches=True,shuffle_data=True,order_by_length=True)
         arc_acc, lab_acc,gloss,ntoks = 0, 0, 0, 0
         overall_size = 0
+        
         with torch.no_grad():
             for batch in dev_batches:
+                
                 words, deps, heads, labels = batch
                 deps, heads, labels = deps.to(self.device), heads.to(self.device), labels.to(self.device)
 
@@ -272,12 +274,12 @@ class BiAffineParser(nn.Module):
                 lab_scoresL  = lab_scoresL.contiguous().view(-1, lab_scoresL.size(-1))  # [batch*sent_len, n_labels]
                 labelsL      = labels.view(-1)                                          # [batch*sent_len]
                 lab_loss     = loss_fnc(lab_scoresL, labelsL)
-
-                print('Dev',arc_loss.item(),lab_loss.item())
                 
                 loss         = arc_loss + lab_loss
                 gloss       += loss.item()
-                
+
+                print('DEV',words)
+
                 #greedy arc accurracy (without parsing)
                 _, pred = arc_scores.max(dim=-2)
                 mask = (heads != DependencyDataset.PAD_IDX).float()
@@ -314,6 +316,8 @@ class BiAffineParser(nn.Module):
                 words,deps,heads,labels = batch
                 deps, heads, labels = deps.to(self.device), heads.to(self.device), labels.to(self.device)
 
+                print('TRAIN',words)
+                
                 #FORWARD
                 arc_scores, lab_scores = self.forward(deps)
                 #ARC LOSS
@@ -330,9 +334,6 @@ class BiAffineParser(nn.Module):
                 labels     = labels.view(-1)                                        # [batch*sent_len]
                 lab_loss   = loss_fnc(lab_scores, labels)
 
-                print('train',arc_loss.item(),lab_loss.item())
-
-                
                 loss       = arc_loss + lab_loss
                 TRAIN_LOSS   += loss.item()
                 overall_size += (deps.size(0)*deps.size(1)) #bc no masking at training
