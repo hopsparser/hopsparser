@@ -234,7 +234,7 @@ class BiAffineParser(nn.Module):
             'mlp_arc_hidden'  :self.mlp_arc_hidden,
             'mlp_lab_hidden'  :self.mlp_lab_hidden,
             'num_labels'      :self.num_labels,
-            'model_state_dict': model.state_dict(),
+            'model_state_dict':self.state_dict(),
             }, path)
         
     @staticmethod
