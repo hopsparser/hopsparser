@@ -373,7 +373,7 @@ class BiAffineParser(nn.Module):
                              'valid label acc',DEV_LAB_ACC/DEV_TOKS)
 
             if DEV_LOSS < BEST_DEV_LOSS: 
-                torch.save(self,modelpath)
+                self.save_model(modelpath)
                 BEST_DEV_LOSS = DEV_LOSS
                 
         return BiAffineParser.load_model(modelpath,device=self.device)
