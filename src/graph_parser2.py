@@ -273,8 +273,9 @@ class BiAffineParser(nn.Module):
                 labelsL      = labels.view(-1)                                          # [batch*sent_len]
                 lab_loss     = loss_fnc(lab_scoresL, labelsL)
 
-                gloss       += arc_loss.item() + lab_loss.item()
-            
+                loss         = arc_loss + lab_loss
+                gloss       += loss.item()
+                
                 #greedy arc accurracy (without parsing)
                 _, pred = arc_scores.max(dim=-2)
                 mask = (heads != DependencyDataset.PAD_IDX).float()
@@ -326,7 +327,7 @@ class BiAffineParser(nn.Module):
                 labels     = labels.view(-1)                                        # [batch*sent_len]
                 lab_loss   = loss_fnc(lab_scores, labels)
 
-                loss       = arc_loss.item() + lab_loss.item()
+                loss       = arc_loss + lab_loss
 
                 TRAIN_TOKS   += torch.sum((heads != DependencyDataset.PAD_IDX).float()).item()
                 TRAIN_LOSS   += loss.item()
