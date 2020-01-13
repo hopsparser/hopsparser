@@ -39,7 +39,6 @@ class DependencyDataset:
             self.init_labels(self.treelist)
 
         self.word_dropout = word_dropout
-        self.encode()
         
     def encode(self):
 
@@ -92,7 +91,8 @@ class DependencyDataset:
         self.words  = [self.words[idx] for idx in order]  
         
     def make_batches(self, batch_size,shuffle_batches=False,shuffle_data=True,order_by_length=False):
-        
+
+        self.encode()
         if shuffle_data:  
             self.shuffle_data()
         if order_by_length: #shuffling and ordering is relevant : it change the way ties are resolved and thus batch construction
