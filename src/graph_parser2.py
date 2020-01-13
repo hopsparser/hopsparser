@@ -413,12 +413,11 @@ class BiAffineParser(nn.Module):
                     print(file=ostream)
 
 if __name__ == '__main__':
-    
-    embedding_size  = 100
+    embedding_size  = 50
     encoder_dropout = 0.3
     mlp_input       = 150
-    mlp_arc_hidden  = 500
-    mlp_lab_hidden  = 100
+    mlp_arc_hidden  = 250
+    mlp_lab_hidden  = 50
     mlp_dropout     = 0.3
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
     
@@ -429,8 +428,8 @@ if __name__ == '__main__':
     trainset.save_vocab('model.vocab')
 
     parser          = BiAffineParser(len(itos),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
-    parser.train_model(trainset,devset,20,64,modelpath="model.pt")
+    parser.train_model(trainset,devset,60,64,modelpath="model.pt")
     predfile = open('model_preds.conll','w')
-    parser.predict_batch(testset,predfile,16)
+    parser.predict_batch(testset,predfile,32)
     predfile.close()
     print('Device used', device)
