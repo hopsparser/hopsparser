@@ -289,10 +289,8 @@ class BiAffineParser(nn.Module):
         xemb   = self.embedding(xwords)
         temb   = self.embedding(xtags)
 
-        print(xemb.size())
-        print(temb.size())
-        print(torch.cat(xemb,temb).size())
-        cemb,_ = self.rnn(torch.cat(xemb,temb))
+        #print(torch.cat((xemb,temb),dim=2).size())
+        cemb,_ = self.rnn(torch.cat((xemb,temb),dim=2))
         exit(1)
 
         arc_h = self.arc_mlp_h(cemb)
