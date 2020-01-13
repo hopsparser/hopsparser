@@ -51,8 +51,8 @@ class DependencyDataset:
         def word_sampler(word_idx,dropout):
             return self.stoi[DependencyDataset.UNK_WORD]  if random() < dropout else word_idx
 
-        self.deps, self.heads,self.labels,self.tags = [],[],[],[]
-        self.words,self.cats = []
+        self.deps, self.heads,self.labels,self.tags = [ ],[ ],[ ],[ ]
+        self.words,self.cats = [ ],[ ]
         for tree in self.treelist:
             
             depword_idxes = [self.stoi.get(tok,self.stoi[DependencyDataset.UNK_WORD]) for tok in tree.words]
