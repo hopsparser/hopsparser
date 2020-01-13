@@ -290,8 +290,9 @@ class BiAffineParser(nn.Module):
                 lab_acc += torch.sum(lab_accurracy).item()
                 ntoks += torch.sum(mask).item()
 
-                overall_size = (deps.size(0)*deps.size(1))
+                overall_size += (deps.size(0)*deps.size(1))
                 
+        print('DL',gloss)
         return gloss/overall_size,arc_acc, lab_acc,ntoks
         
     def train_model(self,train_set,dev_set,epochs,batch_size):
@@ -328,16 +329,16 @@ class BiAffineParser(nn.Module):
                 lab_loss   = loss_fnc(lab_scores, labels)
 
                 loss       = arc_loss + lab_loss
-
-                TRAIN_TOKS   += torch.sum((heads != DependencyDataset.PAD_IDX).float()).item()
                 TRAIN_LOSS   += loss.item()
-                overall_size += (deps.size(0)*deps.size(1))
+                overall_size += (deps.size(0)*deps.size(1)) #bc no masking at training
                 
                 loss.backward()
                 optimizer.step()
 
                
- 
+
+            print('TL',TRAIN_LOSS)
+            
             DEV_LOSS,DEV_ARC_ACC,DEV_LAB_ACC,DEV_TOKS  = self.eval_model(dev_set,batch_size)
             print('Epoch ',e,'train mean loss',TRAIN_LOSS/overall_size,
                              'valid mean loss',DEV_LOSS,
