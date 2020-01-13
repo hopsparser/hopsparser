@@ -320,11 +320,11 @@ class BiAffineParser(nn.Module):
         with torch.no_grad():
             for batch in dev_batches:
                 
-                words, deps, heads, labels = batch
-                deps, heads, labels = deps.to(self.device), heads.to(self.device), labels.to(self.device)
+                words,cats,deps,tags,heads,labels = batch
+                deps, heads, labels,tags = deps.to(self.device), heads.to(self.device), labels.to(self.device),tags.to(self.device)
 
                 #preds 
-                arc_scores, lab_scores = self.forward(deps)
+                arc_scores, lab_scores = self.forward(deps,tags)
                 
                 #get global loss
                 #ARC LOSS
@@ -374,11 +374,11 @@ class BiAffineParser(nn.Module):
             overall_size  = 0
             for batch in train_batches:
                 self.train()
-                words,deps,heads,labels = batch
-                deps, heads, labels = deps.to(self.device), heads.to(self.device), labels.to(self.device)
+                words,cats,deps,tags,heads,labels = batch
+                deps, heads, labels,tags = deps.to(self.device), heads.to(self.device), labels.to(self.device),tags.to(self.device)
                 
                 #FORWARD
-                arc_scores, lab_scores = self.forward(deps)
+                arc_scores, lab_scores = self.forward(deps,tags)
                 #ARC LOSS
                 arc_scores = arc_scores.transpose(-1, -2)                           # [batch, sent_len, sent_len]
                 arc_scores = arc_scores.contiguous().view(-1, arc_scores.size(-1))  # [batch*sent_len, sent_len]
@@ -422,17 +422,18 @@ class BiAffineParser(nn.Module):
             
             softmax = nn.Softmax(dim=1)
             for batch in test_batches:
+                
                 self.eval()
-                words, deps,heads,labels = batch
-                deps, heads, labels = deps.to(self.device), heads.to(self.device), labels.to(self.device)
+                words,cats,deps,tags,heads,labels = batch
+                deps, heads, labels,tags = deps.to(self.device), heads.to(self.device), labels.to(self.device),tags.to(self.device)
 
                 SLENGTHS = (deps != DependencyDataset.PAD_IDX).long().sum(-1)
                 
                 #batch prediction
-                arc_scores_batch, lab_scores_batch = self.forward(deps)
+                arc_scores_batch, lab_scores_batch = self.forward(deps,tags)
                 arc_scores_batch, lab_scores_batch = arc_scores_batch.cpu(), lab_scores_batch.cpu()  
 
-                for tokens,length,arc_scores,lab_scores in zip(words,SLENGTHS,arc_scores_batch,lab_scores_batch):
+                for tokens,pos_tags,length,arc_scores,lab_scores in zip(words,cats,SLENGTHS,arc_scores_batch,lab_scores_batch):
                     # Predict heads
                     probs          = arc_scores.numpy().T
                     mst_heads      = chuliu_edmonds(probs)
@@ -443,7 +444,7 @@ class BiAffineParser(nn.Module):
                     _, mst_labels  = selected.max(dim=0)
                     mst_labels     = mst_labels.data.numpy()
                     edges = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
-                    dg = DepGraph(edges[1:],wordlist=tokens[1:])
+                    dg = DepGraph(edges[1:],wordlist=tokens[1:],pos_tags=pos_tags)
                     print(dg,file=ostream)
                     print(file=ostream)
 
