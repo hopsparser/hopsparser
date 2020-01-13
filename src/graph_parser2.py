@@ -332,7 +332,7 @@ class BiAffineParser(nn.Module):
 
                 TRAIN_TOKS   += torch.sum((heads != DependencyDataset.PAD_IDX).float()).item()
                 TRAIN_LOSS   += loss.item()
-                overall_size = (deps.size(0)*deps.size(1))
+                overall_size += (deps.size(0)*deps.size(1))
  
             DEV_LOSS,DEV_ARC_ACC,DEV_LAB_ACC,DEV_TOKS  = self.eval_model(dev_set,batch_size)
             print('Epoch ',e,'train mean loss',TRAIN_LOSS/overall_size,
