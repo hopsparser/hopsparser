@@ -401,7 +401,7 @@ class BiAffineParser(nn.Module):
                     # Predict heads
                     probs          = arc_scores.numpy().T
                     #mst_heads      = chuliu_edmonds(probs)
-                    mst_heads      = chuliu_edmonds(probs[:length,:length])
+                    mst_heads      = chuliu_edmonds(probs)
                     # Predict labels
                     select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
                     select         = Variable(select)
@@ -426,6 +426,6 @@ if __name__ == '__main__':
     itos,itolab     = trainset.itos,trainset.itolab
     
     parser          = BiAffineParser(len(itos),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
-    parser.train_model(trainset,trainset,60,32)
+    parser.train_model(trainset,trainset,25,32)
     parser.predict_batch(trainset,8)
     print('Device used', device)
