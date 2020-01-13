@@ -19,7 +19,7 @@ class DependencyDataset:
     PAD_TOKEN          = '<pad>'
     UNK_WORD           = '<unk>'
     
-    def __init__(self,filename,use_vocab=None,use_labels=None,min_vocab_freq=0,word_dropout=0.0):
+    def __init__(self,filename,use_vocab=None,use_labels=None,use_tags=None,min_vocab_freq=0,word_dropout=0.0):
         istream       = open(filename)
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
@@ -32,12 +32,18 @@ class DependencyDataset:
             self.stoi = {token:idx for idx,token in enumerate(self.itos)}
         else:
             self.init_vocab(self.treelist,threshold=min_vocab_freq)
+
         if use_labels:
             self.itolab = use_labels
             self.labtoi = {label:idx for idx,label in enumerate(self.itolab)}
         else:
             self.init_labels(self.treelist)
-
+        if use_tags:
+            self.itotag = use_tags
+            self.tagtoi = {tag:idx for idx,tag in enumerate(self.itotag)}
+        else:
+            self.init_tags(self.treelist)
+            
         self.word_dropout = word_dropout
         
     def encode(self):
@@ -45,22 +51,29 @@ class DependencyDataset:
         def word_sampler(word_idx,dropout):
             return self.stoi[DependencyDataset.UNK_WORD]  if random() < dropout else word_idx
 
-        self.deps, self.heads,self.labels = [],[],[]
-        self.words = []
+        self.deps, self.heads,self.labels,self.tags = [],[],[],[]
+        self.words,self.cats = []
         for tree in self.treelist:
+            
             depword_idxes = [self.stoi.get(tok,self.stoi[DependencyDataset.UNK_WORD]) for tok in tree.words]
+            deptag_idxes  = [self.tagtoi[tag] for tag in tree.pos_tags]
+                        
             if self.word_dropout:
                 depword_idxes = [word_sampler(widx,self.word_dropout) for widx in depword_idxes]
-
+                deptag_idxes  = [word_sampler(tidx,self.word_dropout) for tidx in deptag_idxes]
+            
             self.words.append(tree.words)
+            self.cats.append(tree.pos_tags)
+            self.tags.append(deptag_idxes)
             self.deps.append(depword_idxes)
             self.heads.append(self.oracle_governors(tree))
             self.labels.append([self.labtoi[lab] for lab in self.oracle_labels(tree)])
-             
+    
     def save_vocab(self,filename):
         out = open(filename,'w')
         print(' '.join(self.itos),file=out)
         print(' '.join(self.itolab),file=out)
+        print(' '.join(self.itotag),file=out)
         out.close()
 
     @staticmethod
@@ -68,17 +81,20 @@ class DependencyDataset:
         reloaded = open(filename)
         itos     = reloaded.readline().split()
         itolab   = reloaded.readline().split()
+        itotag   = reloaded.readline().split()
         reloaded.close()
-        return itos,itolab
+        return itos,itolab,itotag
     
     def shuffle_data(self):
         N = len(self.deps)
         order = list(range(N))
         shuffle(order)
         self.deps   = [self.deps[i] for i in order]
+        self.tags   = [self.tags[i] for i in order]
         self.heads  = [self.heads[i] for i in order]
         self.labels = [self.labels[i] for i in order]
         self.words  = [self.words[i] for i in order]        
+        self.cats   = [self.cats[i] for i in order]        
 
     def order_data(self):
         N           = len(self.deps)
@@ -86,12 +102,14 @@ class DependencyDataset:
         lengths     = map(len,self.deps)
         order       = [idx for idx, L in sorted(zip(order,lengths),key=lambda x:x[1])]
         self.deps   = [self.deps[idx] for idx in order]
+        self.tags   = [self.tags[idx] for idx in order]
         self.heads  = [self.heads[idx] for idx in order]
         self.labels = [self.labels[idx] for idx in order]
         self.words  = [self.words[idx] for idx in order]  
+        self.cats   = [self.cats[idx] for idx in order]        
+
         
     def make_batches(self, batch_size,shuffle_batches=False,shuffle_data=True,order_by_length=False):
-
         self.encode()
         if shuffle_data:  
             self.shuffle_data()
@@ -103,12 +121,14 @@ class DependencyDataset:
         if shuffle_batches:
             shuffle(batch_order)
             
-        for i in batch_order:
+        for i in batch_order: 
             deps   = self.pad(self.deps[i:i+batch_size])
+            tags   = self.pad(self.tags[i:i+batch_size])
             heads  = self.pad(self.heads[i:i+batch_size])
             labels = self.pad(self.labels[i:i+batch_size])
             words  = self.words[i:i+batch_size]
-            yield (words,deps, heads, labels)
+            cats   = self.cats[i:i+batch_size]
+            yield (words,cats,deps,tags,heads,labels)
 
     def pad(self,batch):
         sent_lengths = list(map(len, batch))
@@ -134,7 +154,13 @@ class DependencyDataset:
         labels      = set([ lbl for tree in treelist for (gov,lbl,dep) in tree.get_all_edges()])
         self.itolab = [DependencyDataset.PAD_TOKEN] + list(labels)
         self.labtoi = {label:idx for idx,label in enumerate(self.itolab)}
-        
+
+    def init_tags(self,treelist):
+        tagset  = set([ tag for tree in treelist for tag in tree.pos_tags])
+        tagset.update([DependencyDataset.UNK_WORD])
+        self.itotag = [DependencyDataset.PAD_TOKEN] + list(tagset)
+        self.tagtoi = {tag:idx for idx,tag in enumerate(self.itotag)}
+            
     def __len__(self):      
         return len(self.treelist)
     
@@ -195,6 +221,7 @@ class BiAffineParser(nn.Module):
     """Biaffine Dependency Parser."""
     def __init__(self,
                  vocab_size,
+                 tagset_size,
                  embedding_size,
                  encoder_dropout, #lstm dropout
                  mlp_input,
@@ -205,9 +232,10 @@ class BiAffineParser(nn.Module):
                  device='cuda:1'):
     
         super(BiAffineParser, self).__init__()
-        self.device    = torch.device(device) if type(device) == str else device
-        self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
-        self.rnn       = nn.LSTM(embedding_size,mlp_input,4, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.device        = torch.device(device) if type(device) == str else device
+        self.embedding     = nn.Embedding(vocab_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
+        self.tag_embedding = nn.Embedding(tagset_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
+        self.rnn           = nn.LSTM(embedding_size*2,mlp_input,4, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         # Arc MLPs
         self.arc_mlp_h = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
@@ -221,7 +249,7 @@ class BiAffineParser(nn.Module):
         self.lab_biaffine = BiAffine(mlp_input, num_labels).to(self.device)
 
         #hyperparams for saving...
-        self.vocab_size,self.embedding_size                    = vocab_size,embedding_size
+        self.vocab_size,self.tagset_size,self.embedding_size   = vocab_size,tagset_size,embedding_size
         self.mlp_input,self.mlp_arc_hidden,self.mlp_lab_hidden = mlp_input,mlp_arc_hidden,mlp_lab_hidden,
         self.num_labels                                        = num_labels 
         
@@ -229,6 +257,7 @@ class BiAffineParser(nn.Module):
 
         torch.save({
             'vocab_size'      :self.vocab_size,
+            'tagset_size'     :self.tagset_size,
             'embedding_size'  :self.embedding_size,
             'mlp_input'       :self.mlp_input,
             'mlp_arc_hidden'  :self.mlp_arc_hidden,
@@ -241,6 +270,7 @@ class BiAffineParser(nn.Module):
     def load_model(path,device='cuda:1'):
         restored = torch.load(path)
         model = BiAffineParser( restored['vocab_size'],
+                                restored['tagset_size'],
                                 restored['embedding_size'],
                                 0,
                                 restored['mlp_input'],
@@ -251,13 +281,19 @@ class BiAffineParser(nn.Module):
                                 device)
         model.load_state_dict(restored['model_state_dict'])
         
-    def forward(self,xwords):
+    def forward(self,xwords,xtags):
         
         """Compute the score matrices for the arcs and labels."""
         #check in the future if adding a mask on padded words is useful
         
-        xemb   = self.embedding(xwords)        
-        cemb,_ = self.rnn(xemb)
+        xemb   = self.embedding(xwords)
+        temb   = self.embedding(xtags)
+
+        print(xemb.size())
+        print(temb.size())
+        print(torch.cat(xemb,temb).size())
+        cemb,_ = self.rnn(torch.cat(xemb,temb))
+        exit(1)
 
         arc_h = self.arc_mlp_h(cemb)
         arc_d = self.arc_mlp_d(cemb)
@@ -357,8 +393,7 @@ class BiAffineParser(nn.Module):
                 labels     = labels.view(-1)                                        # [batch*sent_len]
                 lab_loss   = loss_fnc(lab_scores, labels)
 
-                arc_mix    = 0.7      
-                loss       = arc_mix * arc_loss + (1-arc_mix)*lab_loss
+                loss       = arc_loss + lab_loss
     
                 optimizer.zero_grad()
                 loss.backward()
@@ -420,14 +455,14 @@ if __name__ == '__main__':
     mlp_lab_hidden  = 100
     mlp_dropout     = 0.5
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
-    
-    trainset        = DependencyDataset('../spmrl/train.French.gold.conll',min_vocab_freq=0,word_dropout=0.3)
-    itos,itolab     = trainset.itos,trainset.itolab
-    devset          = DependencyDataset('../spmrl/dev.French.gold.conll',use_vocab=itos,use_labels=itolab)
-    testset         = DependencyDataset('../spmrl/test.French.gold.conll',use_vocab=itos,use_labels=itolab)
+
+    trainset           = DependencyDataset('../spmrl/train.French.gold.conll',min_vocab_freq=0,word_dropout=0.3)
+    itos,itolab,itotag = trainset.itos,trainset.itolab,trainset.itotag
+    devset             = DependencyDataset('../spmrl/dev.French.gold.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
+    testset            = DependencyDataset('../spmrl/test.French.gold.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
     trainset.save_vocab('model.vocab')
 
-    parser          = BiAffineParser(len(itos),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
+    parser             = BiAffineParser(len(itos),len(itotag),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
     parser.train_model(trainset,devset,60,64,modelpath="model.pt")
     predfile = open('model_preds.conll','w')
     parser.predict_batch(testset,predfile,32)
