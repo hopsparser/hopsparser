@@ -449,7 +449,7 @@ class BiAffineParser(nn.Module):
 
 if __name__ == '__main__':
     
-    embedding_size  = 100 #300
+    embedding_size  = 200 #300
     encoder_dropout = 0.3 
     mlp_input       = 400 
     mlp_arc_hidden  = 600 
