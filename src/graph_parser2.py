@@ -405,10 +405,12 @@ class BiAffineParser(nn.Module):
                              'valid arc acc',DEV_ARC_ACC/DEV_TOKS,
                              'valid label acc',DEV_LAB_ACC/DEV_TOKS)
 
-            if DEV_ARC_ACC > BEST_ARC_ACC: 
-                self.save_model(modelpath)
+            if DEV_ARC_ACC > BEST_ARC_ACC:
+                torch.save(model.state_dict(), modelpath)
                 BEST_ARC_ACC = DEV_ARC_ACC
+                
         self.load_state_dict(torch.load(modelpath))
+        self.save_model(modelpath)
 
         
     def predict_batch(self,test_set,ostream,batch_size,greedy=False):
