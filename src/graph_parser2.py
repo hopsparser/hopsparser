@@ -250,6 +250,7 @@ class BiAffineParser(nn.Module):
                                 restored['num_labels'],
                                 device)
         model.load_state_dict(restored['model_state_dict'])
+        print('#labels',model.numlabels)
         
     def forward(self,xwords):
         
