@@ -449,7 +449,7 @@ if __name__ == '__main__':
     embedding_size  = 100
     encoder_dropout = 0.3
     mlp_input       = 400
-    mlp_arc_hidden  = 500
+    mlp_arc_hidden  = 600
     mlp_lab_hidden  = 100 
     mlp_dropout     = 0.5
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
@@ -461,7 +461,7 @@ if __name__ == '__main__':
     trainset.save_vocab('model.vocab')
 
     parser             = BiAffineParser(len(itos),len(itotag),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
-    parser.train_model(trainset,devset,60,128,modelpath="model.pt")
+    parser.train_model(trainset,devset,80,128,modelpath="model.pt")
     predfile = open('model_preds.conll','w')
     parser.predict_batch(testset,predfile,32,greedy=False)
     predfile.close()
