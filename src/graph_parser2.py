@@ -19,7 +19,7 @@ class DependencyDataset:
     PAD_TOKEN          = '<pad>'
     UNK_WORD           = '<unk>'
     
-    def __init__(self,filename,use_vocab=None,use_labels=None,min_vocab_freq=0):
+    def __init__(self,filename,use_vocab=None,use_labels=None,min_vocab_freq=0,word_dropout=0.0):
         istream       = open(filename)
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
@@ -38,7 +38,7 @@ class DependencyDataset:
         else:
             self.init_labels(self.treelist)
 
-        self.word_dropout = 0.0
+        self.word_dropout = word_dropout
         self.encode()
         
     def encode(self):
@@ -208,7 +208,7 @@ class BiAffineParser(nn.Module):
         super(BiAffineParser, self).__init__()
         self.device    = torch.device(device) if type(device) == str else device
         self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
-        self.rnn       = nn.LSTM(embedding_size,mlp_input,1, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.rnn       = nn.LSTM(embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         # Arc MLPs
         self.arc_mlp_h = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
@@ -326,7 +326,7 @@ class BiAffineParser(nn.Module):
                 overall_size += (deps.size(0)*deps.size(1))
                 
         return gloss/overall_size,arc_acc, lab_acc,ntoks
-        
+
     def train_model(self,train_set,dev_set,epochs,batch_size,modelpath='test_model.pt'):
         loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
         optimizer  = torch.optim.Adam(self.parameters(),lr=0.001)
@@ -422,7 +422,7 @@ if __name__ == '__main__':
     mlp_dropout     = 0.3
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
     
-    trainset        = DependencyDataset('../spmrl/train.French.gold.conll',min_vocab_freq=0)
+    trainset        = DependencyDataset('../spmrl/train.French.gold.conll',min_vocab_freq=0,word_dropout=0.3)
     itos,itolab     = trainset.itos,trainset.itolab
     devset          = DependencyDataset('../spmrl/dev.French.gold.conll',use_vocab=itos,use_labels=itolab)
     testset         = DependencyDataset('../spmrl/test.French.gold.conll',use_vocab=itos,use_labels=itolab)
