@@ -420,7 +420,7 @@ if __name__ == '__main__':
     mlp_dropout     = 0.5
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
     
-    trainset        = DependencyDataset('../spmrl/train.French.gold.conll',min_vocab_freq=0,word_dropout=0.5)
+    trainset        = DependencyDataset('../spmrl/train.French.gold.conll',min_vocab_freq=0,word_dropout=0.3)
     itos,itolab     = trainset.itos,trainset.itolab
     devset          = DependencyDataset('../spmrl/dev.French.gold.conll',use_vocab=itos,use_labels=itolab)
     testset         = DependencyDataset('../spmrl/test.French.gold.conll',use_vocab=itos,use_labels=itolab)
