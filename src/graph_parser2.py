@@ -235,7 +235,7 @@ class BiAffineParser(nn.Module):
         self.device        = torch.device(device) if type(device) == str else device
         self.embedding     = nn.Embedding(vocab_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
         self.tag_embedding = nn.Embedding(tagset_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
-        self.rnn           = nn.LSTM(embedding_size*2,mlp_input,4, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.rnn           = nn.LSTM(embedding_size*2,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         # Arc MLPs
         self.arc_mlp_h = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
@@ -362,7 +362,6 @@ class BiAffineParser(nn.Module):
         loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
         optimizer  = torch.optim.Adam(self.parameters(),lr=0.001)
         for e in range(epochs):
-            print('----')
             TRAIN_LOSS    =  0
             TRAIN_TOKS    =  0
             BEST_ARC_ACC  =  0
@@ -410,7 +409,7 @@ class BiAffineParser(nn.Module):
                 
         return BiAffineParser.load_model(modelpath,device=self.device)
         
-    def predict_batch(self,test_set,ostream,batch_size):
+    def predict_batch(self,test_set,ostream,batch_size,greedy=False):
 
         test_batches = test_set.make_batches(batch_size,shuffle_batches=False,shuffle_data=False,order_by_length=False) #keep natural order here
 
@@ -431,8 +430,12 @@ class BiAffineParser(nn.Module):
 
                 for tokens,pos_tags,length,arc_scores,lab_scores in zip(words,cats,SLENGTHS,arc_scores_batch,lab_scores_batch):
                     # Predict heads
-                    probs          = arc_scores.numpy().T
-                    mst_heads      = chuliu_edmonds(probs)
+                    if greedy:
+                        probs          = np.argmax(arc_scores,axis=1) 
+                    else:
+                        probs          = arc_scores.numpy().T
+                    #mst_heads      = chuliu_edmonds(probs)
+                    mst_heads
                     # Predict labels
                     select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
                     select         = Variable(select)
