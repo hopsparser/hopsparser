@@ -207,7 +207,7 @@ class BiAffineParser(nn.Module):
         super(BiAffineParser, self).__init__()
         self.device    = torch.device(device) if type(device) == str else device
         self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
-        self.rnn       = nn.LSTM(embedding_size,mlp_input,2, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.rnn       = nn.LSTM(embedding_size,mlp_input,4, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         # Arc MLPs
         self.arc_mlp_h = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
@@ -333,7 +333,7 @@ class BiAffineParser(nn.Module):
             print('----')
             TRAIN_LOSS    =  0
             TRAIN_TOKS    =  0
-            BEST_DEV_LOSS =  1000
+            BEST_ARC_ACC  =  0
             train_batches = train_set.make_batches(batch_size,shuffle_batches=True,shuffle_data=True,order_by_length=True)
             overall_size  = 0
             for batch in train_batches:
@@ -372,9 +372,9 @@ class BiAffineParser(nn.Module):
                              'valid arc acc',DEV_ARC_ACC/DEV_TOKS,
                              'valid label acc',DEV_LAB_ACC/DEV_TOKS)
 
-            if DEV_LOSS < BEST_DEV_LOSS: 
+            if DEV_ARC_ACC > BEST_ARC_ACC: 
                 self.save_model(modelpath)
-                BEST_DEV_LOSS = DEV_LOSS
+                BEST_ARC_ACC = DEV_ARC_ACC
                 
         return BiAffineParser.load_model(modelpath,device=self.device)
         
