@@ -278,8 +278,6 @@ class BiAffineParser(nn.Module):
                 loss         = arc_loss + lab_loss
                 gloss       += loss.item()
 
-                print('DEV',words)
-
                 #greedy arc accurracy (without parsing)
                 _, pred = arc_scores.max(dim=-2)
                 mask = (heads != DependencyDataset.PAD_IDX).float()
@@ -296,7 +294,6 @@ class BiAffineParser(nn.Module):
 
                 overall_size += (deps.size(0)*deps.size(1))
                 
-        print('DL',gloss)
         return gloss/overall_size,arc_acc, lab_acc,ntoks
         
     def train_model(self,train_set,dev_set,epochs,batch_size):
@@ -311,12 +308,8 @@ class BiAffineParser(nn.Module):
             overall_size  = 0
             for batch in train_batches:
                 self.train()
-                optimizer.zero_grad()
-
                 words,deps,heads,labels = batch
                 deps, heads, labels = deps.to(self.device), heads.to(self.device), labels.to(self.device)
-
-                print('TRAIN',words)
                 
                 #FORWARD
                 arc_scores, lab_scores = self.forward(deps)
@@ -335,15 +328,13 @@ class BiAffineParser(nn.Module):
                 lab_loss   = loss_fnc(lab_scores, labels)
 
                 loss       = arc_loss + lab_loss
-                TRAIN_LOSS   += loss.item()
-                overall_size += (deps.size(0)*deps.size(1)) #bc no masking at training
-                
+    
+                optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
 
-               
-
-            print('TL',TRAIN_LOSS)
+                TRAIN_LOSS   += loss.item()
+                overall_size += (deps.size(0)*deps.size(1)) #bc no masking at training           
             
             DEV_LOSS,DEV_ARC_ACC,DEV_LAB_ACC,DEV_TOKS  = self.eval_model(dev_set,batch_size)
             print('Epoch ',e,'train mean loss',TRAIN_LOSS/overall_size,
