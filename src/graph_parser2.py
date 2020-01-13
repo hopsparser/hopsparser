@@ -406,7 +406,7 @@ class BiAffineParser(nn.Module):
                              'valid label acc',DEV_LAB_ACC/DEV_TOKS)
 
             if DEV_ARC_ACC > BEST_ARC_ACC:
-                torch.save(model.state_dict(), modelpath)
+                torch.save(self.state_dict(), modelpath)
                 BEST_ARC_ACC = DEV_ARC_ACC
                 
         self.load_state_dict(torch.load(modelpath))
