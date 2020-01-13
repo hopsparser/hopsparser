@@ -134,7 +134,6 @@ class DependencyDataset:
         labels      = set([ lbl for tree in treelist for (gov,lbl,dep) in tree.get_all_edges()])
         self.itolab = [DependencyDataset.PAD_TOKEN] + list(labels)
         self.labtoi = {label:idx for idx,label in enumerate(self.itolab)}
-        print(self.labtoi)
         
     def __len__(self):      
         return len(self.treelist)
@@ -415,10 +414,10 @@ class BiAffineParser(nn.Module):
 if __name__ == '__main__':
     embedding_size  = 100
     encoder_dropout = 0.3
-    mlp_input       = 150
-    mlp_arc_hidden  = 250
+    mlp_input       = 400
+    mlp_arc_hidden  = 500
     mlp_lab_hidden  = 100
-    mlp_dropout     = 0.3
+    mlp_dropout     = 0.5
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
     
     trainset        = DependencyDataset('../spmrl/train.French.gold.conll',min_vocab_freq=0,word_dropout=0.5)
