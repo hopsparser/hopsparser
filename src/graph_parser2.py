@@ -249,7 +249,7 @@ class BiAffineParser(nn.Module):
         self.eval()
         dev_batches = dev_set.make_batches(batch_size,shuffle_batches=True,shuffle_data=True,order_by_length=True)
         arc_acc, lab_acc,gloss,ntoks = 0, 0, 0, 0
-
+        overall_size = 0
         with torch.no_grad():
             for batch in dev_batches:
                 words, deps, heads, labels = batch
@@ -289,10 +289,9 @@ class BiAffineParser(nn.Module):
                 lab_acc += torch.sum(lab_accurracy).item()
                 ntoks += torch.sum(mask).item()
 
-                print(deps.size())
-                batch_loss = gloss / (deps.size(0)*deps.size(1))
+                overall_size = (deps.size(0)*deps.size(1))
                 
-        return gloss,arc_acc, lab_acc,ntoks
+        return gloss/overall_size,arc_acc, lab_acc,ntoks
         
     def train_model(self,train_set,dev_set,epochs,batch_size):
         loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
@@ -303,7 +302,7 @@ class BiAffineParser(nn.Module):
             TRAIN_TOKS    =  0
             BEST_DEV_LOSS =  1000
             train_batches = train_set.make_batches(batch_size,shuffle_batches=True,shuffle_data=True,order_by_length=True)
-
+            overall_size  = 0
             for batch in train_batches:
                 self.train()
                 words,deps,heads,labels = batch
@@ -330,13 +329,14 @@ class BiAffineParser(nn.Module):
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                
+
                 TRAIN_TOKS   += torch.sum((heads != DependencyDataset.PAD_IDX).float()).item()
                 TRAIN_LOSS   += loss.item()
-
+                overall_size = (deps.size(0)*deps.size(1))
+ 
             DEV_LOSS,DEV_ARC_ACC,DEV_LAB_ACC,DEV_TOKS  = self.eval_model(dev_set,batch_size)
-            print('Epoch ',e,'train mean loss',TRAIN_LOSS/TRAIN_TOKS,
-                             'valid mean loss',DEV_LOSS/DEV_TOKS,
+            print('Epoch ',e,'train mean loss',TRAIN_LOSS/overall_size,
+                             'valid mean loss',DEV_LOSS,
                              'valid arc acc',DEV_ARC_ACC/DEV_TOKS,
                              'valid label acc',DEV_LAB_ACC/DEV_TOKS)
 
