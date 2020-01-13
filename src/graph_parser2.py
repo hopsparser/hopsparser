@@ -189,7 +189,7 @@ class BiAffine(nn.Module):
         Rd = Rd.unsqueeze(1)
         S = Rh @ self.U @ Rd.transpose(-1, -2)
         return S.squeeze(1)
-    
+
 class BiAffineParser(nn.Module):
     
     """Biaffine Dependency Parser."""
@@ -205,7 +205,7 @@ class BiAffineParser(nn.Module):
                  device='cuda:1'):
     
         super(BiAffineParser, self).__init__()
-        self.device = torch.device(device)
+        self.device    = torch.device(device)
         self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
         self.rnn       = nn.LSTM(embedding_size,mlp_input,1, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
@@ -221,8 +221,11 @@ class BiAffineParser(nn.Module):
         self.lab_biaffine = BiAffine(mlp_input, num_labels).to(self.device)
 
 
-    def forward(self,xwords): 
-        """Compute the score matrices for the arcs and labels."""      
+    def forward(self,xwords):
+        
+        """Compute the score matrices for the arcs and labels."""
+        #check in the future if adding a mask on padded words is useful
+        
         xemb   = self.embedding(xwords)        
         cemb,_ = self.rnn(xemb)
 
@@ -237,10 +240,9 @@ class BiAffineParser(nn.Module):
             
         return scores_arc, scores_lab
 
-    
     def eval_model(self,dev_set,batch_size):
 
-        loss_fnc   = nn.CrossEntropyLoss()
+        loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
 
         #Note: the accurracy scoring is approximative and cannot be interpreted as an UAS/LAS score !
         
@@ -252,14 +254,15 @@ class BiAffineParser(nn.Module):
             for batch in dev_batches:
                 words, deps, heads, labels = batch
                 deps, heads, labels = deps.to(self.device), heads.to(self.device), labels.to(self.device)
+
                 #preds 
                 arc_scores, lab_scores = self.forward(deps)
                 
                 #get global loss
                 #ARC LOSS
-                arc_scoresL = arc_scores.transpose(-1, -2)                             # [batch, sent_len, sent_len]
-                arc_scoresL = arc_scores.contiguous().view(-1, arc_scoresL.size(-1))   # [batch*sent_len, sent_len]
-                arc_loss    = loss_fnc(arc_scoresL, heads.view(-1))                    # [batch*sent_len]
+                arc_scoresL  = arc_scores.transpose(-1, -2)                             # [batch, sent_len, sent_len]
+                arc_scoresL  = arc_scores.contiguous().view(-1, arc_scoresL.size(-1))   # [batch*sent_len, sent_len]
+                arc_loss     = loss_fnc(arc_scoresL, heads.view(-1))                    # [batch*sent_len]
             
                 #LABEL LOSS
                 headsL       = heads.unsqueeze(1).unsqueeze(2)                          # [batch, 1, 1, sent_len]
@@ -285,11 +288,14 @@ class BiAffineParser(nn.Module):
                 lab_accurracy = torch.sum((pred == labels).float() * mask, dim=-1)
                 lab_acc += torch.sum(lab_accurracy).item()
                 ntoks += torch.sum(mask).item()
+
+                print(deps.size())
+                batch_loss = gloss / (deps.size(0)*deps.size(1))
                 
         return gloss,arc_acc, lab_acc,ntoks
         
     def train_model(self,train_set,dev_set,epochs,batch_size):
-        loss_fnc   = nn.CrossEntropyLoss()
+        loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
         optimizer  = torch.optim.Adam(self.parameters(),lr=0.001)
         for e in range(epochs):
             print('----')
@@ -297,9 +303,10 @@ class BiAffineParser(nn.Module):
             TRAIN_TOKS    =  0
             BEST_DEV_LOSS =  1000
             train_batches = train_set.make_batches(batch_size,shuffle_batches=True,shuffle_data=True,order_by_length=True)
+
             for batch in train_batches:
                 self.train()
-                words,deps,heads,labels = batch  #POTENTIAL BUG : check that the batches encodings are compliant with the other implementation
+                words,deps,heads,labels = batch
                 deps, heads, labels = deps.to(self.device), heads.to(self.device), labels.to(self.device)
 
                 #FORWARD
