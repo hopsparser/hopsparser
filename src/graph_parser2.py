@@ -107,7 +107,6 @@ class DependencyDataset:
         self.labels = [self.labels[idx] for idx in order]
         self.words  = [self.words[idx] for idx in order]  
         self.cats   = [self.cats[idx] for idx in order]        
-
         
     def make_batches(self, batch_size,shuffle_batches=False,shuffle_data=True,order_by_length=False):
         self.encode()
@@ -446,15 +445,15 @@ class BiAffineParser(nn.Module):
                     print(file=ostream)
 
 if __name__ == '__main__':
-    embedding_size  = 200
-    encoder_dropout = 0.5
+    embedding_size  = 300
+    encoder_dropout = 0.3
     mlp_input       = 400
     mlp_arc_hidden  = 600
     mlp_lab_hidden  = 100 
     mlp_dropout     = 0.5
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
 
-    trainset           = DependencyDataset('../spmrl/train.French.pred.conll',min_vocab_freq=0,word_dropout=0.3)
+    trainset           = DependencyDataset('../spmrl/train.French.pred.conll',min_vocab_freq=0,word_dropout=0.5)
     itos,itolab,itotag = trainset.itos,trainset.itolab,trainset.itotag
     devset             = DependencyDataset('../spmrl/dev.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
     testset            = DependencyDataset('../spmrl/test.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
