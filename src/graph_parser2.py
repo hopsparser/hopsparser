@@ -263,7 +263,7 @@ class BiAffineParser(nn.Module):
                 #get global loss
                 #ARC LOSS
                 arc_scoresL  = arc_scores.transpose(-1, -2)                             # [batch, sent_len, sent_len]
-                arc_scoresL  = arc_scores.contiguous().view(-1, arc_scoresL.size(-1))   # [batch*sent_len, sent_len]
+                arc_scoresL  = arc_scoresL.contiguous().view(-1, arc_scoresL.size(-1))   # [batch*sent_len, sent_len]
                 arc_loss     = loss_fnc(arc_scoresL, heads.view(-1))                    # [batch*sent_len]
             
                 #LABEL LOSS
@@ -399,7 +399,7 @@ if __name__ == '__main__':
     mlp_lab_hidden  = 100
     mlp_dropout     = 0.0
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
-    trainset        = DependencyDataset('../spmrl/dev.French.gold.conll',min_vocab_freq=0)
+    trainset        = DependencyDataset('../spmrl/example.txt',min_vocab_freq=0)
     itos,itolab     = trainset.itos,trainset.itolab
     
     parser          = BiAffineParser(len(itos),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
