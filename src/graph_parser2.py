@@ -10,6 +10,7 @@ from random import sample,shuffle,random
 from collections import Counter,defaultdict
 from mst import chuliu_edmonds
 
+
 class DependencyDataset:
     """
     A representation of the DepBank for efficient processing.
@@ -187,6 +188,7 @@ class DependencyDataset:
         rev_edges = dict( [(dep,gov) for (gov,label,dep) in edges ] )
         return [ rev_edges.get(idx,0) for idx in range(N) ]
 
+    
 class MLP(nn.Module):
 
     def __init__(self,input_size,hidden_size,output_size,dropout=0.0):
@@ -215,6 +217,7 @@ class BiAffine(nn.Module):
         S = Rh @ self.U @ Rd.transpose(-1, -2)
         return S.squeeze(1)
 
+    
 class BiAffineParser(nn.Module):
     
     """Biaffine Dependency Parser."""
@@ -446,10 +449,10 @@ class BiAffineParser(nn.Module):
 
 if __name__ == '__main__':
     
-    embedding_size  = 50
-    encoder_dropout = 0.3
-    mlp_input       = 400
-    mlp_arc_hidden  = 600
+    embedding_size  = 50  #200
+    encoder_dropout = 0.3 
+    mlp_input       = 400 
+    mlp_arc_hidden  = 600 
     mlp_lab_hidden  = 100 
     mlp_dropout     = 0.5
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
