@@ -273,7 +273,7 @@ class BiAffineParser(nn.Module):
                 labelsL      = labels.view(-1)                                          # [batch*sent_len]
                 lab_loss     = loss_fnc(lab_scoresL, labelsL)
 
-                print(arc_loss.item(),lab_loss.item())
+                print('Dev',arc_loss.item(),lab_loss.item())
                 
                 loss         = arc_loss + lab_loss
                 gloss       += loss.item()
@@ -330,6 +330,9 @@ class BiAffineParser(nn.Module):
                 labels     = labels.view(-1)                                        # [batch*sent_len]
                 lab_loss   = loss_fnc(lab_scores, labels)
 
+                print('train',arc_loss.item(),lab_loss.item())
+
+                
                 loss       = arc_loss + lab_loss
                 TRAIN_LOSS   += loss.item()
                 overall_size += (deps.size(0)*deps.size(1)) #bc no masking at training
