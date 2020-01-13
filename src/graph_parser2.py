@@ -208,7 +208,7 @@ class BiAffineParser(nn.Module):
         super(BiAffineParser, self).__init__()
         self.device    = torch.device(device) if type(device) == str else device
         self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
-        self.rnn       = nn.LSTM(embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.rnn       = nn.LSTM(embedding_size,mlp_input,2, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         # Arc MLPs
         self.arc_mlp_h = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
@@ -413,15 +413,15 @@ class BiAffineParser(nn.Module):
                     print(file=ostream)
 
 if __name__ == '__main__':
-    embedding_size  = 50
+    embedding_size  = 100
     encoder_dropout = 0.3
     mlp_input       = 150
     mlp_arc_hidden  = 250
-    mlp_lab_hidden  = 50
+    mlp_lab_hidden  = 100
     mlp_dropout     = 0.3
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
     
-    trainset        = DependencyDataset('../spmrl/train.French.gold.conll',min_vocab_freq=0,word_dropout=0.3)
+    trainset        = DependencyDataset('../spmrl/train.French.gold.conll',min_vocab_freq=0,word_dropout=0.5)
     itos,itolab     = trainset.itos,trainset.itolab
     devset          = DependencyDataset('../spmrl/dev.French.gold.conll',use_vocab=itos,use_labels=itolab)
     testset         = DependencyDataset('../spmrl/test.French.gold.conll',use_vocab=itos,use_labels=itolab)
