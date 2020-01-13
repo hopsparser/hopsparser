@@ -357,7 +357,8 @@ class BiAffineParser(nn.Module):
                 labels     = labels.view(-1)                                        # [batch*sent_len]
                 lab_loss   = loss_fnc(lab_scores, labels)
 
-                loss       = arc_loss + lab_loss
+                arc_mix    = 0.7      
+                loss       = arc_mix * arc_loss + (1-arc_mix)*lab_loss
     
                 optimizer.zero_grad()
                 loss.backward()
