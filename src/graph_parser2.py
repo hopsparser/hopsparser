@@ -408,8 +408,8 @@ class BiAffineParser(nn.Module):
             if DEV_ARC_ACC > BEST_ARC_ACC: 
                 self.save_model(modelpath)
                 BEST_ARC_ACC = DEV_ARC_ACC
-                
-        return BiAffineParser.load_model(modelpath,device=self.device)
+        self.load_state_dict(torch.load(modelpath))
+
         
     def predict_batch(self,test_set,ostream,batch_size,greedy=False):
 
@@ -449,7 +449,7 @@ class BiAffineParser(nn.Module):
 
 if __name__ == '__main__':
     
-    embedding_size  = 200 #300
+    embedding_size  = 200
     encoder_dropout = 0.3 
     mlp_input       = 400 
     mlp_arc_hidden  = 600 
