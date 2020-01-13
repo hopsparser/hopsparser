@@ -95,7 +95,7 @@ class DependencyDataset:
         if shuffle_data:  
             self.shuffle_data()
         if order_by_length: #shuffling and ordering is relevant : it change the way ties are resolved and thus batch construction
-            self.order_data():
+            self.order_data()
 
         N = len(self.deps)
         batch_order = list(range(0,N, batch_size))
