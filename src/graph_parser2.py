@@ -71,23 +71,37 @@ class DependencyDataset:
         reloaded.close()
         return itos,itolab
     
-    def shuffle(self):
-        n = len(self.deps)
-        order = list(range(n))
+    def shuffle_data(self):
+        N = len(self.deps)
+        order = list(range(N))
         shuffle(order)
         self.deps   = [self.deps[i] for i in order]
         self.heads  = [self.heads[i] for i in order]
         self.labels = [self.labels[i] for i in order]
-        self.words  = [self.words[i] for i in order]
-    
-    def make_batches(self, batch_size,shuffle_data=True):
-        #TODO provide length ordering options and options for not shuffling
-        #shuffle causes a bug 
+        self.words  = [self.words[i] for i in order]        
+
+    def order_data(self):
+        N           = len(self.deps)
+        order       = list(range(N))        
+        lengths     = map(len,self.deps)
+        order       = [idx for idx, L in sorted(zip(order,lengths),key=lambda x:x[1])]
+        self.deps   = [self.deps[idx] for idx in order]
+        self.heads  = [self.heads[idx] for idx in order]
+        self.labels = [self.labels[idx] for idx in order]
+        self.words  = [self.words[idx] for idx in order]  
+        
+    def make_batches(self, batch_size,shuffle_batches=False,shuffle_data=True,order_by_length=False):
+        
+        if shuffle_data:  
+            self.shuffle_data()
+        if order_by_length: #shuffling and ordering is relevant : it change the way ties are resolved and thus batch construction
+            self.order_data():
+
         N = len(self.deps)
         batch_order = list(range(0,N, batch_size))
-        if shuffle_data:  
-            self.shuffle()
+        if shuffle_batches:
             shuffle(batch_order)
+            
         for i in batch_order:
             deps   = self.pad(self.deps[i:i+batch_size])
             heads  = self.pad(self.heads[i:i+batch_size])
@@ -174,112 +188,6 @@ class BiAffine(nn.Module):
         Rd = Rd.unsqueeze(1)
         S = Rh @ self.U @ Rd.transpose(-1, -2)
         return S.squeeze(1)
-
-
-def mst(scores, eps=1e-10):
-    """
-    Chu-Liu-Edmonds' algorithm for finding minimum spanning arborescence in graphs.
-    Calculates the arborescence with node 0 as root.
-    :param scores: `scores[i][j]` is the weight of edge from node `j` to node `i`.
-    :returns an array containing the head node (node with edge pointing to current node) for each node,
-             with head[0] fixed as 0
-    """
-    scores = scores.T
-    length = scores.shape[0]
-    scores = scores * (1 - np.eye(length)) # mask all the diagonal elements wih a zero
-    heads = np.argmax(scores, axis=1) # THIS MEANS THAT scores[i][j] = score(j -> i)!
-    heads[0] = 0 # the root has a self-loop to make it special
-    tokens = np.arange(1, length)
-    roots = np.where(heads[tokens] == 0)[0] + 1
-    if len(roots) < 1:
-        root_scores = scores[tokens, 0]
-        head_scores = scores[tokens, heads[tokens]]
-        new_root = tokens[np.argmax(root_scores / (head_scores + eps))]
-        heads[new_root] = 0
-    elif len(roots) > 1:
-        root_scores = scores[roots, 0]
-        scores[roots, 0] = 0
-        new_heads = np.argmax(scores[roots][:, tokens], axis=1) + 1
-        new_root = roots[np.argmin(
-            scores[roots, new_heads] / (root_scores + eps))]
-        heads[roots] = new_heads
-        heads[new_root] = 0
-
-    edges = defaultdict(set) # head -> dep
-    vertices = set((0,))
-    for dep, head in enumerate(heads[tokens]):
-        vertices.add(dep + 1)
-        edges[head].add(dep + 1)
-    for cycle in _find_cycle(vertices, edges):
-        dependents = set()
-        to_visit = set(cycle)
-        while len(to_visit) > 0:
-            node = to_visit.pop()
-            if node not in dependents:
-                dependents.add(node)
-                to_visit.update(edges[node])
-        cycle = np.array(list(cycle))
-        old_heads = heads[cycle]
-        old_scores = scores[cycle, old_heads]
-        non_heads = np.array(list(dependents))
-        scores[np.repeat(cycle, len(non_heads)),
-               np.repeat([non_heads], len(cycle), axis=0).flatten()] = 0
-        new_heads = np.argmax(scores[cycle][:, tokens], axis=1) + 1
-        new_scores = scores[cycle, new_heads] / (old_scores + eps)
-        change = np.argmax(new_scores)
-        changed_cycle = cycle[change]
-        old_head = old_heads[change]
-        new_head = new_heads[change]
-        heads[changed_cycle] = new_head
-        edges[new_head].add(changed_cycle)
-        edges[old_head].remove(changed_cycle)
-
-    return heads
-
-
-def _find_cycle(vertices, edges):
-    """
-    https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm  # NOQA
-    https://github.com/tdozat/Parser/blob/0739216129cd39d69997d28cbc4133b360ea3934/lib/etc/tarjan.py  # NOQA
-    """
-    _index = [0]
-    _stack = []
-    _indices = {}
-    _lowlinks = {}
-    _onstack = defaultdict(lambda: False)
-    _SCCs = []
-
-    def _strongconnect(v):
-        _indices[v] = _index[0]
-        _lowlinks[v] = _index[0]
-        _index[0] += 1
-        _stack.append(v)
-        _onstack[v] = True
-
-        for w in edges[v]:
-            if w not in _indices:
-                _strongconnect(w)
-                _lowlinks[v] = min(_lowlinks[v], _lowlinks[w])
-            elif _onstack[w]:
-                _lowlinks[v] = min(_lowlinks[v], _indices[w])
-
-        if _lowlinks[v] == _indices[v]:
-            SCC = set()
-            while True:
-                w = _stack.pop()
-                _onstack[w] = False
-                SCC.add(w)
-                if not (w != v):
-                    break
-            _SCCs.append(SCC)
-
-    for v in vertices:
-        if v not in _indices:
-            _strongconnect(v)
-
-    return [SCC for SCC in _SCCs if len(SCC) > 1]
-
-
     
 class BiAffineParser(nn.Module):
     
@@ -336,7 +244,7 @@ class BiAffineParser(nn.Module):
         #Note: the accurracy scoring is approximative and cannot be interpreted as an UAS/LAS score !
         
         self.eval()
-        dev_batches = dev_set.make_batches(batch_size)
+        dev_batches = dev_set.make_batches(batch_size,shuffle_batches=True,shuffle_data=True,order_by_length=True)
         arc_acc, lab_acc,gloss,ntoks = 0, 0, 0, 0
 
         with torch.no_grad():
@@ -361,16 +269,15 @@ class BiAffineParser(nn.Module):
                 labelsL      = labels.view(-1)                                          # [batch*sent_len]
                 lab_loss     = loss_fnc(lab_scoresL, labelsL)
 
-                #print(arc_loss.item(),lab_loss.item())
                 gloss       += arc_loss.item() + lab_loss.item()
             
-                #arc accurracy (without ensuring parsing)
+                #greedy arc accurracy (without parsing)
                 _, pred = arc_scores.max(dim=-2)
                 mask = (heads != DependencyDataset.PAD_IDX).float()
                 arc_accurracy = torch.sum((pred == heads).float() * mask, dim=-1)
                 arc_acc += torch.sum(arc_accurracy).item()
             
-                #labels accurracy (wihtout parsing)
+                #greedy label accurracy (without parsing)
                 _, pred = lab_scores.max(dim=1)
                 pred = torch.gather(pred, 1, heads.unsqueeze(1)).squeeze(1)
                 mask = (heads != DependencyDataset.PAD_IDX).float()
@@ -388,7 +295,7 @@ class BiAffineParser(nn.Module):
             TRAIN_LOSS    =  0
             TRAIN_TOKS    =  0
             BEST_DEV_LOSS =  1000
-            train_batches = train_set.make_batches(batch_size)
+            train_batches = train_set.make_batches(batch_size,shuffle_batches=True,shuffle_data=True,order_by_length=True)
             for batch in train_batches:
                 self.train()
                 words,deps,heads,labels = batch  #POTENTIAL BUG : check that the batches encodings are compliant with the other implementation
@@ -432,14 +339,13 @@ class BiAffineParser(nn.Module):
         
     def predict_batch(self,test_set,batch_size):
 
-        #that's semi-batched...
-        self.eval()
-        test_batches = test_set.make_batches(batch_size) #keep natural order here
+        test_batches = test_set.make_batches(batch_size,shuffle_batches=False,shuffle_data=False,order_by_length=False) #keep natural order here
 
         with torch.no_grad():
-            softmax = nn.Softmax(dim=1)
+            
+            #softmax = nn.Softmax(dim=1)
             for batch in test_batches:
-                
+                self.eval()
                 words, deps,heads,labels = batch
                 deps, heads, labels = deps.to(self.device), heads.to(self.device), labels.to(self.device)
 
