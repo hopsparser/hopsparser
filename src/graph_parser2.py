@@ -1,3 +1,4 @@
+import sys
 import torch
 import numpy as np
 from deptree import *
@@ -250,7 +251,6 @@ class BiAffineParser(nn.Module):
                                 restored['num_labels'],
                                 device)
         model.load_state_dict(restored['model_state_dict'])
-        print('#labels',model.num_labels)
         
     def forward(self,xwords):
         
@@ -379,7 +379,7 @@ class BiAffineParser(nn.Module):
                 
         return BiAffineParser.load_model(modelpath,device=self.device)
         
-    def predict_batch(self,test_set,batch_size):
+    def predict_batch(self,test_set,ostream,batch_size):
 
         test_batches = test_set.make_batches(batch_size,shuffle_batches=False,shuffle_data=False,order_by_length=False) #keep natural order here
 
@@ -400,7 +400,6 @@ class BiAffineParser(nn.Module):
                 for tokens,length,arc_scores,lab_scores in zip(words,SLENGTHS,arc_scores_batch,lab_scores_batch):
                     # Predict heads
                     probs          = arc_scores.numpy().T
-                    #mst_heads      = chuliu_edmonds(probs)
                     mst_heads      = chuliu_edmonds(probs)
                     # Predict labels
                     select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
@@ -410,8 +409,8 @@ class BiAffineParser(nn.Module):
                     mst_labels     = mst_labels.data.numpy()
                     edges = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
                     dg = DepGraph(edges[1:],wordlist=tokens[1:])
-                    print(dg)
-                    print()
+                    print(dg,file=ostream)
+                    print(file=ostream)
 
 if __name__ == '__main__':
     
@@ -427,5 +426,5 @@ if __name__ == '__main__':
     
     parser          = BiAffineParser(len(itos),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
     parser.train_model(trainset,trainset,25,32)
-    parser.predict_batch(trainset,8)
+    parser.predict_batch(trainset,sys.stdout,8)
     print('Device used', device)
