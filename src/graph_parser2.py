@@ -430,12 +430,11 @@ class BiAffineParser(nn.Module):
 
                 for tokens,pos_tags,length,arc_scores,lab_scores in zip(words,cats,SLENGTHS,arc_scores_batch,lab_scores_batch):
                     # Predict heads
+                    probs          = arc_scores.numpy().T
                     if greedy:
-                        probs          = np.argmax(arc_scores,axis=1) 
+                        mst_heads  = np.argmax(arc_scores,axis=1) 
                     else:
-                        probs          = arc_scores.numpy().T
-                    #mst_heads      = chuliu_edmonds(probs)
-                    mst_heads
+                        mst_heads      = chuliu_edmonds(probs)
                     # Predict labels
                     select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
                     select         = Variable(select)
@@ -450,20 +449,20 @@ class BiAffineParser(nn.Module):
 if __name__ == '__main__':
     embedding_size  = 100
     encoder_dropout = 0.3
-    mlp_input       = 400
-    mlp_arc_hidden  = 500
-    mlp_lab_hidden  = 100
-    mlp_dropout     = 0.5
+    mlp_input       = 300
+    mlp_arc_hidden  = 400
+    mlp_lab_hidden  = 100 
+    mlp_dropout     = 0.3
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
 
-    trainset           = DependencyDataset('../spmrl/train.French.gold.conll',min_vocab_freq=0,word_dropout=0.3)
+    trainset           = DependencyDataset('../spmrl/train.French.pred.conll',min_vocab_freq=0,word_dropout=0.3)
     itos,itolab,itotag = trainset.itos,trainset.itolab,trainset.itotag
-    devset             = DependencyDataset('../spmrl/dev.French.gold.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
-    testset            = DependencyDataset('../spmrl/test.French.gold.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
+    devset             = DependencyDataset('../spmrl/dev.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
+    testset            = DependencyDataset('../spmrl/test.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
     trainset.save_vocab('model.vocab')
 
     parser             = BiAffineParser(len(itos),len(itotag),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
-    parser.train_model(trainset,devset,60,64,modelpath="model.pt")
+    parser.train_model(trainset,devset,10,64,modelpath="model.pt")
     predfile = open('model_preds.conll','w')
     parser.predict_batch(testset,predfile,32,greedy=True)
     predfile.close()
