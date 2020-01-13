@@ -205,7 +205,7 @@ class BiAffineParser(nn.Module):
                  device='cuda:1'):
     
         super(BiAffineParser, self).__init__()
-        self.device    = torch.device(device)
+        self.device    = torch.device(device) if type(device) == str else device
         self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
         self.rnn       = nn.LSTM(embedding_size,mlp_input,1, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
@@ -220,7 +220,37 @@ class BiAffineParser(nn.Module):
         self.arc_biaffine = BiAffine(mlp_input, 1).to(self.device)
         self.lab_biaffine = BiAffine(mlp_input, num_labels).to(self.device)
 
+        #hyperparams for saving...
+        self.vocab_size,self.embedding_size                    = vocab_size,embedding_size
+        self.mlp_input,self.mlp_arc_hidden,self.mlp_lab_hidden = mlp_input,mlp_arc_hidden,mlp_lab_hidden,
+        self.num_labels                                        = num_labels 
+        
+    def save_model(self,path):
 
+        torch.save({
+            'vocab_size'      :self.vocab_size,
+            'embedding_size'  :self.embedding_size,
+            'mlp_input'       :self.mlp_input,
+            'mlp_arc_hidden'  :self.mlp_arc_hidden,
+            'mlp_lab_hidden'  :self.mlp_lab_hidden,
+            'num_labels'      :self.num_labels,
+            'model_state_dict': model.state_dict(),
+            }, path)
+        
+    @staticmethod
+    def load_model(path,device='cuda:1'):
+        restored = torch.load(path)
+        model = BiAffineParser( restored['vocab_size'],
+                                restored['embedding_size'],
+                                0,
+                                restored['mlp_input'],
+                                restored['mlp_arc_hidden'],
+                                restored['mlp_lab_hidden'],
+                                0,
+                                restored['num_labels'],
+                                device)
+        model.load_state_dict(restored['model_state_dict'])
+        
     def forward(self,xwords):
         
         """Compute the score matrices for the arcs and labels."""
@@ -296,7 +326,7 @@ class BiAffineParser(nn.Module):
                 
         return gloss/overall_size,arc_acc, lab_acc,ntoks
         
-    def train_model(self,train_set,dev_set,epochs,batch_size):
+    def train_model(self,train_set,dev_set,epochs,batch_size,modelpath='test_model.pt'):
         loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
         optimizer  = torch.optim.Adam(self.parameters(),lr=0.001)
         for e in range(epochs):
@@ -342,10 +372,11 @@ class BiAffineParser(nn.Module):
                              'valid arc acc',DEV_ARC_ACC/DEV_TOKS,
                              'valid label acc',DEV_LAB_ACC/DEV_TOKS)
 
-            if DEV_LOSS < BEST_DEV_LOSS: #there is a problem with the validation loss
-                torch.save(self,'model.pt')
+            if DEV_LOSS < BEST_DEV_LOSS: 
+                torch.save(self,modelpath)
                 BEST_DEV_LOSS = DEV_LOSS
-        #torch.load best model
+                
+        return BiAffineParser.load_model(modelpath,device=self.device)
         
     def predict_batch(self,test_set,batch_size):
 
@@ -368,8 +399,8 @@ class BiAffineParser(nn.Module):
                 for tokens,length,arc_scores,lab_scores in zip(words,SLENGTHS,arc_scores_batch,lab_scores_batch):
                     # Predict heads
                     probs          = arc_scores.numpy().T
-                    mst_heads      = chuliu_edmonds(probs)
-                    #mst_heads      = chuliu_edmonds(probs[:,:length])
+                    #mst_heads      = chuliu_edmonds(probs)
+                    mst_heads      = chuliu_edmonds(probs[:length,:length])
                     # Predict labels
                     select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
                     select         = Variable(select)
