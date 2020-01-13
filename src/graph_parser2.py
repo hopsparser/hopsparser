@@ -429,12 +429,11 @@ class BiAffineParser(nn.Module):
                 arc_scores_batch, lab_scores_batch = arc_scores_batch.cpu(), lab_scores_batch.cpu()  
 
                 for tokens,pos_tags,length,arc_scores,lab_scores in zip(words,cats,SLENGTHS,arc_scores_batch,lab_scores_batch):
+
                     # Predict heads
                     probs          = arc_scores.numpy().T
-                    if greedy:
-                        mst_heads  = np.argmax(probs,axis=1) 
-                    else:
-                        mst_heads      = chuliu_edmonds(probs)
+                    mst_heads      = np.argmax(probs,axis=1) if greedy else chuliu_edmonds(probs)
+                    
                     # Predict labels
                     select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
                     select         = Variable(select)
@@ -448,11 +447,11 @@ class BiAffineParser(nn.Module):
 
 if __name__ == '__main__':
     embedding_size  = 100
-    encoder_dropout = 0.2
+    encoder_dropout = 0.3
     mlp_input       = 400
     mlp_arc_hidden  = 500
     mlp_lab_hidden  = 100 
-    mlp_dropout     = 0.3
+    mlp_dropout     = 0.5
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
 
     trainset           = DependencyDataset('../spmrl/train.French.pred.conll',min_vocab_freq=0,word_dropout=0.3)
