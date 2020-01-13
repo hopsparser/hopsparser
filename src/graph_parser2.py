@@ -432,7 +432,7 @@ class BiAffineParser(nn.Module):
                     # Predict heads
                     probs          = arc_scores.numpy().T
                     if greedy:
-                        mst_heads  = np.argmax(arc_scores,axis=1) 
+                        mst_heads  = np.argmax(probs,axis=1) 
                     else:
                         mst_heads      = chuliu_edmonds(probs)
                     # Predict labels
@@ -462,7 +462,7 @@ if __name__ == '__main__':
     trainset.save_vocab('model.vocab')
 
     parser             = BiAffineParser(len(itos),len(itotag),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
-    parser.train_model(trainset,devset,10,64,modelpath="model.pt")
+    parser.train_model(trainset,devset,30,64,modelpath="model.pt")
     predfile = open('model_preds.conll','w')
     parser.predict_batch(testset,predfile,32,greedy=True)
     predfile.close()
