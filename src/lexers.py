@@ -22,4 +22,8 @@ class DefaultLexer(nn.Module):
 
 class FastTextLexer(nn.Module):
 
-    pass
+    """
+    This is the a lexer that uses fastText embeddings
+    """
+    def __init__(self,vocab_size,embedding_size,device):
+        pass
