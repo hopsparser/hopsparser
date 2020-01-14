@@ -289,13 +289,7 @@ class BiAffineParser(nn.Module):
         #check in the future if adding a mask on padded words is useful
         
         lex_emb   = self.lexer(xwords)
-        print(xtags)
-        tag_emb   = self.tag_embedding(xtags)
-
-        print(lex_emb.size(),lex_emb.is_cuda)
-        print(tag_emb.size(),tag_emb.is_cuda)
-        print(torch.cat((lex_emb,tag_emb),dim=2).size())
-        
+        tag_emb   = self.tag_embedding(xtags)        
         cemb,_ = self.rnn(torch.cat((lex_emb,tag_emb),dim=2))
 
         arc_h = self.arc_mlp_h(cemb)
@@ -462,7 +456,7 @@ if __name__ == '__main__':
     mlp_arc_hidden       = 500 
     mlp_lab_hidden       = 100 
     mlp_dropout          = 0.5
-    device               = "cpu"#"cuda:2" if torch.cuda.is_available() else "cpu"
+    device               = "cuda:2" if torch.cuda.is_available() else "cpu"
 
     trainset           = DependencyDataset('../spmrl/train.French.pred.conll',min_vocab_freq=0,word_dropout=0.3)
     itos,itolab,itotag = trainset.itos,trainset.itolab,trainset.itotag
