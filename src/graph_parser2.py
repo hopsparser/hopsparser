@@ -294,7 +294,7 @@ class BiAffineParser(nn.Module):
         print(lex_emb.size(),lex_emb.is_cuda)
         print(tag_emb.size(),tag_emb.is_cuda)
         print(torch.cat((lex_emb,tag_emb),dim=2).size())
-        print(next(self.rnn.paramters()).is_cuda)
+        print(next(self.rnn.parameters()).is_cuda)
         
         cemb,_ = self.rnn(torch.cat((lex_emb,tag_emb),dim=2))
 
