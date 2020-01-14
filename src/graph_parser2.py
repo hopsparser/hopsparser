@@ -457,7 +457,7 @@ if __name__ == '__main__':
     mlp_arc_hidden  = 600 
     mlp_lab_hidden  = 100 
     mlp_dropout     = 0.3
-    device          = "cuda:1" if torch.cuda.is_available() else "cpu"
+    device          = "cuda:2" if torch.cuda.is_available() else "cpu"
 
     trainset           = DependencyDataset('../spmrl/train.French.pred.conll',min_vocab_freq=0,word_dropout=0.2)
     itos,itolab,itotag = trainset.itos,trainset.itolab,trainset.itotag
