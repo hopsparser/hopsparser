@@ -7,7 +7,7 @@ class DefaultLexer(nn.Module):
     """
     def __init__(self,vocab_size,embedding_size):
         
-        self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
+        self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX)
         self.embedding_size = embedding_size #thats the interface property
         
     def forward(self,word_sequences):
