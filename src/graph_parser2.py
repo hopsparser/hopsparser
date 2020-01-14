@@ -235,7 +235,7 @@ class BiAffineParser(nn.Module):
     
         super(BiAffineParser, self).__init__()
         self.device        = torch.device(device) if type(device) == str else device
-        self.lexer         = lexer
+        self.lexer         = lexer.to(device)
         self.tag_embedding = nn.Embedding(tagset_size, tag_embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
         self.rnn           = nn.LSTM(self.lexer.embedding_size + tag_embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
@@ -448,7 +448,7 @@ class BiAffineParser(nn.Module):
 
 if __name__ == '__main__':
     word_embedding_size  = 100
-    tag_embedding_size   = 100
+    tag_embedding_size   = 200
     encoder_dropout      = 0.3 
     mlp_input            = 400 
     mlp_arc_hidden       = 500 
