@@ -449,7 +449,7 @@ class BiAffineParser(nn.Module):
 if __name__ == '__main__':
     word_embedding_size  = 100
     tag_embedding_size   = 100
-    encoder_dropout      = 0.0 
+    encoder_dropout      = 0.3
     mlp_input            = 400 
     mlp_arc_hidden       = 300 
     mlp_lab_hidden       = 100 
@@ -458,7 +458,7 @@ if __name__ == '__main__':
 
     
     
-    trainset           = DependencyDataset('../spmrl/train.French.pred.conll',min_vocab_freq=-1,word_dropout=0.3)
+    trainset           = DependencyDataset('../spmrl/train.French.pred.conll',min_vocab_freq=-1,word_dropout=0.1)
     itos,itolab,itotag = trainset.itos,trainset.itolab,trainset.itotag
     devset             = DependencyDataset('../spmrl/dev.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
     testset            = DependencyDataset('../spmrl/test.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
