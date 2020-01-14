@@ -37,7 +37,7 @@ class FastTextLexer(nn.Module):
         for word in itos:
             ematrix.append(torch.from_numpy(FT[word]))
         ematrix = torch.stack(ematrix)
-        self.embedding = nn.Embedding.from_pretrained(ematrix,freeze=True,padding_idx=DependencyDataset.PAD_IDX)
+        self.embedding = nn.Embedding.from_pretrained(ematrix,freeze=False,padding_idx=DependencyDataset.PAD_IDX)
         
     def forward(self,word_sequences):
         """
