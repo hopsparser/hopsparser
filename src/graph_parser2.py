@@ -62,7 +62,6 @@ class DependencyDataset:
                         
             if self.word_dropout:
                 depword_idxes = [word_sampler(widx,self.word_dropout) for widx in depword_idxes]
-                deptag_idxes  = [word_sampler(tidx,self.word_dropout) for tidx in deptag_idxes]
             
             self.words.append(tree.words)
             self.cats.append(tree.pos_tags)
@@ -158,7 +157,7 @@ class DependencyDataset:
 
     def init_tags(self,treelist):
         tagset  = set([ tag for tree in treelist for tag in tree.pos_tags])
-        tagset.update([DependencyDataset.UNK_WORD,DepGraph.ROOT_TOKEN])
+        tagset.update([DepGraph.ROOT_TOKEN])
         self.itotag = [DependencyDataset.PAD_TOKEN] + list(tagset)
         self.tagtoi = {tag:idx for idx,tag in enumerate(self.itotag)}
             
