@@ -54,6 +54,7 @@ class DependencyDataset:
 
         self.deps, self.heads,self.labels,self.tags = [ ],[ ],[ ],[ ]
         self.words,self.cats = [ ],[ ]
+        print(self.tagtoi)
         for tree in self.treelist:
             
             depword_idxes = [self.stoi.get(tok,self.stoi[DependencyDataset.UNK_WORD]) for tok in tree.words]
