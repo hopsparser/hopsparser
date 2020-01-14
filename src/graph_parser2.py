@@ -237,8 +237,6 @@ class BiAffineParser(nn.Module):
         self.device        = torch.device(device) if type(device) == str else device
         self.lexer         = lexer
         self.tag_embedding = nn.Embedding(tagset_size, tag_embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
-
-        print('rnn in',self.lexer.embedding_size + tag_embedding_size)
         self.rnn           = nn.LSTM(self.lexer.embedding_size + tag_embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         # Arc MLPs
@@ -458,7 +456,7 @@ if __name__ == '__main__':
     mlp_dropout          = 0.5
     device               = "cuda:2" if torch.cuda.is_available() else "cpu"
 
-    trainset           = DependencyDataset('../spmrl/train.French.pred.conll',min_vocab_freq=0,word_dropout=0.5)
+    trainset           = DependencyDataset('../spmrl/train.French.pred.conll',min_vocab_freq=0,word_dropout=0.1)
     itos,itolab,itotag = trainset.itos,trainset.itolab,trainset.itotag
     devset             = DependencyDataset('../spmrl/dev.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
     testset            = DependencyDataset('../spmrl/test.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
