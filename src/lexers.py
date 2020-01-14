@@ -6,7 +6,7 @@ class DefaultLexer(nn.Module):
     This is the basic lexer wrapping an embedding layer.
     """
     def __init__(self,vocab_size,embedding_size):
-        
+        super(DefaultLexer, self).__init__()
         self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX)
         self.embedding_size = embedding_size #thats the interface property
         
