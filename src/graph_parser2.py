@@ -463,7 +463,7 @@ if __name__ == '__main__':
     trainset.save_vocab('model.vocab') 
 
     #default lexer
-    lexer = DefaultLexer(len(itos),word_embedding_size,device)
+    lexer = DefaultLexer(len(itos),word_embedding_size)
     parser = BiAffineParser(lexer,len(itotag),tag_embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
     parser.train_model(trainset,devset,70,128,modelpath="model.pt")
     predfile = open('model_preds.conll','w')
