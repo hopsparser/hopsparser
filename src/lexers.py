@@ -30,8 +30,8 @@ class FastTextLexer(nn.Module):
         self.embedding_size = 300
 
         ematrix = []
-        for idx,word in itos:
-                ematrix.append(torch.from_numpy(FT[word]))
+        for word in itos:
+            ematrix.append(torch.from_numpy(FT[word]))
         ematrix = torch.stack(ematrix)
         self.embedding = nn.Embedding.from_pretrained(ematrix,freeze=True,padding_idx=DependencyDataset.PAD_IDX)
         
