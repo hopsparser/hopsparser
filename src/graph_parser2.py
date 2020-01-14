@@ -224,7 +224,7 @@ class BiAffineParser(nn.Module):
     def __init__(self,
                  lexer,
                  tagset_size,
-                 embedding_size,
+                 tag_embedding_size,
                  encoder_dropout, #lstm dropout
                  mlp_input,
                  mlp_arc_hidden,
@@ -236,7 +236,7 @@ class BiAffineParser(nn.Module):
         super(BiAffineParser, self).__init__()
         self.device        = torch.device(device) if type(device) == str else device
         self.lexer         = lexer.to(device)
-        self.tag_embedding = nn.Embedding(tagset_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
+        self.tag_embedding = nn.Embedding(tagset_size, tag_embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
         self.rnn           = nn.LSTM(embedding_size*2,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         # Arc MLPs
@@ -251,7 +251,7 @@ class BiAffineParser(nn.Module):
         self.lab_biaffine = BiAffine(mlp_input, num_labels).to(self.device)
 
         #hyperparams for saving...
-        self.vocab_size,self.tagset_size,self.embedding_size   = vocab_size,tagset_size,embedding_size
+        self.tagset_size,self.tag_embedding_size                   = tagset_size,tag_embedding_size
         self.mlp_input,self.mlp_arc_hidden,self.mlp_lab_hidden = mlp_input,mlp_arc_hidden,mlp_lab_hidden,
         self.num_labels                                        = num_labels 
         
@@ -259,7 +259,7 @@ class BiAffineParser(nn.Module):
 
         torch.save({
             'tagset_size'     :self.tagset_size,
-            'embedding_size'  :self.embedding_size,
+            'tag_embedding_size'  :self.tag_embedding_size,
             'mlp_input'       :self.mlp_input,
             'mlp_arc_hidden'  :self.mlp_arc_hidden,
             'mlp_lab_hidden'  :self.mlp_lab_hidden,
@@ -271,7 +271,7 @@ class BiAffineParser(nn.Module):
     def load_model(path,device='cuda:1'):
         restored = torch.load(path)
         model = BiAffineParser( restored['tagset_size'],
-                                restored['embedding_size'],
+                                restored['tag_embedding_size'],
                                 0,
                                 restored['mlp_input'],
                                 restored['mlp_arc_hidden'],
