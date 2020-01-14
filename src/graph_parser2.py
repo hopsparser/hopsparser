@@ -444,8 +444,8 @@ class BiAffineParser(nn.Module):
                     selected       = torch.gather(lab_scores, 1, select.unsqueeze(1)).squeeze(1)
                     _, mst_labels  = selected.max(dim=0)
                     mst_labels     = mst_labels.data.numpy()
-                    edges = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
-                    dg = DepGraph(edges[1:],wordlist=tokens[1:],pos_tags=pos_tags)
+                    edges          = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
+                    dg             =  DepGraph(edges[1:],wordlist=tokens[1:],pos_tags=pos_tags)
                     print(dg,file=ostream)
                     print(file=ostream)
 
@@ -454,12 +454,12 @@ if __name__ == '__main__':
     embedding_size  = 200
     encoder_dropout = 0.3 
     mlp_input       = 400 
-    mlp_arc_hidden  = 600 
+    mlp_arc_hidden  = 500 
     mlp_lab_hidden  = 100 
     mlp_dropout     = 0.5
     device          = "cuda:2" if torch.cuda.is_available() else "cpu"
 
-    trainset           = DependencyDataset('../spmrl/train.French.pred.conll',min_vocab_freq=0,word_dropout=0.2)
+    trainset           = DependencyDataset('../spmrl/train.French.pred.conll',min_vocab_freq=0,word_dropout=0.3)
     itos,itolab,itotag = trainset.itos,trainset.itolab,trainset.itotag
     devset             = DependencyDataset('../spmrl/dev.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
     testset            = DependencyDataset('../spmrl/test.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
