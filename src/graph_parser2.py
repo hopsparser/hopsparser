@@ -456,7 +456,7 @@ if __name__ == '__main__':
     mlp_input       = 400 
     mlp_arc_hidden  = 600 
     mlp_lab_hidden  = 100 
-    mlp_dropout     = 0.3
+    mlp_dropout     = 0.5
     device          = "cuda:1" if torch.cuda.is_available() else "cpu"
 
     trainset           = DependencyDataset('../spmrl/train.French.pred.conll',min_vocab_freq=0,word_dropout=0.5)
