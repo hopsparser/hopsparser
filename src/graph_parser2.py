@@ -463,7 +463,7 @@ if __name__ == '__main__':
     itos,itolab,itotag = trainset.itos,trainset.itolab,trainset.itotag
     devset             = DependencyDataset('../spmrl/dev.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
     testset            = DependencyDataset('../spmrl/test.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
-    trainset.save_vocab('model.vocab')
+    trainset.save_vocab('model.vocab') 
 
     parser             = BiAffineParser(len(itos),len(itotag),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
     parser.train_model(trainset,devset,70,128,modelpath="model.pt")
