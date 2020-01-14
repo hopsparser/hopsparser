@@ -291,7 +291,7 @@ class BiAffineParser(nn.Module):
 
         print(lex_emb.size())
         print(tag_emb.size())
-        print(torch.cat((lex_emb,tag_emb)).size())
+        print(torch.cat((lex_emb,tag_emb),dim=2).size())
         cemb,_ = self.rnn(torch.cat((lex_emb,tag_emb),dim=2))
 
         arc_h = self.arc_mlp_h(cemb)
