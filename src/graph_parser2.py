@@ -235,7 +235,7 @@ class BiAffineParser(nn.Module):
     
         super(BiAffineParser, self).__init__()
         self.device        = torch.device(device) if type(device) == str else device
-        self.lexer         = lexer.to(device)
+        self.lexer         = lexer
         self.tag_embedding = nn.Embedding(tagset_size, tag_embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
 
         print('rnn in',self.lexer.embedding_size + tag_embedding_size)
@@ -469,7 +469,7 @@ if __name__ == '__main__':
     trainset.save_vocab('model.vocab') 
 
     #default lexer
-    lexer = DefaultLexer(len(itos),word_embedding_size)
+    lexer = DefaultLexer(len(itos),word_embedding_size,device)
     parser = BiAffineParser(lexer,len(itotag),tag_embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
     parser.train_model(trainset,devset,70,128,modelpath="model.pt")
     predfile = open('model_preds.conll','w')
