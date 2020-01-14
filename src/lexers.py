@@ -26,6 +26,8 @@ class FastTextLexer(nn.Module):
     """
     def __init__(self,itos,ft_modelfile='cc.fr.300.bin'):
 
+        super(FastTextLexer, self).__init__()
+
         FT = fasttext.load_model(ft_modelfile)
         self.embedding_size = 300
 
