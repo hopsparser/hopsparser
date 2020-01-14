@@ -291,9 +291,11 @@ class BiAffineParser(nn.Module):
         lex_emb   = self.lexer(xwords)
         tag_emb   = self.tag_embedding(xtags)
 
-        print(lex_emb.size())
-        print(tag_emb.size())
+        print(lex_emb.size(),next(lex_emb.parameters()).is_cuda)
+        print(tag_emb.size(),next(tag_emb.parameters()).is_cuda)
         print(torch.cat((lex_emb,tag_emb),dim=2).size())
+        print(next(self.rnn.paramters()).is_cuda)
+        
         cemb,_ = self.rnn(torch.cat((lex_emb,tag_emb),dim=2))
 
         arc_h = self.arc_mlp_h(cemb)
