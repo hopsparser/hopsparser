@@ -27,9 +27,5 @@ class FastTextLexer(nn.Module):
         
         ematrix = []
         for idx,word in itos:
+            self.embedding_size = 300
             
-
-        
-        self.embedding_size = 300
-        
-        pass
