@@ -1,7 +1,6 @@
 import sys
 import torch
 import numpy as np
-from deptree import *
 from torch import nn
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
@@ -9,7 +8,8 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from random import sample,shuffle,random
 from collections import Counter,defaultdict
 from mst import chuliu_edmonds
-
+from lexers import *
+from deptree import *
 
 class DependencyDataset:
     """
@@ -222,7 +222,7 @@ class BiAffineParser(nn.Module):
     
     """Biaffine Dependency Parser."""
     def __init__(self,
-                 vocab_size,
+                 lexer,
                  tagset_size,
                  embedding_size,
                  encoder_dropout, #lstm dropout
@@ -235,7 +235,7 @@ class BiAffineParser(nn.Module):
     
         super(BiAffineParser, self).__init__()
         self.device        = torch.device(device) if type(device) == str else device
-        self.embedding     = nn.Embedding(vocab_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
+        self.lexer         = lexer.to(device)
         self.tag_embedding = nn.Embedding(tagset_size, embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
         self.rnn           = nn.LSTM(embedding_size*2,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
@@ -258,7 +258,6 @@ class BiAffineParser(nn.Module):
     def save_model(self,path):
 
         torch.save({
-            'vocab_size'      :self.vocab_size,
             'tagset_size'     :self.tagset_size,
             'embedding_size'  :self.embedding_size,
             'mlp_input'       :self.mlp_input,
@@ -271,8 +270,7 @@ class BiAffineParser(nn.Module):
     @staticmethod
     def load_model(path,device='cuda:1'):
         restored = torch.load(path)
-        model = BiAffineParser( restored['vocab_size'],
-                                restored['tagset_size'],
+        model = BiAffineParser( restored['tagset_size'],
                                 restored['embedding_size'],
                                 0,
                                 restored['mlp_input'],
@@ -288,10 +286,10 @@ class BiAffineParser(nn.Module):
         """Compute the score matrices for the arcs and labels."""
         #check in the future if adding a mask on padded words is useful
         
-        xemb   = self.embedding(xwords)
-        temb   = self.embedding(xtags)
+        lex_emb   = self.lexer(xwords)
+        tag_emb   = self.tag_embedding(xtags)
 
-        cemb,_ = self.rnn(torch.cat((xemb,temb),dim=2))
+        cemb,_ = self.rnn(torch.cat((lex_emb,tag_emb),dim=2))
 
         arc_h = self.arc_mlp_h(cemb)
         arc_d = self.arc_mlp_d(cemb)
@@ -450,14 +448,14 @@ class BiAffineParser(nn.Module):
                     print(file=ostream)
 
 if __name__ == '__main__':
-    
-    embedding_size  = 200
-    encoder_dropout = 0.3 
-    mlp_input       = 400 
-    mlp_arc_hidden  = 500 
-    mlp_lab_hidden  = 100 
-    mlp_dropout     = 0.5
-    device          = "cuda:2" if torch.cuda.is_available() else "cpu"
+    word_embedding_size  = 100
+    tag_embedding_size   = 25
+    encoder_dropout      = 0.3 
+    mlp_input            = 400 
+    mlp_arc_hidden       = 500 
+    mlp_lab_hidden       = 100 
+    mlp_dropout          = 0.5
+    device               = "cuda:2" if torch.cuda.is_available() else "cpu"
 
     trainset           = DependencyDataset('../spmrl/train.French.pred.conll',min_vocab_freq=0,word_dropout=0.3)
     itos,itolab,itotag = trainset.itos,trainset.itolab,trainset.itotag
@@ -465,7 +463,9 @@ if __name__ == '__main__':
     testset            = DependencyDataset('../spmrl/test.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
     trainset.save_vocab('model.vocab') 
 
-    parser             = BiAffineParser(len(itos),len(itotag),embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
+    #default lexer
+    lexer = DefaultLexer(len(itos),word_embedding_size)
+    parser = BiAffineParser(lexer,len(itotag),tag_embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
     parser.train_model(trainset,devset,70,128,modelpath="model.pt")
     predfile = open('model_preds.conll','w')
     parser.predict_batch(testset,predfile,32,greedy=False)
