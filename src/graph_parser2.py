@@ -157,7 +157,7 @@ class DependencyDataset:
 
     def init_tags(self,treelist):
         tagset  = set([ tag for tree in treelist for tag in tree.pos_tags])
-        tagset.update([DependencyDataset.UNK_WORD])
+        tagset.update([DependencyDataset.UNK_WORD,DepGraph.ROOT_TOKEN])
         self.itotag = [DependencyDataset.PAD_TOKEN] + list(tagset)
         self.tagtoi = {tag:idx for idx,tag in enumerate(self.itotag)}
             
