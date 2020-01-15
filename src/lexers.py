@@ -3,6 +3,7 @@ import fasttext
 from torch import nn
 from graph_parser2 import DependencyDataset,DepGraph
 
+
 class DefaultLexer(nn.Module):
     """
     This is the basic lexer wrapping an embedding layer.
@@ -37,7 +38,7 @@ class FastTextLexer(nn.Module):
         for word in itos:
             ematrix.append(torch.from_numpy(FT[word]))
         ematrix = torch.stack(ematrix)
-        self.embedding = nn.Embedding.from_pretrained(ematrix,freeze=True,padding_idx=DependencyDataset.PAD_IDX)
+        self.embedding = nn.Embedding.from_pretrained(ematrix,freeze=False,padding_idx=DependencyDataset.PAD_IDX)
         self.dropout   = nn.Dropout(p=dropout)
 
         
