@@ -26,13 +26,14 @@ class DependencyDataset:
     @staticmethod
     def read_conll(filename):
         istream       = open(filename)
-        self.treelist = []
+        treelist = []
         tree = DepGraph.read_tree(istream) 
         while tree:
-            self.treelist.append(tree)
+            treelist.append(tree)
             tree = DepGraph.read_tree(istream)
         istream.close()  
-
+        return treelist
+        
     def __init__(self,treelist,lexer,use_labels=None,use_tags=None):
            
         self.lexer = lexer
