@@ -1,6 +1,8 @@
 import sys
 import torch
 import numpy as np
+import yaml
+
 from torch import nn
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
@@ -431,37 +433,30 @@ class BiAffineParser(nn.Module):
 
 if __name__ == '__main__':
     
-    word_embedding_size  = 100
-    tag_embedding_size   = 100
-    encoder_dropout      = 0.2
-    mlp_input            = 400 
-    mlp_arc_hidden       = 500 
-    mlp_lab_hidden       = 100 
-    mlp_dropout          = 0.5
-    word_dropout         = 0.2
-    device               = "cuda:2" if torch.cuda.is_available() else "cpu"
-
-    traintrees  = DependencyDataset.read_conll('../spmrl/train.French.pred.conll')
-    devtrees    = DependencyDataset.read_conll('../spmrl/dev.French.pred.conll')
-    testtrees   = DependencyDataset.read_conll('../spmrl/test.French.pred.conll')
-
-    #default lexer
-    lexer = DefaultLexer(make_vocab(traintrees,0),word_embedding_size,word_dropout)
+    hp = yaml.load(open('params.yaml').read())
     
-    #fasttext lexer:
-    #lexer = FastTextLexer(make_vocab(traintrees,0),word_dropout)
+    traintrees  = DependencyDataset.read_conll('../spmrl/train.French.gold.conll')
+    devtrees    = DependencyDataset.read_conll('../spmrl/dev.French.gold.conll')
+    testtrees   = DependencyDataset.read_conll('../spmrl/test.French.gold.conll')
 
-    #flaubert lexer:
-    #lexer = FlauBertLexer()
+    if hp['lexer'] == 'default':
+        lexer = DefaultLexer(make_vocab(traintrees,1),hp['word_embedding_size'],hp['word_dropout'])
+    elif hp['lexer'] == 'fasttext':
+        lexer = FastTextLexer(make_vocab(traintrees,1),word_dropout)
+    elif hp['lexer'] == 'flaubertbase':
+        lexer = FlauBertBaseLexer()
+    else:
+        print('no valid lexer specified. abort.')
+        exit(1)
         
     trainset           = DependencyDataset(traintrees,lexer)
     itolab,itotag      = trainset.itolab,trainset.itotag
     devset             = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
     testset            = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
 
-    parser = BiAffineParser(lexer,len(itotag),tag_embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
-    parser.train_model(trainset,devset,70,64,modelpath="model.pt")
+    parser = BiAffineParser(lexer,len(itotag),hp['tag_embedding_size'],hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
+    parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],modelpath="model.pt")
     predfile = open('model_preds.conll','w')
-    parser.predict_batch(testset,predfile,32,greedy=False)
+    parser.predict_batch(testset,hp['output_file'],hp['batch_size'],greedy=False)
     predfile.close()
     print('Device used', device)
