@@ -10,4 +10,4 @@ batch_size          :  128
 epochs                : 70
 lexer                   : 'default'
 device                 : 'cuda:2'
-output_path        : 'preds' 
+output_path        : 'default_lexer/preds' 
