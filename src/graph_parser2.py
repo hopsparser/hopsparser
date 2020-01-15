@@ -460,8 +460,8 @@ if __name__ == '__main__':
     #Read the full dataset here
     #create lexer and use lexer encodings later on
     itos = FastTextLexer.update_vocab('../spmrl/train.French.pred.conll')
-    itos = FastTextLexer.update_vocab('../spmrl/dev.French.pred.conll',vocab=vocab)
-    itos = FastTextLexer.update_vocab('../spmrl/test.French.pred.conll',vocab=vocab)
+    itos = FastTextLexer.update_vocab('../spmrl/dev.French.pred.conll',vocab=itos)
+    itos = FastTextLexer.update_vocab('../spmrl/test.French.pred.conll',vocab=itos)
 
     
     trainset           = DependencyDataset('../spmrl/train.French.pred.conll',use_vocab=itos,min_vocab_freq=1,word_dropout=0.0)
