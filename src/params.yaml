@@ -9,5 +9,5 @@ word_dropout     : [0.3,0.5]
 batch_size          :  128
 epochs                : 70
 lexer                   : 'default'
-device                 : 'cuda:2'
+device                 : 'cuda:0'
 output_path        : 'default_lexer/preds' 
