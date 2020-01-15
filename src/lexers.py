@@ -95,6 +95,7 @@ class FastTextLexer(nn.Module):
         """
         word_idxes     = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
         if self._dpout:
+            print('*')
             word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],word_dropout) for widx in word_idxes]
         return word_idxes
         
