@@ -10,8 +10,6 @@ from mst import chuliu_edmonds
 from lexers  import *
 from deptree import *
 
-  
-
 
 class DependencyDataset:
     """
@@ -218,7 +216,7 @@ class BiAffineParser(nn.Module):
         self.device        = torch.device(device) if type(device) == str else device
         self.lexer         = lexer.to(device)
         self.tag_embedding = nn.Embedding(tagset_size, tag_embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
-        self.rnn           = nn.LSTM(self.lexer.embedding_size + tag_embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.rnn           = nn.LSTM(self.lexer.embedding_size + tag_embedding_size,mlp_input,4, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         # Arc MLPs
         self.arc_mlp_h = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
@@ -435,12 +433,12 @@ if __name__ == '__main__':
     
     word_embedding_size  = 100
     tag_embedding_size   = 100
-    encoder_dropout      = 0.3
+    encoder_dropout      = 0.2
     mlp_input            = 400 
     mlp_arc_hidden       = 500 
     mlp_lab_hidden       = 100 
     mlp_dropout          = 0.5
-    word_dropout         = 0.3
+    word_dropout         = 0.2
     device               = "cuda:2" if torch.cuda.is_available() else "cpu"
 
     traintrees  = DependencyDataset.read_conll('../spmrl/train.French.pred.conll')
@@ -462,7 +460,7 @@ if __name__ == '__main__':
     testset            = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
 
     parser = BiAffineParser(lexer,len(itotag),tag_embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
-    parser.train_model(trainset,devset,70,128,modelpath="model.pt")
+    parser.train_model(trainset,devset,70,64,modelpath="model.pt")
     predfile = open('model_preds.conll','w')
     parser.predict_batch(testset,predfile,32,greedy=False)
     predfile.close()

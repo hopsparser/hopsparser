@@ -104,10 +104,11 @@ class FastTextLexer(nn.Module):
         """
         return self.embedding(word_sequences)
 
-class FlauBertLexer(nn.Module):
+class FlauBertBaseLexer(nn.Module):
     """
     This Lexer performs tokenization and embedding mapping with BERT
-    style models. (uses Flaubert / XLM)
+    style models. (uses Flaubert / XLM).
+    !!! PERFORMS LOWERCASING !!!
     """
     def __init__(self,bert_modelfile="xlm_bert_fra_base_lower"): 
 
@@ -140,7 +141,7 @@ class FlauBertLexer(nn.Module):
         Returns:
            a list of integers
         """
-        word_idxes  = [self.bert.encode(token)[0] for token in tok_sequence]
+        word_idxes  = [self.bert.encode(token.lower())[0] for token in tok_sequence]
         if self.word_dropout:
             word_idxes = [word_sampler(widx,word_dropout) for widx in word_idxes]
         return word_idxes
