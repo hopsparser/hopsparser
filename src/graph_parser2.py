@@ -431,6 +431,9 @@ class BiAffineParser(nn.Module):
                     print(dg,file=ostream)
                     print(file=ostream)
 
+class CrossValidator:
+
+                    
 if __name__ == '__main__':
     
     hp = yaml.load(open('params.yaml').read())
