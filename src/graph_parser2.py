@@ -446,7 +446,10 @@ class CrossValidator:
         for key in K:
             value = self.HP[key]
             if type(value) is list:
-                setuplist = [ elt+[V] for elt in setuplist for V in value]
+                if setuplist:
+                    setuplist = [ elt+[V] for elt in setuplist for V in value]
+                else:
+                    setuplist = [[V] for V in value]
             else:
                 for elt in setuplist:
                     elt.append(value)
