@@ -431,34 +431,56 @@ class BiAffineParser(nn.Module):
                     print(dg,file=ostream)
                     print(file=ostream)
 
-
                     
+class CrossValidator:
+    """ This generates all the possible experiments specified by a yaml config file """
+    def __init__(self,yamlparams):
+        
+        self.HP = hyperparams
+
+    def generate_setup(self):
+        
+        setuplist = [ ]                  #init
+        K         = list(self.HP.keys())
+        for key in K:
+            value = self.HP[K]
+            if type(value) is list:
+                setuplist = [ elt+[V] for elt in setuplist for V in value]
+            else:
+                for elt in setuplist:
+                    elt.append(value)
+        print('#%d'%(len(setuplist)),'to be performed',file=sys.stderr)
+        
+        for setup in setuplist:
+            yield dict(zip(K,setup))
+
+            
 if __name__ == '__main__':
     
-    hp = yaml.load(open('params.yaml').read())
+    cv = CrossValidator(yaml.load(open('params.yaml').read()))
     
     traintrees  = DependencyDataset.read_conll('../spmrl/train.French.gold.conll')
     devtrees    = DependencyDataset.read_conll('../spmrl/dev.French.gold.conll')
     testtrees   = DependencyDataset.read_conll('../spmrl/test.French.gold.conll')
 
-    if hp['lexer'] == 'default':
-        lexer = DefaultLexer(make_vocab(traintrees,1),hp['word_embedding_size'],hp['word_dropout'])
-    elif hp['lexer'] == 'fasttext':
-        lexer = FastTextLexer(make_vocab(traintrees,1),word_dropout)
-    elif hp['lexer'] == 'flaubertbase':
-        lexer = FlauBertBaseLexer()
-    else:
-        print('no valid lexer specified. abort.')
-        exit(1)
+    for hp in cv.generate_setup():
+        if hp['lexer'] == 'default':
+            lexer = DefaultLexer(make_vocab(traintrees,1),hp['word_embedding_size'],hp['word_dropout'])
+        elif hp['lexer'] == 'fasttext':
+            lexer = FastTextLexer(make_vocab(traintrees,1),word_dropout)
+        elif hp['lexer'] == 'flaubertbase':
+            lexer = FlauBertBaseLexer()
+        else:
+            print('no valid lexer specified. abort.')
+            exit(1)
         
-    trainset           = DependencyDataset(traintrees,lexer)
-    itolab,itotag      = trainset.itolab,trainset.itotag
-    devset             = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
-    testset            = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
+        trainset           = DependencyDataset(traintrees,lexer)
+        itolab,itotag      = trainset.itolab,trainset.itotag
+        devset             = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
+        testset            = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
 
-    parser = BiAffineParser(lexer,len(itotag),hp['tag_embedding_size'],hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
-    parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],modelpath="model.pt")
-    predfile = open('model_preds.conll','w')
-    parser.predict_batch(testset,hp['output_file'],hp['batch_size'],greedy=False)
-    predfile.close()
-    print('Device used', device)
+        parser = BiAffineParser(lexer,len(itotag),hp['tag_embedding_size'],hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
+        parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],modelpath="model.pt")
+        predfile = open('model_preds.conll','w')
+        parser.predict_batch(testset,hp['output_file'],hp['batch_size'],greedy=False)
+        predfile.close()
