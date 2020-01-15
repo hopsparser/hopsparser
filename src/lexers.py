@@ -31,7 +31,7 @@ class DefaultLexer(nn.Module):
         self.itos           = itos
         self.stoi           = {token:idx for idx,token in enumerate(self.itos)}
         self.word_dropout   = word_dropout
-        self.train()
+        self._dpout         = 0 
         
     def train_mode(self):
         self._dpout = self.word_dropout
@@ -78,7 +78,7 @@ class FastTextLexer(nn.Module):
         self.word_dropout   = dropout
         self.itos      = itos
         self.stoi      = {token:idx for idx,token in enumerate(self.itos)}
-        self.train()
+        self._dpout    = 0 
         
     def train_mode(self):
         self._dpout = self.word_dropout
