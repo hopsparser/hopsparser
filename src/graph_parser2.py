@@ -459,7 +459,7 @@ class CrossValidator:
 
     @staticmethod
     def generate_run_name(base_filename,dict_setup):
-        pass
+        return base_filename + '-' + '-'.join([ k+':'+str(v)   for (k,v) in dict_setup.items()])+ '.conll'
             
 if __name__ == '__main__':
     
@@ -488,6 +488,6 @@ if __name__ == '__main__':
 
         parser = BiAffineParser(lexer,len(itotag),hp['tag_embedding_size'],hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],modelpath="model.pt")
-        predfile = open('model_preds.conll','w')
-        parser.predict_batch(testset,hp['output_file'],hp['batch_size'],greedy=False)
+        predfile = open(CrossValidator.generate_run_name(hp['output_path'],dict_setup):,'w')
+        parser.predict_batch(testset,predfile,hp['batch_size'],greedy=False)
         predfile.close()
