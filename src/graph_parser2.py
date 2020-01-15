@@ -8,8 +8,11 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from random import sample,shuffle,random
 from collections import Counter,defaultdict
 from mst import chuliu_edmonds
-from lexers import *
+from lexers  import *
 from deptree import *
+
+  
+
 
 class DependencyDataset:
     """
@@ -19,21 +22,20 @@ class DependencyDataset:
     PAD_IDX            = 0
     PAD_TOKEN          = '<pad>'
     UNK_WORD           = '<unk>'
-    
-    def __init__(self,filename,use_vocab=None,use_labels=None,use_tags=None,min_vocab_freq=0,word_dropout=0.0):
+
+    @staticmethod
+    def read_conll(filename):
         istream       = open(filename)
         self.treelist = []
         tree = DepGraph.read_tree(istream) 
         while tree:
             self.treelist.append(tree)
             tree = DepGraph.read_tree(istream)
-        istream.close()
-        if use_vocab:
-            self.itos = use_vocab
-            self.stoi = {token:idx for idx,token in enumerate(self.itos)}
-        else:
-            self.init_vocab(self.treelist,threshold=min_vocab_freq)
+        istream.close()  
 
+    def __init__(self,treelist,lexer,use_labels=None,use_tags=None):
+           
+        self.lexer = lexer
         if use_labels:
             self.itolab = use_labels
             self.labtoi = {label:idx for idx,label in enumerate(self.itolab)}
@@ -44,25 +46,17 @@ class DependencyDataset:
             self.tagtoi = {tag:idx for idx,tag in enumerate(self.itotag)}
         else:
             self.init_tags(self.treelist)
-            
-        self.word_dropout = word_dropout
-        
+                    
     def encode(self):
-
-        def word_sampler(word_idx,dropout):
-            return self.stoi[DependencyDataset.UNK_WORD]  if random() < dropout else word_idx
 
         self.deps, self.heads,self.labels,self.tags = [ ],[ ],[ ],[ ]
         self.words,self.cats = [ ],[ ]
         
         for tree in self.treelist:
             
-            depword_idxes = [self.stoi.get(tok,self.stoi[DependencyDataset.UNK_WORD]) for tok in tree.words]
+            depword_idxes = self.lexer.tokenize(tree.words)
             deptag_idxes  = [self.tagtoi[tag] for tag in tree.pos_tags]
                         
-            if self.word_dropout:
-                depword_idxes = [word_sampler(widx,self.word_dropout) for widx in depword_idxes]
-            
             self.words.append(tree.words)
             self.cats.append(tree.pos_tags)
             self.tags.append(deptag_idxes)
@@ -72,7 +66,6 @@ class DependencyDataset:
     
     def save_vocab(self,filename):
         out = open(filename,'w')
-        print(' '.join(self.itos),file=out)
         print(' '.join(self.itolab),file=out)
         print(' '.join(self.itotag),file=out)
         out.close()
@@ -80,7 +73,6 @@ class DependencyDataset:
     @staticmethod
     def load_vocab(filename):
         reloaded = open(filename)
-        itos     = reloaded.readline().split()
         itolab   = reloaded.readline().split()
         itotag   = reloaded.readline().split()
         reloaded.close()
@@ -138,17 +130,6 @@ class DependencyDataset:
             padded = seq + (max_len - k)*[ DependencyDataset.PAD_IDX]
             padded_batch.append(padded)
         return Variable(torch.LongTensor(padded_batch))
-
-    def init_vocab(self,treelist,threshold):
-        """
-        Extracts the set of tokens found in the data and orders it 
-        """
-        vocab = Counter([ word  for tree in treelist for word in tree.words ])
-        vocab = set([tok for (tok,counts) in vocab.most_common() if counts > threshold])
-        vocab.update([DependencyDataset.UNK_WORD])
-
-        self.itos = [DependencyDataset.PAD_TOKEN] +list(vocab)
-        self.stoi = {token:idx for idx,token in enumerate(self.itos)}
 
     def init_labels(self,treelist):
         labels      = set([ lbl for tree in treelist for (gov,lbl,dep) in tree.get_all_edges()])
@@ -455,25 +436,26 @@ if __name__ == '__main__':
     mlp_arc_hidden       = 500 
     mlp_lab_hidden       = 100 
     mlp_dropout          = 0.5
-    word_dropout         = 0.0
+    word_dropout         = 0.3
     device               = "cuda:2" if torch.cuda.is_available() else "cpu"
 
-    #Fasttext:
-    #Read the full dataset here
-    #create lexer and use lexer encodings later on
-    itos  = FastTextLexer.update_vocab('../spmrl/train.French.pred.conll')
-    itos  = FastTextLexer.update_vocab('../spmrl/dev.French.pred.conll',vocab=itos)
-    itos  = FastTextLexer.update_vocab('../spmrl/test.French.pred.conll',vocab=itos)
-    lexer = FastTextLexer(itos,dropout=0.5)
-    
-    trainset           = DependencyDataset('../spmrl/train.French.pred.conll',use_vocab=itos,min_vocab_freq=1,word_dropout=word_dropout)
-    itos,itolab,itotag = trainset.itos,trainset.itolab,trainset.itotag
-    devset             = DependencyDataset('../spmrl/dev.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
-    testset            = DependencyDataset('../spmrl/test.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
-    trainset.save_vocab('model.vocab') 
+    traintrees  = DependencyDataset.read_conll('../spmrl/train.French.pred.conll')
+    devtrees    = DependencyDataset.read_conll('../spmrl/dev.French.pred.conll')
+    testtrees   = DependencyDataset.read_conll('../spmrl/test.French.pred.conll')
 
     #default lexer
-    #lexer = DefaultLexer(len(itos),word_embedding_size)
+    lexer = DefaultLexer(make_vocab(traintrees,0),word_embedding_size,word_dropout)
+    
+    #fasttext lexer:
+    #lexer = FastTextLexer(make_vocab(traintrees,0),word_dropout)
+
+    #flaubert lexer:
+    #lexer = FlauBertLexer()
+        
+    trainset           = DependencyDataset(traintrees,lexer)
+    itolab,itotag      = trainset.itolab,trainset.itotag
+    devset             = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
+    testset            = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
 
     parser = BiAffineParser(lexer,len(itotag),tag_embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
     parser.train_model(trainset,devset,70,128,modelpath="model.pt")
