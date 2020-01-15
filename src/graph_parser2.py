@@ -459,7 +459,7 @@ class GridSearch:
 
     @staticmethod
     def generate_run_name(base_filename,dict_setup):
-        return base_filename + '-' + '-'.join([ k+':'+str(v)   for (k,v) in dict_setup.items() if != 'output_path'] )+ '.conll'
+        return base_filename + '-' + '-'.join([ k+':'+str(v)   for (k,v) in dict_setup.items() if k != 'output_path'] )+ '.conll'
             
 if __name__ == '__main__':
     
