@@ -96,6 +96,7 @@ class FastTextLexer(nn.Module):
         Returns:
            a list of integers
         """
+        print('Call FT')
         word_idxes     = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
         if self._dpout > 0:
             print('*')
