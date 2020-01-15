@@ -218,7 +218,7 @@ class BiAffineParser(nn.Module):
         self.device        = torch.device(device) if type(device) == str else device
         self.lexer         = lexer.to(device)
         self.tag_embedding = nn.Embedding(tagset_size, tag_embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
-        self.rnn           = nn.LSTM(self.lexer.embedding_size + tag_embedding_size,mlp_input,4, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.rnn           = nn.LSTM(self.lexer.embedding_size + tag_embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         # Arc MLPs
         self.arc_mlp_h = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
@@ -457,6 +457,9 @@ class CrossValidator:
         for setup in setuplist:
             yield dict(zip(K,setup))
 
+    @staticmethod
+    def generate_run_name(base_filename,dict_setup):
+        pass
             
 if __name__ == '__main__':
     
@@ -467,7 +470,7 @@ if __name__ == '__main__':
     testtrees   = DependencyDataset.read_conll('../spmrl/test.French.gold.conll')
 
     for hp in cv.generate_setup():
-        print(hp)
+        print(hp) 
         if hp['lexer'] == 'default':
             lexer = DefaultLexer(make_vocab(traintrees,2),hp['word_embedding_size'],hp['word_dropout'])
         elif hp['lexer'] == 'fasttext':
