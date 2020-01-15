@@ -1,7 +1,7 @@
 import torch
 import fasttext
 from torch import nn
-from graph_parser2 import DepGraph
+from graph_parser2 import DependencyDataset,DepGraph
 
 class DefaultLexer(nn.Module):
     """
