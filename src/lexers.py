@@ -3,7 +3,7 @@ import fasttext
 from torch import nn
 from graph_parser2 import DependencyDataset,DepGraph
 from collections import Counter,defaultdict
-
+from random import random
 
 def word_sampler(word_idx,dropout):
     return self.stoi[DependencyDataset.UNK_WORD]  if random() < dropout else word_idx
