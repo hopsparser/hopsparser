@@ -449,7 +449,7 @@ class CrossValidator:
             else:
                 for elt in setuplist:
                     elt.append(value)
-        print('#%d'%(len(setuplist)),'to be performed',file=sys.stderr)
+        print('#%d'%(len(setuplist)),'runs to be performed',file=sys.stderr)
         
         for setup in setuplist:
             yield dict(zip(K,setup))
