@@ -349,11 +349,11 @@ class BiAffineParser(nn.Module):
             TRAIN_LOSS    =  0
             TRAIN_TOKS    =  0
             BEST_ARC_ACC  =  0
+            self.lexer.train_mode()
             train_batches = train_set.make_batches(batch_size,shuffle_batches=True,shuffle_data=True,order_by_length=True)
             overall_size  = 0
             for batch in train_batches:
                 self.train()
-                self.lexer.train_mode()
                 words,cats,deps,tags,heads,labels = batch
                 deps, heads, labels,tags = deps.to(self.device), heads.to(self.device), labels.to(self.device),tags.to(self.device)
                 
@@ -398,6 +398,7 @@ class BiAffineParser(nn.Module):
         
     def predict_batch(self,test_set,ostream,batch_size,greedy=False):
 
+        self.lexer.eval_mode()
         test_batches = test_set.make_batches(batch_size,shuffle_batches=False,shuffle_data=False,order_by_length=False) #keep natural order here
 
         with torch.no_grad():
@@ -406,7 +407,6 @@ class BiAffineParser(nn.Module):
             for batch in test_batches:
                 
                 self.eval()
-                self.lexer.eval_mode()
                 words,cats,deps,tags,heads,labels = batch
                 deps, heads, labels,tags = deps.to(self.device), heads.to(self.device), labels.to(self.device),tags.to(self.device)
 
