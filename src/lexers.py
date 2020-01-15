@@ -33,9 +33,9 @@ class DefaultLexer(nn.Module):
         self.word_dropout   = word_dropout
         self.train()
         
-    def train(self):
+    def train_mode(self):
         self._dpout = self.word_dropout
-    def eval(self):
+    def eval_mode(self):
         self._dpout = 0
         
     def forward(self,word_sequences):
@@ -80,9 +80,9 @@ class FastTextLexer(nn.Module):
         self.stoi      = {token:idx for idx,token in enumerate(self.itos)}
         self.train()
         
-    def train(self):
+    def train_mode(self):
         self._dpout = self.word_dropout
-    def eval(self):
+    def eval_mode(self):
         self._dpout = 0
         
     def tokenize(self,tok_sequence,word_dropout=0.0):
@@ -104,7 +104,7 @@ class FastTextLexer(nn.Module):
         """
         return self.embedding(word_sequences)
 
-class FlauBertLexer:
+class FlauBertLexer(nn.Module):
     """
     This Lexer performs tokenization and embedding mapping with BERT
     style models. (uses Flaubert / XLM)
@@ -118,9 +118,9 @@ class FlauBertLexer:
                                                            unk_token=DependencyDataset.UNK_WORD,\
                                                            pad_token=DependencyDataset.PAD_TOKEN)
 
-    def train(self):
+    def train_mode(self):
         pass
-    def eval(self):
+    def eval_mode(self):
         pass
     
     def forward(self,word_idxes):

@@ -290,7 +290,7 @@ class BiAffineParser(nn.Module):
         #Note: the accurracy scoring is approximative and cannot be interpreted as an UAS/LAS score !
         
         self.eval()
-        self.lexer.eval()
+        self.lexer.eval_mode()
 
         dev_batches = dev_set.make_batches(batch_size,shuffle_batches=True,shuffle_data=True,order_by_length=True)
         arc_acc, lab_acc,gloss,ntoks = 0, 0, 0, 0
@@ -352,7 +352,7 @@ class BiAffineParser(nn.Module):
             overall_size  = 0
             for batch in train_batches:
                 self.train()
-                self.lexer.train()
+                self.lexer.train_mode()
                 words,cats,deps,tags,heads,labels = batch
                 deps, heads, labels,tags = deps.to(self.device), heads.to(self.device), labels.to(self.device),tags.to(self.device)
                 
@@ -405,7 +405,7 @@ class BiAffineParser(nn.Module):
             for batch in test_batches:
                 
                 self.eval()
-                self.lexer.eval()
+                self.lexer.eval_mode()
                 words,cats,deps,tags,heads,labels = batch
                 deps, heads, labels,tags = deps.to(self.device), heads.to(self.device), labels.to(self.device),tags.to(self.device)
 
