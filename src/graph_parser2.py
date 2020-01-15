@@ -465,9 +465,9 @@ if __name__ == '__main__':
     
     search = GridSearch(yaml.load(open('params.yaml').read()))
     
-    traintrees  = DependencyDataset.read_conll('../spmrl/train.French.gold.conll')
-    devtrees    = DependencyDataset.read_conll('../spmrl/dev.French.gold.conll')
-    testtrees   = DependencyDataset.read_conll('../spmrl/test.French.gold.conll')
+    traintrees  = DependencyDataset.read_conll('../spmrl/train.French.pred.conll')
+    devtrees    = DependencyDataset.read_conll('../spmrl/dev.French.pred.conll')
+    testtrees   = DependencyDataset.read_conll('../spmrl/test.French.pred.conll')
 
     for hp in search.generate_setup():
         print(hp) 
