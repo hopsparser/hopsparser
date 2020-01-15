@@ -26,7 +26,7 @@ class FastTextLexer(nn.Module):
     So we intersect the model with the vocabulary found in the data to
     reduce memory usage. 
     """
-    def __init__(self,itos,ft_modelfile='cc.fr.300.bin'):
+    def __init__(self,itos,ft_modelfile='cc.fr.300.bin',dropout = 0.0):
 
         super(FastTextLexer, self).__init__()
 
@@ -37,13 +37,15 @@ class FastTextLexer(nn.Module):
         for word in itos:
             ematrix.append(torch.from_numpy(FT[word]))
         ematrix = torch.stack(ematrix)
-        self.embedding = nn.Embedding.from_pretrained(ematrix,freeze=False,padding_idx=DependencyDataset.PAD_IDX)
+        self.embedding = nn.Embedding.from_pretrained(ematrix,freeze=True,padding_idx=DependencyDataset.PAD_IDX)
+        self.dropout   = nn.Dropout(p=dropout)
+
         
     def forward(self,word_sequences):
         """
         Takes words sequences codes as integer sequences and returns the embeddings 
         """
-        return self.embedding(word_sequences)
+        return self.dropout(self.embedding(word_sequences))
 
     @staticmethod
     def update_vocab(filename,vocab=None):

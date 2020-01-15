@@ -447,6 +447,7 @@ class BiAffineParser(nn.Module):
                     print(file=ostream)
 
 if __name__ == '__main__':
+    
     word_embedding_size  = 100
     tag_embedding_size   = 100
     encoder_dropout      = 0.3
@@ -459,10 +460,10 @@ if __name__ == '__main__':
     #Fasttext:
     #Read the full dataset here
     #create lexer and use lexer encodings later on
-    itos = FastTextLexer.update_vocab('../spmrl/train.French.pred.conll')
-    itos = FastTextLexer.update_vocab('../spmrl/dev.French.pred.conll',vocab=itos)
-    itos = FastTextLexer.update_vocab('../spmrl/test.French.pred.conll',vocab=itos)
-
+    itos  = FastTextLexer.update_vocab('../spmrl/train.French.pred.conll')
+    itos  = FastTextLexer.update_vocab('../spmrl/dev.French.pred.conll',vocab=itos)
+    itos  = FastTextLexer.update_vocab('../spmrl/test.French.pred.conll',vocab=itos)
+    lexer = FastTextLexer(itos,dropout=0.3)
     
     trainset           = DependencyDataset('../spmrl/train.French.pred.conll',use_vocab=itos,min_vocab_freq=1,word_dropout=0.0)
     itos,itolab,itotag = trainset.itos,trainset.itolab,trainset.itotag
@@ -473,8 +474,6 @@ if __name__ == '__main__':
     #default lexer
     #lexer = DefaultLexer(len(itos),word_embedding_size)
 
-    #fasttext
-    lexer = FastTextLexer(itos)
     parser = BiAffineParser(lexer,len(itotag),tag_embedding_size,encoder_dropout,mlp_input,mlp_arc_hidden,mlp_lab_hidden,mlp_dropout,len(itolab),device)
     parser.train_model(trainset,devset,70,128,modelpath="model.pt")
     predfile = open('model_preds.conll','w')
