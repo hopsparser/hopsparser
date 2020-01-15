@@ -442,6 +442,7 @@ class CrossValidator:
         
         setuplist = [ ]                  #init
         K         = list(self.HP.keys())
+        print(K)
         for key in K:
             value = self.HP[key]
             if type(value) is list:
