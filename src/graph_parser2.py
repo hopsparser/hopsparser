@@ -467,8 +467,9 @@ if __name__ == '__main__':
     testtrees   = DependencyDataset.read_conll('../spmrl/test.French.gold.conll')
 
     for hp in cv.generate_setup():
+        print(hp)
         if hp['lexer'] == 'default':
-            lexer = DefaultLexer(make_vocab(traintrees,1),hp['word_embedding_size'],hp['word_dropout'])
+            lexer = DefaultLexer(make_vocab(traintrees,2),hp['word_embedding_size'],hp['word_dropout'])
         elif hp['lexer'] == 'fasttext':
             lexer = FastTextLexer(make_vocab(traintrees,1),word_dropout)
         elif hp['lexer'] == 'flaubertbase':
