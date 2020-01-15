@@ -54,6 +54,7 @@ class DefaultLexer(nn.Module):
         """
         word_idxes     = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
         if self._dpout > 0:
+            print('@')
             word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],self._dpout) for widx in word_idxes]
         return word_idxes
 
