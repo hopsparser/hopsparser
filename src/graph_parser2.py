@@ -474,7 +474,7 @@ if __name__ == '__main__':
         if hp['lexer'] == 'default':
             lexer = DefaultLexer(make_vocab(traintrees,1),hp['word_embedding_size'],hp['word_dropout'])
         elif hp['lexer'] == 'fasttext':
-            lexer = FastTextLexer(make_vocab(traintrees,1),word_dropout)
+            lexer = FastTextLexer(make_vocab(traintrees,1),hp['word_dropout'])
         elif hp['lexer'] == 'flaubertbase':
             lexer = FlauBertBaseLexer()
         else:
