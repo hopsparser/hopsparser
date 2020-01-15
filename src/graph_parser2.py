@@ -431,7 +431,6 @@ class BiAffineParser(nn.Module):
                     print(dg,file=ostream)
                     print(file=ostream)
 
-class CrossValidator:
 
                     
 if __name__ == '__main__':
