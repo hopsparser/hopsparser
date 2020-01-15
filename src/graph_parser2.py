@@ -129,7 +129,6 @@ class DependencyDataset:
         for k, seq in zip(sent_lengths, batch):
             padded = seq + (max_len - k)*[ DependencyDataset.PAD_IDX]
             padded_batch.append(padded)
-        print(padded_batch)
         return Variable(torch.LongTensor(padded_batch))
 
     def init_labels(self,treelist):
