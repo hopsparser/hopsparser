@@ -54,7 +54,6 @@ class DependencyDataset:
         self.words,self.cats = [ ],[ ]
         
         for tree in self.treelist:
-            
             depword_idxes = self.lexer.tokenize(tree.words)
             deptag_idxes  = [self.tagtoi[tag] for tag in tree.pos_tags]
                         
@@ -125,11 +124,12 @@ class DependencyDataset:
 
     def pad(self,batch):
         sent_lengths = list(map(len, batch))
-        max_len = max(sent_lengths)
+        max_len      = max(sent_lengths)
         padded_batch = [ ]
         for k, seq in zip(sent_lengths, batch):
             padded = seq + (max_len - k)*[ DependencyDataset.PAD_IDX]
             padded_batch.append(padded)
+        print(padded_batch)
         return Variable(torch.LongTensor(padded_batch))
 
     def init_labels(self,treelist):
