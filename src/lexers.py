@@ -53,7 +53,7 @@ class DefaultLexer(nn.Module):
            a list of integers
         """
         word_idxes     = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
-        if self._dpout:
+        if self._dpout > 0:
             word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],self._dpout) for widx in word_idxes]
         return word_idxes
 
@@ -96,7 +96,7 @@ class FastTextLexer(nn.Module):
            a list of integers
         """
         word_idxes     = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
-        if self._dpout:
+        if self._dpout > 0:
             print('*')
             word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],word_dropout) for widx in word_idxes]
         return word_idxes
