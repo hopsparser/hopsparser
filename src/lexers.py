@@ -2,6 +2,7 @@ import torch
 import fasttext
 from torch import nn
 from graph_parser2 import DependencyDataset,DepGraph
+from collections import Counter,defaultdict
 
 
 def word_sampler(word_idx,dropout):

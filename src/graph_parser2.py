@@ -6,7 +6,6 @@ from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from random import sample,shuffle,random
-from collections import Counter,defaultdict
 from mst import chuliu_edmonds
 from lexers  import *
 from deptree import *
