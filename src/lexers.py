@@ -82,8 +82,10 @@ class FastTextLexer(nn.Module):
         
     def train_mode(self):
         self._dpout = self.word_dropout
+        print('train',self._dpout)
     def eval_mode(self):
         self._dpout = 0
+        print('eval',self._dpout)
         
     def tokenize(self,tok_sequence,word_dropout=0.0):
         """
