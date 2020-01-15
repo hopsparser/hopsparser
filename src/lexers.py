@@ -44,3 +44,22 @@ class FastTextLexer(nn.Module):
         Takes words sequences codes as integer sequences and returns the embeddings 
         """
         return self.embedding(word_sequences)
+
+    @staticmethod
+    def update_vocab(filename,vocab=None):
+        """
+        May extract vocab from treebanks out of the regular encoding context.
+        This is used here because fasttext is built for managing <unk> words
+        """
+        if vocab is None:
+            vocab = set()
+        istream       = open(filename)
+        tree = DepGraph.read_tree(istream) 
+        while tree:
+            vocab.update(tree.words)
+            tree = DepGraph.read_tree(istream)
+        istream.close()
+        vocab.update([DependencyDataset.UNK_WORD])
+        itos = [DependencyDataset.PAD_TOKEN] +list(vocab)
+        stoi = {token:idx for idx,token in enumerate(self.itos)}
+        return (itos,stoi)

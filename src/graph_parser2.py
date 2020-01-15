@@ -138,7 +138,7 @@ class DependencyDataset:
             padded = seq + (max_len - k)*[ DependencyDataset.PAD_IDX]
             padded_batch.append(padded)
         return Variable(torch.LongTensor(padded_batch))
-                
+
     def init_vocab(self,treelist,threshold):
         """
         Extracts the set of tokens found in the data and orders it 
@@ -456,9 +456,15 @@ if __name__ == '__main__':
     mlp_dropout          = 0.5
     device               = "cuda:2" if torch.cuda.is_available() else "cpu"
 
+    #Fasttext:
+    #Read the full dataset here
+    #create lexer and use lexer encodings later on
+    itos = FastTextLexer.update_vocab('../spmrl/train.French.pred.conll')
+    itos = FastTextLexer.update_vocab('../spmrl/dev.French.pred.conll',vocab=vocab)
+    itos = FastTextLexer.update_vocab('../spmrl/test.French.pred.conll',vocab=vocab)
+
     
-    
-    trainset           = DependencyDataset('../spmrl/train.French.pred.conll',min_vocab_freq=-1,word_dropout=0.1)
+    trainset           = DependencyDataset('../spmrl/train.French.pred.conll',use_vocab=itos,min_vocab_freq=1,word_dropout=0.0)
     itos,itolab,itotag = trainset.itos,trainset.itolab,trainset.itotag
     devset             = DependencyDataset('../spmrl/dev.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
     testset            = DependencyDataset('../spmrl/test.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
