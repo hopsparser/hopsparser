@@ -436,7 +436,7 @@ class CrossValidator:
     """ This generates all the possible experiments specified by a yaml config file """
     def __init__(self,yamlparams):
         
-        self.HP = hyperparams
+        self.HP = yamlparams
 
     def generate_setup(self):
         
