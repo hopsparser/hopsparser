@@ -61,5 +61,4 @@ class FastTextLexer(nn.Module):
         istream.close()
         vocab.update([DependencyDataset.UNK_WORD])
         itos = [DependencyDataset.PAD_TOKEN] +list(vocab)
-        stoi = {token:idx for idx,token in enumerate(self.itos)}
-        return (itos,stoi)
+        return itos
