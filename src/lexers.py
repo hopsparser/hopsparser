@@ -5,8 +5,8 @@ from graph_parser2 import DependencyDataset,DepGraph
 from collections import Counter,defaultdict
 from random import random
 
-def word_sampler(word_idx,dropout):
-    return self.stoi[DependencyDataset.UNK_WORD]  if random() < dropout else word_idx
+def word_sampler(word_idx,unk_idx,dropout):
+    return unk_idx if random() < dropout else word_idx
     
 def make_vocab(treelist,threshold):
     """
@@ -44,7 +44,7 @@ class DefaultLexer(nn.Module):
         """
         return self.embedding(word_sequences)
 
-    def tokenize(self,tok_sequence,word_dropout=0.0):
+    def tokenize(self,tok_sequence):
         """
         This maps word tokens to integer indexes.
         Args:
@@ -54,7 +54,7 @@ class DefaultLexer(nn.Module):
         """
         word_idxes     = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
         if self._dpout:
-            word_idxes = [word_sampler(widx,word_dropout) for widx in word_idxes]
+            word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],self._dpout) for widx in word_idxes]
         return word_idxes
 
 class FastTextLexer(nn.Module):
@@ -95,7 +95,7 @@ class FastTextLexer(nn.Module):
         """
         word_idxes     = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
         if self._dpout:
-            word_idxes = [word_sampler(widx,word_dropout) for widx in word_idxes]
+            word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],word_dropout) for widx in word_idxes]
         return word_idxes
         
     def forward(self,word_sequences):
