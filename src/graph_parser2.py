@@ -57,7 +57,7 @@ class DependencyDataset:
             depword_idxes = self.lexer.tokenize(tree.words)
             deptag_idxes  = [self.tagtoi[tag] for tag in tree.pos_tags]
             if self.lexer._dpout > 0:
-                deptag_idxes  = [word_sampler(tag,self.tagtoi[DependencyDataset.UNK_TOKEN],self.lexer._dpout) for tag_idx in deptag_idxes]
+                deptag_idxes  = [word_sampler(tag_idx,self.tagtoi[DependencyDataset.UNK_TOKEN],self.lexer._dpout) for tag_idx in deptag_idxes]
                 
             self.words.append(tree.words)
             self.cats.append(tree.pos_tags)
