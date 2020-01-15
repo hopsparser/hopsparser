@@ -35,7 +35,8 @@ class DependencyDataset:
         
     def __init__(self,treelist,lexer,use_labels=None,use_tags=None):
            
-        self.lexer = lexer
+        self.lexer    = lexer
+        self.treelist = treelist
         if use_labels:
             self.itolab = use_labels
             self.labtoi = {label:idx for idx,label in enumerate(self.itolab)}
