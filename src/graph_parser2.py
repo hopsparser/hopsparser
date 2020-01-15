@@ -432,7 +432,7 @@ class BiAffineParser(nn.Module):
                     print(file=ostream)
 
                     
-class CrossValidator:
+class GridSearch:
     """ This generates all the possible experiments specified by a yaml config file """
     def __init__(self,yamlparams):
         
@@ -463,13 +463,13 @@ class CrossValidator:
             
 if __name__ == '__main__':
     
-    cv = CrossValidator(yaml.load(open('params.yaml').read()))
+    search = GridSearch(yaml.load(open('params.yaml').read()))
     
     traintrees  = DependencyDataset.read_conll('../spmrl/train.French.gold.conll')
     devtrees    = DependencyDataset.read_conll('../spmrl/dev.French.gold.conll')
     testtrees   = DependencyDataset.read_conll('../spmrl/test.French.gold.conll')
 
-    for hp in cv.generate_setup():
+    for hp in search.generate_setup():
         print(hp) 
         if hp['lexer'] == 'default':
             lexer = DefaultLexer(make_vocab(traintrees,1),hp['word_embedding_size'],hp['word_dropout'])
