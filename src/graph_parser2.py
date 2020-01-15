@@ -452,9 +452,10 @@ if __name__ == '__main__':
     tag_embedding_size   = 100
     encoder_dropout      = 0.3
     mlp_input            = 400 
-    mlp_arc_hidden       = 300 
+    mlp_arc_hidden       = 500 
     mlp_lab_hidden       = 100 
     mlp_dropout          = 0.5
+    word_dropout         = 0.0
     device               = "cuda:2" if torch.cuda.is_available() else "cpu"
 
     #Fasttext:
@@ -463,9 +464,9 @@ if __name__ == '__main__':
     itos  = FastTextLexer.update_vocab('../spmrl/train.French.pred.conll')
     itos  = FastTextLexer.update_vocab('../spmrl/dev.French.pred.conll',vocab=itos)
     itos  = FastTextLexer.update_vocab('../spmrl/test.French.pred.conll',vocab=itos)
-    lexer = FastTextLexer(itos,dropout=0.3)
+    lexer = FastTextLexer(itos,dropout=0.5)
     
-    trainset           = DependencyDataset('../spmrl/train.French.pred.conll',use_vocab=itos,min_vocab_freq=1,word_dropout=0.0)
+    trainset           = DependencyDataset('../spmrl/train.French.pred.conll',use_vocab=itos,min_vocab_freq=1,word_dropout=word_dropout)
     itos,itolab,itotag = trainset.itos,trainset.itolab,trainset.itotag
     devset             = DependencyDataset('../spmrl/dev.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
     testset            = DependencyDataset('../spmrl/test.French.pred.conll',use_vocab=itos,use_labels=itolab,use_tags=itotag)
