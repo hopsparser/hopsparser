@@ -51,8 +51,8 @@ class FastTextLexer(nn.Module):
         May extract vocab from treebanks out of the regular encoding context.
         This is used here because fasttext is built for managing <unk> words
         """
-        if vocab is None:
-            vocab = set()
+       
+        vocab = set()  if vocab is None else set(vocab)
         istream       = open(filename)
         tree = DepGraph.read_tree(istream) 
         while tree:
