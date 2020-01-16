@@ -113,8 +113,8 @@ class FlauBertBaseLexer(nn.Module):
     """
     def __init__(self,bert_modelfile="xlm_bert_fra_base_lower"): 
 
-        self.embedding_size = 1024 #thats the interface property
-        self.bert,_         = XLMModel.from_pretrained(modelname, output_loading_info=True)
+        self.embedding_size = 768 #thats the interface property
+        self.bert,_         = XLMModel.from_pretrained(bert_modelfile, output_loading_info=True)
         self.bert_tokenizer = XLMTokenizer.from_pretrained(modelname,\
                                                            do_lowercase_and_remove_accent=False,\
                                                            unk_token=DependencyDataset.UNK_WORD,\
