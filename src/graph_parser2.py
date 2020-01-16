@@ -490,7 +490,7 @@ if __name__ == '__main__':
         testset            = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
 
         parser = BiAffineParser(lexer,len(itotag),hp['tag_embedding_size'],hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
-        parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],modelpath=hp['lexer']+"-model2.pt")
+        parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],modelpath=hp['lexer']+"-model.pt")
         predfile = open(GridSearch.generate_run_name(hp['output_path'],hp),'w')
         parser.predict_batch(testset,predfile,hp['batch_size'],greedy=False)
         predfile.close()
