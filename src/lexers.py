@@ -126,7 +126,7 @@ class FlauBertBaseLexer(nn.Module):
         self._dpout = 0
         
     def train_mode(self):
-        self._dpout = self.word_dropout
+         self._dpout = self.word_dropout
     def eval_mode(self):
         self._dpout = 0
     
@@ -147,9 +147,9 @@ class FlauBertBaseLexer(nn.Module):
         Returns:
            a list of integers
         """
-        word_idxes     = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
-        if self._dpout > 0:
-            word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],word_dropout) for widx in word_idxes]
+        word_idxes  = [self.bert_tokenizer.encode(token.lower())[0] for token in tok_sequence]
+        if self.word_dropout:
+            word_idxes = [word_sampler(widx,self.bert_tokenizer.unk_token_id,word_dropout) for widx in word_idxes]
         return word_idxes
 
 
