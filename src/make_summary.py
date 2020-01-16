@@ -27,7 +27,7 @@ def process_eval07(filename):
     las = istream.readline()
     uas = istream.readline()
     istream.close()
-    
+    print(las)
     las = las.split('=')[1]
     las = float(las[:-2])
     uas = uas.split('=')[1]
