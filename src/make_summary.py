@@ -31,4 +31,4 @@ def process_eval07(filename):
     uas = float(uas[:-2])
     return (las,uas)
 
-make_csv_summary(sys.argv[0],'../spmrl/test.French.pred.conll')
+make_csv_summary(sys.argv[1],'../spmrl/test.French.pred.conll')
