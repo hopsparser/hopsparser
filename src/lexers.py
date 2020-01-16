@@ -144,7 +144,7 @@ class FlauBertBaseLexer(nn.Module):
         Returns:
            a list of integers
         """
-        word_idxes  = [self.bert.encode(token.lower())[0] for token in tok_sequence]
+        word_idxes  = [self.bert_tokenizer.encode(token.lower())[0] for token in tok_sequence]
         if self.word_dropout:
             word_idxes = [word_sampler(widx,word_dropout) for widx in word_idxes]
         return word_idxes
