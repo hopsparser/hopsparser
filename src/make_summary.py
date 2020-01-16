@@ -2,6 +2,14 @@ import os
 import os.path
 import sys
 
+"""
+Usage :
+
+     python make_summary dirname
+
+generates a dirname_summary.csv file
+"""
+
 def make_csv_summary(dirname,goldfile): 
 
     header  = ''
@@ -27,7 +35,6 @@ def process_eval07(filename):
     las = istream.readline()
     uas = istream.readline()
     istream.close()
-    print(las)
     las = las.split('=')[1]
     las = float(las[:-2])
     uas = uas.split('=')[1]
