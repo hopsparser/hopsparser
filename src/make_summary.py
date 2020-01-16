@@ -14,8 +14,8 @@ def make_csv_summary(dirname,goldfile):
         values = [KV.split(':')[1] for KV in KVlist]
 
         filename = os.path.join(dirname,filename)
-        os.system('perl eval07.pl -q -g %s -s %s > tmp/eval.tmp'%(goldfile,filename))
-        (las,uas) = process_eval07(filename)
+        os.system('perl eval07.pl -q -g %s -s %s > /tmp/eval.tmp'%(goldfile,filename))
+        (las,uas) = process_eval07('/tmp/eval.tmp')
         values.append(uas)
         values.append(las)
         print(','.join(values),file=csv_out)
