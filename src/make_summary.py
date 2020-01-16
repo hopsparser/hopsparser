@@ -15,4 +15,4 @@ def process_eval07(filename):
     return (las,uas)
 
 
-print(process_eval('/tmp/eval.tmp'))
+print(process_eval07('/tmp/eval.tmp'))
