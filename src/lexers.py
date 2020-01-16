@@ -111,7 +111,7 @@ class FlauBertBaseLexer(nn.Module):
     style models. (uses Flaubert / XLM).
     !!! PERFORMS LOWERCASING !!!
     """
-    def __init__(self,bert_modelfile="xlm_bert_fra_base_lower"): 
+    def __init__(self,dropout,bert_modelfile="xlm_bert_fra_base_lower"): 
 
         super(FlauBertBaseLexer,self).__init__()
 
@@ -122,10 +122,13 @@ class FlauBertBaseLexer(nn.Module):
                                                            unk_token=DependencyDataset.UNK_WORD,\
                                                            pad_token=DependencyDataset.PAD_TOKEN)
 
+        self.word_dropout = dropout
+        self._dpout = 0
+        
     def train_mode(self):
-        pass
+        self._dpout = self.word_dropout
     def eval_mode(self):
-        pass
+        self._dpout = 0
     
     def forward(self,word_idxes):
         """
