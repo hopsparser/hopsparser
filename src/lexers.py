@@ -2,6 +2,7 @@ import torch
 import fasttext
 from torch import nn
 from graph_parser2 import DependencyDataset,DepGraph
+from transformers import XLMModel, XLMTokenizer
 from collections import Counter,defaultdict
 from random import random
 
