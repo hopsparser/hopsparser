@@ -344,7 +344,7 @@ class BiAffineParser(nn.Module):
 
     def train_model(self,train_set,dev_set,epochs,batch_size,modelpath='test_model.pt'):
         loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
-        optimizer  = torch.optim.Adam(self.parameters(),lr=0.001)
+        optimizer  = torch.optim.Adam(self.parameters(),lr=0.001,betas=(0.9, 0.9))
         for e in range(epochs):
             TRAIN_LOSS    =  0
             TRAIN_TOKS    =  0
@@ -454,7 +454,7 @@ class GridSearch:
             else:
                 for elt in setuplist:
                     elt.append(value)
-        print('#%d'%(len(setuplist)),'runs to be performed',file=sys.stderr)
+        print('#%d'%(len(setuplist)),'runs to be performed')
         
         for setup in setuplist:
             yield dict(zip(K,setup))
