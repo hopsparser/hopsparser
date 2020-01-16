@@ -9,9 +9,9 @@ def process_eval07(filename):
     istream.close()
     
     las = las.split('=')[1]
-    las = float(las[:-1])
+    las = float(las[:-2])
     uas = uas.split('=')[1]
-    uas = float(uas[:-1])
+    uas = float(uas[:-2])
     return (las,uas)
 
 
