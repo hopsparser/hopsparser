@@ -1,0 +1,13 @@
+word_embedding_size  : [100]
+tag_embedding_size   : [200]
+encoder_dropout : [0.5]
+mlp_input           : 400 
+mlp_arc_hidden  : [400] 
+mlp_lab_hidden  : 100 
+mlp_dropout       : [0.5]
+word_dropout     : [0.5]
+batch_size          :  64
+epochs                : 70
+lexer                   : 'flaubertbase'
+device                 : 'cuda:2'
+output_path        : 'flaubertbase_lexer/preds' 
