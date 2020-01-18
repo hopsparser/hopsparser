@@ -314,10 +314,12 @@ class BiAffineParser(nn.Module):
                 
                 words,cats,deps,tags,heads,labels = batch
                 if type(deps)==tuple:
-                    depsA,depsB = deps
-                    deps = (depsA.to(self.device),depsB.to(self.device))
+                    depsA,depsB   = deps
+                    deps          = (depsA.to(self.device),depsB.to(self.device))
+                    overall_size += (depsA.size(0)*depsA.size(1)) #bc no masking at training           
                 else:
-                    deps = deps.to(self.device)
+                    deps           = deps.to(self.device)
+                    overall_size  += (deps.size(0)*deps.size(1)) #bc no masking at training           
                 heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)
 
                 #preds 
@@ -354,8 +356,6 @@ class BiAffineParser(nn.Module):
                 lab_accurracy = torch.sum((pred == labels).float() * mask, dim=-1)
                 lab_acc += torch.sum(lab_accurracy).item()
                 ntoks += torch.sum(mask).item()
-
-                overall_size += (deps.size(0)*deps.size(1))
                 
         return gloss/overall_size,arc_acc, lab_acc,ntoks
 
@@ -373,10 +373,12 @@ class BiAffineParser(nn.Module):
                 self.train()
                 words,cats,deps,tags,heads,labels = batch
                 if type(deps)==tuple:
-                    depsA,depsB = deps
-                    deps = (depsA.to(self.device),depsB.to(self.device))
+                    depsA,depsB   = deps
+                    deps          = (depsA.to(self.device),depsB.to(self.device))
+                    overall_size += (depsA.size(0)*depsA.size(1)) #bc no masking at training           
                 else:
                     deps = deps.to(self.device)
+                    overall_size += (deps.size(0)*deps.size(1)) #bc no masking at training           
                 heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)
                 
                 #FORWARD
@@ -402,7 +404,6 @@ class BiAffineParser(nn.Module):
                 optimizer.step()
 
                 TRAIN_LOSS   += loss.item()
-                overall_size += (deps.size(0)*deps.size(1)) #bc no masking at training           
             
             DEV_LOSS,DEV_ARC_ACC,DEV_LAB_ACC,DEV_TOKS  = self.eval_model(dev_set,batch_size)
             print('Epoch ',e,'train mean loss',TRAIN_LOSS/overall_size,
