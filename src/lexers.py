@@ -119,6 +119,7 @@ class FlauBertBaseLexer(nn.Module):
         self.stoi                   = {token:idx for idx,token in enumerate(self.itos)}
 
         self.embedding              = nn.Embedding(len(self.itos), default_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
+        self.bert_mapper            = nn.Linear(768)
         self.bert,_                 = XLMModel.from_pretrained(bert_modelfile, output_loading_info=True)
         self.bert_tokenizer         = XLMTokenizer.from_pretrained(bert_modelfile,\
                                                             do_lowercase_and_remove_accent=False,\
