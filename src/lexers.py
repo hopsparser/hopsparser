@@ -124,7 +124,7 @@ class FlauBertBaseLexer(nn.Module):
                                                             do_lowercase_and_remove_accent=False,\
                                                             unk_token=DependencyDataset.UNK_WORD,\
                                                             pad_token=DependencyDataset.PAD_TOKEN)
-
+        self.BERT_PAD_IDX           = self.bert_tokenizer.pad_token_id
         self.word_dropout           = word_dropout
         self._dpout                 = 0
 

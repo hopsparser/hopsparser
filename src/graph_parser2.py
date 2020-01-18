@@ -125,12 +125,21 @@ class DependencyDataset:
             yield (words,cats,deps,tags,heads,labels)
 
     def pad(self,batch):
-        sent_lengths = list(map(len, batch))
+        if type(batch[0]) == tuple:
+            sent_lengths =  [ len(seqA) for (seqA,seqB) in batch]  #had hoc stuff for BERT Lexers
+        else:
+            sent_lengths = list(map(len, batch))
         max_len      = max(sent_lengths)
         padded_batch = [ ]
         for k, seq in zip(sent_lengths, batch):
-            padded = seq + (max_len - k)*[ DependencyDataset.PAD_IDX]
-            padded_batch.append(padded)
+            if type(seq) == tuple and len(seq) == 2:   #had hoc stuff for BERT Lexers
+                seqA,seqB = seq
+                paddedA = seqA + (max_len - k)*[ DependencyDataset.PAD_IDX]
+                paddedB = seqB + (max_len - k)*[ self.lexer.BERT_PAD_IDX ]  
+                padded_batch.append( (paddedA,paddedB) )
+            else:
+                padded = seq + (max_len - k)*[ DependencyDataset.PAD_IDX]
+                padded_batch.append(padded)
         return Variable(torch.LongTensor(padded_batch))
 
     def init_labels(self,treelist):
