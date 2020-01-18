@@ -1,5 +1,5 @@
 word_embedding_size : [100]  
-tag_embedding_size    : [200] 
+tag_embedding_size    : [100] 
 encoder_dropout         : [0.5]  
 mlp_input                    : 400 
 mlp_arc_hidden      : [500] 
