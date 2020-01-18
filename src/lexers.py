@@ -149,10 +149,7 @@ class FlauBertBaseLexer(nn.Module):
         word_idxes,bert_idxes = coupled_sequences
         bertE = self.bert(bert_idxes)[0]
         wordE = self.embedding(word_idxes)
-        print(wordE.size())
-        print(bertE.size())
-        print(torch.cat(wordE,bertE,dim=2).size())
-        return torch.cat(wordE,bertE,dim=2)
+        return torch.cat((wordE,bertE),dim=2)
 
     def tokenize(self,tok_sequence,word_dropout=0.0):
         """

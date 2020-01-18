@@ -427,7 +427,6 @@ class BiAffineParser(nn.Module):
             
             softmax = nn.Softmax(dim=1)
             for batch in test_batches:
-                
                 self.eval()
                 words,cats,deps,tags,heads,labels = batch
                 if type(deps)==tuple:
