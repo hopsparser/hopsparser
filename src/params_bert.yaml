@@ -6,7 +6,7 @@ mlp_arc_hidden      : [500]
 mlp_lab_hidden   : 100 
 mlp_dropout        : [0.5]
 word_dropout      : [0.5]
-batch_size           :  16
+batch_size           :  8
 epochs                : 100
 lexer                   : 'flaubertbase'
 device                 : 'cuda:2'
