@@ -114,7 +114,7 @@ class FlauBertBaseLexer(nn.Module):
     def __init__(self,default_itos,default_embedding_size,word_dropout,bert_modelfile="xlm_bert_fra_base_lower"): 
 
         super(FlauBertBaseLexer,self).__init__()
-        self.embedding_size         = default_embedding_size
+        self._embedding_size        = default_embedding_size
         self.itos                   = default_itos
         self.stoi                   = {token:idx for idx,token in enumerate(self.itos)}
 
