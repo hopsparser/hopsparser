@@ -115,7 +115,7 @@ class FlauBertBaseLexer(nn.Module):
 
         super(FlauBertBaseLexer,self).__init__()
         self.embedding_size         = default_embedding_size
-        self.itos                   = itos
+        self.itos                   = default_itos
         self.stoi                   = {token:idx for idx,token in enumerate(self.itos)}
 
         self.embedding              = nn.Embedding(len(self.itos), default_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
