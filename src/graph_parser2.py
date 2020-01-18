@@ -370,7 +370,7 @@ class BiAffineParser(nn.Module):
             train_batches = train_set.make_batches(batch_size,shuffle_batches=True,shuffle_data=True,order_by_length=True)
             overall_size  = 0
             for batch in train_batches:
-                self.train()
+                self.train() 
                 words,cats,deps,tags,heads,labels = batch
                 if type(deps)==tuple:
                     depsA,depsB   = deps
