@@ -17,7 +17,7 @@ def make_vocab(treelist,threshold):
     vocab = set([tok for (tok,counts) in vocab.most_common() if counts > threshold])
     vocab.update([DependencyDataset.UNK_WORD])
     
-    itos = [DependencyDataset.PAD_TOKEN] +list(vocab)
+    itos = [DependencyDataset.PAD_TOKEN] + list(vocab)
     return itos
 
 class DefaultLexer(nn.Module):
@@ -108,49 +108,67 @@ class FastTextLexer(nn.Module):
 class FlauBertBaseLexer(nn.Module):
     """
     This Lexer performs tokenization and embedding mapping with BERT
-    style models. (uses Flaubert / XLM).
-    !!! PERFORMS LOWERCASING !!!
+    style models. It concatenates a standard embedding with a Flaubert
+    embedding (uses Flaubert / XLM).
     """
-    def __init__(self,dropout,bert_modelfile="xlm_bert_fra_base_lower"): 
+    def __init__(self,default_itos,default_embedding_size,word_dropout,bert_modelfile="xlm_bert_fra_base_lower"): 
 
         super(FlauBertBaseLexer,self).__init__()
-
-        self.embedding_size = 768 #thats the interface property
-        self.bert,_         = XLMModel.from_pretrained(bert_modelfile, output_loading_info=True)
-        self.bert_tokenizer = XLMTokenizer.from_pretrained(bert_modelfile,\
-                                                           do_lowercase_and_remove_accent=False,\
-                                                           unk_token=DependencyDataset.UNK_WORD,\
-                                                           pad_token=DependencyDataset.PAD_TOKEN)
-
-        self.word_dropout = dropout
-        self._dpout = 0
+        self.embedding_size         = default_embedding_size
+        self.embedding              = nn.Embedding(len(itos), embedding_size, padding_idx=DependencyDataset.PAD_IDX)
+        self.itos                   = itos
+        self.stoi                   = {token:idx for idx,token in enumerate(self.itos)}
         
+        self.bert,_                 = XLMModel.from_pretrained(bert_modelfile, output_loading_info=True)
+        self.bert_tokenizer         = XLMTokenizer.from_pretrained(bert_modelfile,\
+                                                            do_lowercase_and_remove_accent=False,\
+                                                            unk_token=DependencyDataset.UNK_WORD,\
+                                                            pad_token=DependencyDataset.PAD_TOKEN)
+
+        self.word_dropout           = dropout
+        self._dpout                 = 0
+
+    @property
+    def embedding_size(self):
+        return self._embedding_size + 768
+    
+    @embedding_size.setter
+    def set_embedding_size(self,value):
+        self._embedding_size = value + 768
+    
     def train_mode(self):
          self._dpout = self.word_dropout
     def eval_mode(self):
         self._dpout = 0
-    
-    def forward(self,word_idxes):
+        
+    def forward(self,coupled_sequences):
         """
         Takes words sequences codes as integer sequences and returns
         the embeddings from the last (top) BERT layer.
         """
-        return self.bert(word_idxes)[0]
-        
+        word_idxes,bert_idxes = coupled_sequences
+        bertE = self.bert(bert_idxes)[0]
+        wordE = self.embedding(word_idxes)
+        print(wordE.size())
+        print(bertE.size())
+        print(torch.cat(wordE,bertE,dim=2).size())
+        return torch.cat(wordE,bertE,dim=2)
+
     def tokenize(self,tok_sequence,word_dropout=0.0):
         """
         This maps word tokens to integer indexes.
-        When a word decomposes as multiple BPE units, we keep only the
-        first (!) 
+        When a word decomposes as multiple BPE units, we keep only the first (!) 
         Args:
            tok_sequence: a sequence of strings
         Returns:
-           a list of integers
+           a list of integers 
         """
-        word_idxes  = [self.bert_tokenizer.encode(token.lower())[0] for token in tok_sequence]
+        word_idxes  = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
+        bert_idxes  = [self.bert_tokenizer.encode(token.lower())[0] for token in tok_sequence]
         if self.word_dropout:
-            word_idxes = [word_sampler(widx,self.bert_tokenizer.unk_token_id,word_dropout) for widx in word_idxes]
-        return word_idxes
+            bert_idxes = [word_sampler(widx,self.bert_tokenizer.unk_token_id,self._dpout) for widx in bert_idxes]
+            word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],self._dpout) for widx in word_idxes]
+        return (word_idxes,bert_idxes)
 
 
     

@@ -271,7 +271,7 @@ class BiAffineParser(nn.Module):
         
         lex_emb   = self.lexer(xwords)
         tag_emb   = self.tag_embedding(xtags)        
-        cemb,_ = self.rnn(torch.cat((lex_emb,tag_emb),dim=2))
+        cemb,_ = self.rnn(torch.cat( (lex_emb,tag_emb) , dim=2) )
 
         arc_h = self.arc_mlp_h(cemb)
         arc_d = self.arc_mlp_d(cemb)
@@ -465,7 +465,6 @@ class GridSearch:
             
 if __name__ == '__main__':
     
-    #search = GridSearch(yaml.load(open('params.yaml').read()))
     search = GridSearch(yaml.load(open('params_bert.yaml').read()))
     
     traintrees  = DependencyDataset.read_conll('../spmrl/train.French.pred.conll')
