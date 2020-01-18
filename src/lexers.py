@@ -125,7 +125,7 @@ class FlauBertBaseLexer(nn.Module):
                                                             unk_token=DependencyDataset.UNK_WORD,\
                                                             pad_token=DependencyDataset.PAD_TOKEN)
 
-        self.word_dropout           = dropout
+        self.word_dropout           = word_dropout
         self._dpout                 = 0
 
     @property
