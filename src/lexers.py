@@ -133,7 +133,7 @@ class FlauBertBaseLexer(nn.Module):
         return self._embedding_size + 768
     
     @embedding_size.setter
-    def set_embedding_size(self,value):
+    def embedding_size(self,value):
         self._embedding_size = value + 768
     
     def train_mode(self):
