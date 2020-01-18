@@ -1,11 +1,11 @@
 word_embedding_size : [200]  
 tag_embedding_size : [200] 
-encoder_dropout : [0.0]  
-mlp_input  : 600 
+encoder_dropout : [0.3]  
+mlp_input  : 400 
 mlp_arc_hidden : [500] 
 mlp_lab_hidden   : 100 
-mlp_dropout  : [0.1]
-word_dropout : [0.1]
+mlp_dropout  : [0.3]
+word_dropout : [0.3]
 batch_size :  8
 epochs   : 60
 lexer : 'flaubertbase'

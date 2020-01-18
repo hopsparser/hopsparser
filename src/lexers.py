@@ -119,7 +119,7 @@ class FlauBertBaseLexer(nn.Module):
         self.stoi                   = {token:idx for idx,token in enumerate(self.itos)}
 
         self.embedding              = nn.Embedding(len(self.itos), default_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
-        self.bert_mapper            = nn.Linear(768)
+        self.bert_mapper            = nn.Linear(768,default_embedding_size)
         self.bert,_                 = XLMModel.from_pretrained(bert_modelfile, output_loading_info=True)
         self.bert_tokenizer         = XLMTokenizer.from_pretrained(bert_modelfile,\
                                                             do_lowercase_and_remove_accent=False,\
@@ -131,11 +131,11 @@ class FlauBertBaseLexer(nn.Module):
 
     @property
     def embedding_size(self):
-        return self._embedding_size + 768
+        return self._embedding_size * 2
     
     @embedding_size.setter
     def embedding_size(self,value):
-        self._embedding_size = value + 768
+        self._embedding_size = value * 2
     
     def train_mode(self):
          self._dpout = self.word_dropout
@@ -150,7 +150,7 @@ class FlauBertBaseLexer(nn.Module):
         word_idxes,bert_idxes = coupled_sequences
         bertE = self.bert(bert_idxes)[0]
         wordE = self.embedding(word_idxes)
-        return torch.cat((wordE,bertE),dim=2)
+        return self.bert_mapper(torch.cat((wordE,bertE),dim=2))
 
     def tokenize(self,tok_sequence,word_dropout=0.0):
         """
