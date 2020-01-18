@@ -313,7 +313,12 @@ class BiAffineParser(nn.Module):
             for batch in dev_batches:
                 
                 words,cats,deps,tags,heads,labels = batch
-                deps, heads, labels,tags = deps.to(self.device), heads.to(self.device), labels.to(self.device),tags.to(self.device)
+                if type(deps)==tuple:
+                    depsA,depsB = deps
+                    deps = (depsA.to(self.device),depsB.to(self.device))
+                else:
+                    deps = deps.to(self.device)
+                heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)
 
                 #preds 
                 arc_scores, lab_scores = self.forward(deps,tags)
@@ -367,7 +372,12 @@ class BiAffineParser(nn.Module):
             for batch in train_batches:
                 self.train()
                 words,cats,deps,tags,heads,labels = batch
-                deps, heads, labels,tags = deps.to(self.device), heads.to(self.device), labels.to(self.device),tags.to(self.device)
+                if type(deps)==tuple:
+                    depsA,depsB = deps
+                    deps = (depsA.to(self.device),depsB.to(self.device))
+                else:
+                    deps = deps.to(self.device)
+                heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)
                 
                 #FORWARD
                 arc_scores, lab_scores = self.forward(deps,tags)
@@ -420,9 +430,15 @@ class BiAffineParser(nn.Module):
                 
                 self.eval()
                 words,cats,deps,tags,heads,labels = batch
-                deps, heads, labels,tags = deps.to(self.device), heads.to(self.device), labels.to(self.device),tags.to(self.device)
+                if type(deps)==tuple:
+                    depsA,depsB = deps
+                    deps = (depsA.to(self.device),depsB.to(self.device))
+                    SLENGTHS = (depsA != DependencyDataset.PAD_IDX).long().sum(-1)
+                else:
+                    deps = deps.to(self.device)
+                    SLENGTHS = (deps != DependencyDataset.PAD_IDX).long().sum(-1)
+                heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)
 
-                SLENGTHS = (deps != DependencyDataset.PAD_IDX).long().sum(-1)
                 
                 #batch prediction
                 arc_scores_batch, lab_scores_batch = self.forward(deps,tags)
