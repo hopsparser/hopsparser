@@ -124,23 +124,26 @@ class DependencyDataset:
             cats   = self.cats[i:i+batch_size]
             yield (words,cats,deps,tags,heads,labels)
 
-    def pad(self,batch):
-        if type(batch[0]) == tuple:
-            sent_lengths =  [ len(seqA) for (seqA,seqB) in batch]  #had hoc stuff for BERT Lexers
+    def pad(self,batch): 
+        if type(batch[0]) == tuple and len(batch[0]) == 2:   #had hoc stuff for BERT Lexers
+            sent_lengths                = [ len(seqA) for (seqA,seqB) in batch] 
+            max_len                     = max(sent_lengths)
+            padded_batchA,padded_batchB = [ ], [ ]
+            for k, seq in zip(sent_lengths, batch):
+                seqA,seqB = seq
+                paddedA   = seqA + (max_len - k)*[ DependencyDataset.PAD_IDX]
+                paddedB   = seqB + (max_len - k)*[ self.lexer.BERT_PAD_IDX ]  
+                padded_batchA.append(paddedA)
+                padded_batchB.append(paddedB)
+            return  ( Variable(torch.LongTensor(padded_batchA)) , Variable(torch.LongTensor(padded_batchB)) )                
         else:
             sent_lengths = list(map(len, batch))
-        max_len      = max(sent_lengths)
-        padded_batch = [ ]
-        for k, seq in zip(sent_lengths, batch):
-            if type(seq) == tuple and len(seq) == 2:   #had hoc stuff for BERT Lexers
-                seqA,seqB = seq
-                paddedA = seqA + (max_len - k)*[ DependencyDataset.PAD_IDX]
-                paddedB = seqB + (max_len - k)*[ self.lexer.BERT_PAD_IDX ]  
-                padded_batch.append( (paddedA,paddedB) )
-            else:
-                padded = seq + (max_len - k)*[ DependencyDataset.PAD_IDX]
+            max_len      = max(sent_lengths)
+            padded_batch = [ ]
+            for k, seq in zip(sent_lengths, batch):
+                padded = seq + (max_len - k) * [ DependencyDataset.PAD_IDX]
                 padded_batch.append(padded)
-        return Variable(torch.LongTensor(padded_batch))
+        return Variable( torch.LongTensor(padded_batch) )
 
     def init_labels(self,treelist):
         labels      = set([ lbl for tree in treelist for (gov,lbl,dep) in tree.get_all_edges()])
