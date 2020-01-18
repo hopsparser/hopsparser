@@ -478,7 +478,7 @@ if __name__ == '__main__':
         elif hp['lexer'] == 'fasttext':
             lexer = FastTextLexer(make_vocab(traintrees,0),hp['word_dropout'])
         elif hp['lexer'] == 'flaubertbase':
-            lexer = FlauBertBaseLexer(hp['word_dropout'])
+            lexer = FlauBertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'])
         else:
             print('no valid lexer specified. abort.')
             exit(1)
