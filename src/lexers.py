@@ -153,7 +153,7 @@ class FlauBertBaseLexer(nn.Module):
         """
         word_idxes,bert_idxes = coupled_sequences
         #bertE                 = self.bert(bert_idxes)[0]
-        bert_layers           = self.bertE(bert_idxes)[-1]
+        bert_layers           = self.bert(bert_idxes)[-1]
         bertE                 = torch.mean(torch.stack(layers[4:8]),1) #4th to 8th layers are said to encode syntax
         wordE = self.embedding(word_idxes)
         return torch.cat( (wordE,bertE) ,dim=2)
