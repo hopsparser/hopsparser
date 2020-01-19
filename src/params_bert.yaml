@@ -7,7 +7,7 @@ mlp_lab_hidden : 100
 mlp_dropout      : [0.5]
 word_dropout    : [0.5] 
 batch_size :  8
-epochs   : 50
+epochs   : 25
 lexer : 'flaubertbase'
 device : 'cuda:2'
 output_path : 'flaubertbase_lexer/preds' 
