@@ -363,8 +363,8 @@ class BiAffineParser(nn.Module):
     def train_model(self,train_set,dev_set,epochs,batch_size,modelpath='test_model.pt'):
         loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
 
-        optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr = 0.0001,eps=1e-09)
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = 0.99)
+        optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr = 0.001,eps=1e-09)
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = 1.0)
         
         for e in range(epochs):
             TRAIN_LOSS    =  0

@@ -8,6 +8,6 @@ mlp_dropout      : [0.5]
 word_dropout    : [0.5] 
 batch_size :  8
 epochs   : 50
-lexer : 'flaubertbase'
+lexer : 'default'
 device : 'cuda:2'
-output_path : 'flaubertbase_lexer/preds' 
+output_path : 'default_lexer/preds' 
