@@ -125,6 +125,7 @@ class FlauBertBaseLexer(nn.Module):
                                                             unk_token=DependencyDataset.UNK_WORD,\
                                                             pad_token=DependencyDataset.PAD_TOKEN)
                                                            #output_hidden_states=True
+        self.bert_tokenizer.add_special_tokens({'bos_token':'<root>'})
         self.BERT_PAD_IDX           = self.bert_tokenizer.pad_token_id
         self.word_dropout           = word_dropout
         self._dpout                 = 0
