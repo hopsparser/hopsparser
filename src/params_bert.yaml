@@ -9,5 +9,5 @@ word_dropout : [0.3]
 batch_size :  8
 epochs   : 100
 lexer : 'flaubertbase'
-device : 'cuda:2'
+device : 'cuda:3'
 output_path : 'flaubertbase_lexer/preds' 
