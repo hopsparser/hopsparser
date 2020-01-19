@@ -500,15 +500,11 @@ if __name__ == '__main__':
     
     search = GridSearch(yaml.load(open('params_bert.yaml').read()))
     
-    #traintrees  = DependencyDataset.read_conll('../spmrl/train.French.pred.conll')
-    #devtrees    = DependencyDataset.read_conll('../spmrl/dev.French.pred.conll')
-    #testtrees   = DependencyDataset.read_conll('../spmrl/test.French.pred.conll')
+    traintrees  = DependencyDataset.read_conll('../spmrl/train.French.pred.conll')
+    devtrees    = DependencyDataset.read_conll('../spmrl/dev.French.pred.conll')
+    testtrees   = DependencyDataset.read_conll('../spmrl/test.French.pred.conll')
 
-    traintrees  = DependencyDataset.read_conll('../spmrl/example.txt')
-    devtrees    = DependencyDataset.read_conll('../spmrl/example.txt')
-    testtrees   = DependencyDataset.read_conll('../spmrl/example.txt')
 
-    
     for hp in search.generate_setup():
         print(hp) 
         if hp['lexer'] == 'default':
