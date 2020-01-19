@@ -363,7 +363,7 @@ class BiAffineParser(nn.Module):
     def train_model(self,train_set,dev_set,epochs,batch_size,modelpath='test_model.pt'):
         loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
 
-        optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr = 0.0001,eps=1e-09)
+        optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr = 0.001,eps=1e-09)
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = 0.95)
         
         for e in range(epochs):
@@ -415,7 +415,7 @@ class BiAffineParser(nn.Module):
                              'valid mean loss',DEV_LOSS,
                              'valid arc acc',DEV_ARC_ACC/DEV_TOKS,
                              'valid label acc',DEV_LAB_ACC/DEV_TOKS,
-                             'Base LR',scheduler.get_lr(),flush=True)
+                             'Base LR',scheduler.get_lr()[0],flush=True)
 
             if DEV_ARC_ACC > BEST_ARC_ACC:
                 torch.save(self.state_dict(), modelpath)
