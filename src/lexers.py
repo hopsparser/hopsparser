@@ -173,7 +173,6 @@ class FlauBertBaseLexer(nn.Module):
         #ensure that first index is <root> and not an <unk>
         word_idxes[0] = self.stoi[DependencyDataset.UNK_WORD]
         bert_idxes[0] = self.bert_tokenizer.bos_token_id
-        print()
         return (word_idxes,bert_idxes)
 
 
