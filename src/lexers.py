@@ -122,7 +122,7 @@ class FlauBertBaseLexer(nn.Module):
         self.bert,_                 = XLMModel.from_pretrained(bert_modelfile, output_loading_info=True)
         self.bert_tokenizer         = XLMTokenizer.from_pretrained(bert_modelfile,\
                                                             do_lowercase_and_remove_accent=False,\
-                                                            bos_token=DepGraph.ROOT_TOKEN,\
+                                                            additional_special_tokens=[DepGraph.ROOT_TOKEN],\
                                                             unk_token=DependencyDataset.UNK_WORD,\
                                                             pad_token=DependencyDataset.PAD_TOKEN)
                                                            #output_hidden_states=True
