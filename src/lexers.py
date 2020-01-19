@@ -124,6 +124,7 @@ class FlauBertBaseLexer(nn.Module):
                                                             do_lowercase_and_remove_accent=False,\
                                                             unk_token=DependencyDataset.UNK_WORD,\
                                                             pad_token=DependencyDataset.PAD_TOKEN)
+                                                           #output_hidden_states=True
         self.BERT_PAD_IDX           = self.bert_tokenizer.pad_token_id
         self.word_dropout           = word_dropout
         self._dpout                 = 0
@@ -163,8 +164,8 @@ class FlauBertBaseLexer(nn.Module):
         word_idxes  = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
         bert_idxes  = [self.bert_tokenizer.encode(token.lower())[0] for token in tok_sequence]
         print('words',tok_sequence)
-        print('word_idxes',word_idxes)
-        print('bert_idxes',bert_idxes)
+        print('word_idxes',word_idxes,[self.itos[idx] for idx in word_idxes])
+        print('bert_idxes',bert_idxes,[self.bert_tokenizer.convert_ids_to_tokens(idx) for idx in bert_idxes])
         print()
         if self.word_dropout:
             bert_idxes = [word_sampler(widx,self.bert_tokenizer.unk_token_id,self._dpout) for widx in bert_idxes]
