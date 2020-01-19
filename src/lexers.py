@@ -128,7 +128,6 @@ class FlauBertBaseLexer(nn.Module):
         self.BERT_PAD_IDX           = self.bert_tokenizer.pad_token_id
         self.bert_tokenizer.add_special_tokens({'bos_token': DepGraph.ROOT_TOKEN})
         self.bert.resize_token_embeddings(len(self.bert_tokenizer))
-        print(self.bert_tokenizer.additional_special_tokens)
         self.word_dropout           = word_dropout
         self._dpout                 = 0
 
@@ -168,9 +167,6 @@ class FlauBertBaseLexer(nn.Module):
         """
         word_idxes  = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
         bert_idxes  = [self.bert_tokenizer.encode(token.lower())[0] for token in tok_sequence]
-        print('words',tok_sequence)
-        print('word_idxes',word_idxes,[self.itos[idx] for idx in word_idxes])
-        print('bert_idxes',bert_idxes,[self.bert_tokenizer.convert_ids_to_tokens(idx) for idx in bert_idxes])
         if self._dpout:
             bert_idxes = [word_sampler(widx,self.bert_tokenizer.unk_token_id,self._dpout) for widx in bert_idxes]
             word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],self._dpout) for widx in word_idxes]

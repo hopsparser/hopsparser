@@ -135,7 +135,6 @@ class DependencyDataset:
                 paddedB   = seqB + (max_len - k)*[ self.lexer.BERT_PAD_IDX ]  
                 padded_batchA.append(paddedA)
                 padded_batchB.append(paddedB)
-                print('bert_idxes2',paddedB,[self.lexer.bert_tokenizer.convert_ids_to_tokens(idx) for idx in paddedB])
             return  ( Variable(torch.LongTensor(padded_batchA)) , Variable(torch.LongTensor(padded_batchB)) )                
         else:
             sent_lengths = list(map(len, batch))
