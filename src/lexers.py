@@ -119,12 +119,11 @@ class FlauBertBaseLexer(nn.Module):
         self.stoi                   = {token:idx for idx,token in enumerate(self.itos)}
 
         self.embedding              = nn.Embedding(len(self.itos), default_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
-        self.bert,_                 = XLMModel.from_pretrained(bert_modelfile, output_loading_info=True)
+        self.bert,_                 = XLMModel.from_pretrained(bert_modelfile, output_loading_info=True, output_hidden_states=True)
         self.bert_tokenizer         = XLMTokenizer.from_pretrained(bert_modelfile,\
                                                             do_lowercase_and_remove_accent=False,\
                                                             unk_token=DependencyDataset.UNK_WORD,\
                                                             pad_token=DependencyDataset.PAD_TOKEN)
-                                                           #output_hidden_states=True
         self.BERT_PAD_IDX           = self.bert_tokenizer.pad_token_id
         self.bert_tokenizer.add_special_tokens({'bos_token': DepGraph.ROOT_TOKEN})
         self.bert.resize_token_embeddings(len(self.bert_tokenizer))
@@ -142,17 +141,20 @@ class FlauBertBaseLexer(nn.Module):
     def train_mode(self):
          self._dpout = self.word_dropout
          self.bert.train()
+         
     def eval_mode(self):
         self._dpout = 0
         self.bert.eval()
-        
+         
     def forward(self,coupled_sequences):
         """
         Takes words sequences codes as integer sequences and returns
         the embeddings from the last (top) BERT layer.
         """
         word_idxes,bert_idxes = coupled_sequences
-        bertE = self.bert(bert_idxes)[0]
+        #bertE                 = self.bert(bert_idxes)[0]
+        bert_layers           = self.bertE(bert_idxes)[-1]
+        bertE                 = torch.mean(torch.stack(layers[4:8]),1) #4th to 8th layers are said to encode syntax
         wordE = self.embedding(word_idxes)
         return torch.cat( (wordE,bertE) ,dim=2)
 
@@ -168,7 +170,7 @@ class FlauBertBaseLexer(nn.Module):
         word_idxes  = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
         bert_idxes  = [self.bert_tokenizer.encode(token.lower())[0] for token in tok_sequence]
         if self._dpout:
-            bert_idxes = [word_sampler(widx,self.bert_tokenizer.unk_token_id,self._dpout) for widx in bert_idxes]
+            #bert_idxes = [word_sampler(widx,self.bert_tokenizer.unk_token_id,self._dpout) for widx in bert_idxes]
             word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],self._dpout) for widx in word_idxes]
         #ensure that first index is <root> and not an <unk>
         word_idxes[0] = self.stoi[DependencyDataset.UNK_WORD]
