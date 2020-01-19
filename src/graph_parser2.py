@@ -4,6 +4,7 @@ import numpy as np
 import yaml
 
 from torch import nn
+from torch import optim
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
@@ -361,7 +362,10 @@ class BiAffineParser(nn.Module):
 
     def train_model(self,train_set,dev_set,epochs,batch_size,modelpath='test_model.pt'):
         loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
-        optimizer  = torch.optim.Adam(self.parameters(),lr=0.0001,betas=(0.9, 0.9),eps=1e-09)
+
+        optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr = 0.001,eps=1e-09)
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = 0.95)
+        
         for e in range(epochs):
             TRAIN_LOSS    =  0
             TRAIN_TOKS    =  0
@@ -404,7 +408,8 @@ class BiAffineParser(nn.Module):
                 optimizer.step()
 
                 TRAIN_LOSS   += loss.item()
-            
+                
+            scheduler.step()
             DEV_LOSS,DEV_ARC_ACC,DEV_LAB_ACC,DEV_TOKS  = self.eval_model(dev_set,batch_size)
             print('Epoch ',e,'train mean loss',TRAIN_LOSS/overall_size,
                              'valid mean loss',DEV_LOSS,
