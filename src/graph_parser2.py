@@ -361,10 +361,11 @@ class BiAffineParser(nn.Module):
         return gloss/overall_size,arc_acc, lab_acc,ntoks
 
     def train_model(self,train_set,dev_set,epochs,batch_size,modelpath='test_model.pt'):
+        
         loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
 
-        optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr = 0.001,eps=1e-09)
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = 1.0)
+        optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr = 0.0001,eps=1e-09)
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = 0.99)
         
         for e in range(epochs):
             TRAIN_LOSS    =  0
@@ -499,7 +500,7 @@ class GridSearch:
             
 if __name__ == '__main__':
     
-    search = GridSearch(yaml.load(open('params.yaml').read()))
+    search = GridSearch(yaml.load(open('params_bert.yaml').read()))
     
     traintrees  = DependencyDataset.read_conll('../spmrl/train.French.pred.conll')
     devtrees    = DependencyDataset.read_conll('../spmrl/dev.French.pred.conll')
