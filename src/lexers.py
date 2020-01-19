@@ -166,7 +166,7 @@ class FlauBertBaseLexer(nn.Module):
            a list of integers 
         """
         word_idxes  = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
-        bert_idxes  = [self.bert_tokenizer.bos_token_id] +[self.bert_tokenizer.encode(token.lower(),add_special_tokens=False)[0] for token in tok_sequence[1:]]
+        bert_idxes  = [self.bert_tokenizer.bos_token_id] +[self.bert_tokenizer.encode(token.lower())[0] for token in tok_sequence[1:]]
         print('words',tok_sequence)
         print('word_idxes',word_idxes,[self.itos[idx] for idx in word_idxes])
         print('bert_idxes',bert_idxes,[self.bert_tokenizer.convert_ids_to_tokens(idx) for idx in bert_idxes])
