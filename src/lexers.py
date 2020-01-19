@@ -152,10 +152,13 @@ class FlauBertBaseLexer(nn.Module):
         the embeddings from the last (top) BERT layer.
         """
         word_idxes,bert_idxes = coupled_sequences
-        #bertE                 = self.bert(bert_idxes)[0]
+        bertE                 = self.bert(bert_idxes)[0]
+        print(bertE.size())
         bert_layers           = self.bert(bert_idxes)[-1]
         bertE                 = torch.mean(torch.stack(bert_layers[4:8]),1) #4th to 8th layers are said to encode syntax
+        print(bertE.size())
         wordE = self.embedding(word_idxes)
+        print(wordE.size())
         return torch.cat( (wordE,bertE) ,dim=2)
 
     def tokenize(self,tok_sequence,word_dropout=0.0):
