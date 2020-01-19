@@ -414,7 +414,8 @@ class BiAffineParser(nn.Module):
             print('Epoch ',e,'train mean loss',TRAIN_LOSS/overall_size,
                              'valid mean loss',DEV_LOSS,
                              'valid arc acc',DEV_ARC_ACC/DEV_TOKS,
-                             'valid label acc',DEV_LAB_ACC/DEV_TOKS,scheduler.get_lr(),flush=True)
+                             'valid label acc',DEV_LAB_ACC/DEV_TOKS,
+                             'Base LR',scheduler.get_lr(),flush=True)
 
             if DEV_ARC_ACC > BEST_ARC_ACC:
                 torch.save(self.state_dict(), modelpath)
