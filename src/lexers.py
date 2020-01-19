@@ -175,7 +175,7 @@ class FlauBertBaseLexer(nn.Module):
             word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],self._dpout) for widx in word_idxes]
         #ensure that first index is <root> and not an <unk>
         word_idxes[0] = self.stoi[DependencyDataset.UNK_WORD]
-        bert_idxes[0] = self.bert_tokenizer.bos_token
+        bert_idxes[0] = self.bert_tokenizer.bos_token_id
         print()
         return (word_idxes,bert_idxes)
 
