@@ -123,9 +123,9 @@ class FlauBertBaseLexer(nn.Module):
         self.bert_tokenizer         = XLMTokenizer.from_pretrained(bert_modelfile,\
                                                             do_lowercase_and_remove_accent=False,\
                                                             unk_token=DependencyDataset.UNK_WORD,\
-                                                            pad_token=DependencyDataset.PAD_TOKEN)
+                                                            pad_token=DependencyDataset.PAD_TOKEN,
+                                                            bos_token=DepGraph.ROOT_TOKEN)
                                                            #output_hidden_states=True
-        #self.bert_tokenizer.add_tokens(['<root>'])
         self.BERT_PAD_IDX           = self.bert_tokenizer.pad_token_id
         self.word_dropout           = word_dropout
         self._dpout                 = 0
