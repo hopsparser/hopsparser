@@ -122,9 +122,9 @@ class FlauBertBaseLexer(nn.Module):
         self.bert,_                 = XLMModel.from_pretrained(bert_modelfile, output_loading_info=True)
         self.bert_tokenizer         = XLMTokenizer.from_pretrained(bert_modelfile,\
                                                             do_lowercase_and_remove_accent=False,\
+                                                            bos_token=DepGraph.ROOT_TOKEN,\
                                                             unk_token=DependencyDataset.UNK_WORD,\
-                                                            pad_token=DependencyDataset.PAD_TOKEN,
-                                                            bos_token=DepGraph.ROOT_TOKEN)
+                                                            pad_token=DependencyDataset.PAD_TOKEN)
                                                            #output_hidden_states=True
         self.BERT_PAD_IDX           = self.bert_tokenizer.pad_token_id
         self.word_dropout           = word_dropout
@@ -140,8 +140,10 @@ class FlauBertBaseLexer(nn.Module):
     
     def train_mode(self):
          self._dpout = self.word_dropout
+         self.bert.train()
     def eval_mode(self):
         self._dpout = 0
+        self.bert.eval()
         
     def forward(self,coupled_sequences):
         """
