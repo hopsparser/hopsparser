@@ -164,7 +164,7 @@ class FlauBertBaseLexer(nn.Module):
         bert_idxes  = [self.bert_tokenizer.encode(token.lower())[0] for token in tok_sequence]
         print('words',tok_sequence)
         print('word_idxes',word_idxes)
-        print('bert_idxes',word_idxes)
+        print('bert_idxes',bert_idxes)
         print()
         if self.word_dropout:
             bert_idxes = [word_sampler(widx,self.bert_tokenizer.unk_token_id,self._dpout) for widx in bert_idxes]
