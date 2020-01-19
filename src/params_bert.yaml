@@ -1,12 +1,12 @@
-word_embedding_size : [100]  
-tag_embedding_size : [100] 
+word_embedding_size : [200]  
+tag_embedding_size : [200] 
 encoder_dropout : [0.0]  
-mlp_input  : 400 
-mlp_arc_hidden : [500] 
+mlp_input  : 600 
+mlp_arc_hidden : [600] 
 mlp_lab_hidden   : 100 
 mlp_dropout   : [0.0]
 word_dropout : [0.0] 
-batch_size :  32
+batch_size :  8
 epochs   : 60
 lexer : 'flaubertbase'
 device : 'cuda:0'
