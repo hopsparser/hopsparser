@@ -8,6 +8,6 @@ mlp_dropout : [0.5]
 word_dropout : [0.5] 
 batch_size :  8
 epochs   : 25
-lexer : 'camembert'
-device : 'cuda:1'
-output_path : 'camembert_lexer/preds' 
+lexer : 'mbert'
+device : 'cuda:0'
+output_path : 'mbert_lexer/preds' 
