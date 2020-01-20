@@ -132,9 +132,7 @@ class BertBaseLexer(nn.Module):
         elif bert_modelfile.startswith('bert'):
             self.bert,_                 = BertModel.from_pretrained(bert_modelfile, output_loading_info=True, output_hidden_states=True)
             self.bert_tokenizer         = BertTokenizer.from_pretrained(bert_modelfile,\
-                                                                        do_lowercase_and_remove_accent=False,\
-                                                                        unk_token=DependencyDataset.UNK_WORD,\
-                                                                        pad_token=DependencyDataset.PAD_TOKEN)
+                                                                        do_lowercase_and_remove_accent=False)
                                                                         
         elif bert_modelfile.startswith('camembert'):
             self.bert,_                 = CamembertModel.from_pretrained(bert_modelfile, output_loading_info=True, output_hidden_states=True)
@@ -143,7 +141,7 @@ class BertBaseLexer(nn.Module):
                                                                        unk_token=DependencyDataset.UNK_WORD,\
                                                                        pad_token=DependencyDataset.PAD_TOKEN)
                                                                        
-                                                                       
+        
         self.BERT_PAD_IDX                     = self.bert_tokenizer.pad_token_id
         assert(self.bert_tokenizer.pad_token == DependencyDataset.PAD_TOKEN)
         assert(self.bert_tokenizer.unk_token == DependencyDataset.UNK_WORD)
@@ -197,6 +195,7 @@ class BertBaseLexer(nn.Module):
             bert_idxes  = [self.bert_tokenizer.convert_tokens_to_ids(self.bert_tokenizer.tokenize(token))[0] for token in tok_sequence]
         else:
             bert_idxes  = [self.bert_tokenizer.convert_tokens_to_ids(self.bert_tokenize.tokenize(token.lower()))[0] for token in tok_sequence]
+
         if self._dpout:
             word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],self._dpout) for widx in word_idxes]
 
