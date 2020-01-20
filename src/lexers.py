@@ -138,7 +138,7 @@ class BertBaseLexer(nn.Module):
         self.bert_tokenizer.add_special_tokens({'bos_token': DepGraph.ROOT_TOKEN})
         self.bert.resize_token_embeddings(len(self.bert_tokenizer))
         print(self.bert_tokenizer.additional_special_tokens)
-        print(self.bert_tokenizer.unk_token,self.bert_tokenizer.unk_id)
+        print(self.bert_tokenizer.unk_token,self.bert_tokenizer.unk_token_id)
         self.BERT_PAD_IDX           = self.bert_tokenizer.pad_token_id
         print('pad_id', self.bert_tokenizer.pad_token,self.bert_tokenizer.pad_token_id)
 
