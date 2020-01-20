@@ -130,7 +130,8 @@ class BertBaseLexer(nn.Module):
         else:
             self.bert,_                 = BertModel.from_pretrained(bert_modelfile, output_loading_info=True, output_hidden_states=True)
             self.bert_tokenizer         = BertTokenizer.from_pretrained(bert_modelfile,do_lowercase_and_remove_accent=False)
-            self.bert_tokenizer.add_special_tokens({'unk_token':DependencyDataset.UNK_WORD,'pad_token':DependencyDataset.PAD_TOKEN})        
+            self.bert_tokenizer.add_special_tokens({'unk_token':DependencyDataset.UNK_WORD})
+            self.bert_tokenizer.add_special_tokens({'pad_token':DependencyDataset.PAD_TOKEN})        
                     
         self.bert_tokenizer.add_special_tokens({'bos_token':DepGraph.ROOT_TOKEN})        
         self.bert.resize_token_embeddings(len(self.bert_tokenizer))
