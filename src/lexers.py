@@ -3,6 +3,7 @@ import fasttext
 from torch import nn
 from graph_parser2 import DependencyDataset,DepGraph
 from transformers import XLMModel, XLMTokenizer
+from transformers import BertModel, BertTokenizer
 from collections import Counter,defaultdict
 from random import random
 
@@ -119,11 +120,19 @@ class BertBaseLexer(nn.Module):
         self.stoi                   = {token:idx for idx,token in enumerate(self.itos)}
         
         self.embedding              = nn.Embedding(len(self.itos), default_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
-        self.bert,_                 = XLMModel.from_pretrained(bert_modelfile, output_loading_info=True, output_hidden_states=True)
-        self.bert_tokenizer         = XLMTokenizer.from_pretrained(bert_modelfile,\
-                                                            do_lowercase_and_remove_accent=False,\
-                                                            unk_token=DependencyDataset.UNK_WORD,\
-                                                            pad_token=DependencyDataset.PAD_TOKEN)
+
+        if bert_modelfile.startswith('xlm'):
+            self.bert,_                 = XLMModel.from_pretrained(bert_modelfile, output_loading_info=True, output_hidden_states=True)
+            self.bert_tokenizer         = XLMTokenizer.from_pretrained(bert_modelfile,\
+                                                                       do_lowercase_and_remove_accent=False,\
+                                                                       unk_token=DependencyDataset.UNK_WORD,\
+                                                                       pad_token=DependencyDataset.PAD_TOKEN)
+        else:
+            self.bert,_                 = BertModel.from_pretrained(bert_modelfile, output_loading_info=True, output_hidden_states=True)
+            self.bert_tokenizer         = BertTokenizer.from_pretrained(bert_modelfile,\
+                                                                       do_lowercase_and_remove_accent=False,\
+                                                                       unk_token=DependencyDataset.UNK_WORD,\
+                                                                       pad_token=DependencyDataset.PAD_TOKEN)
         self.BERT_PAD_IDX           = self.bert_tokenizer.pad_token_id
         self.bert_tokenizer.add_special_tokens({'bos_token': DepGraph.ROOT_TOKEN})
         self.bert.resize_token_embeddings(len(self.bert_tokenizer))

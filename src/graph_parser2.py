@@ -496,7 +496,7 @@ class GridSearch:
 
     @staticmethod
     def generate_run_name(base_filename,dict_setup):
-        return base_filename + '-' + '-'.join([ k+':'+str(v)   for (k,v) in dict_setup.items() if k != 'output_path'] )+ '.conll'
+        return base_filename + '-' + '-'.join([ k+':'+str(v)   for (k,v) in dict_setup.items() if k != 'output_path'] ) + '.conll'
             
 if __name__ == '__main__':
     
@@ -505,7 +505,6 @@ if __name__ == '__main__':
     traintrees  = DependencyDataset.read_conll('../spmrl/train.French.pred.conll')
     devtrees    = DependencyDataset.read_conll('../spmrl/dev.French.pred.conll')
     testtrees   = DependencyDataset.read_conll('../spmrl/test.French.pred.conll')
-
 
     for hp in search.generate_setup():
         print(hp) 
