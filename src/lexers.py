@@ -105,19 +105,19 @@ class FastTextLexer(nn.Module):
         """
         return self.embedding(word_sequences)
 
-class FlauBertBaseLexer(nn.Module):
+class BertBaseLexer(nn.Module):
     """
     This Lexer performs tokenization and embedding mapping with BERT
     style models. It concatenates a standard embedding with a Flaubert
     embedding (uses Flaubert / XLM).
     """
-    def __init__(self,default_itos,default_embedding_size,word_dropout,bert_modelfile="xlm_bert_fra_base_lower"): 
+    def __init__(self,default_itos,default_embedding_size,word_dropout,cased=False,bert_modelfile="xlm_bert_fra_base_lower"): 
 
-        super(FlauBertBaseLexer,self).__init__()
+        super(BertBaseLexer,self).__init__()
         self._embedding_size        = default_embedding_size
         self.itos                   = default_itos
         self.stoi                   = {token:idx for idx,token in enumerate(self.itos)}
-
+        
         self.embedding              = nn.Embedding(len(self.itos), default_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
         self.bert,_                 = XLMModel.from_pretrained(bert_modelfile, output_loading_info=True, output_hidden_states=True)
         self.bert_tokenizer         = XLMTokenizer.from_pretrained(bert_modelfile,\
@@ -129,7 +129,8 @@ class FlauBertBaseLexer(nn.Module):
         self.bert.resize_token_embeddings(len(self.bert_tokenizer))
         self.word_dropout           = word_dropout
         self._dpout                 = 0
-
+        self.cased                  = cased
+        
     @property
     def embedding_size(self):
         return self._embedding_size + 768
@@ -151,8 +152,8 @@ class FlauBertBaseLexer(nn.Module):
         Takes words sequences codes as integer sequences and returns
         the embeddings from the last (top) BERT layer.
         """
-        word_idxes,bert_idxes = coupled_sequences
-        #bertE                 = self.bert(bert_idxes)[0]
+        word_idxes,bert_idxes = coupled_sequences          
+        #bertE                = self.bert(bert_idxes)[0]  
         bert_layers           = self.bert(bert_idxes)[-1]
         bertE                 = torch.mean(torch.stack(bert_layers[4:8]),0) #4th to 8th layers are said to encode syntax
         wordE                 = self.embedding(word_idxes)
@@ -168,9 +169,11 @@ class FlauBertBaseLexer(nn.Module):
            a list of integers 
         """
         word_idxes  = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
-        bert_idxes  = [self.bert_tokenizer.encode(token.lower())[0] for token in tok_sequence]
+        if self.cased:
+            bert_idxes  = [self.bert_tokenizer.encode(token)[0] for token in tok_sequence]
+        else:
+            bert_idxes  = [self.bert_tokenizer.encode(token.lower())[0] for token in tok_sequence]
         if self._dpout:
-            #bert_idxes = [word_sampler(widx,self.bert_tokenizer.unk_token_id,self._dpout) for widx in bert_idxes]
             word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],self._dpout) for widx in word_idxes]
         #ensure that first index is <root> and not an <unk>
         word_idxes[0] = self.stoi[DependencyDataset.UNK_WORD]

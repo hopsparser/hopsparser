@@ -4,10 +4,10 @@ encoder_dropout : [0.0,0.3,0.5]
 mlp_input : [400,600] 
 mlp_arc_hidden : [400,500,600] 
 mlp_lab_hidden : 100 
-mlp_dropout      : [0.5]
-word_dropout    : [0.5] 
+mlp_dropout : [0.5]
+word_dropout : [0.5] 
 batch_size :  8
 epochs   : 25
-lexer : 'flaubertbase'
-device : 'cuda:2'
-output_path : 'flaubertbase_lexer/preds' 
+lexer : 'mbert'
+device : 'cuda:1'
+output_path : 'mbert_lexer/preds' 
