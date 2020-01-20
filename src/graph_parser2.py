@@ -464,7 +464,7 @@ class BiAffineParser(nn.Module):
                     _, mst_labels  = selected.max(dim=0)
                     mst_labels     = mst_labels.data.numpy()
                     edges          = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
-                    dg             =  DepGraph(edges[1:],wordlist=tokens[1:],pos_tags=pos_tags)
+                    dg             =  DepGraph(edges[1:],wordlist=tokens[1:],pos_tags=pos_tags[1:])
                     print(dg,file=ostream)
                     print(file=ostream)
 
