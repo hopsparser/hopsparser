@@ -135,14 +135,20 @@ class BertBaseLexer(nn.Module):
                                                                        do_lowercase_and_remove_accent=False,\
                                                                        unk_token=DependencyDataset.UNK_WORD,\
                                                                        pad_token=DependencyDataset.PAD_TOKEN)
-            #else:
-            #    self.bert,_                 = BertModel.from_pretrained(bert_modelfile, output_loading_info=True, output_hidden_states=True)
-            #    self.bert_tokenizer         = BertTokenizer.from_pretrained(bert_modelfile,do_lowercase_and_remove_accent=False,unk_token=DependencyDataset.UNK_WORD)
-            #    self.bert_tokenizer.add_special_tokens({'pad_token':DependencyDataset.PAD_TOKEN})        
-        self.bert_tokenizer.add_special_tokens({'bos_token':DepGraph.ROOT_TOKEN})        
+        else:
+            self.bert,_                 = BertModel.from_pretrained(bert_modelfile, output_loading_info=True, output_hidden_states=True)
+            self.bert_tokenizer         = BertTokenizer.from_pretrained(bert_modelfile,\
+                                                                        do_lowercase_and_remove_accent=False,\
+                                                                        unk_token=DependencyDataset.UNK_WORD,\
+                                                                        pad_token=DependencyDataset.PAD_TOKEN)
+                                                                        
+        self.BERT_PAD_IDX                     = self.bert_tokenizer.pad_token_id
+        assert(self.bert_tokenizer.pad_token == DependencyDataset.PAD_TOKEN)
+        assert(self.bert_tokenizer.unk_token == DependencyDataset.UNK_TOKEN)
+        
+        self.bert_tokenizer.add_tokens([DepGraph.ROOT_TOKEN])
         self.bert.resize_token_embeddings(len(self.bert_tokenizer))
-        self.BERT_PAD_IDX           = self.bert_tokenizer.pad_token_id
-
+        
         self.word_dropout           = word_dropout
         self._dpout                 = 0
         self.cased                  = cased
@@ -186,14 +192,15 @@ class BertBaseLexer(nn.Module):
         """
         word_idxes  = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
         if self.cased:
-            bert_idxes  = [self.bert_tokenizer.encode(token)[0] for token in tok_sequence]
+            bert_idxes  = [self.bert_tokenizer.convert_tokens_to_ids(self.bert_tokenizer.tokenize(token))[0] for token in tok_sequence]
         else:
-            bert_idxes  = [self.bert_tokenizer.encode(token.lower())[0] for token in tok_sequence]
+            bert_idxes  = [self.bert_tokenizer.convert_tokens_to_ids(self.bert_tokenize.tokenize(token.lower()))[0] for token in tok_sequence]
         if self._dpout:
             word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],self._dpout) for widx in word_idxes]
+
         #ensure that first index is <root> and not an <unk>
         word_idxes[0] = self.stoi[DependencyDataset.UNK_WORD]
-        bert_idxes[0] = self.bert_tokenizer.bos_token_id
+        bert_idxes[0] = self.bert_tokenizer.convert_tokens_to_ids(DepGraph.ROOT_TOKEN)
         return (word_idxes,bert_idxes)
 
 
