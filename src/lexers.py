@@ -133,8 +133,9 @@ class BertBaseLexer(nn.Module):
                                                                        do_lowercase_and_remove_accent=False,\
                                                                        unk_token=DependencyDataset.UNK_WORD,\
                                                                        pad_token=DependencyDataset.PAD_TOKEN)
+                                                                       
         self.BERT_PAD_IDX           = self.bert_tokenizer.pad_token_id
-        print('pad_id', self.bert_tokenizer.pad_token,self.BERT_PAD_IDX)
+        print('pad_id', self.bert_tokenizer.pad_token,self.convert_tokens_to_ids(self.pad_token),self.BERT_PAD_IDX)
         self.bert_tokenizer.add_special_tokens({'bos_token': DepGraph.ROOT_TOKEN})
         self.bert.resize_token_embeddings(len(self.bert_tokenizer))
         self.word_dropout           = word_dropout
