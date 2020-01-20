@@ -517,7 +517,7 @@ if __name__ == '__main__':
         elif hp['lexer'] == 'mbert':
             lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile="bert-base-multilingual-cased")
         elif hp['lexer'] == 'camembert':
-            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile="camembert.v0")
+            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile="camembert-base")
         else:
             print('no valid lexer specified. abort.')
             exit(1)
