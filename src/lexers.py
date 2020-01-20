@@ -143,7 +143,7 @@ class BertBaseLexer(nn.Module):
                                                                        
         
         self.BERT_PAD_IDX                     = self.bert_tokenizer.pad_token_id
-        assert(self.bert_tokenizer.pad_token == DependencyDataset.PAD_TOKEN)
+        #assert(self.bert_tokenizer.pad_token == DependencyDataset.PAD_TOKEN)
         assert(self.bert_tokenizer.unk_token == DependencyDataset.UNK_WORD)
         
         self.bert_tokenizer.add_tokens([DepGraph.ROOT_TOKEN])
