@@ -113,7 +113,7 @@ class BertBaseLexer(nn.Module):
     style models. It concatenates a standard embedding with a Flaubert
     embedding (uses Flaubert / XLM).
     """
-    def __init__(self,default_itos,default_embedding_size,word_dropout,cased=False,bert_modelfile="xlm_bert_fra_base_lower"): 
+    def __init__(self,default_itos,default_embedding_size,word_dropout,cased=False,bert_modelfile="xlm_bert_fra_base_lower",BERT_SIZE=768): 
 
         super(BertBaseLexer,self).__init__()
         self._embedding_size        = default_embedding_size
@@ -122,7 +122,7 @@ class BertBaseLexer(nn.Module):
         
         self.embedding              = nn.Embedding(len(self.itos), default_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
 
-        if bert_modelfile.startswith('xlm'):
+        if bert_modelfile.startswith('xlm') or bert_modelfile.startswith('flaubert'):
             self.bert,_                 = XLMModel.from_pretrained(bert_modelfile, output_loading_info=True, output_hidden_states=True)
             self.bert_tokenizer         = XLMTokenizer.from_pretrained(bert_modelfile,\
                                                                        do_lowercase_and_remove_accent=False,\
@@ -142,7 +142,8 @@ class BertBaseLexer(nn.Module):
                                                                        pad_token=DependencyDataset.PAD_TOKEN)
                                                                        
         
-        self.BERT_PAD_IDX                     = self.bert_tokenizer.pad_token_id
+        self.BERT_PAD_IDX = self.bert_tokenizer.pad_token_id
+        self.BERT_SIZE    = BERT_SIZE                
         #assert(self.bert_tokenizer.pad_token == DependencyDataset.PAD_TOKEN)
         #assert(self.bert_tokenizer.unk_token == DependencyDataset.UNK_WORD)
         
@@ -155,11 +156,11 @@ class BertBaseLexer(nn.Module):
         
     @property
     def embedding_size(self):
-        return self._embedding_size + 768
+        return self._embedding_size + self.BERT_SIZE
     
     @embedding_size.setter
     def embedding_size(self,value):
-        self._embedding_size = value + 768
+        self._embedding_size = value + self.BERT_SIZE
     
     def train_mode(self):
          self._dpout = self.word_dropout

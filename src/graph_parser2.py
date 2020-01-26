@@ -365,7 +365,7 @@ class BiAffineParser(nn.Module):
         loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
 
         optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr = 0.0001,eps=1e-09)
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = 0.99)
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = 0.9)
         
         for e in range(epochs):
             TRAIN_LOSS    =  0
@@ -513,7 +513,9 @@ if __name__ == '__main__':
         elif hp['lexer'] == 'fasttext':
             lexer = FastTextLexer(make_vocab(traintrees,0),hp['word_dropout'])
         elif hp['lexer'] == 'flaubertbase':
-            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'])
+            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=False)
+        elif hp['lexer'] == 'flaubertlarge':
+            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile='flaubert_large_cased_v0',BERT_SIZE=1024)
         elif hp['lexer'] == 'mbert':
             lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile="bert-base-multilingual-cased")
         elif hp['lexer'] == 'camembert':
