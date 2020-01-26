@@ -360,11 +360,11 @@ class BiAffineParser(nn.Module):
                 
         return gloss/overall_size,arc_acc, lab_acc,ntoks
 
-    def train_model(self,train_set,dev_set,epochs,batch_size,modelpath='test_model.pt'):
+    def train_model(self,train_set,dev_set,epochs,batch_size,lr,modelpath='test_model.pt'):
         
         loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
 
-        optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr = 0.0001,eps=1e-09)
+        optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr = lr,eps=1e-09)
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = 0.9)
         
         for e in range(epochs):
@@ -530,7 +530,7 @@ if __name__ == '__main__':
         testset            = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
 
         parser = BiAffineParser(lexer,len(itotag),hp['tag_embedding_size'],hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
-        parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],modelpath=hp['lexer']+"-model.pt")
-        predfile = open(GridSearch.generate_run_name(hp['output_path'],hp),'w')
+        parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=hp['lexer']+"-model.pt")
+        predfile = open(GridSearch.generate_run_name(hp['output_path'],hp),'w') 
         parser.predict_batch(testset,predfile,hp['batch_size'],greedy=False)
         predfile.close()
