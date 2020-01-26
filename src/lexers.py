@@ -195,7 +195,7 @@ class BertBaseLexer(nn.Module):
         if self.cased:
             bert_idxes  = [self.bert_tokenizer.convert_tokens_to_ids(self.bert_tokenizer.tokenize(token))[0] for token in tok_sequence]
         else:
-            bert_idxes  = [self.bert_tokenizer.convert_tokens_to_ids(self.bert_tokenize.tokenize(token.lower()))[0] for token in tok_sequence]
+            bert_idxes  = [self.bert_tokenizer.convert_tokens_to_ids(self.bert_tokenizer.tokenize(token.lower()))[0] for token in tok_sequence]
 
         if self._dpout:
             word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],self._dpout) for widx in word_idxes]
