@@ -15,7 +15,7 @@ def make_csv_summary(dirname,goldfile):
     csv_out = open(dirname+'_summary.csv','w')  
     for filename in os.listdir(dirname):
         print(filename)
-        KVlist = filename[:-6].split('-')[1:]
+        KVlist = filename[:-6].split('+')[1:]
         if not header:
             header = [KV.split(':')[0] for KV in KVlist]+['UAS','LAS']
             print(','.join(header),file=csv_out)

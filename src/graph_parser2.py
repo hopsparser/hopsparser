@@ -365,7 +365,7 @@ class BiAffineParser(nn.Module):
         loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
 
         optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr = lr,eps=1e-09)
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = 0.9)
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = 1.0)
         
         for e in range(epochs):
             TRAIN_LOSS    =  0
@@ -496,7 +496,7 @@ class GridSearch:
 
     @staticmethod
     def generate_run_name(base_filename,dict_setup):
-        return base_filename + '-' + '-'.join([ k+':'+str(v)   for (k,v) in dict_setup.items() if k != 'output_path'] ) + '.conll'
+        return base_filename + '+' + '+'.join([ k+':'+str(v)   for (k,v) in dict_setup.items() if k != 'output_path'] ) + '.conll'
             
 if __name__ == '__main__':
     
