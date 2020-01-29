@@ -9,7 +9,7 @@ word_dropout   : [0.5]
 batch_size  :  8
 epochs      : 40
 lr          : [0.0003,0.0002,0.0001,0.00008]
-lexer       : 'flaubertbase'
+lexer       : 'camembert'
 device      : 'cuda:3'
-output_path : 'flaubertbase_lexer/preds' 
+output_path : 'camembert_lexer/preds' 
  
