@@ -8,8 +8,8 @@ mlp_dropout    : [0.5]
 word_dropout   : [0.5] 
 batch_size  :  8
 epochs      : 40
-lr          : [0.0003,0.0002,0.0001,0.00008]
-lexer       : 'mbert'
-device      : 'cuda:3'
-output_path : 'mbert_lexer/preds' 
+lr          : [0.00001]
+lexer       : 'flaubertlarge' 
+device      : 'cuda:2'
+output_path : 'flaubertlarge_lexer/preds' 
  
