@@ -2,7 +2,7 @@ word_embedding_size : [250]
 tag_embedding_size  : [250] 
 encoder_dropout     : [0.1]  
 mlp_input      : [700] 
-mlp_arc_hidden : [650] 
+mlp_arc_hidden : [750] 
 mlp_lab_hidden : 100 
 mlp_dropout    : [0.1]
 word_dropout   : [0.1] 
