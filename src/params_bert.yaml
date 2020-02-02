@@ -8,7 +8,7 @@ mlp_dropout    : [0.3]
 word_dropout   : [0.3] 
 batch_size     :  4
 epochs         : 40
-lr             : [0.0005]
+lr             : [0.005]
 lexer          : 'flaubertlarge' 
 device         : 'cuda:1'
 output_path    : 'flaubertlarge_lexer/preds' 
