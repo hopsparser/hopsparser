@@ -513,9 +513,9 @@ if __name__ == '__main__':
         elif hp['lexer'] == 'fasttext':
             lexer = FastTextLexer(make_vocab(traintrees,0),hp['word_dropout'])
         elif hp['lexer'] == 'flaubertbase':
-            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],bert_modelfile='flaubert_base_uncased',cased=False)
+            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],bert_modelfile='flaubert-base-uncased',cased=False)
         elif hp['lexer'] == 'flaubertlarge':
-            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile='flaubert_large_cased',BERT_SIZE=1024)
+            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile='flaubert-large-cased',BERT_SIZE=1024)
         elif hp['lexer'] == 'mbert':
             lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile="bert-base-multilingual-cased")
         elif hp['lexer'] == 'camembert':
