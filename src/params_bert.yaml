@@ -1,7 +1,7 @@
 word_embedding_size : [250]  
 tag_embedding_size  : [250] 
 encoder_dropout: [0.5]  
-mlp_input      : [800] 
+mlp_input      : [700] 
 mlp_arc_hidden : [600] 
 mlp_lab_hidden : 100 
 mlp_dropout    : [0.5]
@@ -10,6 +10,6 @@ batch_size     : 4
 epochs         : 20
 lr             : [0.0001]
 lexer          : 'flaubertlarge' 
-device         : 'cuda:3'
+device         : 'cuda:1'
 output_path    : 'flaubertlarge_lexer/preds' 
  
