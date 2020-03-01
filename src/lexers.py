@@ -122,9 +122,6 @@ class BertBaseLexer(nn.Module):
         self.stoi                   = {token:idx for idx,token in enumerate(self.itos)}
         
         self.embedding              = nn.Embedding(len(self.itos), default_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
-
-        if bert_modelfile
-
         
         if bert_modelfile.startswith('flaubert'):
             self.bert,_                 = FlaubertModel.from_pretrained(bert_modelfile, output_loading_info=True, output_hidden_states=True)
