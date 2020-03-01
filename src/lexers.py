@@ -4,6 +4,7 @@ from torch import nn
 from graph_parser2 import DependencyDataset,DepGraph
 from transformers import XLMModel, XLMTokenizer
 from transformers import BertModel, BertTokenizer
+from transformers import FlaubertModel, FlaubertTokenizer
 from transformers import CamembertModel,CamembertTokenizer
 from collections import Counter,defaultdict
 from random import random
@@ -113,7 +114,7 @@ class BertBaseLexer(nn.Module):
     style models. It concatenates a standard embedding with a Flaubert
     embedding (uses Flaubert / XLM).
     """
-    def __init__(self,default_itos,default_embedding_size,word_dropout,cased=False,bert_modelfile="xlm_bert_fra_base_lower",BERT_SIZE=768): 
+    def __init__(self,default_itos,default_embedding_size,word_dropout,cased=False,bert_modelfile="flaubert-base-uncased",BERT_SIZE=768): 
 
         super(BertBaseLexer,self).__init__()
         self._embedding_size        = default_embedding_size
@@ -122,9 +123,12 @@ class BertBaseLexer(nn.Module):
         
         self.embedding              = nn.Embedding(len(self.itos), default_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
 
-        if bert_modelfile.startswith('xlm') or bert_modelfile.startswith('flaubert'):
-            self.bert,_                 = XLMModel.from_pretrained(bert_modelfile, output_loading_info=True, output_hidden_states=True)
-            self.bert_tokenizer         = XLMTokenizer.from_pretrained(bert_modelfile,\
+        if bert_modelfile
+
+        
+        if bert_modelfile.startswith('flaubert'):
+            self.bert,_                 = FlaubertModel.from_pretrained(bert_modelfile, output_loading_info=True, output_hidden_states=True)
+            self.bert_tokenizer         = FlaubertTokenizer.from_pretrained(bert_modelfile,\
                                                                        do_lowercase_and_remove_accent=False,\
                                                                        unk_token=DependencyDataset.UNK_WORD,\
                                                                        pad_token=DependencyDataset.PAD_TOKEN)

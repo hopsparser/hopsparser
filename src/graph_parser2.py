@@ -453,7 +453,7 @@ class BiAffineParser(nn.Module):
 
                 for tokens,pos_tags,length,arc_scores,lab_scores in zip(words,cats,SLENGTHS,arc_scores_batch,lab_scores_batch):
 
-                    # Predict heads
+                    # Predict heads 
                     probs          = arc_scores.numpy().T
                     mst_heads      = np.argmax(probs,axis=1) if greedy else chuliu_edmonds(probs)
                     
@@ -513,9 +513,9 @@ if __name__ == '__main__':
         elif hp['lexer'] == 'fasttext':
             lexer = FastTextLexer(make_vocab(traintrees,0),hp['word_dropout'])
         elif hp['lexer'] == 'flaubertbase':
-            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=False)
+            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],bert_modelfile='flaubert_base_uncased',cased=False)
         elif hp['lexer'] == 'flaubertlarge':
-            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile='flaubert_large_cased_v0',BERT_SIZE=1024)
+            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile='flaubert_large_cased',BERT_SIZE=1024)
         elif hp['lexer'] == 'mbert':
             lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile="bert-base-multilingual-cased")
         elif hp['lexer'] == 'camembert':
