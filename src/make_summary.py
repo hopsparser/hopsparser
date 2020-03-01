@@ -14,6 +14,8 @@ def make_csv_summary(dirname,goldfile):
     header  = ''
     csv_out = open(dirname+'_summary.csv','w')  
     for filename in os.listdir(dirname):
+        if filename.endswith('conll'):
+            continue
         print(filename)
         KVlist = filename[:-6].split('+')[1:]
         if not header:
