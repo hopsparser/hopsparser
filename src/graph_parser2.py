@@ -537,4 +537,4 @@ if __name__ == '__main__':
         parser.predict_batch(testset,predfileT,hp['batch_size'],greedy=False)
         #predfileD.close()
         predfileT.close()
-        parser=None
+        parser = None
