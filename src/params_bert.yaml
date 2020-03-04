@@ -12,4 +12,5 @@ lr             : [0.00005]
 lexer          : 'flaubertlarge' 
 device         : 'cuda:3'
 output_path    : 'flaubertlarge_lexer/preds' 
- 
+
+78882
