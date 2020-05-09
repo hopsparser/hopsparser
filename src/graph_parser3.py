@@ -13,7 +13,6 @@ from mst import chuliu_edmonds
 from lexers  import *
 from deptree import *
 
-
 class DependencyDataset:
     """
     A representation of the DepBank for efficient processing.
@@ -542,9 +541,9 @@ if __name__ == '__main__':
             print('no valid lexer specified. abort.')
             exit(1)
         
-        trainset           = DependencyDataset(traintrees[:1],lexer)
+        trainset           = DependencyDataset(traintrees[:2],lexer)
         itolab,itotag      = trainset.itolab,trainset.itotag
-        devset             = DependencyDataset(traintrees[:1], lexer)
+        devset             = DependencyDataset(traintrees[:2], lexer)
         #devset             = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
         testset            = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
 
