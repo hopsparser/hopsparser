@@ -404,7 +404,7 @@ class BiAffineParser(nn.Module):
                 
                 #FORWARD
                 print(words,len(words[0]))
-                print(labels.shape,tags.shape)
+                print(arc_scores.shape,tags.shape)
 
                 tag_scores, arc_scores, lab_scores = self.forward(deps)
                 tagger_loss            = loss_fnc(tag_scores,tags)
