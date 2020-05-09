@@ -261,7 +261,7 @@ class BiAffineParser(nn.Module):
         
     def save_params(self,path):
 
-        torch.save(self.model.state_dict(), path)
+        torch.save(self.state_dict(), path)
         
     def load_params(path):
 
