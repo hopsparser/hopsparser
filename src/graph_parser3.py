@@ -453,7 +453,7 @@ class BiAffineParser(nn.Module):
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = tagger_scores_batch.cpu(),arc_scores_batch.cpu(), lab_scores_batch.cpu()
 
                 for tokens,length,tagger_scores,arc_scores,lab_scores in zip(words,SLENGTHS,tagger_scores_batch,arc_scores_batch,lab_scores_batch):
-
+                    print(tokens)
 
                     # Predict heads 
                     probs          = arc_scores.numpy().T
@@ -473,6 +473,7 @@ class BiAffineParser(nn.Module):
                     dg             =  DepGraph(edges[1:],wordlist=tokens[1:],pos_tags=pos_tags[1:])
                     print(dg,file=ostream)
                     print(file=ostream)
+                    print(dg)
                     
 class GridSearch:
     """ This generates all the possible experiments specified by a yaml config file """
@@ -588,8 +589,6 @@ if __name__ == '__main__':
 
         itolab = loadlist(hp['lexer']+"-labcodes")
         itotag = loadlist(hp['lexer']+"-tagcodes")
-        print('itolab',itolab)
-        print('itotag',itotag)
         testset = DependencyDataset(testtrees[:2], lexer, use_labels=itolab, use_tags=itotag)
         parser = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.load_params(hp['lexer']+"-model.pt")
