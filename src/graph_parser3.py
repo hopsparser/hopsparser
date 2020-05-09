@@ -2,6 +2,7 @@ import sys
 import torch
 import numpy as np
 import yaml
+import argparse
 
 from torch import nn
 from torch import optim
@@ -12,6 +13,7 @@ from random import sample,shuffle,random
 from mst import chuliu_edmonds
 from lexers  import *
 from deptree import *
+
 
 class DependencyDataset:
     """
@@ -259,30 +261,15 @@ class BiAffineParser(nn.Module):
         self.mlp_input,self.mlp_arc_hidden,self.mlp_lab_hidden     = mlp_input,mlp_arc_hidden,mlp_lab_hidden,
         self.num_labels                                            = num_labels 
         
-    def save_model(self,path):
+    def save_params(self,path):
 
-        torch.save({
-            'tagset_size'       :self.tagset_size,
-            'mlp_input'         :self.mlp_input,
-            'mlp_arc_hidden'    :self.mlp_arc_hidden,
-            'mlp_lab_hidden'    :self.mlp_lab_hidden,
-            'num_labels'        :self.num_labels,
-            'model_state_dict'  :self.state_dict(),
-            }, path)
+        torch.save(model.state_dict(), path)
         
-    @staticmethod
-    def load_model(path,device='cuda:1'):
-        restored = torch.load(path)
-        model = BiAffineParser( restored['tagset_size'],
-                                0,
-                                restored['mlp_input'],
-                                restored['mlp_arc_hidden'],
-                                restored['mlp_lab_hidden'],
-                                0,
-                                restored['num_labels'],
-                                device)
-        model.load_state_dict(restored['model_state_dict'])
-        
+    def load_params(path):
+
+        self.load_state_dict(torch.load(path))
+        self.eval()
+
     def forward(self,xwords):
         
         """Compute the score matrices for the arcs and labels."""
@@ -371,6 +358,7 @@ class BiAffineParser(nn.Module):
                 
         return gloss/overall_size,arc_acc, lab_acc,ntoks
 
+
     def train_model(self,train_set,dev_set,epochs,batch_size,lr,modelpath='test_model.pt'):
         
         loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
@@ -435,11 +423,11 @@ class BiAffineParser(nn.Module):
                              'Base LR',scheduler.get_lr()[0],flush=True)
 
             if DEV_ARC_ACC > BEST_ARC_ACC:
-                torch.save(self.state_dict(), modelpath)
+                self.save_params(self.state_dict(), modelpath)
                 BEST_ARC_ACC = DEV_ARC_ACC
                 
         self.load_state_dict(torch.load(modelpath))
-        self.save_model(modelpath)
+        self.save_params(modelpath)
 
         
     def predict_batch(self,test_set,ostream,batch_size,greedy=False):
@@ -487,9 +475,6 @@ class BiAffineParser(nn.Module):
                     dg             =  DepGraph(edges[1:],wordlist=tokens[1:],pos_tags=pos_tags[1:])
                     print(dg,file=ostream)
                     print(file=ostream)
-
-                    print(dg)
-
                     
 class GridSearch:
     """ This generates all the possible experiments specified by a yaml config file """
@@ -521,44 +506,93 @@ class GridSearch:
         return base_filename + '+' + '+'.join([ k+':'+str(v)   for (k,v) in dict_setup.items() if k != 'output_path'] ) + '.conll'
             
 if __name__ == '__main__':
-    
-    search = GridSearch(yaml.load(open('params_bert.yaml').read()))
-    
-    traintrees  = DependencyDataset.read_conll('../spmrl/train.French.pred.conll')
-    devtrees    = DependencyDataset.read_conll('../spmrl/dev.French.pred.conll')
-    testtrees   = DependencyDataset.read_conll('../spmrl/test.French.pred.conll')
 
-    for hp in search.generate_setup():
-        print(hp) 
+    parser = argparse.ArgumentParser(description='Graph based Attention based dependency parser/tagger ')
+    parser.add_argument('config_file', metavar='CONFIG_FILE', type=str, help='the configuration file')
+    parser.add_argument('--train_file', metavar='TRAIN_FILE', type=str, help='the conll training file')
+    parser.add_argument('--dev_file', metavar='DEV_FILE', type=str, help='the conll development file')
+    parser.add_argument('--pred_file', metavar='PRED_FILE', type=str, help='the conll file to parse')
+
+    args = parser.parse_args()
+    hp = yaml.load(open(args.config_file).read())
+
+
+    if args.train_file and args_dev_file:
+
+        def savelist(strlist, filename):
+            ostream = open(filename,'w')
+            ostream.write('\n'.join(strlist))
+            ostream.close()
+
+        def loadlist(filename):
+            istream = open(filename)
+            strlist = [line for line in istream]
+            istream.close()
+            return strlist
+
+
+        #TRAIN MODE
+        traintrees  = DependencyDataset.read_conll(args.train_file)
+        devtrees    = DependencyDataset.read_conll(args.dev_file)
+
+        ordered_vocab = make_vocab(traintrees,0)
+        savelist(ordered_vocab,hp['lexer']+"-vocab")
+
         if hp['lexer'] == 'default':
-            lexer = DefaultLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'])
+            lexer = DefaultLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'])
         elif hp['lexer'] == 'fasttext':
-            lexer = FastTextLexer(make_vocab(traintrees,0),hp['word_dropout'])
+            lexer = FastTextLexer(ordered_vocab,hp['word_dropout'])
         elif hp['lexer'] == 'flaubertbase':
-            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],bert_modelfile='flaubert-base-uncased',cased=False)
+            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],bert_modelfile='flaubert-base-uncased',cased=False)
         elif hp['lexer'] == 'flaubertlarge':
-            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile='flaubert-large-cased',BERT_SIZE=1024)
+            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile='flaubert-large-cased',BERT_SIZE=1024)
         elif hp['lexer'] == 'mbert':
-            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile="bert-base-multilingual-cased")
+            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile="bert-base-multilingual-cased")
         elif hp['lexer'] == 'camembert':
-            lexer = BertBaseLexer(make_vocab(traintrees,0),hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile="camembert-base")
+            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile="camembert-base")
         else:
             print('no valid lexer specified. abort.')
             exit(1)
         
         trainset           = DependencyDataset(traintrees[:2],lexer)
         itolab,itotag      = trainset.itolab,trainset.itotag
+        savelist(itolab,hp['lexer']+"-labcodes")
+        savelist(itotag,hp['lexer']+"-tagcodes")
         devset             = DependencyDataset(traintrees[:2], lexer)
-        #devset             = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
-        #testset            = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
-        testset = DependencyDataset(traintrees[:2], lexer, use_labels=itolab, use_tags=itotag)
+        #devset            = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
+        #testset           = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
+
         parser             = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=hp['lexer']+"-model.pt")
-        predfileD = open(GridSearch.generate_run_name(hp['output_path']+'.dev',hp),'w')
-        parser.predict_batch(devset,predfileD,hp['batch_size'],greedy=False)
-        predfileT = open(GridSearch.generate_run_name(hp['output_path']+'.test',hp),'w')
-        parser.predict_batch(testset,predfileT,hp['batch_size'],greedy=False)
+        print('training done.',file=sys.stderr)
 
-        #predfileD.close()
-        #predfileT.close()
-        #parser = None
+    if args.pred_file:
+
+        #TEST MODE
+        testtrees     = DependencyDataset.read_conll(args.pred_file)
+        ordered_vocab = loadlist(hp['lexer']+"-vocab")
+
+        if hp['lexer'] == 'default':
+            lexer = DefaultLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'])
+        elif hp['lexer'] == 'fasttext':
+            lexer = FastTextLexer(ordered_vocab, hp['word_dropout'])
+        elif hp['lexer'] == 'flaubertbase':
+            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'],bert_modelfile='flaubert-base-uncased', cased=False)
+        elif hp['lexer'] == 'flaubertlarge':
+            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile='flaubert-large-cased', BERT_SIZE=1024)
+        elif hp['lexer'] == 'mbert':
+            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile="bert-base-multilingual-cased")
+        elif hp['lexer'] == 'camembert':
+            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile="camembert-base")
+        else:
+            print('no valid lexer specified. abort.')
+            exit(1)
+
+        itolab = loadlist(hp['lexer']+"-labcodes")
+        itotag = loadlist(hp['lexer']+"-tagcodes")
+        testset = DependencyDataset(testtrees[:2], lexer, use_labels=itolab, use_tags=itotag)
+        parser = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
+        parser.load_params(hp['lexer']+"-model.pt")
+        ostream = open(args.predfile+'-parsed','w')
+        parser.predict_batch(testset,ostream,hp['batch_size'],greedy=False)
+        ostream.close()

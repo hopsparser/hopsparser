@@ -6,7 +6,7 @@ mlp_lab_hidden : 100
 mlp_dropout    : [0]
 word_dropout   : [0]
 batch_size     : 2
-epochs         : 200
+epochs         : 100
 #lr             : [0.000025]
 lr             : [0.001]
 lexer          : 'default'
