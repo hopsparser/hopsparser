@@ -19,7 +19,12 @@ You can parse a file FILE in conll format (with empty annotations, just words) w
 python graph_parser.py  --pred_file FILE   MODEL/params.yaml
 ```
 
-where `params.yaml` is the model hyperparameters file.
+where `params.yaml` is the model hyperparameters file. 
+An example model is stored in the `default` directory. The file `default/params.yaml` is an example of such parameter file.
+
+Training task
+------------
+  
 
 
 
