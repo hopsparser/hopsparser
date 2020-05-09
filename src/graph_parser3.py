@@ -235,8 +235,6 @@ class BiAffineParser(nn.Module):
                  num_labels,
                  device='cuda:1'):
 
-
-        print('#tags',tagset_size,"#labels",num_labels)
         super(BiAffineParser, self).__init__()
         self.device        = torch.device(device) if type(device) == str else device
         self.lexer         = lexer.to(device)
@@ -263,7 +261,7 @@ class BiAffineParser(nn.Module):
         
     def save_params(self,path):
 
-        torch.save(model.state_dict(), path)
+        torch.save(self.model.state_dict(), path)
         
     def load_params(path):
 
