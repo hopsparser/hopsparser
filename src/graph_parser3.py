@@ -308,7 +308,7 @@ class BiAffineParser(nn.Module):
         scores_arc = self.arc_biaffine(arc_h, arc_d)
         scores_lab = self.lab_biaffine(lab_h, lab_d)
 
-        print('labs:',scores_lab.shape)
+        print('arc:',scores_arc.shape)
 
         return scores_tag, scores_arc, scores_lab
 
