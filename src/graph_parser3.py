@@ -415,7 +415,7 @@ class BiAffineParser(nn.Module):
 
                 # TAGGER_LOSS
                 print('tagger',tagger_scores)
-                tagger_scores = tagger_scores.transpose(-1, -2)
+                #tagger_scores = tagger_scores.transpose(-1, -2)
                 print('tagger.T',tagger_scores)
                 tagger_scores = tagger_scores.contiguous().view(-1, tagger_scores.size(-1))
 
