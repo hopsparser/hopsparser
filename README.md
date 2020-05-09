@@ -44,7 +44,7 @@ Training can be performed with the following steps:
 ```
 python graph_parser.py  --train_file TRAINFILE --dev_file DEVFILE  params.yaml
 ```
-after some time (minutes,hours,days...) you are done and the model is ready to run (go to the parsing section)
+after some time (minutes,hours,days...) you are done and the model is ready to run (go back to the parsing section)
 
   
 
