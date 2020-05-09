@@ -466,7 +466,7 @@ class BiAffineParser(nn.Module):
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = self.forward(deps)
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = tagger_scores_batch.cpu(),arc_scores_batch.cpu(), lab_scores_batch.cpu()
 
-                for tokens,length,tagger_scores,arc_scores,lab_scores in zip(words,cats,SLENGTHS,tagger_scores,arc_scores_batch,lab_scores_batch):
+                for tokens,length,tagger_scores,arc_scores,lab_scores in zip(words,cats,SLENGTHS,tagger_scores_batch,arc_scores_batch,lab_scores_batch):
 
 
                     # Predict heads 
