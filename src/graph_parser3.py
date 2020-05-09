@@ -439,7 +439,6 @@ class BiAffineParser(nn.Module):
             for batch in test_batches:
                 self.eval()
                 words,cats,deps,tags,heads,labels = batch
-                print(words)
                 if type(deps)==tuple:
                     depsA,depsB = deps
                     deps = (depsA.to(self.device),depsB.to(self.device))
@@ -454,8 +453,6 @@ class BiAffineParser(nn.Module):
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = tagger_scores_batch.cpu(),arc_scores_batch.cpu(), lab_scores_batch.cpu()
 
                 for tokens,length,tagger_scores,arc_scores,lab_scores in zip(words,SLENGTHS,tagger_scores_batch,arc_scores_batch,lab_scores_batch):
-                    print(tokens)
-
                     # Predict heads 
                     probs          = arc_scores.numpy().T
                     mst_heads      = np.argmax(probs,axis=1) if greedy else chuliu_edmonds(probs)
@@ -474,8 +471,7 @@ class BiAffineParser(nn.Module):
                     dg             =  DepGraph(edges[1:],wordlist=tokens[1:],pos_tags=pos_tags[1:])
                     print(dg,file=ostream)
                     print(file=ostream)
-                    print(dg)
-                    
+
 class GridSearch:
     """ This generates all the possible experiments specified by a yaml config file """
     def __init__(self,yamlparams):
@@ -507,6 +503,8 @@ class GridSearch:
             
 if __name__ == '__main__':
 
+    import os.path
+
     parser = argparse.ArgumentParser(description='Graph based Attention based dependency parser/tagger ')
     parser.add_argument('config_file', metavar='CONFIG_FILE', type=str, help='the configuration file')
     parser.add_argument('--train_file', metavar='TRAIN_FILE', type=str, help='the conll training file')
@@ -516,6 +514,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     hp = yaml.load(open(args.config_file).read())
 
+    CONFIG_FILE = os.path.abspath(args.config_file)
+    MODEL_DIR   = os.path.dirname(CONFIG_FILE)
 
     if args.train_file and args.dev_file:
 
@@ -556,21 +556,21 @@ if __name__ == '__main__':
         
         trainset           = DependencyDataset(traintrees[:2],lexer)
         itolab,itotag      = trainset.itolab,trainset.itotag
-        savelist(itolab,hp['lexer']+"-labcodes")
-        savelist(itotag,hp['lexer']+"-tagcodes")
+        savelist(itolab, os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
+        savelist(itotag, os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))
         devset             = DependencyDataset(traintrees[:2], lexer)
         #devset            = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
         #testset           = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
 
         parser             = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
-        parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=hp['lexer']+"-model.pt")
+        parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=os.path.join(MODEL_DIR,hp['lexer']+"-model.pt"))
         print('training done.',file=sys.stderr)
 
     if args.pred_file:
 
         #TEST MODE
         testtrees     = DependencyDataset.read_conll(args.pred_file)
-        ordered_vocab = loadlist(hp['lexer']+"-vocab")
+        ordered_vocab = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-vocab"))
 
         if hp['lexer'] == 'default':
             lexer = DefaultLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'])
@@ -588,11 +588,12 @@ if __name__ == '__main__':
             print('no valid lexer specified. abort.')
             exit(1)
 
-        itolab = loadlist(hp['lexer']+"-labcodes")
-        itotag = loadlist(hp['lexer']+"-tagcodes")
+        itolab = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
+        itotag = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))
         testset = DependencyDataset(testtrees[:2], lexer, use_labels=itolab, use_tags=itotag)
         parser = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
-        parser.load_params(hp['lexer']+"-model.pt")
+        parser.load_params(os.path.join(MODEL_DIR,hp['lexer']+"-model.pt"))
         ostream = open(args.pred_file+'.parsed','w')
         parser.predict_batch(testset,ostream,hp['batch_size'],greedy=False)
         ostream.close()
+
