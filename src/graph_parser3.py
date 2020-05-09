@@ -52,13 +52,14 @@ class DependencyDataset:
 
         self.deps, self.heads,self.labels,self.tags = [ ],[ ],[ ],[ ]
         self.words,self.cats = [ ],[ ]
-        
+
+        print('tagtoi',self.tagtoi)
         for tree in self.treelist:
             depword_idxes = self.lexer.tokenize(tree.words)
             deptag_idxes  = [self.tagtoi[tag] for tag in tree.pos_tags]
             if self.lexer._dpout > 0:
                 deptag_idxes  = [word_sampler(tag_idx,self.tagtoi[DependencyDataset.UNK_WORD],self.lexer._dpout) for tag_idx in deptag_idxes]
-                
+
             self.words.append(tree.words)
             self.cats.append(tree.pos_tags)
             self.tags.append(deptag_idxes)
@@ -547,7 +548,7 @@ if __name__ == '__main__':
         #devset             = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
         testset            = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
 
-        parser    = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
+        parser             = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=hp['lexer']+"-model.pt")
         #predfileD = open(GridSearch.generate_run_name(hp['output_path']+'.dev',hp),'w') 
         #parser.predict_batch(devset,predfileD,hp['batch_size'],greedy=False)
