@@ -38,7 +38,7 @@ Training can be performed with the following steps:
   4. Edit the `params.yaml` according to your needs
   5. Run the command:
 ```
-python graph_parser.py  --train_file TRAINFILE --dev_file DEVFILE --pred_file params.yaml
+python graph_parser.py  --train_file TRAINFILE --dev_file DEVFILE  params.yaml
 ```
 after some time (minutes,hours,days...) you are done and the model is ready to run (go to the parsing section)
 
