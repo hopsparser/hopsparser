@@ -65,6 +65,7 @@ class DependencyDataset:
             self.tags.append(deptag_idxes)
             self.deps.append(depword_idxes)
             self.heads.append(self.oracle_governors(tree))
+            print(self.labtoi)
             self.labels.append([self.labtoi[lab] for lab in self.oracle_labels(tree)])
     
     def save_vocab(self,filename):
