@@ -228,7 +228,6 @@ class BiAffineParser(nn.Module):
     def __init__(self,
                  lexer,
                  tagset_size,
-                 tag_embedding_size,
                  encoder_dropout, #lstm dropout
                  mlp_input,
                  mlp_arc_hidden,
@@ -551,7 +550,7 @@ if __name__ == '__main__':
         #devset             = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
         testset            = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
 
-        parser    = BiAffineParser(lexer,len(itotag),hp['tag_embedding_size'],hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
+        parser    = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=hp['lexer']+"-model.pt")
         #predfileD = open(GridSearch.generate_run_name(hp['output_path']+'.dev',hp),'w') 
         #parser.predict_batch(devset,predfileD,hp['batch_size'],greedy=False)
