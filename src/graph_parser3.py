@@ -464,14 +464,20 @@ class BiAffineParser(nn.Module):
 
                 #batch prediction
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = self.forward(deps)
-                arc_scores_batch, lab_scores_batch = arc_scores_batch.cpu(), lab_scores_batch.cpu()  
+                tagger_scores_batch, arc_scores_batch, lab_scores_batch = tagger_scores_batch.cpu(),arc_scores_batch.cpu(), lab_scores_batch.cpu()
 
-                for tokens,pos_tags,length,arc_scores,lab_scores in zip(words,cats,SLENGTHS,arc_scores_batch,lab_scores_batch):
+                for tokens,length,tagger_scores,arc_scores,lab_scores in zip(words,cats,SLENGTHS,tagger_scores,arc_scores_batch,lab_scores_batch):
+
 
                     # Predict heads 
                     probs          = arc_scores.numpy().T
                     mst_heads      = np.argmax(probs,axis=1) if greedy else chuliu_edmonds(probs)
-                    
+
+                    # Predict tags
+                    tag_probs      = tagger_scores.numpy().T
+                    tag_idxes      = np.argmax(tag_probs,axis=1)
+                    pos_tags       = [ test_set.itotag[idx] for idx in tag_idxes ]
+                    print(tokens,pos_tags)
                     # Predict labels
                     select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
                     select         = Variable(select)
