@@ -65,7 +65,6 @@ class DependencyDataset:
             self.tags.append(deptag_idxes)
             self.deps.append(depword_idxes)
             self.heads.append(self.oracle_governors(tree))
-            print(self.labtoi)
             self.labels.append([self.labtoi[lab] for lab in self.oracle_labels(tree)])
     
     def save_vocab(self,filename):
@@ -553,8 +552,8 @@ if __name__ == '__main__':
         parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=hp['lexer']+"-model.pt")
         #predfileD = open(GridSearch.generate_run_name(hp['output_path']+'.dev',hp),'w') 
         #parser.predict_batch(devset,predfileD,hp['batch_size'],greedy=False)
-        predfileT = open(GridSearch.generate_run_name(hp['output_path']+'.test',hp),'w') 
-        parser.predict_batch(testset,predfileT,hp['batch_size'],greedy=False)
+        #predfileT = open(GridSearch.generate_run_name(hp['output_path']+'.test',hp),'w')
+        #parser.predict_batch(testset,predfileT,hp['batch_size'],greedy=False)
         #predfileD.close()
-        predfileT.close()
-        parser = None
+        #predfileT.close()
+        #parser = None
