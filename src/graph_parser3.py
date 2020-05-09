@@ -293,7 +293,7 @@ class BiAffineParser(nn.Module):
         #check in the future if adding a mask on padded words is useful
         
         lex_emb    = self.lexer(xwords)
-        cemb       = self.rnn(lex_emb)
+        cemb,_     = self.rnn(lex_emb)
 
         scores_tag = self.pos_tagger(cemb)
 
