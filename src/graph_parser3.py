@@ -547,10 +547,12 @@ if __name__ == '__main__':
 
         parser             = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=hp['lexer']+"-model.pt")
-        #predfileD = open(GridSearch.generate_run_name(hp['output_path']+'.dev',hp),'w') 
-        #parser.predict_batch(devset,predfileD,hp['batch_size'],greedy=False)
-        #predfileT = open(GridSearch.generate_run_name(hp['output_path']+'.test',hp),'w')
+        predfileD = open(GridSearch.generate_run_name(hp['output_path']+'.dev',hp),'w')
+        parser.predict_batch(devset,predfileD,hp['batch_size'],greedy=False)
+        predfileT = open(GridSearch.generate_run_name(hp['output_path']+'.test',hp),'w')
         #parser.predict_batch(testset,predfileT,hp['batch_size'],greedy=False)
+        parser.predict_batch(trainset[:2],predfileT,hp['batch_size'],greedy=False)
+
         #predfileD.close()
         #predfileT.close()
         #parser = None
