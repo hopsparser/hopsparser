@@ -236,7 +236,9 @@ class BiAffineParser(nn.Module):
                  mlp_dropout,
                  num_labels,
                  device='cuda:1'):
-    
+
+
+        print('#tags',tagset_size,"#labels",num_labels)
         super(BiAffineParser, self).__init__()
         self.device        = torch.device(device) if type(device) == str else device
         self.lexer         = lexer.to(device)
