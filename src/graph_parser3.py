@@ -408,18 +408,18 @@ class BiAffineParser(nn.Module):
                 print(words, len(words[0]))
                 print(arc_scores.shape, tags.shape)
 
-                #TAGGER_LOSS
-
-                print('heads',heads.view(-1))
-                print('tags',tags.view(-1))
-                tagger_scores          = tagger_scores.transpose(-1,-2)
-                tagger_scores          = tagger_scores.contiguous().view(-1, tagger_scores.size(-1))
-                tagger_loss            = loss_fnc(tagger_scores,tags.view(-1))
-
                 #ARC LOSS
                 arc_scores = arc_scores.transpose(-1, -2)                           # [batch, sent_len, sent_len]
                 arc_scores = arc_scores.contiguous().view(-1, arc_scores.size(-1))  # [batch*sent_len, sent_len]
                 arc_loss   = loss_fnc(arc_scores, heads.view(-1))                   # [batch*sent_len]
+
+                # TAGGER_LOSS
+                print('arcs', arc_scores.shape)
+                tagger_scores = tagger_scores.transpose(-1, -2)
+                tagger_scores = tagger_scores.contiguous().view(-1, tagger_scores.size(-1))
+
+                print('tagger', tagger_scores.shape)
+                tagger_loss = loss_fnc(tagger_scores, tags.view(-1))
 
                 #LABEL LOSS
                 heads      = heads.unsqueeze(1).unsqueeze(2)                        # [batch, 1, 1, sent_len]
