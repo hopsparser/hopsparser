@@ -213,7 +213,7 @@ class BiAffine(nn.Module):
         return S.squeeze(1)
 
 
-class Tagger(nn.module):
+class Tagger(nn.Module):
 
     def __init__(self,input_dim,tagset_size):
         super(Tagger, self).__init__()

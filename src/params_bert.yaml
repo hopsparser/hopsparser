@@ -9,6 +9,6 @@ word_dropout   : [0.5]
 batch_size     : 3  
 epochs         : 20 
 lr             : [0.000025]
-lexer          : 'flaubertlarge' 
-device         : 'cuda:1'
+lexer          : 'default' 
+device         : 'cpu'
 output_path    : 'flaubertlarge_lexer/preds' 
