@@ -591,6 +591,6 @@ if __name__ == '__main__':
         testset = DependencyDataset(testtrees[:2], lexer, use_labels=itolab, use_tags=itotag)
         parser = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.load_params(hp['lexer']+"-model.pt")
-        ostream = open(args.predfile,'w')
+        ostream = open(args.pred_file+'.parsed','w')
         parser.predict_batch(testset,ostream,hp['batch_size'],greedy=False)
         ostream.close()
