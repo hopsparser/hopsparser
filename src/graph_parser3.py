@@ -397,7 +397,7 @@ class BiAffineParser(nn.Module):
                 
                 #FORWARD
                 arc_scores, lab_scores = self.forward(deps)
-                tagger_scores          = self.tagger.forward(deps)
+                tagger_scores          = self.pos_tagger.forward(deps)
                 tagger_loss            = loss_fnc(tagger_scores,tags)
 
                 #ARC LOSS
