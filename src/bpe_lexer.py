@@ -1,12 +1,12 @@
 import os
 import torch
 import torch.nn as nn
-import torch.optim as optim
-
-from XLM.src.utils import AttrDict
-from XLM.src.data.dictionary import Dictionary, BOS_WORD, EOS_WORD, PAD_WORD, UNK_WORD, MASK_WORD
-from XLM.src.model.transformer import TransformerModel
 from transformers import *
+
+#import torch.optim as optim
+#from XLM.src.utils import AttrDict
+#from XLM.src.data.dictionary import Dictionary, BOS_WORD, EOS_WORD, PAD_WORD, UNK_WORD, MASK_WORD
+#from XLM.src.model.transformer import TransformerModel
 
 
 codes = "bert-base-lowercase/BPE/codes"
