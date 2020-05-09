@@ -13,7 +13,16 @@ using a BERT lexer will become difficult.
 Parsing task
 -----------
 The parsing task (or prediction task) assumes you have an already trained model in the directory MODEL. 
-You can parse a file in CONLL format (with empty annotations, just words)
+You can parse a file FILE in conll format (with empty annotations, just words) with the command:
+
+```
+python graph_parser.py  --pred_file FILE   MODEL/params.yaml
+```
+
+where `params.yaml` is the model hyperparameters file.
+
+
+
 
 
 
