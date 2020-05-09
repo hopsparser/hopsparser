@@ -517,7 +517,7 @@ if __name__ == '__main__':
     hp = yaml.load(open(args.config_file).read())
 
 
-    if args.train_file and args_dev_file:
+    if args.train_file and args.dev_file:
 
         def savelist(strlist, filename):
             ostream = open(filename,'w')
