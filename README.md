@@ -23,7 +23,7 @@ where `MODEL/params.yaml` is the model hyperparameters file.
 An example model is stored in the `default` directory. The file `default/params.yaml` is an example of such parameter file.
 
 We advise to use the `flaubert` model which is stored in the flaubert directory. Depending on the model, the parser will be more or less fast and more or less
-accurate. We can expect the parser to process several hundred sentences per second with a decent GPU.
+accurate. We can however expect the parser to process several hundred sentences per second with a decent GPU.
 
 
 
