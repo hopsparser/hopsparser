@@ -9,7 +9,7 @@ word_dropout   : [0.5]
 batch_size     : 1
 epochs         : 20 
 #lr             : [0.000025]
-lr             : [0.001]
+lr             : [0.0001]
 lexer          : 'default'
 device         : 'cpu'
 output_path    : 'flaubertlarge_lexer/preds' 
