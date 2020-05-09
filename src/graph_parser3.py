@@ -293,7 +293,9 @@ class BiAffineParser(nn.Module):
         #check in the future if adding a mask on padded words is useful
         
         lex_emb    = self.lexer(xwords)
-        cemb,_     = self.rnn(lex_emb)
+        cemb_      = self.rnn(lex_emb)
+
+        scores_tag = self.pos_tagger(cemb)
 
         arc_h      = self.arc_mlp_h(cemb)
         arc_d      = self.arc_mlp_d(cemb)
@@ -303,8 +305,9 @@ class BiAffineParser(nn.Module):
                 
         scores_arc = self.arc_biaffine(arc_h, arc_d)
         scores_lab = self.lab_biaffine(lab_h, lab_d)
-            
-        return scores_arc, scores_lab
+
+        return scores_tag, scores_arc, scores_lab
+
 
     def eval_model(self,dev_set,batch_size):
 
@@ -396,9 +399,8 @@ class BiAffineParser(nn.Module):
                 heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)
                 
                 #FORWARD
-                arc_scores, lab_scores = self.forward(deps)
-                tagger_scores          = self.pos_tagger.forward(deps)
-                tagger_loss            = loss_fnc(tagger_scores,tags)
+                tag_scores, arc_scores, lab_scores = self.forward(deps)
+                tagger_loss            = loss_fnc(tag_scores,tags)
 
                 #ARC LOSS
                 arc_scores = arc_scores.transpose(-1, -2)                           # [batch, sent_len, sent_len]
