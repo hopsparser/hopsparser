@@ -10,4 +10,4 @@ epochs         : 100
 #lr             : [0.000025]
 lr             : 0.001
 lexer          : 'default'     #possible values are default, flaubertbase, camembert, fasttext, mbert
-device         : 'cuda:1'      #possible values are cuda:0, cuda:1 (up to the number of available GPUs or cpu)
+device         : 'cuda:3'      #possible values are cuda:0, cuda:1 (up to the number of available GPUs or cpu)
