@@ -251,22 +251,3 @@ class AveragingBPELexer(nn.Module):
                   #word_sequence.append(emb_buffer[0]) #first bpe only !
                   emb_buffer.clear()
           return torch.stack(word_sequence)
-
-      
-if __name__ == '__main__':
-
-
-          
-#lexer = MultilingualLexer()
-#enc = lexer.encode2bpe("Bonjour les gens !")
-#print(enc)
-#print(lexer(enc),lexer(enc).size())
-#exit(0)
-    dataset = DatasetBPE('/Users/bcrabbe/Desktop/MCVF_CORPUS/script/example.txt','train-01')
-     
-    print(dataset.sentences)
-    lexer =  SelectiveBPELexer('frwiki_embed1024_layers12_heads16/model-002.pth',1024)
-    for seq in dataset:
-        embeddings = lexer(seq)
-        print(embeddings.size()) 
-        print(embeddings)
