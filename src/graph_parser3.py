@@ -562,7 +562,7 @@ if __name__ == '__main__':
         #testset           = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
 
         parser             = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
-        parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=hp['lexer']+"/model.pt")
+        parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=hp['lexer']+"-model.pt")
         print('training done.',file=sys.stderr)
 
     if args.pred_file:
