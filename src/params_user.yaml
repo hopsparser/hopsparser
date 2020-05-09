@@ -11,4 +11,3 @@ epochs         : 100
 lr             : 0.001
 lexer          : 'default'
 device         : 'cpu'
-output_path    : 'flaubertlarge_lexer/preds' 
