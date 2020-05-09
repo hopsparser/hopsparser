@@ -258,7 +258,7 @@ class BiAffineParser(nn.Module):
         self.lab_biaffine = BiAffine(mlp_input, num_labels).to(self.device)
 
         #hyperparams for saving...
-        self.tagset_size,self.tag_embedding_size                   = tagset_size,tag_embedding_size
+        self.tagset_size                                           = tagset_size
         self.mlp_input,self.mlp_arc_hidden,self.mlp_lab_hidden     = mlp_input,mlp_arc_hidden,mlp_lab_hidden,
         self.num_labels                                            = num_labels 
         
@@ -266,7 +266,6 @@ class BiAffineParser(nn.Module):
 
         torch.save({
             'tagset_size'       :self.tagset_size,
-            'tag_embedding_size':self.tag_embedding_size,
             'mlp_input'         :self.mlp_input,
             'mlp_arc_hidden'    :self.mlp_arc_hidden,
             'mlp_lab_hidden'    :self.mlp_lab_hidden,
@@ -278,7 +277,6 @@ class BiAffineParser(nn.Module):
     def load_model(path,device='cuda:1'):
         restored = torch.load(path)
         model = BiAffineParser( restored['tagset_size'],
-                                restored['tag_embedding_size'],
                                 0,
                                 restored['mlp_input'],
                                 restored['mlp_arc_hidden'],
