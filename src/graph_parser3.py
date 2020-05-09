@@ -524,7 +524,7 @@ if __name__ == '__main__':
 
         def loadlist(filename):
             istream = open(filename)
-            strlist = [line for line in istream]
+            strlist = [line for line in istream.read().split('\n')]
             istream.close()
             return strlist
 
