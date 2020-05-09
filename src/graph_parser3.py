@@ -414,8 +414,9 @@ class BiAffineParser(nn.Module):
                 arc_loss   = loss_fnc(arc_scores, heads.view(-1))                   # [batch*sent_len]
 
                 # TAGGER_LOSS
-                print('arcs', arc_scores.shape)
+                print('tagger',tagger_scores)
                 tagger_scores = tagger_scores.transpose(-1, -2)
+                print('tagger.T',tagger_scores)
                 tagger_scores = tagger_scores.contiguous().view(-1, tagger_scores.size(-1))
 
                 print('tagger', tagger_scores.shape)
