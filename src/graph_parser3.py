@@ -475,8 +475,10 @@ class BiAffineParser(nn.Module):
 
                     # Predict tags
                     tag_probs      = tagger_scores.numpy().T
+                    print('probs',tag_probs.shape,tag_probs)
                     tag_idxes      = np.argmax(tag_probs,axis=1)
                     pos_tags       = [ test_set.itotag[idx] for idx in tag_idxes ]
+                    print(tag_idxes)
                     print(tokens,pos_tags)
                     # Predict labels
                     select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
