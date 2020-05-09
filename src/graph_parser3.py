@@ -298,7 +298,6 @@ class BiAffineParser(nn.Module):
         cemb,_     = self.rnn(lex_emb)
 
         scores_tag = self.pos_tagger(cemb)
-        print('tags:',scores_tag.shape)
         arc_h      = self.arc_mlp_h(cemb)
         arc_d      = self.arc_mlp_d(cemb)
         
@@ -307,8 +306,6 @@ class BiAffineParser(nn.Module):
                 
         scores_arc = self.arc_biaffine(arc_h, arc_d)
         scores_lab = self.lab_biaffine(lab_h, lab_d)
-
-        print('arc:',scores_arc.shape)
 
         return scores_tag, scores_arc, scores_lab
 
@@ -384,9 +381,9 @@ class BiAffineParser(nn.Module):
         
         loss_fnc   = nn.CrossEntropyLoss(reduction='sum')
 
-        optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr = lr,eps=1e-09)
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = 0.95)
-        
+        #optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr = lr,eps=1e-09)
+        #scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = 0.95)
+
         for e in range(epochs):
             TRAIN_LOSS    =  0
             TRAIN_TOKS    =  0
