@@ -340,14 +340,18 @@ class BiAffineParser(nn.Module):
                 heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)
 
                 #preds 
-                arc_scores, lab_scores = self.forward(deps,tags)
+                tagger_scores, arc_scores, lab_scores = self.forward(deps,tags)
                 
                 #get global loss
                 #ARC LOSS
                 arc_scoresL  = arc_scores.transpose(-1, -2)                             # [batch, sent_len, sent_len]
                 arc_scoresL  = arc_scoresL.contiguous().view(-1, arc_scoresL.size(-1))   # [batch*sent_len, sent_len]
                 arc_loss     = loss_fnc(arc_scoresL, heads.view(-1))                    # [batch*sent_len]
-            
+
+                # TAGGER_LOSS
+                tagger_scores = tagger_scores.contiguous().view(-1, tagger_scores.size(-1))
+                tagger_loss = loss_fnc(tagger_scores, tags.view(-1))
+
                 #LABEL LOSS
                 headsL       = heads.unsqueeze(1).unsqueeze(2)                          # [batch, 1, 1, sent_len]
                 headsL       = headsL.expand(-1, lab_scores.size(1), -1, -1)            # [batch, n_labels, 1, sent_len]
