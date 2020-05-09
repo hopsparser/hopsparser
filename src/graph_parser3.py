@@ -405,21 +405,13 @@ class BiAffineParser(nn.Module):
                 #FORWARD
                 tagger_scores, arc_scores, lab_scores = self.forward(deps)
 
-                print(words, len(words[0]))
-                print(arc_scores.shape, tags.shape)
-
                 #ARC LOSS
                 arc_scores = arc_scores.transpose(-1, -2)                           # [batch, sent_len, sent_len]
                 arc_scores = arc_scores.contiguous().view(-1, arc_scores.size(-1))  # [batch*sent_len, sent_len]
                 arc_loss   = loss_fnc(arc_scores, heads.view(-1))                   # [batch*sent_len]
 
                 # TAGGER_LOSS
-                print('tagger',tagger_scores)
-                #tagger_scores = tagger_scores.transpose(-1, -2)
-                print('tagger.T',tagger_scores)
                 tagger_scores = tagger_scores.contiguous().view(-1, tagger_scores.size(-1))
-
-                print('tagger', tagger_scores.shape)
                 tagger_loss = loss_fnc(tagger_scores, tags.view(-1))
 
                 #LABEL LOSS
