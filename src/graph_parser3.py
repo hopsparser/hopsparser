@@ -439,6 +439,7 @@ class BiAffineParser(nn.Module):
             for batch in test_batches:
                 self.eval()
                 words,cats,deps,tags,heads,labels = batch
+                print(words)
                 if type(deps)==tuple:
                     depsA,depsB = deps
                     deps = (depsA.to(self.device),depsB.to(self.device))
