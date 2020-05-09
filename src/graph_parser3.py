@@ -534,7 +534,7 @@ if __name__ == '__main__':
         devtrees    = DependencyDataset.read_conll(args.dev_file)
 
         ordered_vocab = make_vocab(traintrees,0)
-        savelist(ordered_vocab,hp['lexer']+"-vocab")
+        savelist(ordered_vocab,hp['lexer']+"/vocab")
 
         if hp['lexer'] == 'default':
             lexer = DefaultLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'])
@@ -554,21 +554,21 @@ if __name__ == '__main__':
         
         trainset           = DependencyDataset(traintrees[:2],lexer)
         itolab,itotag      = trainset.itolab,trainset.itotag
-        savelist(itolab,hp['lexer']+"-labcodes")
-        savelist(itotag,hp['lexer']+"-tagcodes")
+        savelist(itolab,hp['lexer']+"/labcodes")
+        savelist(itotag,hp['lexer']+"/tagcodes")
         devset             = DependencyDataset(traintrees[:2], lexer)
         #devset            = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
         #testset           = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
 
         parser             = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
-        parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=hp['lexer']+"-model.pt")
+        parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=hp['lexer']+"/model.pt")
         print('training done.',file=sys.stderr)
 
     if args.pred_file:
 
         #TEST MODE
         testtrees     = DependencyDataset.read_conll(args.pred_file)
-        ordered_vocab = loadlist(hp['lexer']+"-vocab")
+        ordered_vocab = loadlist(hp['lexer']+"/vocab")
 
         if hp['lexer'] == 'default':
             lexer = DefaultLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'])
@@ -586,11 +586,13 @@ if __name__ == '__main__':
             print('no valid lexer specified. abort.')
             exit(1)
 
-        itolab = loadlist(hp['lexer']+"-labcodes")
-        itotag = loadlist(hp['lexer']+"-tagcodes")
+        itolab = loadlist(hp['lexer']+"/labcodes")
+        itotag = loadlist(hp['lexer']+"/tagcodes")
+        print('itolab',itolab)
+        print('itotag',itotag)
         testset = DependencyDataset(testtrees[:2], lexer, use_labels=itolab, use_tags=itotag)
         parser = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
-        parser.load_params(hp['lexer']+"-model.pt")
+        parser.load_params(hp['lexer']+"/model.pt")
         ostream = open(args.pred_file+'.parsed','w')
         parser.predict_batch(testset,ostream,hp['batch_size'],greedy=False)
         ostream.close()
