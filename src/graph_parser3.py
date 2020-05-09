@@ -475,11 +475,8 @@ class BiAffineParser(nn.Module):
 
                     # Predict tags
                     tag_probs      = tagger_scores.numpy()
-                    print('probs',tag_probs.shape,tag_probs)
                     tag_idxes      = np.argmax(tag_probs,axis=1)
                     pos_tags       = [ test_set.itotag[idx] for idx in tag_idxes ]
-                    print(tag_idxes)
-                    print(tokens,pos_tags)
                     # Predict labels
                     select         = torch.LongTensor(mst_heads).unsqueeze(0).expand(lab_scores.size(0), -1)
                     select         = Variable(select)
@@ -490,6 +487,8 @@ class BiAffineParser(nn.Module):
                     dg             =  DepGraph(edges[1:],wordlist=tokens[1:],pos_tags=pos_tags[1:])
                     print(dg,file=ostream)
                     print(file=ostream)
+
+                    print(dg)
 
                     
 class GridSearch:
