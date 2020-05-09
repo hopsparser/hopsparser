@@ -14,11 +14,6 @@ from lexers  import *
 from deptree import *
 
 
-
-"""
-This is the code for the FlauBERT release
-"""
-
 class DependencyDataset:
     """
     A representation of the DepBank for efficient processing.
@@ -217,7 +212,16 @@ class BiAffine(nn.Module):
         S = Rh @ self.U @ Rd.transpose(-1, -2)
         return S.squeeze(1)
 
-    
+
+class Tagger(nn.module):
+
+    def __init__(self,input_dim,tagset_size):
+        super(Tagger, self).__init__()
+        self.W = nn.Linear(input_dim,tagset_size)
+
+    def forward(self,input):
+        return self.W(input)
+
 class BiAffineParser(nn.Module):
     
     """Biaffine Dependency Parser."""
@@ -236,8 +240,10 @@ class BiAffineParser(nn.Module):
         super(BiAffineParser, self).__init__()
         self.device        = torch.device(device) if type(device) == str else device
         self.lexer         = lexer.to(device)
-        self.tag_embedding = nn.Embedding(tagset_size, tag_embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
-        self.rnn           = nn.LSTM(self.lexer.embedding_size + tag_embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.rnn           = nn.LSTM(self.lexer.embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+
+        #POS tagger
+        self.pos_tagger    = Tagger(mlp_input,tagset_size)
 
         # Arc MLPs
         self.arc_mlp_h = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
@@ -281,20 +287,19 @@ class BiAffineParser(nn.Module):
                                 device)
         model.load_state_dict(restored['model_state_dict'])
         
-    def forward(self,xwords,xtags):
+    def forward(self,xwords):
         
         """Compute the score matrices for the arcs and labels."""
         #check in the future if adding a mask on padded words is useful
         
-        lex_emb   = self.lexer(xwords)
-        tag_emb   = self.tag_embedding(xtags)        
-        cemb,_ = self.rnn(torch.cat( (lex_emb,tag_emb) , dim=2) )
+        lex_emb    = self.lexer(xwords)
+        cemb,_     = self.rnn(lex_emb)
 
-        arc_h = self.arc_mlp_h(cemb)
-        arc_d = self.arc_mlp_d(cemb)
+        arc_h      = self.arc_mlp_h(cemb)
+        arc_d      = self.arc_mlp_d(cemb)
         
-        lab_h = self.lab_mlp_h(cemb)
-        lab_d = self.lab_mlp_d(cemb)
+        lab_h      = self.lab_mlp_h(cemb)
+        lab_d      = self.lab_mlp_d(cemb)
                 
         scores_arc = self.arc_biaffine(arc_h, arc_d)
         scores_lab = self.lab_biaffine(lab_h, lab_d)
@@ -391,7 +396,10 @@ class BiAffineParser(nn.Module):
                 heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)
                 
                 #FORWARD
-                arc_scores, lab_scores = self.forward(deps,tags)
+                arc_scores, lab_scores = self.forward(deps)
+                tagger_scores          = self.tagger.forward(deps)
+                tagger_loss            = loss_fnc(tagger_scores,tags)
+
                 #ARC LOSS
                 arc_scores = arc_scores.transpose(-1, -2)                           # [batch, sent_len, sent_len]
                 arc_scores = arc_scores.contiguous().view(-1, arc_scores.size(-1))  # [batch*sent_len, sent_len]
@@ -406,7 +414,7 @@ class BiAffineParser(nn.Module):
                 labels     = labels.view(-1)                                        # [batch*sent_len]
                 lab_loss   = loss_fnc(lab_scores, labels)
 
-                loss       = arc_loss + lab_loss
+                loss       = tagger_loss + arc_loss + lab_loss
     
                 optimizer.zero_grad()
                 loss.backward()
@@ -527,9 +535,10 @@ if __name__ == '__main__':
             print('no valid lexer specified. abort.')
             exit(1)
         
-        trainset           = DependencyDataset(traintrees,lexer)
+        trainset           = DependencyDataset(traintrees[:1],lexer)
         itolab,itotag      = trainset.itolab,trainset.itotag
-        devset             = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
+        devset             = DependencyDataset(traintrees[:1], lexer)
+        #devset             = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
         testset            = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
 
         parser    = BiAffineParser(lexer,len(itotag),hp['tag_embedding_size'],hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])

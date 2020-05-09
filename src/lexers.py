@@ -2,11 +2,11 @@ import torch
 import fasttext
 from torch import nn
 from graph_parser2 import DependencyDataset,DepGraph
-from transformers import XLMModel, XLMTokenizer
-from transformers import BertModel, BertTokenizer
-from transformers import FlaubertModel, FlaubertTokenizer
-from transformers import CamembertModel,CamembertTokenizer
-from collections import Counter,defaultdict
+from transformers  import XLMModel, XLMTokenizer
+from transformers  import BertModel, BertTokenizer
+from transformers  import FlaubertModel, FlaubertTokenizer
+from transformers  import CamembertModel,CamembertTokenizer
+from collections   import Counter,defaultdict
 from random import random
 
 def word_sampler(word_idx,unk_idx,dropout):
