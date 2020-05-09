@@ -423,10 +423,10 @@ class BiAffineParser(nn.Module):
                              'Base LR',scheduler.get_lr()[0],flush=True)
 
             if DEV_ARC_ACC > BEST_ARC_ACC:
-                self.save_params(self.state_dict(), modelpath)
+                self.save_params(modelpath)
                 BEST_ARC_ACC = DEV_ARC_ACC
                 
-        self.load_state_dict(torch.load(modelpath))
+        self.load_params(modelpath)
         self.save_params(modelpath)
 
         
