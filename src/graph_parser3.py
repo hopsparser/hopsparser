@@ -474,7 +474,7 @@ class BiAffineParser(nn.Module):
                     mst_heads      = np.argmax(probs,axis=1) if greedy else chuliu_edmonds(probs)
 
                     # Predict tags
-                    tag_probs      = tagger_scores.numpy().T
+                    tag_probs      = tagger_scores.numpy()
                     print('probs',tag_probs.shape,tag_probs)
                     tag_idxes      = np.argmax(tag_probs,axis=1)
                     pos_tags       = [ test_set.itotag[idx] for idx in tag_idxes ]
