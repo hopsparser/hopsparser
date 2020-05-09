@@ -466,7 +466,7 @@ class BiAffineParser(nn.Module):
                 heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)                
 
                 #batch prediction
-                arc_scores_batch, lab_scores_batch = self.forward(deps,tags)
+                tagger_scores_batch, arc_scores_batch, lab_scores_batch = self.forward(deps)
                 arc_scores_batch, lab_scores_batch = arc_scores_batch.cpu(), lab_scores_batch.cpu()  
 
                 for tokens,pos_tags,length,arc_scores,lab_scores in zip(words,cats,SLENGTHS,arc_scores_batch,lab_scores_batch):
