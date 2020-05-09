@@ -296,7 +296,7 @@ class BiAffineParser(nn.Module):
         cemb,_     = self.rnn(lex_emb)
 
         scores_tag = self.pos_tagger(cemb)
-
+        print('tags:',scores_tag.shape)
         arc_h      = self.arc_mlp_h(cemb)
         arc_d      = self.arc_mlp_d(cemb)
         
@@ -305,6 +305,8 @@ class BiAffineParser(nn.Module):
                 
         scores_arc = self.arc_biaffine(arc_h, arc_d)
         scores_lab = self.lab_biaffine(lab_h, lab_d)
+
+        print('labs:',scores_lab.shape)
 
         return scores_tag, scores_arc, scores_lab
 
