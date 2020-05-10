@@ -10,6 +10,10 @@ Contrary to Dozat, the parser performs its own tagging and can use several lexer
 I advise to have a GPU with at least 12GB graphical memory. With smaller GPUs,
 using a BERT preprocessor will become difficult. The parser comes with two pretrained models ready for parsing French.
 
+Installation
+------------
+This is a `python3` script. The installation should be straightforward: install the required modules (such as `torch`, `transformers`, `yaml`...) with `pip` as soon as you notice they are not already installed on your system.
+
 
 Parsing task
 -----------
