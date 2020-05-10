@@ -183,6 +183,30 @@ class DependencyDataset:
         rev_edges = dict( [(dep,gov) for (gov,label,dep) in edges ] )
         return [ rev_edges.get(idx,0) for idx in range(N) ]
 
+class CharRNN(nn.Module):
+
+    def __init__(self,charset_size,char_embedding_size,word_embedding_size):
+
+        super(CharRNN, self).__init__()
+
+        self.char_embedding = nn.Embedding(charset_size,char_embedding_size)
+        self.char_bilstm    = self.nn.LSTM(char_embedding_size,\
+                                           word_embedding_size,1,\
+                                           batch_first=True,\
+                                           bidirectional=True)
+
+    def forward(self,xinput):
+            """
+            :param xinput: is a tensor of char indexes.
+            Sentences are organized as matrices of char indexes whose columns are indices of word chars
+            
+            :return:
+            """
+
+
+
+
+
 class MLP(nn.Module):
 
     def __init__(self,input_size,hidden_size,output_size,dropout=0.0):

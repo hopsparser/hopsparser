@@ -6,7 +6,7 @@ This is a repository for non projective dependency parsing stuff.
 
 It currently hosts a graph based parser inspired by the paper of Dozat. 
 Contrary to Dozat, the parser performs its own tagging and can use several lexers such as FastText, Bert and others.
-The parser assumes you have a linux/unix workstation, and a GPU with at least 12GB graphical memory. With smaller GPUs,
+It advise to have a GPU with at least 12GB graphical memory. With smaller GPUs,
 using a BERT lexer will become difficult. The parser comes with two pretrained models ready for parsing French.
 
 
@@ -32,7 +32,7 @@ We provide some pretrained models :
 
 | Model name | Language | device | LAS  | speed | Comment
 | ---------- | -------- | ------ | ---- | ----- | ------
-|   default  | french   | GPU/CPU| 82.9 | fast  | French treebank only
+|   default  | french   | GPU/CPU| 81.5 | fast  | French treebank only
 |   flaubert | french   | GPU    | xxxx | average| FlaubertBase+French treebank
 
 Training task
