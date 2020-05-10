@@ -535,7 +535,7 @@ if __name__ == '__main__':
         devtrees    = DependencyDataset.read_conll(args.dev_file)
 
         ordered_vocab = make_vocab(traintrees,0)
-        savelist(ordered_vocab,hp['lexer']+"-vocab")
+        savelist(ordered_vocab,os.path.join(MODEL_DIR,hp['lexer']+"-vocab"))
 
         if hp['lexer'] == 'default':
             lexer = DefaultLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'])
