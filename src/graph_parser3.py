@@ -553,7 +553,7 @@ if __name__ == '__main__':
             print('no valid lexer specified. abort.')
             exit(1)
         
-        trainset           = DependencyDataset(traintrees[:10],lexer)
+        trainset           = DependencyDataset(traintrees,lexer)
         itolab,itotag      = trainset.itolab,trainset.itotag
         savelist(itolab, os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
         savelist(itotag, os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))
