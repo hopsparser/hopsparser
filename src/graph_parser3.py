@@ -342,13 +342,21 @@ class BiAffineParser(nn.Module):
 
                 #greedy arc accurracy (without parsing)
                 _, pred = arc_scores.max(dim=-2)
+                print('heads',heads.shape)
+                print('tags',tags.shape)
                 mask = (heads != DependencyDataset.PAD_IDX).float()
                 arc_accurracy = torch.sum((pred == heads).float() * mask, dim=-1)
                 arc_acc += torch.sum(arc_accurracy).item()
 
+                print('arcs socres',arc_scores.shape)
+
                 #tagger accurracy
                 _, pred = tagger_scores.max(dim=1)
+                print('tags scores',tagger_scores.shape)
+
                 mask = (tags != DependencyDataset.PAD_IDX).float()
+                print(pred.shape)
+                print(tags.shape)
                 tag_accurracy = torch.sum((pred == tags).float() * mask, dim=-1)
                 tag_acc += torch.sum(tag_accurracy).item()
 
