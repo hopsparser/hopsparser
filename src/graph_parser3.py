@@ -557,9 +557,7 @@ if __name__ == '__main__':
         itolab,itotag      = trainset.itolab,trainset.itotag
         savelist(itolab, os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
         savelist(itotag, os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))
-        devset             = DependencyDataset(traintrees[:10], lexer)
-        #devset            = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
-        #testset           = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
+        devset            = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
 
         parser             = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=os.path.join(MODEL_DIR,hp['lexer']+"-model.pt"))
@@ -589,10 +587,11 @@ if __name__ == '__main__':
 
         itolab = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
         itotag = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))
-        testset = DependencyDataset(testtrees[:10], lexer, use_labels=itolab, use_tags=itotag)
+        testset           = DependencyDataset(testtrees,lexer,use_labels=itolab,use_tags=itotag)
         parser = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.load_params(os.path.join(MODEL_DIR,hp['lexer']+"-model.pt"))
         ostream = open(args.pred_file+'.parsed','w')
         parser.predict_batch(testset,ostream,hp['batch_size'],greedy=False)
         ostream.close()
+        print('parsing done.',file=sys.stderr)
 
