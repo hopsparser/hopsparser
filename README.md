@@ -40,7 +40,7 @@ Training task
 
 Instead of using a pretrained model, one can train his own model.
 Training a model with BERT definitely requires a GPU. Unless you have a GPU with a very large amount of onboard memory, I advise to use 
-very small batch sizes (3 or 4) for training. Otherwise you are likely to run out of memory.
+very small batch sizes (2, 4, 8, 16, 32, 64) for training. Otherwise you are likely to run out of memory.
 
 Training can be performed with the following steps:
 

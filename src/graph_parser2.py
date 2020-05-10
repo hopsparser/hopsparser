@@ -237,7 +237,7 @@ class BiAffineParser(nn.Module):
         self.device        = torch.device(device) if type(device) == str else device
         self.lexer         = lexer.to(device)
         self.tag_embedding = nn.Embedding(tagset_size, tag_embedding_size, padding_idx=DependencyDataset.PAD_IDX).to(self.device)
-        self.rnn           = nn.LSTM(self.lexer.embedding_size + tag_embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.rnn           = nn.LSTM(self.lexer.embedding_size + tag_embedding_size,mlp_input,2, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         # Arc MLPs
         self.arc_mlp_h = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
