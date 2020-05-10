@@ -412,7 +412,7 @@ class BiAffineParser(nn.Module):
 
                 TRAIN_LOSS   += loss.item()
                 
-            scheduler.step()
+            #scheduler.step()
             DEV_LOSS,DEV_ARC_ACC,DEV_LAB_ACC,DEV_TOKS  = self.eval_model(dev_set,batch_size)
             print('Epoch ',e,'train mean loss',TRAIN_LOSS/overall_size,
                              'valid mean loss',DEV_LOSS,
