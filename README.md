@@ -41,7 +41,7 @@ We provide some pretrained models :
 |   flaubert | french   | GPU    | 88.2 | average| FlaubertBase+French treebank | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/flaubert.tar.gz)
 
 The reader may notice a difference with the results published in [(Hang et al 2020)](https://arxiv.org/abs/1912.05372).
-The difference comes from the fact that this parser predicts part of speech tags
+The difference comes from the fact that this parser also predicts part of speech tags
 while the version described in [(Hang et al 2020)](https://arxiv.org/abs/1912.05372) required predicted tags as part of its input.
 This change makes the parser easier to use in "real life" projects. 
 
