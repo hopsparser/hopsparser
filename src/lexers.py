@@ -112,7 +112,7 @@ class BertBaseLexer(nn.Module):
     """
     This Lexer performs tokenization and embedding mapping with BERT
     style models. It concatenates a standard embedding with a Flaubert
-    embedding (uses Flaubert / XLM).
+    embedding (uses Flaubert).
     """
     def __init__(self,default_itos,default_embedding_size,word_dropout,cased=False,bert_modelfile="flaubert-base-uncased",BERT_SIZE=768): 
 

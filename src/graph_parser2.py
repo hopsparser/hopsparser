@@ -195,7 +195,7 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
         self.Wdown    = nn.Linear(input_size,hidden_size)
         self.Wup      = nn.Linear(hidden_size,output_size)
-        self.g        = nn.ReLU()
+        self.g        = nn.Tanh()
         self.dropout  = nn.Dropout(p=dropout)
         
     def forward(self,input):
