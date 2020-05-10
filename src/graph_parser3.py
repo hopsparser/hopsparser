@@ -199,10 +199,10 @@ class CharRNN(nn.Module):
             """
             :param xinput: is a tensor of char indexes.
             Sentences are organized as matrices of char indexes whose columns are indices of word chars
-            
+
             :return:
             """
-
+            pass
 
 
 

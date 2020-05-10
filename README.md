@@ -30,10 +30,10 @@ Pretrained models
 ----------------
 We provide some pretrained models :
 
-| Model name | Language | device | LAS  | speed | Comment
-| ---------- | -------- | ------ | ---- | ----- | ------
-|   default  | french   | GPU/CPU| 81.5 | fast  | French treebank only
-|   flaubert | french   | GPU    | xxxx | average| FlaubertBase+French treebank
+| Model name | Language | device | LAS  | speed | Comment | Download link
+| ---------- | -------- | ------ | ---- | ----- | ------- | -------------
+|   default  | french   | GPU/CPU| 81.5 | fast  | French treebank only          | http://www.linguist.univ-paris-diderot.fr/depmodels/default.tar.gz
+|   flaubert | french   | GPU    | xxxx | average| FlaubertBase+French treebank | xxxx 
 
 Training task
 ------------
