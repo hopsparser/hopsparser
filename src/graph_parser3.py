@@ -337,7 +337,7 @@ class BiAffineParser(nn.Module):
                 labelsL      = labels.view(-1)                                          # [batch*sent_len]
                 lab_loss     = loss_fnc(lab_scoresL, labelsL)
                 
-                loss         = arc_loss + lab_loss
+                loss         = tagger_loss + arc_loss + lab_loss
                 gloss       += loss.item()
 
                 #greedy arc accurracy (without parsing)
