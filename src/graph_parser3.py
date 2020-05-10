@@ -346,12 +346,14 @@ class BiAffineParser(nn.Module):
                 arc_accurracy = torch.sum((pred == heads).float() * mask, dim=-1)
                 arc_acc += torch.sum(arc_accurracy).item()
                 print('arcs',mask.shape,torch.sum(mask).item())
+                print(mask)
 
 
                 #tagger accurracy
                 _, tag_pred = tagger_scores.max(dim=2)
                 mask = (tags != DependencyDataset.PAD_IDX).float()
                 print('tagger',mask.shape,torch.sum(mask).item())
+                print(mask)
                 tag_accurracy = torch.sum((tag_pred == tags).float() * mask, dim=-1)
                 tag_acc += torch.sum(tag_accurracy).item()
 
@@ -415,7 +417,7 @@ class BiAffineParser(nn.Module):
                 labels     = labels.view(-1)                                        # [batch*sent_len]
                 lab_loss   = loss_fnc(lab_scores, labels)
 
-                loss       = 0.2 * tagger_loss + 0.5 * arc_loss + 0.3 * lab_loss
+                loss       = 0.1 * tagger_loss + 0.6 * arc_loss + 0.3 * lab_loss
     
                 optimizer.zero_grad()
                 loss.backward()
