@@ -19,7 +19,7 @@ You can parse a file FILE in conll format (with empty annotations, just words) w
 python graph_parser.py  --pred_file FILE   MODEL/params.yaml
 ```
 
-This results in a parsed file called FILE.parsed. The `MODEL/params.yaml` is the model hyperparameters file. 
+This results in a parsed file called `FILE.parsed`. The `MODEL/params.yaml` is the model hyperparameters file. 
 An example model is stored in the `default` directory. The file `default/params.yaml` is an example of such parameter file.
 
 We advise to use the `flaubert` model which is stored in the flaubert directory. Depending on the model, the parser will be more or less fast and more or less
