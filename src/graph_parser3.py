@@ -412,7 +412,7 @@ class BiAffineParser(nn.Module):
                 labels     = labels.view(-1)                                        # [batch*sent_len]
                 lab_loss   = loss_fnc(lab_scores, labels)
 
-                loss       = 0.3 * tagger_loss + 1.5 * arc_loss + 1.2 * lab_loss 
+                loss       = 0.3 * tagger_loss + 1.5 * arc_loss + 1.2 * lab_loss
     
                 optimizer.zero_grad()
                 loss.backward()
@@ -420,7 +420,7 @@ class BiAffineParser(nn.Module):
 
                 TRAIN_LOSS   += loss.item()
                 
-            #scheduler.step()
+            scheduler.step()
             DEV_LOSS,DEV_TAG_ACC,DEV_ARC_ACC,DEV_LAB_ACC = self.eval_model(dev_set,batch_size)
             print('Epoch ',e,'train mean loss',TRAIN_LOSS/overall_size,
                              'valid mean loss',DEV_LOSS,
