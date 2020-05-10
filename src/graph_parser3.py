@@ -207,6 +207,9 @@ class CharRNN(nn.Module):
             pass
 
 
+
+
+
 class MLP(nn.Module):
 
     def __init__(self,input_size,hidden_size,output_size,dropout=0.0):
@@ -444,7 +447,6 @@ class BiAffineParser(nn.Module):
 
                 TRAIN_LOSS   += loss.item()
                 
-            scheduler.step()
             DEV_LOSS,DEV_TAG_ACC,DEV_ARC_ACC,DEV_LAB_ACC = self.eval_model(dev_set,batch_size)
             print('Epoch ',e,'train mean loss',TRAIN_LOSS/overall_size,
                              'valid mean loss',DEV_LOSS,
@@ -456,6 +458,8 @@ class BiAffineParser(nn.Module):
             if DEV_ARC_ACC > BEST_ARC_ACC:
                 self.save_params(modelpath)
                 BEST_ARC_ACC = DEV_ARC_ACC
+
+            scheduler.step()
                 
         self.load_params(modelpath)
         self.save_params(modelpath)
