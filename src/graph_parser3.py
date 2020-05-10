@@ -183,6 +183,8 @@ class DependencyDataset:
         rev_edges = dict( [(dep,gov) for (gov,label,dep) in edges ] )
         return [ rev_edges.get(idx,0) for idx in range(N) ]
 
+
+
 class CharRNN(nn.Module):
 
     def __init__(self,charset_size,char_embedding_size,word_embedding_size):
@@ -203,8 +205,6 @@ class CharRNN(nn.Module):
             :return:
             """
             pass
-
-
 
 
 class MLP(nn.Module):
