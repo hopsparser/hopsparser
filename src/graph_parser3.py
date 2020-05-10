@@ -347,7 +347,7 @@ class BiAffineParser(nn.Module):
                 arc_acc += torch.sum(arc_accurracy).item()
 
                 #tagger accurracy
-                _, pred = tagger_scores.max(dim=-2)
+                _, pred = tagger_scores.max(dim=1)
                 mask = (tags != DependencyDataset.PAD_IDX).float()
                 tag_accurracy = torch.sum((pred == tags).float() * mask, dim=-1)
                 tag_acc += torch.sum(tag_accurracy).item()
