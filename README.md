@@ -4,7 +4,7 @@
 This is a repository for non projective dependency parsing stuff.
 
 
-It currently hosts a graph-based dependency parser inspired by the paper of [Dozat](https://nlp.stanford.edu/pubs/dozat2017deep.pdf). 
+It currently hosts a graph-based dependency parser inspired by the paper of [Dozat 2017](https://nlp.stanford.edu/pubs/dozat2017deep.pdf). 
 Contrary to Dozat, the parser performs its own tagging and can use several lexers such as FastText, Bert and others. It has been specifically designed within the [Flaubert](https://github.com/getalp/Flaubert) initiative. 
 
 I advise to have a GPU with at least 12GB graphical memory. With smaller GPUs,
@@ -35,6 +35,10 @@ We provide some pretrained models :
 | ---------- | -------- | ------ | ---- | ----- | ------- | -------------
 |   default  | french   | GPU/CPU| 81.5 | fast  | French treebank only          | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/default.tar.gz)
 |   flaubert | french   | GPU    | xxxx | average| FlaubertBase+French treebank | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/flaubert.tar.gz)
+
+The reader may notice a difference with the results published in [Hang et al 2020](https://arxiv.org/abs/1912.05372).
+The difference comes from the fact that this parser predicts part of speech tags
+while the version described in [Hang et al 2020](https://arxiv.org/abs/1912.05372) required predicted tags as part of its input.
 
 Training task
 ------------
