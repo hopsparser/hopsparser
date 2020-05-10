@@ -26,7 +26,14 @@ We advise to use the `flaubert` model which is stored in the flaubert directory.
 accurate. We can however expect the parser to process several hundred sentences per second with a decent GPU. 
 The parameter file provides an option for controlling the GPU actually used for performing computations.
 
+Pretrained models
+----------------
+We provide some pretrained models :
 
+| Model name | Language | device | LAS | speed | Comment
+| ---------- | -------- | ------ | --- | ----- | ------
+|   default  | french   | GPU/CPU|  xx | fast  | French treebank
+|   flaubert | french   | GPU    |xx   | average| FlaubertBase+French treebank
 
 Training task
 ------------
