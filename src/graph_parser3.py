@@ -500,10 +500,26 @@ class GridSearch:
     @staticmethod
     def generate_run_name(base_filename,dict_setup):
         return base_filename + '+' + '+'.join([ k+':'+str(v)   for (k,v) in dict_setup.items() if k != 'output_path'] ) + '.conll'
-            
+
+
+
+
 if __name__ == '__main__':
 
     import os.path
+
+    def savelist(strlist, filename):
+        ostream = open(filename, 'w')
+        ostream.write('\n'.join(strlist))
+        ostream.close()
+
+
+    def loadlist(filename):
+        istream = open(filename)
+        strlist = [line for line in istream.read().split('\n')]
+        istream.close()
+        return strlist
+
 
     parser = argparse.ArgumentParser(description='Graph based Attention based dependency parser/tagger ')
     parser.add_argument('config_file', metavar='CONFIG_FILE', type=str, help='the configuration file')
@@ -518,18 +534,6 @@ if __name__ == '__main__':
     MODEL_DIR   = os.path.dirname(CONFIG_FILE)
 
     if args.train_file and args.dev_file:
-
-        def savelist(strlist, filename):
-            ostream = open(filename,'w')
-            ostream.write('\n'.join(strlist))
-            ostream.close()
-
-        def loadlist(filename):
-            istream = open(filename)
-            strlist = [line for line in istream.read().split('\n')]
-            istream.close()
-            return strlist
-
         #TRAIN MODE
         traintrees  = DependencyDataset.read_conll(args.train_file)
         devtrees    = DependencyDataset.read_conll(args.dev_file)
@@ -557,7 +561,7 @@ if __name__ == '__main__':
         itolab,itotag      = trainset.itolab,trainset.itotag
         savelist(itolab, os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
         savelist(itotag, os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))
-        devset            = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
+        devset             = DependencyDataset(devtrees,lexer,use_labels=itolab,use_tags=itotag)
 
         parser             = BiAffineParser(lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=os.path.join(MODEL_DIR,hp['lexer']+"-model.pt"))
@@ -569,7 +573,7 @@ if __name__ == '__main__':
         testtrees     = DependencyDataset.read_conll(args.pred_file)
         ordered_vocab = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-vocab"))
 
-        if hp['lexer'] == 'default':
+        if hp['lexer']   == 'default':
             lexer = DefaultLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'])
         elif hp['lexer'] == 'fasttext':
             lexer = FastTextLexer(ordered_vocab, hp['word_dropout'])
