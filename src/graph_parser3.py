@@ -351,7 +351,7 @@ class BiAffineParser(nn.Module):
                 print('arcs socres',arc_scores.shape)
 
                 #tagger accurracy
-                _, pred = tagger_scores.max(dim=0)
+                _, pred = tagger_scores.max(dim=1)
                 print('tags scores',tagger_scores.shape)
 
                 mask = (tags != DependencyDataset.PAD_IDX).float()
