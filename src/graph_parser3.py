@@ -353,7 +353,7 @@ class BiAffineParser(nn.Module):
                 tag_acc += torch.sum(tag_accurracy).item()
 
                 #greedy label accurracy (without parsing)
-                _, pred = lab_scores.max(dim=1)
+                _, pred = lab_scores.max(dim=0)
                 pred = torch.gather(pred, 1, heads.unsqueeze(1)).squeeze(1)
                 mask = (heads != DependencyDataset.PAD_IDX).float()
                 lab_accurracy = torch.sum((pred == labels).float() * mask, dim=-1)
