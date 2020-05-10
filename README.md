@@ -5,7 +5,7 @@ This is a repository for non projective dependency parsing stuff.
 
 
 It currently hosts a graph-based dependency parser inspired by the paper of [(Dozat 2017)](https://nlp.stanford.edu/pubs/dozat2017deep.pdf). 
-Contrary to Dozat, the parser performs its own tagging and can use several lexers such as FastText, Bert and others. It has been specifically designed within the [Flaubert](https://github.com/getalp/Flaubert) initiative. 
+Contrary to Dozat, the parser performs its own tagging and can use several lexers such as FastText, Bert and others. It has been specifically designed within the [FlauBERT](https://github.com/getalp/Flaubert) initiative. 
 
 I advise to have a GPU with at least 12GB graphical memory. With smaller GPUs,
 using a BERT preprocessor will become difficult. The parser comes with two pretrained models ready for parsing French.
