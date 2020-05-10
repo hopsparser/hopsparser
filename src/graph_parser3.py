@@ -299,7 +299,7 @@ class BiAffineParser(nn.Module):
         self.lexer.eval_mode()
 
         dev_batches = dev_set.make_batches(batch_size,shuffle_batches=True,shuffle_data=True,order_by_length=True)
-        tag_acc,arc_acc, lab_acc,gloss,ntoks = 0, 0, 0, 0, 0
+        tag_acc, arc_acc, lab_acc, gloss, taggerZ, arcsZ = 0, 0, 0, 0, 0, 0
         overall_size = 0
         
         with torch.no_grad():
@@ -345,17 +345,13 @@ class BiAffineParser(nn.Module):
                 mask = (heads != DependencyDataset.PAD_IDX).float()
                 arc_accurracy = torch.sum((pred == heads).float() * mask, dim=-1)
                 arc_acc += torch.sum(arc_accurracy).item()
-                print('arcs',mask.shape,torch.sum(mask).item())
-                print(mask)
-
 
                 #tagger accurracy
                 _, tag_pred = tagger_scores.max(dim=2)
                 mask = (tags != DependencyDataset.PAD_IDX).float()
-                print('tagger',mask.shape,torch.sum(mask).item())
-                print(mask)
                 tag_accurracy = torch.sum((tag_pred == tags).float() * mask, dim=-1)
                 tag_acc += torch.sum(tag_accurracy).item()
+                taggerZ += torch.sum(mask).item()
 
                 #greedy label accurracy (without parsing)
                 _, pred = lab_scores.max(dim=1)
@@ -363,11 +359,10 @@ class BiAffineParser(nn.Module):
                 mask = (heads != DependencyDataset.PAD_IDX).float()
                 lab_accurracy = torch.sum((pred == labels).float() * mask, dim=-1)
                 lab_acc += torch.sum(lab_accurracy).item()
-                print('labels',mask.shape,torch.sum(mask).item())
-                ntoks += torch.sum(mask).item()
+                arcsZ += torch.sum(mask).item()
 
                 
-        return gloss/overall_size,tag_acc, arc_acc, lab_acc, ntoks
+        return gloss/overall_size,tag_acc/taggerZ, arc_acc/arcsZ, lab_acc/arcsZ
 
 
     def train_model(self,train_set,dev_set,epochs,batch_size,lr,modelpath='test_model.pt'):
@@ -426,12 +421,12 @@ class BiAffineParser(nn.Module):
                 TRAIN_LOSS   += loss.item()
                 
             #scheduler.step()
-            DEV_LOSS,DEV_TAG_ACC,DEV_ARC_ACC,DEV_LAB_ACC,DEV_TOKS  = self.eval_model(dev_set,batch_size)
+            DEV_LOSS,DEV_TAG_ACC,DEV_ARC_ACC,DEV_LAB_ACC = self.eval_model(dev_set,batch_size)
             print('Epoch ',e,'train mean loss',TRAIN_LOSS/overall_size,
                              'valid mean loss',DEV_LOSS,
-                             'valid tag acc',DEV_TAG_ACC/DEV_TOKS,
-                             'valid arc acc',DEV_ARC_ACC/DEV_TOKS,
-                             'valid label acc',DEV_LAB_ACC/DEV_TOKS,
+                             'valid tag acc',DEV_TAG_ACC,
+                             'valid arc acc',DEV_ARC_ACC,
+                             'valid label acc',DEV_LAB_ACC,
                              'Base LR',scheduler.get_lr()[0],flush=True)
 
             if DEV_ARC_ACC > BEST_ARC_ACC:
