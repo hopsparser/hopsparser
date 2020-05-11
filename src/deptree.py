@@ -183,7 +183,7 @@ class DepGraph:
             label,head = revdeps[node] if node in revdeps else ('root', 0)
             L[6]       = str(head)
             L[7]       = label
-            mwe_list = [ (left,right) for (left,right) in self.mwe_ranges if left == L[0] ]
+            mwe_list = [ (left,right,word) for (left,right,word) in self.mwe_ranges if left == L[0] ]
             for mwe in mwe_list:
                 MWE    = ['_'] * 10
                 MWE[0] = '-'.join(mwe[:2])
