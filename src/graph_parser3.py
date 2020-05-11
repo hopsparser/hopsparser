@@ -56,7 +56,7 @@ class DependencyDataset:
     def encode(self):
 
         self.deps, self.heads,self.labels,self.tags = [ ],[ ],[ ],[ ]
-        self.words,self.cats = [ ],[ ]
+        self.words,self.mwe_ranges, self.cats = [ ], [ ], [ ]
 
         for tree in self.treelist:
             depword_idxes = self.lexer.tokenize(tree.words)
@@ -68,7 +68,8 @@ class DependencyDataset:
             self.deps.append(depword_idxes)
             self.heads.append(self.oracle_governors(tree))
             self.labels.append([self.labtoi[lab] for lab in self.oracle_labels(tree)])
-    
+            self.mwe_ranges.append(tree.mwe_ranges)
+
     def save_vocab(self,filename):
         out = open(filename,'w')
         print(' '.join(self.itolab),file=out)
@@ -87,12 +88,13 @@ class DependencyDataset:
         N = len(self.deps)
         order = list(range(N))
         shuffle(order)
-        self.deps   = [self.deps[i] for i in order]
-        self.tags   = [self.tags[i] for i in order]
-        self.heads  = [self.heads[i] for i in order]
-        self.labels = [self.labels[i] for i in order]
-        self.words  = [self.words[i] for i in order]        
-        self.cats   = [self.cats[i] for i in order]        
+        self.deps       = [self.deps[i] for i in order]
+        self.tags       = [self.tags[i] for i in order]
+        self.heads      = [self.heads[i] for i in order]
+        self.labels     = [self.labels[i] for i in order]
+        self.words      = [self.words[i] for i in order]
+        self.cats       = [self.cats[i] for i in order]
+        self.mwe_ranges = [self.mwe_ranges[i] for i in order]
 
     def order_data(self):
         N           = len(self.deps)
@@ -103,7 +105,8 @@ class DependencyDataset:
         self.tags   = [self.tags[idx] for idx in order]
         self.heads  = [self.heads[idx] for idx in order]
         self.labels = [self.labels[idx] for idx in order]
-        self.words  = [self.words[idx] for idx in order]  
+        self.words  = [self.words[idx] for idx in order]
+        self.mwe_ranges  = [self.mwe_ranges[idx] for idx in order]
         self.cats   = [self.cats[idx] for idx in order]        
         
     def make_batches(self, batch_size,shuffle_batches=False,shuffle_data=True,order_by_length=False):
@@ -124,8 +127,9 @@ class DependencyDataset:
             heads  = self.pad(self.heads[i:i+batch_size])
             labels = self.pad(self.labels[i:i+batch_size])
             words  = self.words[i:i+batch_size]
+            mwe    = self.mwe_ranges[i:i+batch_size]
             cats   = self.cats[i:i+batch_size]
-            yield (words,cats,deps,tags,heads,labels)
+            yield (words,mwe,cats,deps,tags,heads,labels)
 
     def pad(self,batch): 
         if type(batch[0]) == tuple and len(batch[0]) == 2:   #had hoc stuff for BERT Lexers
@@ -334,8 +338,7 @@ class BiAffineParser(nn.Module):
         
         with torch.no_grad():
             for batch in dev_batches:
-                
-                words,cats,deps,tags,heads,labels = batch
+                words,mwe,cats,deps,tags,heads,labels = batch
                 if type(deps)==tuple:
                     depsA,depsB   = deps
                     deps          = (depsA.to(self.device),depsB.to(self.device))
@@ -411,7 +414,7 @@ class BiAffineParser(nn.Module):
             overall_size  = 0
             for batch in train_batches:
                 self.train() 
-                words,cats,deps,tags,heads,labels = batch
+                words,mwe,cats,deps,tags,heads,labels = batch
                 if type(deps)==tuple:
                     depsA,depsB   = deps
                     deps          = (depsA.to(self.device),depsB.to(self.device))
@@ -478,7 +481,7 @@ class BiAffineParser(nn.Module):
             softmax = nn.Softmax(dim=1)
             for batch in test_batches:
                 self.eval()
-                words,cats,deps,tags,heads,labels = batch
+                words,mwe,cats,deps,tags,heads,labels = batch
                 if type(deps)==tuple:
                     depsA,depsB = deps
                     deps = (depsA.to(self.device),depsB.to(self.device))
@@ -492,7 +495,7 @@ class BiAffineParser(nn.Module):
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = self.forward(deps)
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = tagger_scores_batch.cpu(),arc_scores_batch.cpu(), lab_scores_batch.cpu()
 
-                for tokens,length,tagger_scores,arc_scores,lab_scores in zip(words,SLENGTHS,tagger_scores_batch,arc_scores_batch,lab_scores_batch):
+                for tokens,mwe_range,length,tagger_scores,arc_scores,lab_scores in zip(words,mwe,SLENGTHS,tagger_scores_batch,arc_scores_batch,lab_scores_batch):
                     # Predict heads 
                     probs          = arc_scores.numpy().T
                     mst_heads      = np.argmax(probs,axis=1) if greedy else chuliu_edmonds(probs)
@@ -508,7 +511,7 @@ class BiAffineParser(nn.Module):
                     _, mst_labels  = selected.max(dim=0)
                     mst_labels     = mst_labels.data.numpy()
                     edges          = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
-                    dg             =  DepGraph(edges[1:],wordlist=tokens[1:],pos_tags=pos_tags[1:])
+                    dg             =  DepGraph(edges[1:],wordlist=tokens[1:],pos_tags=pos_tags[1:],mwe_range=mwe_range)
                     print(dg,file=ostream)
                     print(file=ostream)
 
