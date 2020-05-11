@@ -557,7 +557,6 @@ if __name__ == '__main__':
         istream.close()
         return strlist
 
-
     parser = argparse.ArgumentParser(description='Graph based Attention based dependency parser/tagger ')
     parser.add_argument('config_file', metavar='CONFIG_FILE', type=str, help='the configuration file')
     parser.add_argument('--train_file', metavar='TRAIN_FILE', type=str, help='the conll training file')
@@ -605,7 +604,6 @@ if __name__ == '__main__':
         print('training done.',file=sys.stderr)
 
     if args.pred_file:
-
         #TEST MODE
         testtrees     = DependencyDataset.read_conll(args.pred_file)
         ordered_vocab = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-vocab"))
