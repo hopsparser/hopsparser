@@ -146,7 +146,7 @@ class DepGraph:
             line  = istream.readline()
         while istream and not line.strip() == '':
             if line[0] != '#':
-                conll.append( line.split('\t'))
+                conll.append(line.split('\t'))
             line  = istream.readline()
         if not conll:
             return None
@@ -154,6 +154,8 @@ class DepGraph:
         postags = [ ]
         edges   = [ ]
         for dataline in conll:
+            if '-' in dataline[0]:#skips lines with compounds
+                continue
             words.append(dataline[1])
             if dataline[3] != '-':
                 postags.append(dataline[3])
