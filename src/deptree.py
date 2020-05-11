@@ -152,11 +152,12 @@ class DepGraph:
         if not conll:
             return None
         words   = [ ]
+        mwe_ranges = [ ]
         postags = [ ]
         edges   = [ ]
         for dataline in conll:
             if '-' in dataline[0]:
-                self.mwe_ranges.append(dataline[0].split('-')+[dataline[1]])
+                mwe_ranges.append(dataline[0].split('-')+[dataline[1]])
                 continue
             else :
                 words.append(dataline[1])
@@ -164,7 +165,7 @@ class DepGraph:
                     postags.append(dataline[3])
                 if dataline[6] != '0': #do not add root immediately
                     edges.append((int(dataline[6]),dataline[7],int(dataline[0]))) # shift indexes !
-        return DepGraph(edges,words,pos_tags=postags,with_root=True)
+        return DepGraph(edges,words,pos_tags=postags,with_root=True,mwe_range=mwe_ranges)
 
     def __str__(self):
         """
