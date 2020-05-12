@@ -43,9 +43,9 @@ We provide some pretrained models :
 |    ud_gsd  | French   | GPU/CPU| 84.3 | fast   | UD French GSD  only          | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/gsd.tar.gz)
 | ud_gsd_flaubert | French| GPU  | 92.3 | average| FlaubertBase + UD French GSD     | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/gsd_flaubert.tar.gz) 
 
-The reader may notice a difference with the results published in [(Hang et al 2020)](https://arxiv.org/abs/1912.05372).
+The reader may notice a difference with the results published in [(Le et al 2020)](https://arxiv.org/abs/1912.05372).
 The difference comes from the fact that this parser also predicts part of speech tags
-while the version described in [(Hang et al 2020)](https://arxiv.org/abs/1912.05372) required predicted tags as part of its input.
+while the version described in [(Le et al 2020)](https://arxiv.org/abs/1912.05372) required predicted tags as part of its input.
 This change makes the parser easier to use in "real life" projects. 
 
 Training task
