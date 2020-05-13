@@ -2,7 +2,7 @@ import torch
 import fasttext
 from torch import nn
 from graph_parser2 import DependencyDataset,DepGraph
-from transformers  import AutoModel, AutoTokenizer
+from transformers  import AutoConfig, AutoModel, AutoTokenizer
 from collections   import Counter,defaultdict
 from random import random
 
@@ -120,7 +120,8 @@ class BertBaseLexer(nn.Module):
         
         self.embedding              = nn.Embedding(len(self.itos), default_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
         
-        self.bert,_                 = AutoModel.from_pretrained(bert_modelfile, output_loading_info=True, output_hidden_states=True)
+        bert_config                 = AutoConfig.from_pretrained(bert_modelfile, output_hidden_states=True)
+        self.bert                   = AutoModel.from_pretrained(bert_modelfile, config=bert_config)
         self.bert_tokenizer         = AutoTokenizer.from_pretrained(bert_modelfile,
                                                                     to_lowercase_and_remove_accent=False,
                                                                     unk_token=DependencyDataset.UNK_WORD,
