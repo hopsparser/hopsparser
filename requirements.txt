@@ -1,3 +1,4 @@
 fasttext
 torch
 transformers
+yaml
