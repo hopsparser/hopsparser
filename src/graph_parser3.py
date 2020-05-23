@@ -243,6 +243,12 @@ class CharDataSet:
         for idx in range(max_sent_len):
             yield CharDataSet.batchedtokens2codes( [sentence[idx] for sentence in batched_sents])
 
+    @staticmethod
+    def make_vocab(wordlist):
+        charset = set()
+        for token in wordlist:
+            charset.update(list(token))
+        return list(charset)
 
 class CharRNN(nn.Module):
 
