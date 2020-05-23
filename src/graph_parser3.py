@@ -275,7 +275,7 @@ class CharRNN(nn.Module):
         embeddings = self.char_embedding(xinput)
 
         outputs,( _ ,cembedding) = self.char_bilstm(embeddings)
-        return cembedding.view(-1,self.word_embedding_size*2)   #change this when batched
+        return cembedding.view(-1,self.word_embedding_size*2)
 
 
 class MLP(nn.Module):
@@ -368,10 +368,10 @@ class BiAffineParser(nn.Module):
 
         """Computes char embeddings"""
         char_embed = [self.char_rnn(column) for column in xchars]
-        print(char_embed.shape)
+        print(char_embed.shape,flush=True)
         """Computes word embeddings"""
         lex_emb    = self.lexer(xwords)
-        print(lex_emb.shape)
+        print(lex_emb.shape,flush=True)
 
         cemb,_     = self.rnn(lex_emb)
 
