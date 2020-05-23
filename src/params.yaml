@@ -10,4 +10,4 @@ batch_size          : 2
 epochs              : 100
 lr                  : 0.001
 lexer               : 'default'
-device              : 'cuda:3'
+device              : 'cpu'
