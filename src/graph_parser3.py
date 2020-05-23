@@ -37,10 +37,11 @@ class DependencyDataset:
         istream.close()  
         return treelist
         
-    def __init__(self,treelist,lexer,use_labels=None,use_tags=None):
+    def __init__(self,treelist,lexer,char_dataset,use_labels=None,use_tags=None):
            
-        self.lexer    = lexer
-        self.treelist = treelist
+        self.lexer        = lexer
+        self.char_dataset = char_dataset
+        self.treelist     = treelist
         if use_labels:
             self.itolab = use_labels
             self.labtoi = {label:idx for idx,label in enumerate(self.itolab)}
@@ -127,7 +128,7 @@ class DependencyDataset:
             words  = self.words[i:i+batch_size]
             mwe    = self.mwe_ranges[i:i+batch_size]
             cats   = self.cats[i:i+batch_size]
-            chars  = CharDataSet.batch_chars(self.words)
+            chars  = self.char_dataset.batch_chars(self.words)
             yield (words,mwe,chars,cats,deps,tags,heads,labels)
 
     def pad(self,batch): 
@@ -195,24 +196,24 @@ class CharDataSet:
     """
     Namespace for simulating a char dataset
     """
-    @staticmethod
+    def __init__(self,charlist):
+        self.c2idx = dict(  [(c,idx) for idx,c in enumerate(charlist)])
+
     def word2charcodes(token):
         """
         Turns a string into a list of char codes.
         If the string is <pad> or <unk> returns an empty list of char codes
         """
-        return [  ] if token in [DependencyDataset.PAD_TOKEN,DependencyDataset.UNK_WORD] else [ c2idx[c] for c in token if c in c2idx ]
+        return [  ] if token in [DependencyDataset.PAD_TOKEN,DependencyDataset.UNK_WORD] else [ self.c2idx[c] for c in token if c in self.c2idx ]
 
-
-    @staticmethod
-    def batchedtokens2codes(toklist):
+    def batchedtokens2codes(self,toklist):
         """
         Codes a list of tokens as a batch of lists of charcodes and pads them if needed
         :param toklist:
         :return:
         """
         max_tok_len  = [ len(token) for token in toklist ]
-        charcodes    = [ CharDataSet.word2charcodes(token)  for token in toklist ]
+        charcodes    = [ self.word2charcodes(token)  for token in toklist ]
         sent_lengths = list( map(len, charcodes))
         max_len      = max( sent_lengths)
         padded_codes = [ ]
@@ -223,7 +224,7 @@ class CharDataSet:
         return torch.tensor(padded_codes)
 
 
-    def batch_chars(sent_batch):
+    def batch_chars(self,sent_batch):
         """
         This is a generator that yields batches of character codes word by word.
         Performs the padding as well.
@@ -239,14 +240,15 @@ class CharDataSet:
             batched_sents.append(padded)
 
         for idx in range(max_sent_len):
-            yield CharDataSet.batchedtokens2codes( [sentence[idx] for sentence in batched_sents])
+            yield self.batchedtokens2codes( [sentence[idx] for sentence in batched_sents])
 
     @staticmethod
     def make_vocab(wordlist):
         charset = set()
         for token in wordlist:
             charset.update(list(token))
-        return [DependencyDataset.PAD_TOKEN] + list(charset)
+
+        return CharDataSet([DependencyDataset.PAD_TOKEN] + list(charset))
 
 class CharRNN(nn.Module):
 
