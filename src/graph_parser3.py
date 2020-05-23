@@ -259,7 +259,7 @@ class CharRNN(nn.Module):
 
         super(CharRNN, self).__init__()
 
-        self.word_embedding_size = word_embedding_size
+        self.word_embedding_size = int(word_embedding_size/2) #bc bi-lstm
         self.char_embedding      = nn.Embedding(charset_size, char_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
         self.char_bilstm         = nn.LSTM(char_embedding_size,\
                                            word_embedding_size,1,\
