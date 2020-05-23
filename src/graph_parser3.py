@@ -235,10 +235,11 @@ class CharDataSet:
         :yields: a batch (torch.tensor) of character idxes
         """
         sent_lengths  = list( map(len, sent_batch))
-        max_sent_len  = max (sent_lengths)
+        max_sent_len  = max(sent_lengths)
 
         batched_sents = []
         for k, seq in zip(sent_lengths, sent_batch):
+            print(max_sent_len,seq)
             padded = seq + (max_sent_len - k) * [ DependencyDataset.PAD_TOKEN ]
             batched_sents.append(padded)
 
