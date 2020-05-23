@@ -224,7 +224,6 @@ class CharDataSet:
         for k, seq in zip(sent_lengths, charcodes):
             padded = seq + (max_len - k) * [ DependencyDataset.PAD_IDX ]
             padded_codes.append(padded)
-        print(padded_codes)
         return torch.tensor(padded_codes)
 
 
