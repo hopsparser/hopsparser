@@ -367,7 +367,7 @@ class BiAffineParser(nn.Module):
     def forward(self,xwords,xchars):
 
         """Computes char embeddings"""
-        char_embed = torch.stack([self.char_rnn(column) for column in xchars])
+        char_embed = torch.stack([self.char_rnn(column) for column in xchars],dim=1)
         print(char_embed.shape,flush=True)
         """Computes word embeddings"""
         lex_emb    = self.lexer(xwords)
@@ -492,8 +492,6 @@ class BiAffineParser(nn.Module):
                     deps = deps.to(self.device)
                     overall_size += (deps.size(0)*deps.size(1)) #bc no masking at training           
                 heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)
-                chars=list(chars)
-                print('chars',chars)
                 chars              =  [ token.to(self.device) for token in chars ]
 
                 #FORWARD
