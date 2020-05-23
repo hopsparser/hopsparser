@@ -272,11 +272,12 @@ class CharRNN(nn.Module):
         :param xinput: is a tensor of char indexes encoding a batch of tokens [batch,token_len,char_seq_idx]
         :return: a word embedding tensor
         """
+
         embeddings = self.char_embedding(xinput)
-
         outputs,( _ ,cembedding) = self.char_bilstm(embeddings)
-        return cembedding.view(-1,self.word_embedding_size*2)
-
+        result = cembedding.view(-1,self.word_embedding_size*2)
+        print('fwd out',result.shape)
+        return result
 
 class MLP(nn.Module):
 
