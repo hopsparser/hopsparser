@@ -230,7 +230,7 @@ class CharDataSet:
         :param sent_batch: a batch of list of tokens (non padded)
         :yields: a batch (torch.tensor) of character idxes
         """
-        sent_lengths  = list( map(len, charcodes))
+        sent_lengths  = list( map(len, sent_batch))
         max_sent_len  = max (sent_lengths)
 
         batched_sents = []
