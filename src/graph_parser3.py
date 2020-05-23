@@ -203,7 +203,7 @@ class CharDataSet:
         Turns a string into a list of char codes.
         If the string is <pad> or <unk> returns an empty list of char codes
         """
-        return [  ] if token in [DependencyDataset.PAD_TOKEN,DependencyDataset.UNK_WORD] else [ c2idx[c] for c in token ]
+        return [  ] if token in [DependencyDataset.PAD_TOKEN,DependencyDataset.UNK_WORD] else [ c2idx[c] for c in token if c in c2idx ]
 
 
     @staticmethod
