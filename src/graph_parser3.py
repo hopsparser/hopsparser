@@ -197,7 +197,8 @@ class CharDataSet:
     Namespace for simulating a char dataset
     """
     def __init__(self,charlist):
-        self.c2idx = dict(  [(c,idx) for idx,c in enumerate(charlist)])
+        self.i2c   = charlist
+        self.c2idx = dict(  [(c,idx) for idx,c in enumerate(charlist)] )
 
     def word2charcodes(token):
         """
@@ -668,7 +669,7 @@ if __name__ == '__main__':
             exit(1)
 
         ordered_charset = CharDataSet.make_vocab(ordered_vocab)
-        savelist(ordered_charset,os.path.join(MODEL_DIR,hp['lexer']+"-charcodes"))
+        savelist(ordered_charset.i2c,os.path.join(MODEL_DIR,hp['lexer']+"-charcodes"))
         char_rnn        = CharRNN(len(ordered_charset), hp['char_embedding_size'], hp['word_embedding_size'])
 
         trainset           = DependencyDataset(traintrees,lexer)
