@@ -14,8 +14,6 @@ from mst import chuliu_edmonds
 from lexers  import *
 from deptree import *
 
-
-
 class DependencyDataset:
     """
     A representation of the DepBank for efficient processing.
@@ -411,7 +409,7 @@ class BiAffineParser(nn.Module):
                     deps           = deps.to(self.device)
                     overall_size  += (deps.size(0)*deps.size(1)) #bc no masking at training           
                 heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)
-                chars              =  chars.to(self.device)
+                chars              =  [ token.to(self.device) for token in chars ]
 
                 #preds 
                 tagger_scores, arc_scores, lab_scores = self.forward(deps,chars)
@@ -488,7 +486,7 @@ class BiAffineParser(nn.Module):
                     deps = deps.to(self.device)
                     overall_size += (deps.size(0)*deps.size(1)) #bc no masking at training           
                 heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)
-                chars              =  chars.to(self.device)
+                chars              =  [ token.to(self.device) for token in chars ]
 
                 #FORWARD
                 tagger_scores, arc_scores, lab_scores = self.forward(deps,chars)
@@ -548,7 +546,7 @@ class BiAffineParser(nn.Module):
             for batch in test_batches:
                 self.eval()
                 words,mwe,chars,cats,deps,tags,heads,labels = batch
-                if type(deps)==tuple:
+                if type(deps) == tuple:
                     depsA,depsB = deps
                     deps = (depsA.to(self.device),depsB.to(self.device))
                     SLENGTHS = (depsA != DependencyDataset.PAD_IDX).long().sum(-1)
@@ -556,7 +554,7 @@ class BiAffineParser(nn.Module):
                     deps = deps.to(self.device)
                     SLENGTHS = (deps != DependencyDataset.PAD_IDX).long().sum(-1)
                 heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)                
-                chars              =  chars.to(self.device)
+                chars              =  [ token.to(self.device) for token in chars ]
 
                 #batch prediction
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = self.forward(deps,chars)
