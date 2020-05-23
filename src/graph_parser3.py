@@ -368,7 +368,7 @@ class BiAffineParser(nn.Module):
     def forward(self,xwords,xchars):
 
         """Computes char embeddings"""
-        char_embed = [self.char_rnn(column) for column in xchars]
+        char_embed = torch.stack([self.char_rnn(column) for column in xchars])
         print(char_embed.shape,flush=True)
         """Computes word embeddings"""
         lex_emb    = self.lexer(xwords)
