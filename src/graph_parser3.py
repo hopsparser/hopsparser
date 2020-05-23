@@ -200,6 +200,9 @@ class CharDataSet:
         self.i2c   = charlist
         self.c2idx = dict(  [(c,idx) for idx,c in enumerate(charlist)] )
 
+    def __len__(self):
+        return len(self.i2c)
+
     def word2charcodes(token):
         """
         Turns a string into a list of char codes.
