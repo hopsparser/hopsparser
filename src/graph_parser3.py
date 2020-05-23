@@ -235,7 +235,7 @@ class CharDataSet:
 
         batched_sents = []
         for k, seq in zip(sent_lengths, sent_batch):
-            padded = seq + (max_len - k) * [ DependencyDataset.PAD_TOKEN ]
+            padded = seq + (max_sent_len - k) * [ DependencyDataset.PAD_TOKEN ]
             batched_sents.append(padded)
 
         for idx in range(max_sent_len):
