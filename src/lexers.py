@@ -60,6 +60,7 @@ class DefaultLexer(nn.Module):
             word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],self._dpout) for widx in word_idxes]
         return word_idxes
 
+
 class FastTextLexer(nn.Module):
     """
     This is the a lexer that uses fastText embeddings.

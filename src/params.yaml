@@ -1,4 +1,5 @@
 word_embedding_size : 100
+char_embedding_size : 16
 encoder_dropout     : 0.3
 mlp_input           : 400
 mlp_arc_hidden      : 400
