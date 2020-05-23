@@ -128,7 +128,7 @@ class DependencyDataset:
             words  = self.words[i:i+batch_size]
             mwe    = self.mwe_ranges[i:i+batch_size]
             cats   = self.cats[i:i+batch_size]
-            chars  = self.char_dataset.batch_chars(self.words)
+            chars  = self.char_dataset.batch_chars(self.words[i:i+batch_size])
             yield (words,mwe,chars,cats,deps,tags,heads,labels)
 
     def pad(self,batch): 
