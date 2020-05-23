@@ -248,7 +248,8 @@ class CharDataSet:
         charset = set()
         for token in wordlist:
             charset.update(list(token))
-        return list(charset)
+        charset.add(DependencyDataset.UNK_TOKEN)
+        return [DependencyDataset.PAD_TOKEN] + list(charset)
 
 class CharRNN(nn.Module):
 
