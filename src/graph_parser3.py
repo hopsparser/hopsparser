@@ -203,7 +203,7 @@ class CharDataSet:
     def __len__(self):
         return len(self.i2c)
 
-    def word2charcodes(token):
+    def word2charcodes(self,token):
         """
         Turns a string into a list of char codes.
         If the string is <pad> or <unk> returns an empty list of char codes
