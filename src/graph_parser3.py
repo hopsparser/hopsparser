@@ -368,10 +368,10 @@ class BiAffineParser(nn.Module):
 
         """Computes char embeddings"""
         char_embed = torch.stack([self.char_rnn(column) for column in xchars],dim=1)
-        print(char_embed.shape,flush=True)
+        print('char',char_embed.shape,flush=True)
         """Computes word embeddings"""
         lex_emb    = self.lexer(xwords)
-        print(lex_emb.shape,flush=True)
+        print('lex',lex_emb.shape,flush=True)
 
         cemb,_     = self.rnn(lex_emb)
 
