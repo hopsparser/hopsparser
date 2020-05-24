@@ -310,6 +310,7 @@ class BiAffine(nn.Module):
         return S.squeeze(1)
 
 
+
 class Tagger(nn.Module):
 
     def __init__(self,input_dim,tagset_size):
@@ -537,7 +538,7 @@ class BiAffineParser(nn.Module):
                 self.save_params(modelpath)
                 BEST_ARC_ACC = DEV_ARC_ACC
 
-            scheduler.step()
+            #scheduler.step()
                 
         self.load_params(modelpath)
         self.save_params(modelpath)
