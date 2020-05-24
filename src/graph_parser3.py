@@ -336,7 +336,7 @@ class BiAffineParser(nn.Module):
         super(BiAffineParser, self).__init__()
         self.device        = torch.device(device) if type(device) == str else device
         self.lexer         = lexer.to(self.device)
-        self.rnn           = nn.LSTM(self.lexer.embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.rnn           = nn.LSTM(self.lexer.embedding_size*2,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         #POS tagger & char RNN
         self.pos_tagger    = Tagger(mlp_input*2,tagset_size).to(self.device)
@@ -370,15 +370,11 @@ class BiAffineParser(nn.Module):
 
         """Computes char embeddings"""
         char_embed = torch.stack([self.char_rnn(column) for column in xchars],dim=1)
-        print('char',char_embed.shape,flush=True)
         """Computes word embeddings"""
         lex_emb    = self.lexer(xwords)
-        print('lex',lex_emb.shape,flush=True)
-
+        """encode input"""
         full_input = torch.cat((lex_emb,char_embed),dim=2)
-        print('full',full_input.shape,flush=True)
-
-        cemb,_     = self.rnn(lex_emb)
+        cemb,_     = self.rnn(full_input)
 
         """Performs POS tagging"""
         scores_tag = self.pos_tagger(cemb)
