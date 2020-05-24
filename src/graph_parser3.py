@@ -263,7 +263,7 @@ class CharRNN(nn.Module):
         self.word_embedding_size = word_embedding_size #bc bi-lstm
         self.char_embedding      = nn.Embedding(charset_size, char_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
         self.char_bilstm         = nn.LSTM(char_embedding_size,\
-                                           self.word_embedding_size/2,1,\
+                                           int(self.word_embedding_size/2),1,\
                                            batch_first=True,\
                                            bidirectional=True)
 
