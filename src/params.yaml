@@ -6,8 +6,8 @@ mlp_arc_hidden      : 500
 mlp_lab_hidden      : 100
 mlp_dropout         : 0.3
 word_dropout        : 0.3
-batch_size          : 16
-epochs              : 100
+batch_size          : 32
+epochs              : 20
 lr                  : 0.001
 lexer               : 'default'
 device              : 'cuda:3'
