@@ -277,7 +277,6 @@ class CharRNN(nn.Module):
         embeddings = self.char_embedding(xinput)
         outputs,( _ ,cembedding) = self.char_bilstm(embeddings)
         result = cembedding.view(-1,self.word_embedding_size*2)
-        print('fwd out',result.shape)
         return result
 
 
@@ -375,6 +374,9 @@ class BiAffineParser(nn.Module):
         """Computes word embeddings"""
         lex_emb    = self.lexer(xwords)
         print('lex',lex_emb.shape,flush=True)
+
+        full_input = torch.cat((lex_emb,char_emb),dim=2)
+        print('full',full_input.shape,flush=True)
 
         cemb,_     = self.rnn(lex_emb)
 
