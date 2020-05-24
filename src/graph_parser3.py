@@ -33,7 +33,7 @@ class DependencyDataset:
             if len(tree.words) <= 150:
                 treelist.append(tree)
             else:
-                print('trashed tree with length',len(tree.words))
+                print('dropped tree with length',len(tree.words))
             tree = DepGraph.read_tree(istream)
         istream.close()  
         return treelist
