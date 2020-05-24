@@ -260,10 +260,10 @@ class CharRNN(nn.Module):
 
         super(CharRNN, self).__init__()
 
-        self.word_embedding_size = int( word_embedding_size/2) #bc bi-lstm
+        self.word_embedding_size = word_embedding_size #bc bi-lstm
         self.char_embedding      = nn.Embedding(charset_size, char_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
         self.char_bilstm         = nn.LSTM(char_embedding_size,\
-                                           self.word_embedding_size,1,\
+                                           self.word_embedding_size/2,1,\
                                            batch_first=True,\
                                            bidirectional=True)
 
@@ -277,7 +277,7 @@ class CharRNN(nn.Module):
 
         embeddings = self.char_embedding(xinput)
         outputs,( _ ,cembedding) = self.char_bilstm(embeddings)
-        result = cembedding.view(-1,self.word_embedding_size*2)
+        result = cembedding.view(-1,self.word_embedding_size)
         return result
 
 
@@ -337,7 +337,7 @@ class BiAffineParser(nn.Module):
         super(BiAffineParser, self).__init__()
         self.device        = torch.device(device) if type(device) == str else device
         self.lexer         = lexer.to(self.device)
-        self.rnn           = nn.LSTM(self.lexer.embedding_size*2,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.rnn           = nn.LSTM(self.lexer.embedding_size+char_rnn.word_embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         #POS tagger & char RNN
         self.pos_tagger    = Tagger(mlp_input*2,tagset_size).to(self.device)
