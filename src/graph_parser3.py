@@ -14,6 +14,7 @@ from mst import chuliu_edmonds
 from lexers  import *
 from deptree import *
 
+
 class DependencyDataset:
     """
     A representation of the DepBank for efficient processing.
@@ -340,7 +341,7 @@ class BiAffineParser(nn.Module):
 
         #POS tagger & char RNN
         self.pos_tagger    = Tagger(mlp_input*2,tagset_size).to(self.device)
-        self.char_rnn      = char_rnn
+        self.char_rnn      = char_rnn.to(self.device)
         # Arc MLPs
         self.arc_mlp_h = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
         self.arc_mlp_d = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
