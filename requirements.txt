@@ -1,0 +1,4 @@
+fasttext
+torch
+transformers
+yaml
