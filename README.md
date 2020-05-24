@@ -37,7 +37,7 @@ We provide some pretrained models :
 
 | Model name | Language | device | LAS  | speed | Comment | Download link
 | ---------- | -------- | ------ | ---- | ----- | ------- | -------------
-|   default  | French   | GPU/CPU| 81.5 | fast  | French treebank only          | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/default.tar.gz)
+|   default  | French   | GPU/CPU| 82.4 | fast  | French treebank only          | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/default.tar.gz)
 |   flaubert | French   | GPU    | 88.2 | average| FlaubertBase+French treebank | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/flaubert.tar.gz)
 |   camembert| French   | GPU    | 87.8 | average| camembert+French treebank    | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/camembert.tar.gz)
 |    ud_gsd  | French   | GPU/CPU| 84.3 | fast   | UD French GSD  only          | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/gsd.tar.gz)
