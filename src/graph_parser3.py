@@ -375,7 +375,7 @@ class BiAffineParser(nn.Module):
         lex_emb    = self.lexer(xwords)
         print('lex',lex_emb.shape,flush=True)
 
-        full_input = torch.cat((lex_emb,char_emb),dim=2)
+        full_input = torch.cat((lex_emb,char_embed),dim=2)
         print('full',full_input.shape,flush=True)
 
         cemb,_     = self.rnn(lex_emb)
