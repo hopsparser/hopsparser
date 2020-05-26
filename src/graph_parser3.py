@@ -67,7 +67,8 @@ class DependencyDataset:
             self.tags.append(deptag_idxes)
             self.deps.append(depword_idxes)
             self.heads.append(self.oracle_governors(tree))
-            self.labels.append([self.labtoi[lab] for lab in self.oracle_labels(tree)])
+            # the get defaulting to 0 is a hack for labels not found in training set
+            self.labels.append([self.labtoi.get(lab,0) for lab in self.oracle_labels(tree)])
             self.mwe_ranges.append(tree.mwe_ranges)
 
     def save_vocab(self,filename):
@@ -253,6 +254,7 @@ class CharDataSet:
             charset.update(list(token))
 
         return CharDataSet([DependencyDataset.PAD_TOKEN] + list(charset))
+
 
 class CharRNN(nn.Module):
 
