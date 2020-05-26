@@ -42,7 +42,7 @@ We provide some pretrained models :
 |   camembert| French   | GPU    | 87.8 | average| camembert+French treebank    | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/camembert.tar.gz)
 |    ud_gsd  | French   | GPU/CPU| 84.9 | fast   | UD French GSD  only          | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/gsd.tar.gz)
 | ud_gsd_flaubert | French| GPU  | 92.5 | average| FlaubertBase + UD French GSD     | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/gsd_flaubert.tar.gz) 
-| of_default | Old French| GPU/CPU  | 78.7 | fast | SCMRF treebank only     | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/of_default.tar.gz)
+| of_default | Old French| GPU/CPU  | 78.7 | fast | SRCMF treebank only     | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/of_default.tar.gz)
 
 The reader may notice a difference with the results published in [(Le et al 2020)](https://arxiv.org/abs/1912.05372).
 The difference comes from the fact that this parser also predicts part of speech tags
