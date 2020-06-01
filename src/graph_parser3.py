@@ -1,8 +1,8 @@
 import sys
-import torch
 import numpy as np
 import yaml
 import argparse
+import torch.nn.functional as F
 
 from torch import nn
 from torch import optim
@@ -338,9 +338,10 @@ class BiAffineParser(nn.Module):
                  device='cuda:1'):
 
         super(BiAffineParser, self).__init__()
-        self.device        = torch.device(device) if type(device) == str else device
-        self.lexer         = lexer.to(self.device)
-        self.rnn           = nn.LSTM(self.lexer.embedding_size+char_rnn.word_embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.device            = torch.device(device) if type(device) == str else device
+        self.lexer             = lexer.to(self.device)
+        self.tag_rnn           = nn.LSTM(self.lexer.embedding_size+char_rnn.word_embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.dep_rnn           = nn.LSTM(tagset_size+self.lexer.embedding_size+char_rnn.word_embedding_size,mlp_input,2, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         #POS tagger & char RNN
         self.pos_tagger    = Tagger(mlp_input*2,tagset_size).to(self.device)
@@ -376,23 +377,28 @@ class BiAffineParser(nn.Module):
         char_embed = torch.stack([self.char_rnn(column) for column in xchars],dim=1)
         """Computes word embeddings"""
         lex_emb    = self.lexer(xwords)
-        """encode input"""
-        full_input = torch.cat((lex_emb,char_embed),dim=2)
-        cemb,_     = self.rnn(full_input)
+
+        """encodes input for tagging"""
+        tag_input = torch.cat((lex_emb,char_embed),dim=2)
+        tag_embeddings,_     = self.tag_rnn(tag_input)
 
         """Performs POS tagging"""
-        scores_tag = self.pos_tagger(cemb)
+        tag_scores     = self.pos_tagger(tag_embeddings)
+
+        """Encodes parser input"""
+        dep_input      =  torch.cat((lex_emb,char_embed,F.softmax(tag_scores,dim=2)),dim=2)
+        dep_embeddings = self.dep_rnn(dep_input)
 
         """Compute the score matrices for the arcs and labels."""
-        arc_h      = self.arc_mlp_h(cemb)
-        arc_d      = self.arc_mlp_d(cemb)
-        lab_h      = self.lab_mlp_h(cemb)
-        lab_d      = self.lab_mlp_d(cemb)
+        arc_h      = self.arc_mlp_h(dep_embeddings)
+        arc_d      = self.arc_mlp_d(dep_embeddings)
+        lab_h      = self.lab_mlp_h(dep_embeddings)
+        lab_d      = self.lab_mlp_d(dep_embeddings)
                 
-        scores_arc = self.arc_biaffine(arc_h, arc_d)
-        scores_lab = self.lab_biaffine(lab_h, lab_d)
+        arc_scores = self.arc_biaffine(arc_h, arc_d)
+        lab_scores = self.lab_biaffine(lab_h, lab_d)
 
-        return scores_tag, scores_arc, scores_lab
+        return tag_scores, arc_scores, lab_scores
 
 
     def eval_model(self,dev_set,batch_size):
