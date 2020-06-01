@@ -379,15 +379,15 @@ class BiAffineParser(nn.Module):
         lex_emb    = self.lexer(xwords)
 
         """encodes input for tagging"""
-        tag_input = torch.cat((lex_emb,char_embed),dim=2)
-        tag_embeddings,_     = self.tag_rnn(tag_input)
+        tag_input        = torch.cat((lex_emb,char_embed),dim=2)
+        tag_embeddings,_ = self.tag_rnn(tag_input)
 
         """Performs POS tagging"""
         tag_scores     = self.pos_tagger(tag_embeddings)
 
         """Encodes parser input"""
-        dep_input      =  torch.cat((lex_emb,char_embed,F.softmax(tag_scores,dim=2)),dim=2)
-        dep_embeddings = self.dep_rnn(dep_input)
+        dep_input         =  torch.cat((lex_emb,char_embed,F.softmax(tag_scores,dim=2)),dim=2)
+        dep_embeddings, _ = self.dep_rnn(dep_input)
 
         """Compute the score matrices for the arcs and labels."""
         arc_h      = self.arc_mlp_h(dep_embeddings)
