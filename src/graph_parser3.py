@@ -388,7 +388,8 @@ class BiAffineParser(nn.Module):
         tag_scores        = self.pos_tagger(tag_embeddings)
 
         """Encodes parser input"""
-        dep_input         =  torch.cat((lex_emb,char_embed,F.softmax(tag_scores,dim=2)),dim=2)
+        #dep_input         =  torch.cat((lex_emb,char_embed,F.softmax(tag_scores,dim=2)),dim=2)
+        dep_input = torch.cat((lex_emb, char_embed, tag_scores), dim=2)
         dep_embeddings, _ = self.dep_rnn(dep_input)
 
         """Compute the score matrices for the arcs and labels."""
