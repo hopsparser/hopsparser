@@ -331,6 +331,7 @@ class BiAffineParser(nn.Module):
                  tagset_size,
                  encoder_dropout, #lstm dropout
                  mlp_input,
+                 mlp_tag_hidden,
                  mlp_arc_hidden,
                  mlp_lab_hidden,
                  mlp_dropout,
@@ -344,7 +345,8 @@ class BiAffineParser(nn.Module):
         self.dep_rnn           = nn.LSTM(tagset_size+self.lexer.embedding_size+char_rnn.word_embedding_size,mlp_input,2, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         #POS tagger & char RNN
-        self.pos_tagger    = Tagger(mlp_input*2,tagset_size).to(self.device)
+        #self.pos_tagger    = Tagger(mlp_input*2,tagset_size).to(self.device)
+        self.pos_tagger    = MLP(mlp_input * 2,mlp_tag_hidden,tagset_size).to(self.device)
         self.char_rnn      = char_rnn.to(self.device)
         # Arc MLPs
         self.arc_mlp_h = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
@@ -723,7 +725,7 @@ if __name__ == '__main__':
         itolab  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
         itotag  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))
         testset = DependencyDataset(testtrees,lexer,ordered_charset,use_labels=itolab,use_tags=itotag)
-        parser  = BiAffineParser(lexer,char_rnn,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
+        parser  = BiAffineParser(lexer,char_rnn,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_tag_hidden'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.load_params(os.path.join(MODEL_DIR,hp['lexer']+"-model.pt"))
         ostream = open(args.pred_file+'.parsed','w')
         parser.predict_batch(testset,ostream,hp['batch_size'],greedy=False)
