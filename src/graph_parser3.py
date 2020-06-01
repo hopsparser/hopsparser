@@ -341,8 +341,8 @@ class BiAffineParser(nn.Module):
         super(BiAffineParser, self).__init__()
         self.device            = torch.device(device) if type(device) == str else device
         self.lexer             = lexer.to(self.device)
-        self.tag_rnn           = nn.LSTM(self.lexer.embedding_size+char_rnn.word_embedding_size,mlp_input,1, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
-        self.dep_rnn           = nn.LSTM(tagset_size+self.lexer.embedding_size+char_rnn.word_embedding_size,mlp_input,2, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.tag_rnn           = nn.LSTM(self.lexer.embedding_size+char_rnn.word_embedding_size,mlp_input,2, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.dep_rnn           = nn.LSTM(tagset_size+self.lexer.embedding_size+char_rnn.word_embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         #POS tagger & char RNN
         #self.pos_tagger    = Tagger(mlp_input*2,tagset_size).to(self.device)
