@@ -258,14 +258,14 @@ class CharDataSet:
 
 class CharRNN(nn.Module):
 
-    def __init__(self,charset_size,char_embedding_size,word_embedding_size):
+    def __init__(self,charset_size,char_embedding_size,embedding_size):
 
         super(CharRNN, self).__init__()
 
-        self.word_embedding_size = word_embedding_size #bc bi-lstm
+        self.embedding_size      = embedding_size
         self.char_embedding      = nn.Embedding(charset_size, char_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
         self.char_bilstm         = nn.LSTM(char_embedding_size,\
-                                           int(self.word_embedding_size/2),1,\
+                                           int(self.embedding_size/2),1,\
                                            batch_first=True,\
                                            bidirectional=True)
 
@@ -279,7 +279,7 @@ class CharRNN(nn.Module):
 
         embeddings = self.char_embedding(xinput)
         outputs,( _ ,cembedding) = self.char_bilstm(embeddings)
-        result = cembedding.view(-1,self.word_embedding_size)
+        result = cembedding.view(-1,self.embedding_size)
         return result
 
 
@@ -342,7 +342,7 @@ class BiAffineParser(nn.Module):
         self.device            = torch.device(device) if type(device) == str else device
         self.lexer             = lexer.to(self.device)
         self.tag_rnn           = nn.LSTM(self.lexer.embedding_size+char_rnn.word_embedding_size,mlp_input,2, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
-        self.dep_rnn           = nn.LSTM(tagset_size+self.lexer.embedding_size+char_rnn.word_embedding_size,mlp_input,2, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.dep_rnn           = nn.LSTM(tagset_size+self.lexer.embedding_size+char_rnn.embedding_size,mlp_input,2, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         #POS tagger & char RNN
         #self.pos_tagger    = Tagger(mlp_input*2,tagset_size).to(self.device)
@@ -687,7 +687,7 @@ if __name__ == '__main__':
 
         ordered_charset = CharDataSet.make_vocab(ordered_vocab)
         savelist(ordered_charset.i2c,os.path.join(MODEL_DIR,hp['lexer']+"-charcodes"))
-        char_rnn        = CharRNN(len(ordered_charset), hp['char_embedding_size'], hp['word_embedding_size'])
+        char_rnn        = CharRNN(len(ordered_charset), hp['char_embedding_size'], hp['charlstm_output_size'])
 
         trainset           = DependencyDataset(traintrees,lexer,ordered_charset)
         itolab,itotag      = trainset.itolab,trainset.itotag
@@ -721,7 +721,7 @@ if __name__ == '__main__':
             exit(1)
 
         ordered_charset =  CharDataSet(loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-charcodes")))
-        char_rnn        = CharRNN(len(ordered_charset), hp['char_embedding_size'], hp['word_embedding_size'])
+        char_rnn        = CharRNN(len(ordered_charset), hp['char_embedding_size'], hp['charlstm_output_size'])
 
         itolab  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
         itotag  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))

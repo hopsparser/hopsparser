@@ -1,5 +1,6 @@
 word_embedding_size : 100
-char_embedding_size : 16
+charlstm_output_size: 512
+char_embedding_size : 64
 encoder_dropout     : 0.3
 mlp_input           : 400
 mlp_tag_hidden      : 30
