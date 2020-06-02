@@ -341,11 +341,9 @@ class BiAffineParser(nn.Module):
         super(BiAffineParser, self).__init__()
         self.device            = torch.device(device) if type(device) == str else device
         self.lexer             = lexer.to(self.device)
-        self.tag_rnn           = nn.LSTM(self.lexer.embedding_size+char_rnn.embedding_size,mlp_input,2, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
-        self.dep_rnn           = nn.LSTM(tagset_size+self.lexer.embedding_size+char_rnn.embedding_size,mlp_input,2, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.dep_rnn           = nn.LSTM(self.lexer.embedding_size+char_rnn.embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         #POS tagger & char RNN
-        #self.pos_tagger    = Tagger(mlp_input*2,tagset_size).to(self.device)
         self.pos_tagger    = MLP(mlp_input * 2,mlp_tag_hidden,tagset_size).to(self.device)
         self.char_rnn      = char_rnn.to(self.device)
         # Arc MLPs
@@ -380,17 +378,11 @@ class BiAffineParser(nn.Module):
         """Computes word embeddings"""
         lex_emb    = self.lexer(xwords)
 
-        """encodes input for tagging"""
-        tag_input         = torch.cat((lex_emb,char_embed),dim=2)
-        tag_embeddings,_  = self.tag_rnn(tag_input)
+        """encodes input for tagging and parsing"""
+        xinput         = torch.cat((lex_emb,char_embed),dim=2)
+        dep_embeddings,_  = self.dep_rnn(xinput)
 
-        """Performs POS tagging"""
-        tag_scores        = self.pos_tagger(tag_embeddings)
-
-        """Encodes parser input"""
-        #dep_input         =  torch.cat((lex_emb,char_embed,F.softmax(tag_scores,dim=2)),dim=2)
-        dep_input = torch.cat((lex_emb, char_embed, tag_scores), dim=2)
-        dep_embeddings, _ = self.dep_rnn(dep_input)
+        tag_scores = self.pos_tagger(dep_embeddings)
 
         """Compute the score matrices for the arcs and labels."""
         arc_h      = self.arc_mlp_h(dep_embeddings)
