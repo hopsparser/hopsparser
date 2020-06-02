@@ -696,11 +696,11 @@ if __name__ == '__main__':
         testtrees     = DependencyDataset.read_conll(args.pred_file)
         ordered_vocab = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-vocab"))
 
-        if hp['lexer']   == 'default':
+        if hp['lexer']   == 'default' :
             lexer = DefaultLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'])
         elif hp['lexer'] == 'fasttext':
             lexer = FastTextLexer(ordered_vocab, hp['word_dropout'])
-        elif hp['lexer'] == 'flaubertbase':
+        elif hp['lexer'] == 'flaubertbase' :
             lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'],bert_modelfile='flaubert-base-uncased', cased=False)
         elif hp['lexer'] == 'flaubertlarge':
             lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile='flaubert-large-cased', BERT_SIZE=1024)
@@ -713,7 +713,7 @@ if __name__ == '__main__':
             exit(1)
 
         ordered_charset =  CharDataSet(loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-charcodes")))
-        char_rnn        = CharRNN(len(ordered_charset), hp['char_embedding_size'], hp['charlstm_output_size'])
+        char_rnn        =  CharRNN(len(ordered_charset), hp['char_embedding_size'], hp['charlstm_output_size'])
 
         itolab  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
         itotag  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))
