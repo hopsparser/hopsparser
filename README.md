@@ -37,12 +37,12 @@ We provide some pretrained models :
 
 | Model name | Language | device | LAS  | speed  | Comment | Download link
 | ---------- | -------- | ------ | ---- | -----  | ------- | -------------
-|   default  | French   | GPU/CPU| 83.5 | fast   | French treebank only          | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/default.tar.gz)
-|   flaubert | French   | GPU    | 88.2 | average| FlaubertBase+French treebank | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/flaubert.tar.gz)
-|   camembert| French   | GPU    | 87.8 | average| camembert+French treebank    | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/camembert.tar.gz)
+|   default  | French   | GPU/CPU| 83.5 | fast   | French treebank only         | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/default.tar.gz)
+|   flaubert | French   | GPU    | 88.3 | average| FlaubertBase+French treebank | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/flaubert.tar.gz)
+|   camembert| French   | GPU    | 88.3 | average| camembert+French treebank    | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/camembert.tar.gz)
 |    ud_gsd  | French   | GPU/CPU| 85.4 | fast   | UD French GSD  only          | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/gsd.tar.gz)
-| ud_gsd_flaubert | French| GPU  | 92.5 | average| FlaubertBase + UD French GSD     | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/gsd_flaubert.tar.gz) 
-| ud_of_default | Old French| GPU/CPU | 78.7 | fast | SRCMF treebank only     | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ud_of_default.tar.gz)
+| ud_gsd_flaubert | French| GPU  | 92.5 | average| FlaubertBase + UD French GSD | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/gsd_flaubert.tar.gz) 
+| ud_of_default | Old French| GPU/CPU | 78.7 | fast | SRCMF treebank only       | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ud_of_default.tar.gz)
 
 The reader may notice a difference with the results published in [(Le et al 2020)](https://arxiv.org/abs/1912.05372).
 The difference comes from the fact that this parser also predicts part of speech tags
@@ -50,7 +50,7 @@ while the version described in [(Le et al 2020)](https://arxiv.org/abs/1912.0537
 This change makes the parser easier to use in "real life" projects. 
 
 Training task
-------------
+-------------
 
 Instead of using a pretrained model, one can train his own model.
 Training a model with BERT definitely requires a GPU. Unless you have a GPU with a very large amount of onboard memory, I advise to use 
