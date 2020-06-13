@@ -341,10 +341,10 @@ class FastTextTorch(nn.Module):
     def __init__(self,fasttextmodel):
         super(FastTextTorch, self).__init__()
 
-        weights                     = self.ftmodel.get_input_matrix()
+        weights                     = fasttextmodel.get_input_matrix()
         self.vocab_size , self.embedding_size = weights.shape
-        weights                     = np.vstack((weights, np.zeros(embedding_size)))
-        self.embeddings             = nn.Embedding.from_pretrained(torch.from_numpy(weights), padding_idx=vocab_size)
+        weights                     = np.vstack((weights, np.zeros(self.embedding_size)))
+        self.embeddings             = nn.Embedding.from_pretrained(torch.from_numpy(weights), padding_idx=self.vocab_size)
 
     def tokenize(self, tok_sequence):
         """
