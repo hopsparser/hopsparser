@@ -376,7 +376,7 @@ class FastTextTorch(nn.Module):
         else:
             source_file = os.path.join(gettempdir(),'source.ft')
             source_stream = open(source_file,'w')
-            print('\n'.join([' '.join(tree.words) for tree in source_trees]),file=source_stream)
+            print('\n'.join([' '.join(tree.words[1:]) for tree in source_trees]),file=source_stream)
             source_stream.close()
 
             print('Training fasttext model...')
@@ -812,7 +812,7 @@ if __name__ == '__main__':
         elif hp['lexer'] == 'camembert':
             lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile="camembert-base")
         else:
-            print('no valid lexer specified. abort.') 
+            print('no valid lexer specified. abort.')
             exit(1)
 
         #char rnn processor
