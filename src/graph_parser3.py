@@ -1,8 +1,11 @@
 import sys
 import numpy as np
 import yaml
+import fasttext
 import argparse
 import torch.nn.functional as F
+import os.path
+from tempfile import gettempdir
 
 from torch import nn
 from torch import optim
@@ -38,10 +41,10 @@ class DependencyDataset:
         istream.close()  
         return treelist
         
-    def __init__(self,treelist,lexer,char_dataset,use_labels=None,use_tags=None):
-           
+    def __init__(self,treelist,lexer,char_dataset,ft_dataset,use_labels=None,use_tags=None):
         self.lexer        = lexer
         self.char_dataset = char_dataset
+        self.ft_dataset   = ft_dataset
         self.treelist     = treelist
         if use_labels:
             self.itolab = use_labels
@@ -123,15 +126,16 @@ class DependencyDataset:
             shuffle(batch_order)
             
         for i in batch_order: 
-            deps   = self.pad(self.deps[i:i+batch_size])
-            tags   = self.pad(self.tags[i:i+batch_size])
-            heads  = self.pad(self.heads[i:i+batch_size])
-            labels = self.pad(self.labels[i:i+batch_size])
-            words  = self.words[i:i+batch_size]
-            mwe    = self.mwe_ranges[i:i+batch_size]
-            cats   = self.cats[i:i+batch_size]
-            chars  = self.char_dataset.batch_chars(self.words[i:i+batch_size])
-            yield (words,mwe,chars,cats,deps,tags,heads,labels)
+            deps     = self.pad(self.deps[i:i+batch_size])
+            tags     = self.pad(self.tags[i:i+batch_size])
+            heads    = self.pad(self.heads[i:i+batch_size])
+            labels   = self.pad(self.labels[i:i+batch_size])
+            words    = self.words[i:i+batch_size]
+            mwe      = self.mwe_ranges[i:i+batch_size]
+            cats     = self.cats[i:i+batch_size]
+            chars    = self.char_dataset.batch_chars(self.words[i:i+batch_size])
+            subwords = self.ft_dataset.batch_sentences(self.words[i:i+batch_size])
+            yield (words,mwe,chars,subwords,cats,deps,tags,heads,labels)
 
     def pad(self,batch): 
         if type(batch[0]) == tuple and len(batch[0]) == 2:   #had hoc stuff for BERT Lexers
@@ -218,7 +222,6 @@ class CharDataSet:
         :param toklist:
         :return:
         """
-        max_tok_len  = [ len(token) for token in toklist ]
         charcodes    = [ self.word2charcodes(token)  for token in toklist ]
         sent_lengths = list( map(len, charcodes))
         max_len      = max( sent_lengths)
@@ -231,10 +234,9 @@ class CharDataSet:
 
     def batch_chars(self,sent_batch):
         """
-        This is a generator that yields batches of character codes word by word.
-        Performs the padding as well.
-        :param sent_batch: a batch of list of tokens (non padded)
-        :yields: a batch (torch.tensor) of character idxes
+        Batches a list of sentences such that each sentence is padded with the same word length.
+        :yields: the character encodings for each word position in this batch of sentences
+                 (yields the columns of the batch)
         """
         sent_lengths  = list( map(len, sent_batch))
         max_sent_len  = max(sent_lengths)
@@ -269,19 +271,118 @@ class CharRNN(nn.Module):
                                            batch_first=True,\
                                            bidirectional=True)
 
-
     def forward(self,xinput):
         """
         Predicts the word embedding from the token characters.
         :param xinput: is a tensor of char indexes encoding a batch of tokens [batch,token_len,char_seq_idx]
         :return: a word embedding tensor
         """
-
-        embeddings = self.char_embedding(xinput)
+        embeddings               = self.char_embedding(xinput)
         outputs,( _ ,cembedding) = self.char_bilstm(embeddings)
-        result = cembedding.view(-1,self.embedding_size)
+        result                   = cembedding.view(-1,self.embedding_size)
         return result
 
+
+class FastTextDataSet:
+    """
+    Namespace for simulating a fasttext encoded dataset.
+    By convention, the padding vector is the last element of the embedding matrix
+    """
+    def __init__(self,fasttextmodel):
+        self.ftmodel = fasttextmodel
+        self.PAD_IDX = len(self.ftmodel.words)
+
+    def word2subcodes(self,token):
+        """
+        Turns a string into a list of subword codes.
+        """
+        if token == DependencyDataset.PAD_TOKEN:
+            return [self.PAD_IDX]
+        else:
+            return self.ftmodel.get_subwords(token)[1]
+
+    def batch_tokens(self,token_sequence):
+        """
+        Batches a list of tokens as a padded matrix of subword codes.
+        :param token_sequence : a sequence of strings
+        :return: a list of of list of codes (matrix with padding)
+        """
+        subcodes     = [self.word2subcodes(token) for token in toklist]
+        code_lengths = list(map(len, subcodes))
+        max_len      = max(code_lengths)
+        padded_codes = []
+        for k, seq in zip(code_lengths, subcodes):
+            padded = seq + (max_len - k) * [self.PAD_IDX]
+            padded_codes.append(padded)
+        return torch.tensor(padded_codes)
+
+    def batch_sentences(self,sent_batch):
+        """
+        Batches a list of sentences such that each sentence is padded with the same word length.
+        :yields: the subword encodings for each word position in this batch of sentences
+                 (yields the columns of the batch)
+        """
+        sent_lengths = list(map(len, sent_batch))
+        max_sent_len = max(sent_lengths)
+        batched_sents = []
+        for k, seq in zip(sent_lengths, sent_batch):
+            padded = seq + (max_sent_len - k) * [DependencyDataset.PAD_TOKEN]
+            batched_sents.append(padded)
+
+        for idx in range(max_sent_len):
+            yield self.batch_tokens([sentence[idx] for sentence in batched_sents])
+
+
+class FastTextTorch(nn.Module):
+    """
+    This is subword model using FastText as backend.
+    It follows the same interface as the CharRNN
+    """
+    def __init__(self,fasttextmodel):
+        super(FastTextTorch, self).__init__()
+
+        weights                     = self.ftmodel.get_input_matrix()
+        self.vocab_size , self.embedding_size = weights.shape
+        weights                     = np.vstack((weights, np.zeros(embedding_size)))
+        self.embeddings             = nn.Embedding.from_pretrained(torch.from_numpy(weights), padding_idx=vocab_size)
+
+    def tokenize(self, tok_sequence):
+        """
+        Returns a list of ft subwords indexes for each token in the sequence
+        :param tok_sequence:
+        :return:
+        """
+        return [ self.ftmodel.get_subwords(token)[1] for token in tok_sequence ]
+
+    def get_word_embedding(self,tokseq):
+        idxes = torch.tensor(self.tokenize(tokseq))
+        return self.forward( idxes )
+
+    def forward(self,xinput):
+        """
+        :param xinput: a batch of subwords
+        :return: the fasttext embeddings for this batch
+        """
+        return self.embeddings(xinput).mean(dim=1) #maybe compute true means or sums, currently uses <pad> tokens into this mean...
+
+    @staticmethod
+    def loadmodel(modelfile):
+        return FastTextTorch(fasttext.load_model(modelfile))
+
+    @staticmethod
+    def train_model(source_trees,target_file):
+        if os.path.exists(target_file):
+            return FastTextTorch(fasttext.load_model(target_file))
+        else:
+            source_file = os.path.join(gettempdir(),'source.ft')
+            source_stream = open(source_file,'w')
+            print('\n'.join([' '.join(tree.words) for tree in source_trees]),file=source_stream)
+            source_stream.close()
+
+            print('Training fasttext model...')
+            model = fasttext.train_unsupervised(source_file, model='skipgram')
+            model.save_model(target_file)
+        return FastTextTorch(model)
 
 class MLP(nn.Module):
 
@@ -312,7 +413,6 @@ class BiAffine(nn.Module):
         return S.squeeze(1)
 
 
-
 class Tagger(nn.Module):
 
     def __init__(self,input_dim,tagset_size):
@@ -323,11 +423,12 @@ class Tagger(nn.Module):
         return self.W(input)
 
 class BiAffineParser(nn.Module):
-    
+
     """Biaffine Dependency Parser."""
     def __init__(self,
                  lexer,
                  char_rnn,
+                 ft_lexer,
                  tagset_size,
                  encoder_dropout, #lstm dropout
                  mlp_input,
@@ -341,17 +442,19 @@ class BiAffineParser(nn.Module):
         super(BiAffineParser, self).__init__()
         self.device            = torch.device(device) if type(device) == str else device
         self.lexer             = lexer.to(self.device)
-        self.dep_rnn           = nn.LSTM(self.lexer.embedding_size+char_rnn.embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
+        self.dep_rnn           = nn.LSTM(self.lexer.embedding_size+char_rnn.embedding_size+ft_lexer.embedding_size,mlp_input,3, batch_first=True,dropout=encoder_dropout,bidirectional=True).to(self.device)
 
         #POS tagger & char RNN
         self.pos_tagger    = MLP(mlp_input * 2,mlp_tag_hidden,tagset_size).to(self.device)
         self.char_rnn      = char_rnn.to(self.device)
+        self.ft_lexer      = ft_lexer.to(self.device)
+
         # Arc MLPs
-        self.arc_mlp_h = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
-        self.arc_mlp_d = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
+        self.arc_mlp_h     = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
+        self.arc_mlp_d     = MLP(mlp_input*2, mlp_arc_hidden, mlp_input, mlp_dropout).to(self.device)
         # Label MLPs
-        self.lab_mlp_h = MLP(mlp_input*2, mlp_lab_hidden, mlp_input, mlp_dropout).to(self.device)
-        self.lab_mlp_d = MLP(mlp_input*2, mlp_lab_hidden, mlp_input, mlp_dropout).to(self.device)
+        self.lab_mlp_h     = MLP(mlp_input*2, mlp_lab_hidden, mlp_input, mlp_dropout).to(self.device)
+        self.lab_mlp_d     = MLP(mlp_input*2, mlp_lab_hidden, mlp_input, mlp_dropout).to(self.device)
 
         # BiAffine layers
         self.arc_biaffine = BiAffine(mlp_input, 1).to(self.device)
@@ -371,17 +474,20 @@ class BiAffineParser(nn.Module):
         self.load_state_dict(torch.load(path))
         self.eval()
 
-    def forward(self,xwords,xchars):
+    def forward(self,xwords,xchars,xft):
 
         """Computes char embeddings"""
         char_embed = torch.stack([self.char_rnn(column) for column in xchars],dim=1)
-        """Computes word embeddings"""
+        """ Computes fasttext embeddings """
+        ft_embed = torch.stack([self.ft_lexer(column) for column in xft],dim=1)
+        """ Computes word embeddings """
         lex_emb    = self.lexer(xwords)
 
-        """encodes input for tagging and parsing"""
-        xinput         = torch.cat((lex_emb,char_embed),dim=2)
+        """ Encodes input for tagging and parsing """
+        xinput         = torch.cat((lex_emb,char_embed,ft_embed),dim=2)
         dep_embeddings,_  = self.dep_rnn(xinput)
 
+        """ Tagging """
         tag_scores = self.pos_tagger(dep_embeddings)
 
         """Compute the score matrices for the arcs and labels."""
@@ -411,7 +517,7 @@ class BiAffineParser(nn.Module):
         
         with torch.no_grad():
             for batch in dev_batches:
-                words,mwe,chars,cats,deps,tags,heads,labels = batch
+                words,mwe,chars,subwords,cats,deps,tags,heads,labels = batch
                 if type(deps)==tuple:
                     depsA,depsB   = deps
                     deps          = (depsA.to(self.device),depsB.to(self.device))
@@ -421,9 +527,9 @@ class BiAffineParser(nn.Module):
                     overall_size  += (deps.size(0)*deps.size(1)) #bc no masking at training           
                 heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)
                 chars              =  [ token.to(self.device) for token in chars ]
-
+                subwords           =  [ token.to(self.device) for token in subwords ]
                 #preds 
-                tagger_scores, arc_scores, lab_scores = self.forward(deps,chars)
+                tagger_scores, arc_scores, lab_scores = self.forward(deps,chars,subwords)
                 
                 #get global loss
                 #ARC LOSS
@@ -489,7 +595,7 @@ class BiAffineParser(nn.Module):
             overall_size  = 0
             for batch in train_batches:
                 self.train() 
-                words,mwe,chars,cats,deps,tags,heads,labels = batch
+                words,mwe,chars,subwords,cats,deps,tags,heads,labels = batch
                 if type(deps)==tuple:
                     depsA,depsB   = deps
                     deps          = (depsA.to(self.device),depsB.to(self.device))
@@ -499,9 +605,10 @@ class BiAffineParser(nn.Module):
                     overall_size += (deps.size(0)*deps.size(1)) #bc no masking at training           
                 heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)
                 chars              =  [ token.to(self.device) for token in chars ]
+                subwords           =  [ token.to(self.device) for token in subwords ]
 
                 #FORWARD
-                tagger_scores, arc_scores, lab_scores = self.forward(deps,chars)
+                tagger_scores, arc_scores, lab_scores = self.forward(deps,chars,subwords)
 
                 #ARC LOSS
                 arc_scores = arc_scores.transpose(-1, -2)                           # [batch, sent_len, sent_len]
@@ -553,11 +660,10 @@ class BiAffineParser(nn.Module):
         test_batches = test_set.make_batches(batch_size,shuffle_batches=False,shuffle_data=False,order_by_length=False) #keep natural order here
 
         with torch.no_grad():
-            
             softmax = nn.Softmax(dim=1)
             for batch in test_batches:
                 self.eval()
-                words,mwe,chars,cats,deps,tags,heads,labels = batch
+                words,mwe,chars,subwords,cats,deps,tags,heads,labels = batch
                 if type(deps) == tuple:
                     depsA,depsB = deps
                     deps = (depsA.to(self.device),depsB.to(self.device))
@@ -567,9 +673,10 @@ class BiAffineParser(nn.Module):
                     SLENGTHS = (deps != DependencyDataset.PAD_IDX).long().sum(-1)
                 heads, labels,tags =  heads.to(self.device), labels.to(self.device),tags.to(self.device)                
                 chars              =  [ token.to(self.device) for token in chars ]
+                subwords           =  [ token.to(self.device) for token in subwords ]
 
                 #batch prediction
-                tagger_scores_batch, arc_scores_batch, lab_scores_batch = self.forward(deps,chars)
+                tagger_scores_batch, arc_scores_batch, lab_scores_batch = self.forward(deps,chars,subwords)
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = tagger_scores_batch.cpu(),arc_scores_batch.cpu(), lab_scores_batch.cpu()
 
                 for tokens,mwe_range,length,tagger_scores,arc_scores,lab_scores in zip(words,mwe,SLENGTHS,tagger_scores_batch,arc_scores_batch,lab_scores_batch):
@@ -591,8 +698,6 @@ class BiAffineParser(nn.Module):
                     dg             =  DepGraph(edges[1:],wordlist=tokens[1:],pos_tags=pos_tags[1:],mwe_range=mwe_range)
                     print(dg,file=ostream)
                     print(file=ostream)
-
-
 
 class GridSearch:
     """ This generates all the possible experiments specified by a yaml config file """
@@ -626,13 +731,10 @@ class GridSearch:
 
 if __name__ == '__main__':
 
-    import os.path
-
     def savelist(strlist, filename):
         ostream = open(filename, 'w')
         ostream.write('\n'.join(strlist))
         ostream.close()
-
 
     def loadlist(filename):
         istream = open(filename)
@@ -640,7 +742,7 @@ if __name__ == '__main__':
         istream.close()
         return strlist
 
-    parser = argparse.ArgumentParser(description='Graph based Attention based dependency parser/tagger ')
+    parser = argparse.ArgumentParser(description='Graph based Attention based dependency parser/tagger')
     parser.add_argument('config_file', metavar='CONFIG_FILE', type=str, help='the configuration file')
     parser.add_argument('--train_file', metavar='TRAIN_FILE', type=str, help='the conll training file')
     parser.add_argument('--dev_file', metavar='DEV_FILE', type=str, help='the conll development file')
@@ -663,8 +765,6 @@ if __name__ == '__main__':
 
         if hp['lexer'] == 'default':
             lexer = DefaultLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'])
-        elif hp['lexer'] == 'fasttext':
-            lexer = FastTextLexer(ordered_vocab,hp['word_dropout'])
         elif hp['lexer'] == 'flaubertbase':
             lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],bert_modelfile='flaubert-base-uncased',cased=False)
         elif hp['lexer'] == 'flaubertlarge':
@@ -677,17 +777,22 @@ if __name__ == '__main__':
             print('no valid lexer specified. abort.')
             exit(1)
 
+        #char rnn lexer
         ordered_charset = CharDataSet.make_vocab(ordered_vocab)
         savelist(ordered_charset.i2c,os.path.join(MODEL_DIR,hp['lexer']+"-charcodes"))
         char_rnn        = CharRNN(len(ordered_charset), hp['char_embedding_size'], hp['charlstm_output_size'])
 
-        trainset           = DependencyDataset(traintrees,lexer,ordered_charset)
+        #fasttext lexer
+        ft_lexer   = FastTextTorch.train_model(traintrees, os.path.join(MODEL_DIR,'fasttext_model.bin'))
+        ft_dataset = FastTextDataSet(ft_lexer)
+
+        trainset           = DependencyDataset(traintrees,lexer,ordered_charset,ft_dataset)
         itolab,itotag      = trainset.itolab,trainset.itotag
         savelist(itolab, os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
         savelist(itotag, os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))
         devset             = DependencyDataset(devtrees,lexer,ordered_charset,use_labels=itolab,use_tags=itotag)
 
-        parser             = BiAffineParser(lexer,char_rnn,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_tag_hidden'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
+        parser             = BiAffineParser(lexer,char_rnn,ft_lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_tag_hidden'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=os.path.join(MODEL_DIR,hp['lexer']+"-model.pt"))
         print('training done.',file=sys.stderr)
 
@@ -698,8 +803,6 @@ if __name__ == '__main__':
 
         if hp['lexer']   == 'default' :
             lexer = DefaultLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'])
-        elif hp['lexer'] == 'fasttext':
-            lexer = FastTextLexer(ordered_vocab, hp['word_dropout'])
         elif hp['lexer'] == 'flaubertbase' :
             lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'],bert_modelfile='flaubert-base-uncased', cased=False)
         elif hp['lexer'] == 'flaubertlarge':
@@ -709,11 +812,16 @@ if __name__ == '__main__':
         elif hp['lexer'] == 'camembert':
             lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile="camembert-base")
         else:
-            print('no valid lexer specified. abort.')
+            print('no valid lexer specified. abort.') 
             exit(1)
 
+        #char rnn processor
         ordered_charset =  CharDataSet(loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-charcodes")))
         char_rnn        =  CharRNN(len(ordered_charset), hp['char_embedding_size'], hp['charlstm_output_size'])
+
+        # fasttext lexer
+        ft_model = FastTextTorch.loadmodel(os.path.join(MODEL_DIR,'fasttext_model.bin'))
+        ft_dataset = FastTextDataSet(ft_model)
 
         itolab  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
         itotag  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))

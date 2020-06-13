@@ -59,52 +59,52 @@ class DefaultLexer(nn.Module):
         return word_idxes
 
 
-class FastTextLexer(nn.Module):
-    """
-    This is the a lexer that uses fastText embeddings.
-    FastText models are large in memory. 
-    So we intersect the model with the vocabulary found in the data to
-    reduce memory usage. 
-    """
-    def __init__(self,itos,dropout,ft_modelfile='cc.fr.300.bin'):
-
-        super(FastTextLexer,self).__init__()
-        FT = fasttext.load_model(ft_modelfile)
-        self.embedding_size = 300             #thats the interface property
-
-        ematrix = []
-        for word in itos:
-            ematrix.append(torch.from_numpy(FT[word]))
-        ematrix = torch.stack(ematrix)
-        self.embedding = nn.Embedding.from_pretrained(ematrix,freeze=False,padding_idx=DependencyDataset.PAD_IDX)
-        self.word_dropout   = dropout
-        self.itos      = itos
-        self.stoi      = {token:idx for idx,token in enumerate(self.itos)}
-        self._dpout    = 0 
-        
-    def train_mode(self):
-        self._dpout = self.word_dropout
-    def eval_mode(self):
-        self._dpout = 0
-        
-    def tokenize(self,tok_sequence,word_dropout=0.0):
-        """
-        This maps word tokens to integer indexes.
-        Args:
-           tok_sequence: a sequence of strings
-        Returns:
-           a list of integers
-        """
-        word_idxes     = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
-        if self._dpout > 0:
-            word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],word_dropout) for widx in word_idxes]
-        return word_idxes
-        
-    def forward(self,word_sequences):
-        """
-        Takes words sequences codes as integer sequences and returns the embeddings 
-        """
-        return self.embedding(word_sequences)
+# class FastTextLexer(nn.Module):
+#     """
+#     This is the a lexer that uses fastText embeddings.
+#     FastText models are large in memory.
+#     So we intersect the model with the vocabulary found in the data to
+#     reduce memory usage.
+#     """
+#     def __init__(self,itos,dropout,ft_modelfile='cc.fr.300.bin'):
+#
+#         super(FastTextLexer,self).__init__()
+#         FT = fasttext.load_model(ft_modelfile)
+#         self.embedding_size = 300             #thats the interface property
+#
+#         ematrix = []
+#         for word in itos:
+#             ematrix.append(torch.from_numpy(FT[word]))
+#         ematrix = torch.stack(ematrix)
+#         self.embedding = nn.Embedding.from_pretrained(ematrix,freeze=False,padding_idx=DependencyDataset.PAD_IDX)
+#         self.word_dropout   = dropout
+#         self.itos      = itos
+#         self.stoi      = {token:idx for idx,token in enumerate(self.itos)}
+#         self._dpout    = 0
+#
+#     def train_mode(self):
+#         self._dpout = self.word_dropout
+#     def eval_mode(self):
+#         self._dpout = 0
+#
+#     def tokenize(self,tok_sequence,word_dropout=0.0):
+#         """
+#         This maps word tokens to integer indexes.
+#         Args:
+#            tok_sequence: a sequence of strings
+#         Returns:
+#            a list of integers
+#         """
+#         word_idxes     = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
+#         if self._dpout > 0:
+#             word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],word_dropout) for widx in word_idxes]
+#         return word_idxes
+#
+#     def forward(self,word_sequences):
+#         """
+#         Takes words sequences codes as integer sequences and returns the embeddings
+#         """
+#         return self.embedding(word_sequences)
 
 class BertBaseLexer(nn.Module):
     """
