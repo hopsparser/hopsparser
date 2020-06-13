@@ -289,8 +289,8 @@ class FastTextDataSet:
     By convention, the padding vector is the last element of the embedding matrix
     """
     def __init__(self,fasttextmodel):
-        self.ftmodel = fasttextmodel
-        self.PAD_IDX = len(self.ftmodel.words)
+        self.fasttextmodel = fasttextmodel
+        self.PAD_IDX = self.fasttextmodel.vocab_size
 
     def word2subcodes(self,token):
         """
