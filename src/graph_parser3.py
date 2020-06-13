@@ -376,11 +376,11 @@ class FastTextTorch(nn.Module):
         else:
             source_file = os.path.join(gettempdir(),'source.ft')
             source_stream = open(source_file,'w')
-            print('\n'.join([' '.join(tree.words[1:]) for tree in source_trees]),file=source_stream)
+            print('\n'.join([' '.join(tree.words[1:]) for tree in reversed(source_trees)]),file=source_stream)
             source_stream.close()
 
             print('Training fasttext model...')
-            model = fasttext.train_unsupervised(source_file, model='cbow')
+            model = fasttext.train_unsupervised(source_file, model='skipgram')
             model.save_model(target_file)
         return FastTextTorch(model)
 
