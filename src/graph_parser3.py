@@ -299,7 +299,7 @@ class FastTextDataSet:
         if token == DependencyDataset.PAD_TOKEN:
             return [self.PAD_IDX]
         else:
-            return self.fasttextmodel.get_subwords(token)[1]
+            return self.fasttextmodel.subwords_idxes(token)
 
     def batch_tokens(self,token_sequence):
         """
@@ -346,17 +346,13 @@ class FastTextTorch(nn.Module):
         weights                     = np.vstack((weights, np.zeros(self.embedding_size)))
         self.embeddings             = nn.Embedding.from_pretrained(torch.from_numpy(weights), padding_idx=self.vocab_size)
 
-    def tokenize(self, tok_sequence):
+    def subwords_idxes(self, token):
         """
-        Returns a list of ft subwords indexes for each token in the sequence
+        Returns a list of ft subwords indexes for the token
         :param tok_sequence:
         :return:
         """
-        return [ self.ftmodel.get_subwords(token)[1] for token in tok_sequence ]
-
-    def get_word_embedding(self,tokseq):
-        idxes = torch.tensor(self.tokenize(tokseq))
-        return self.forward( idxes )
+        return self.ftmodel.get_subwords(token)[1]
 
     def forward(self,xinput):
         """
