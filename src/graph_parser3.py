@@ -3,14 +3,12 @@ import numpy as np
 import yaml
 import fasttext
 import argparse
-import torch.nn.functional as F
+
 import os.path
 from tempfile import gettempdir
 
 from torch import nn
-from torch import optim
 from torch.autograd import Variable
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from random import sample,shuffle,random
 from mst import chuliu_edmonds
@@ -677,6 +675,7 @@ class BiAffineParser(nn.Module):
                 for tokens,mwe_range,length,tagger_scores,arc_scores,lab_scores in zip(words,mwe,SLENGTHS,tagger_scores_batch,arc_scores_batch,lab_scores_batch):
                     # Predict heads 
                     probs          = arc_scores.numpy().T
+                    probs          = probs[:length,:length]
                     mst_heads      = np.argmax(probs,axis=1) if greedy else chuliu_edmonds(probs)
 
                     # Predict tags
