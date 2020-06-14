@@ -358,7 +358,7 @@ class FastTextTorch(nn.Module):
         :param xinput: a batch of subwords
         :return: the fasttext embeddings for this batch
         """
-        return self.embeddings(xinput).mean(dim=1) #maybe compute true means or sums, currently uses <pad> tokens into this mean...
+        return self.embeddings(xinput).sum(dim=1) #maybe compute true means or sums, currently uses <pad> tokens into this mean...
 
     @staticmethod
     def loadmodel(modelfile):
