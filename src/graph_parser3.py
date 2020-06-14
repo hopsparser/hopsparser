@@ -375,7 +375,7 @@ class FastTextTorch(nn.Module):
             source_stream.close()
 
             print('Training fasttext model...')
-            model = fasttext.train_unsupervised(source_file, model='skipgram',minCount=5,epoch=10)
+            model = fasttext.train_unsupervised(source_file, model='skipgram',neg=10,minCount=5,epoch=10)
             model.save_model(target_file)
         return FastTextTorch(model)
 
@@ -821,7 +821,7 @@ if __name__ == '__main__':
         itolab  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
         itotag  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))
         testset = DependencyDataset(testtrees,lexer,ordered_charset,ft_dataset,use_labels=itolab,use_tags=itotag)
-        parser  = BiAffineParser(lexer,char_rnn,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_tag_hidden'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
+        parser  = BiAffineParser(lexer,char_rnn,ft_model,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_tag_hidden'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.load_params(os.path.join(MODEL_DIR,hp['lexer']+"-model.pt"))
         ostream = open(args.pred_file+'.parsed','w')
         parser.predict_batch(testset,ostream,hp['batch_size'],greedy=False)
