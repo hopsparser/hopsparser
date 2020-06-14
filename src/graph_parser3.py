@@ -677,7 +677,7 @@ class BiAffineParser(nn.Module):
                     probs          = arc_scores.numpy().T
                     batch_width,_  = probs.shape
                     mst_heads      = np.argmax(probs[:length,:length], axis=1) if greedy else chuliu_edmonds(probs[:length,:length])
-                    mst_heads      = np.pad(mst_heads,(0,batch_width-length))
+                    mst_heads      = np.pad(mst_heads,(0,batch_width-length.item()))
 
                     # Predict tags
                     tag_probs      = tagger_scores.numpy()
