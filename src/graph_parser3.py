@@ -375,7 +375,7 @@ class FastTextTorch(nn.Module):
             source_stream.close()
 
             print('Training fasttext model...')
-            model = fasttext.train_unsupervised(source_file, model='skipgram',minCount=1,epoch=500)
+            model = fasttext.train_unsupervised(source_file, model='skipgram',minCount=1,epoch=10)
             model.save_model(target_file)
         return FastTextTorch(model)
 
