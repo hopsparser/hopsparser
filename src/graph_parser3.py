@@ -815,13 +815,13 @@ if __name__ == '__main__':
         char_rnn        =  CharRNN(len(ordered_charset), hp['char_embedding_size'], hp['charlstm_output_size'])
 
         # fasttext lexer
-        ft_model = FastTextTorch.loadmodel(os.path.join(MODEL_DIR,'fasttext_model.bin'))
-        ft_dataset = FastTextDataSet(ft_model)
+        ft_lexer = FastTextTorch.loadmodel(os.path.join(MODEL_DIR,'fasttext_model.bin'))
+        ft_dataset = FastTextDataSet(ft_lexer)
 
         itolab  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
         itotag  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))
         testset = DependencyDataset(testtrees,lexer,ordered_charset,ft_dataset,use_labels=itolab,use_tags=itotag)
-        parser  = BiAffineParser(lexer,char_rnn,ft_model,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_tag_hidden'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
+        parser  = BiAffineParser(lexer,char_rnn,ft_lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_tag_hidden'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.load_params(os.path.join(MODEL_DIR,hp['lexer']+"-model.pt"))
         ostream = open(args.pred_file+'.parsed','w')
         parser.predict_batch(testset,ostream,hp['batch_size'],greedy=False)
