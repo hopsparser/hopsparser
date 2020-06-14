@@ -675,10 +675,9 @@ class BiAffineParser(nn.Module):
                 for tokens,mwe_range,length,tagger_scores,arc_scores,lab_scores in zip(words,mwe,SLENGTHS,tagger_scores_batch,arc_scores_batch,lab_scores_batch):
                     # Predict heads 
                     probs          = arc_scores.numpy().T
-                    mst_heads      = np.argmax(probs,axis=1) if greedy else chuliu_edmonds(probs)
-                    print(mst_heads,mst_heads.shape,length)
+                    batch_width,_  = probs.shape
                     mst_heads = np.argmax(probs[:length,:length], axis=1) if greedy else chuliu_edmonds(probs[:length,:length])
-                    print(mst_heads,mst_heads.shape,length)
+                    mst_head  = np.pad(mst_heads,(0,batch_width-length))
 
                     # Predict tags
                     tag_probs      = tagger_scores.numpy()
