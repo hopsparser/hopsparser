@@ -790,7 +790,7 @@ if __name__ == '__main__':
         itolab,itotag      = trainset.itolab,trainset.itotag
         savelist(itolab, os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
         savelist(itotag, os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))
-        devset             = DependencyDataset(devtrees,lexer,ordered_charset,use_labels=itolab,use_tags=itotag)
+        devset             = DependencyDataset(devtrees,lexer,ordered_charset,ft_dataset,use_labels=itolab,use_tags=itotag)
 
         parser             = BiAffineParser(lexer,char_rnn,ft_lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_tag_hidden'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=os.path.join(MODEL_DIR,hp['lexer']+"-model.pt"))
