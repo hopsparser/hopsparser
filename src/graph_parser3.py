@@ -643,7 +643,7 @@ class BiAffineParser(nn.Module):
                 self.save_params(modelpath)
                 BEST_ARC_ACC = DEV_ARC_ACC
 
-            #scheduler.step()
+            scheduler.step()
                 
         self.load_params(modelpath)
         self.save_params(modelpath)
