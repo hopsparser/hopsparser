@@ -307,7 +307,7 @@ class FastTextDataSet:
         :param token_sequence : a sequence of strings
         :return: a list of of list of codes (matrix with padding)
         """
-        subcodes     = [self.word2subcodes(token) for token in toklist]
+        subcodes     = [self.word2subcodes(token) for token in token_sequence]
         code_lengths = list(map(len, subcodes))
         max_len      = max(code_lengths)
         padded_codes = []
