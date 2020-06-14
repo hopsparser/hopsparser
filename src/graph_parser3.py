@@ -299,7 +299,7 @@ class FastTextDataSet:
         if token == DependencyDataset.PAD_TOKEN:
             return [self.PAD_IDX]
         else:
-            return self.fasttextmodel.subwords_idxes(token)
+            return list(self.fasttextmodel.subwords_idxes(token))
 
     def batch_tokens(self,token_sequence):
         """
