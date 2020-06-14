@@ -312,7 +312,6 @@ class FastTextDataSet:
         max_len      = max(code_lengths)
         padded_codes = []
         for k, seq in zip(code_lengths, subcodes):
-            print(k,seq,max_len)
             padded = seq + (max_len - k) * [self.PAD_IDX]
             padded_codes.append(padded)
         return torch.tensor(padded_codes)
@@ -345,8 +344,7 @@ class FastTextTorch(nn.Module):
         weights                     = fasttextmodel.get_input_matrix()
         self.vocab_size , self.embedding_size = weights.shape
         weights                     = np.vstack((weights, np.zeros(self.embedding_size)))
-        self.embeddings             = nn.Embedding.from_pretrained(torch.from_numpy(weights), padding_idx=self.vocab_size)
-
+        self.embeddings             = nn.Embedding.from_pretrained(torch.from_numpy(weights), padding_idx=self.vocab_size).to(torch.float)
     def subwords_idxes(self, token):
         """
         Returns a list of ft subwords indexes for the token
