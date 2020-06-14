@@ -688,7 +688,8 @@ class BiAffineParser(nn.Module):
                     selected       = torch.gather(lab_scores, 1, select.unsqueeze(1)).squeeze(1)
                     _, mst_labels  = selected.max(dim=0)
                     mst_labels     = mst_labels.data.numpy()
-                    edges          = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
+                    #edges          = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
+                    edges          = [(head, test_set.itolab[lbl], dep) for (dep, head, lbl) in zip(list(range(length)), mst_heads, mst_labels)]
                     dg             =  DepGraph(edges[1:],wordlist=tokens[1:],pos_tags=pos_tags[1:],mwe_range=mwe_range)
                     print(dg,file=ostream)
                     print(file=ostream)
