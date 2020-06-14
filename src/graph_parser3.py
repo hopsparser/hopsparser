@@ -825,7 +825,7 @@ if __name__ == '__main__':
 
         itolab  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
         itotag  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))
-        testset = DependencyDataset(testtrees,lexer,ordered_charset,use_labels=itolab,use_tags=itotag)
+        testset = DependencyDataset(testtrees,lexer,ordered_charset,ft_dataset,use_labels=itolab,use_tags=itotag)
         parser  = BiAffineParser(lexer,char_rnn,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_tag_hidden'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
         parser.load_params(os.path.join(MODEL_DIR,hp['lexer']+"-model.pt"))
         ostream = open(args.pred_file+'.parsed','w')
