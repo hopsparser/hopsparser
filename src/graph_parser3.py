@@ -312,6 +312,7 @@ class FastTextDataSet:
         max_len      = max(code_lengths)
         padded_codes = []
         for k, seq in zip(code_lengths, subcodes):
+            print(k,seq,max_len)
             padded = seq + (max_len - k) * [self.PAD_IDX]
             padded_codes.append(padded)
         return torch.tensor(padded_codes)
