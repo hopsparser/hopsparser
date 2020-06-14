@@ -340,7 +340,7 @@ class FastTextTorch(nn.Module):
     """
     def __init__(self,fasttextmodel):
         super(FastTextTorch, self).__init__()
-
+        self.fasttextmodel          = fasttextmodel
         weights                     = fasttextmodel.get_input_matrix()
         self.vocab_size , self.embedding_size = weights.shape
         weights                     = np.vstack((weights, np.zeros(self.embedding_size)))
@@ -352,7 +352,7 @@ class FastTextTorch(nn.Module):
         :param tok_sequence:
         :return:
         """
-        return self.ftmodel.get_subwords(token)[1]
+        return self.fasttextmodel.get_subwords(token)[1]
 
     def forward(self,xinput):
         """
