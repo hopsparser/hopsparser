@@ -762,9 +762,9 @@ if __name__ == '__main__':
         if hp['lexer'] == 'default':
             lexer = DefaultLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'])
         elif hp['lexer'] == 'flaubertbase':
-            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],bert_modelfile='flaubert-base-uncased',cased=False)
+            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],bert_modelfile='flaubert/flaubert-base-uncased',cased=False)
         elif hp['lexer'] == 'flaubertlarge':
-            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile='flaubert-large-cased',BERT_SIZE=1024)
+            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile='flaubert/flaubert-large-cased',BERT_SIZE=1024)
         elif hp['lexer'] == 'mbert':
             lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile="bert-base-multilingual-cased")
         elif hp['lexer'] == 'camembert':
@@ -800,9 +800,9 @@ if __name__ == '__main__':
         if hp['lexer']   == 'default' :
             lexer = DefaultLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'])
         elif hp['lexer'] == 'flaubertbase' :
-            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'],bert_modelfile='flaubert-base-uncased', cased=False)
+            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'],bert_modelfile='flaubert/flaubert-base-uncased', cased=False)
         elif hp['lexer'] == 'flaubertlarge':
-            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile='flaubert-large-cased', BERT_SIZE=1024)
+            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile='flaubert/flaubert-large-cased', BERT_SIZE=1024)
         elif hp['lexer'] == 'mbert':
             lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile="bert-base-multilingual-cased")
         elif hp['lexer'] == 'camembert':
@@ -816,7 +816,7 @@ if __name__ == '__main__':
         char_rnn        =  CharRNN(len(ordered_charset), hp['char_embedding_size'], hp['charlstm_output_size'])
 
         # fasttext lexer
-        ft_lexer = FastTextTorch.loadmodel(os.path.join(MODEL_DIR,'fasttext_model.bin'))
+        ft_lexer   = FastTextTorch.loadmodel(os.path.join(MODEL_DIR,'fasttext_model.bin'))
         ft_dataset = FastTextDataSet(ft_lexer)
 
         itolab  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
