@@ -745,7 +745,7 @@ if __name__ == '__main__':
     parser.add_argument('--pred_file', metavar='PRED_FILE', type=str, help='the conll file to parse')
 
     args = parser.parse_args()
-    hp = yaml.load(open(args.config_file).read())
+    hp = yaml.load(open(args.config_file).read(),Loader=yaml.FullLoader)
 
     CONFIG_FILE = os.path.abspath(args.config_file)
     MODEL_DIR   = os.path.dirname(CONFIG_FILE)
