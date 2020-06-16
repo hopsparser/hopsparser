@@ -762,9 +762,9 @@ if __name__ == '__main__':
         if hp['lexer'] == 'default':
             lexer = DefaultLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'])
         elif hp['lexer'] == 'flaubertbase':
-            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],bert_modelfile='flaubert/flaubert-base-uncased',cased=False)
+            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],bert_modelfile='flaubert/flaubert_base_uncased',cased=False)
         elif hp['lexer'] == 'flaubertlarge':
-            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile='flaubert/flaubert-large-cased',BERT_SIZE=1024)
+            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile='flaubert/flaubert_large_cased',BERT_SIZE=1024)
         elif hp['lexer'] == 'mbert':
             lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile="bert-base-multilingual-cased")
         elif hp['lexer'] == 'camembert':
