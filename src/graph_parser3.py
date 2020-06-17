@@ -761,7 +761,8 @@ if __name__ == '__main__':
         if hp['lexer'] == 'default':
             lexer = DefaultLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'])
         else:
-            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile=hp['lexer'])
+            bert_modelfile = hp['lexer'].split('/')[-1]
+            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile=bert_modelfile)
 
         #char rnn lexer
         ordered_charset = CharDataSet.make_vocab(ordered_vocab)
@@ -790,7 +791,8 @@ if __name__ == '__main__':
         if hp['lexer']   == 'default' :
             lexer = DefaultLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'])
         else:
-            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile=hp['lexer'])
+            bert_modelfile = hp['lexer'].split('/')[-1]
+            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile=bert_modelfile)
 
         #char rnn processor
         ordered_charset =  CharDataSet(loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-charcodes")))
