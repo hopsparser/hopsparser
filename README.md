@@ -45,7 +45,7 @@ We provide some pretrained models:
 | ud_fro_default | Old French | GPU/CPU | 85.9 | fast | SRCMF treebank + fasttext| [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ud_of_default.tar.gz)
 
 The reader may notice a difference with the results published in [(Le et al 2020)](https://arxiv.org/abs/1912.05372).
-The difference comes from the fact that this parser also predicts part of speech tags
+The difference comes from a better usage of fasttext and from the fact that this parser also predicts part of speech tags
 while the version described in [(Le et al 2020)](https://arxiv.org/abs/1912.05372) required predicted tags as part of its input.
 This change makes the parser easier to use in "real life" projects. 
 
