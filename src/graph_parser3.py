@@ -754,19 +754,19 @@ if __name__ == '__main__':
         traintrees  = DependencyDataset.read_conll(args.train_file)
         devtrees    = DependencyDataset.read_conll(args.dev_file)
 
+        bert_modelfile = hp['lexer'].split('/')[-1]
         ordered_vocab = make_vocab(traintrees,0)
 
-        savelist(ordered_vocab,os.path.join(MODEL_DIR,hp['lexer']+"-vocab"))
+        savelist(ordered_vocab,os.path.join(MODEL_DIR,bert_modelfile+"-vocab"))
 
         if hp['lexer'] == 'default':
             lexer = DefaultLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'])
         else:
-            bert_modelfile = hp['lexer'].split('/')[-1]
             lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile=bert_modelfile)
 
         #char rnn lexer
         ordered_charset = CharDataSet.make_vocab(ordered_vocab)
-        savelist(ordered_charset.i2c,os.path.join(MODEL_DIR,hp['lexer']+"-charcodes"))
+        savelist(ordered_charset.i2c,os.path.join(MODEL_DIR,bert_modelfile+"-charcodes"))
         char_rnn        = CharRNN(len(ordered_charset), hp['char_embedding_size'], hp['charlstm_output_size'])
 
         #fasttext lexer
@@ -775,38 +775,38 @@ if __name__ == '__main__':
 
         trainset           = DependencyDataset(traintrees,lexer,ordered_charset,ft_dataset)
         itolab,itotag      = trainset.itolab,trainset.itotag
-        savelist(itolab, os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
-        savelist(itotag, os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))
+        savelist(itolab, os.path.join(MODEL_DIR,bert_modelfile+"-labcodes"))
+        savelist(itotag, os.path.join(MODEL_DIR,bert_modelfile+"-tagcodes"))
         devset             = DependencyDataset(devtrees,lexer,ordered_charset,ft_dataset,use_labels=itolab,use_tags=itotag)
 
         parser             = BiAffineParser(lexer,char_rnn,ft_lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_tag_hidden'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
-        parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=os.path.join(MODEL_DIR,hp['lexer']+"-model.pt"))
+        parser.train_model(trainset,devset,hp['epochs'],hp['batch_size'],hp['lr'],modelpath=os.path.join(MODEL_DIR,bert_modelfile+"-model.pt"))
         print('training done.',file=sys.stderr)
 
     if args.pred_file:
         #TEST MODE
         testtrees     = DependencyDataset.read_conll(args.pred_file)
-        ordered_vocab = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-vocab"))
+        bert_modelfile = hp['lexer'].split('/')[-1]
+        ordered_vocab = loadlist(os.path.join(MODEL_DIR,bert_modelfile+"-vocab"))
 
         if hp['lexer']   == 'default' :
             lexer = DefaultLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'])
         else:
-            bert_modelfile = hp['lexer'].split('/')[-1]
             lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile=bert_modelfile)
 
         #char rnn processor
-        ordered_charset =  CharDataSet(loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-charcodes")))
+        ordered_charset =  CharDataSet(loadlist(os.path.join(MODEL_DIR,bert_modelfile+"-charcodes")))
         char_rnn        =  CharRNN(len(ordered_charset), hp['char_embedding_size'], hp['charlstm_output_size'])
 
         # fasttext lexer
         ft_lexer   = FastTextTorch.loadmodel(os.path.join(MODEL_DIR,'fasttext_model.bin'))
         ft_dataset = FastTextDataSet(ft_lexer)
 
-        itolab  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-labcodes"))
-        itotag  = loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-tagcodes"))
+        itolab  = loadlist(os.path.join(MODEL_DIR,bert_modelfile+"-labcodes"))
+        itotag  = loadlist(os.path.join(MODEL_DIR,bert_modelfile+"-tagcodes"))
         testset = DependencyDataset(testtrees,lexer,ordered_charset,ft_dataset,use_labels=itolab,use_tags=itotag)
         parser  = BiAffineParser(lexer,char_rnn,ft_lexer,len(itotag),hp['encoder_dropout'],hp['mlp_input'],hp['mlp_tag_hidden'],hp['mlp_arc_hidden'],hp['mlp_lab_hidden'],hp['mlp_dropout'],len(itolab),hp['device'])
-        parser.load_params(os.path.join(MODEL_DIR,hp['lexer']+"-model.pt"))
+        parser.load_params(os.path.join(MODEL_DIR,bert_modelfile+"-model.pt"))
         ostream = open(args.pred_file+'.parsed','w')
         parser.predict_batch(testset,ostream,hp['batch_size'],greedy=False)
         ostream.close()
