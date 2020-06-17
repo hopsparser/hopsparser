@@ -33,14 +33,14 @@ The parameter file provides an option for controlling the GPU actually used for 
 
 Pretrained models
 ----------------
-We provide some pretrained models :
+We provide some pretrained models:
 
 | Model name | Language | device | LAS  | speed  | Comment | Download link
 | ---------- | -------- | ------ | ---- | -----  | ------- | -------------
-|   default  | French   | GPU/CPU| 83.5 | fast   | French treebank only         | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/default.tar.gz)
-|   flaubert | French   | GPU    | 88.3 | average| FlaubertBase+French treebank | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/flaubert.tar.gz)
-|   camembert| French   | GPU    | 88.3 | average| camembert+French treebank    | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/camembert.tar.gz)
-|    ud_gsd  | French   | GPU/CPU| 85.4 | fast   | UD French GSD  only          | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/gsd.tar.gz)
+|   default  | French   | GPU/CPU| 85.8 | fast   | French treebank + fasttext   | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/default.tar.gz)
+|   flaubert | French   | GPU    | 88.3 | average| FlaubertBase+French treebank + fasttext| [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/flaubert.tar.gz)
+|   camembert| French   | GPU    | 88.3 | average| camembert+French treebank + fasttext | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/camembert.tar.gz)
+|    ud_gsd  | French   | GPU/CPU| 92.2 | fast   | UD French GSD + fasttext    | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/gsd.tar.gz)
 | ud_gsd_flaubert | French| GPU  | 92.5 | average| FlaubertBase + UD French GSD | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/gsd_flaubert.tar.gz) 
 | ud_of_default | Old French| GPU/CPU | 78.7 | fast | SRCMF treebank only       | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ud_of_default.tar.gz)
 

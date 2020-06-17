@@ -112,7 +112,7 @@ class BertBaseLexer(nn.Module):
     style models. It concatenates a standard embedding with a Flaubert
     embedding (uses Flaubert).
     """
-    def __init__(self,default_itos,default_embedding_size,word_dropout,cased=False,bert_modelfile="flaubert-base-uncased",BERT_SIZE=768): 
+    def __init__(self,default_itos,default_embedding_size,word_dropout,cased=False,bert_modelfile="flaubert/flaubert_base_uncased",BERT_SIZE=768):
 
         super(BertBaseLexer,self).__init__()
         self._embedding_size        = default_embedding_size

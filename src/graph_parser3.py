@@ -468,7 +468,6 @@ class BiAffineParser(nn.Module):
         self.eval()
 
     def forward(self,xwords,xchars,xft):
-
         """Computes char embeddings"""
         char_embed = torch.stack([self.char_rnn(column) for column in xchars],dim=1)
         """ Computes fasttext embeddings """
@@ -760,18 +759,9 @@ if __name__ == '__main__':
         savelist(ordered_vocab,os.path.join(MODEL_DIR,hp['lexer']+"-vocab"))
 
         if hp['lexer'] == 'default':
-            lexer = DefaultLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'])
-        elif hp['lexer'] == 'flaubertbase':
-            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],bert_modelfile='flaubert/flaubert_base_uncased',cased=False)
-        elif hp['lexer'] == 'flaubertlarge':
-            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile='flaubert/flaubert_large_cased',BERT_SIZE=1024)
-        elif hp['lexer'] == 'mbert':
-            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile="bert-base-multilingual-cased")
-        elif hp['lexer'] == 'camembert':
-            lexer = BertBaseLexer(ordered_vocab,hp['word_embedding_size'],hp['word_dropout'],cased=True,bert_modelfile="camembert-base")
+            lexer = DefaultLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'])
         else:
-            print('no valid lexer specified. abort.')
-            exit(1)
+            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile=hp['lexer'])
 
         #char rnn lexer
         ordered_charset = CharDataSet.make_vocab(ordered_vocab)
@@ -799,17 +789,8 @@ if __name__ == '__main__':
 
         if hp['lexer']   == 'default' :
             lexer = DefaultLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'])
-        elif hp['lexer'] == 'flaubertbase' :
-            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'],bert_modelfile='flaubert/flaubert_base_uncased', cased=False)
-        elif hp['lexer'] == 'flaubertlarge':
-            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile='flaubert/flaubert_large_cased', BERT_SIZE=1024)
-        elif hp['lexer'] == 'mbert':
-            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile="bert-base-multilingual-cased")
-        elif hp['lexer'] == 'camembert':
-            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile="camembert-base")
         else:
-            print('no valid lexer specified. abort.')
-            exit(1)
+            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile=hp['lexer'])
 
         #char rnn processor
         ordered_charset =  CharDataSet(loadlist(os.path.join(MODEL_DIR,hp['lexer']+"-charcodes")))
