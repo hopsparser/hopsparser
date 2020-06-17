@@ -41,7 +41,7 @@ We provide some pretrained models:
 |   ftb_flaubert | French   | GPU    | 88.3 | average| FlaubertBase+French treebank + fasttext| [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/flaubert.tar.gz)
 |   ftb_camembert| French   | GPU    | 87.9 | average| camembert+French treebank + fasttext | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/camembert.tar.gz)
 |    ud_fr_gsd_default  | French   | GPU/CPU| 89.9 | fast   | UD French GSD + fasttext    | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/gsd.tar.gz)
-| ud_fr_gsd_flaubert | French| GPU  | xxx | average| FlaubertBase + UD French GSD | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/gsd_flaubert.tar.gz) 
+| ud_fr_gsd_flaubert | French| GPU  | 92.4 | average| FlaubertBase + UD French GSD + fasttext | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/gsd_flaubert.tar.gz) 
 | ud_fro_default | Old French | GPU/CPU | 85.9 | fast | SRCMF treebank + fasttext| [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ud_of_default.tar.gz)
 
 The reader may notice a difference with the results published in [(Le et al 2020)](https://arxiv.org/abs/1912.05372).
