@@ -47,7 +47,7 @@ We provide some pretrained models:
 The reader may notice a difference with the results published in [(Le et al 2020)](https://arxiv.org/abs/1912.05372).
 The difference comes from a better usage of fasttext and from the fact that this parser also predicts part of speech tags
 while the version described in [(Le et al 2020)](https://arxiv.org/abs/1912.05372) required predicted tags as part of its input.
-This change makes the parser easier to use in "real life" projects. 
+These changes make the parser easier to use in "real life" projects. 
 
 Training task
 -------------
