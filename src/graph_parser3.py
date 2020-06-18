@@ -122,7 +122,7 @@ class DependencyDataset:
         batch_order = list(range(0,N, batch_size))
         if shuffle_batches:
             shuffle(batch_order)
-            
+        print(batch_size)
         for i in batch_order: 
             deps     = self.pad(self.deps[i:i+batch_size])
             tags     = self.pad(self.tags[i:i+batch_size])

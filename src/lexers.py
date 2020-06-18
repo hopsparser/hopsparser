@@ -120,7 +120,7 @@ class BertBaseLexer(nn.Module):
         self.stoi                   = {token:idx for idx,token in enumerate(self.itos)}
         
         self.embedding              = nn.Embedding(len(self.itos), default_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
-        
+
         bert_config                 = AutoConfig.from_pretrained(bert_modelfile, output_hidden_states=True)
         self.bert                   = AutoModel.from_pretrained(bert_modelfile, config=bert_config)
         self.bert_tokenizer         = AutoTokenizer.from_pretrained(bert_modelfile,
