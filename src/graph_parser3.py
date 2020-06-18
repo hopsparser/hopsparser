@@ -62,6 +62,8 @@ class DependencyDataset:
         for tree in self.treelist:
             depword_idxes = self.lexer.tokenize(tree.words)
             def none2pad(val):
+                if val is None:
+                    print("***")
                 return self.lexer.BERT_PAD_IDX if val is None else val
             depword_idxes = [none2pad(val) for val in depword_idxes]
             print(tree.words)
