@@ -128,7 +128,8 @@ class BertBaseLexer(nn.Module):
                                                                     #pad_token=DependencyDataset.PAD_TOKEN)
                                                                        
         self.BERT_PAD_IDX = self.bert_tokenizer.pad_token_id
-        self.BERT_SIZE    = BERT_SIZE                
+        self.BERT_SIZE    = BERT_SIZE
+        print(self.bert_tokenizer.pad_token_id)
         #assert(self.bert_tokenizer.pad_token == DependencyDataset.PAD_TOKEN)
         #assert(self.bert_tokenizer.unk_token == DependencyDataset.UNK_WORD)
         
