@@ -64,6 +64,8 @@ class DependencyDataset:
             def none2pad(val):
                 return self.lexer.BERT_PAD_IDX if val is None else val
             depword_idxes = [none2pad(val) for val in depword_idxes]
+            print(tree.words)
+            print(depword_idxes)
             deptag_idxes  = [self.tagtoi.get(tag,self.tagtoi[DependencyDataset.UNK_WORD]) for tag in tree.pos_tags]
 
             self.words.append(tree.words)
