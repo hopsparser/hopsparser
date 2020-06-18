@@ -125,7 +125,7 @@ class BertBaseLexer(nn.Module):
         self.bert                   = AutoModel.from_pretrained(bert_modelfile, config=bert_config)
         self.bert_tokenizer         = AutoTokenizer.from_pretrained(bert_modelfile,
                                                                     padding=True,
-                                                                    to_lowercase_and_remove_accent=False,
+                                                                    pad_to_max_length=True,
                                                                     unk_token=DependencyDataset.UNK_WORD,
                                                                     pad_token=DependencyDataset.PAD_TOKEN)
                                                                        
