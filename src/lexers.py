@@ -124,12 +124,11 @@ class BertBaseLexer(nn.Module):
         bert_config                 = AutoConfig.from_pretrained(bert_modelfile, output_hidden_states=True)
         self.bert                   = AutoModel.from_pretrained(bert_modelfile, config=bert_config)
         self.bert_tokenizer         = AutoTokenizer.from_pretrained(bert_modelfile,
-                                                                    unk_token=DependencyDataset.UNK_WORD)  #,
-                                                                    #pad_token=DependencyDataset.PAD_TOKEN)
+                                                                    unk_token=DependencyDataset.UNK_WORD,
+                                                                    pad_token=DependencyDataset.PAD_TOKEN)
                                                                        
         self.BERT_PAD_IDX = self.bert_tokenizer.pad_token_id
         self.BERT_SIZE    = BERT_SIZE
-        print(self.bert_tokenizer.pad_token_id)
         #assert(self.bert_tokenizer.pad_token == DependencyDataset.PAD_TOKEN)
         #assert(self.bert_tokenizer.unk_token == DependencyDataset.UNK_WORD)
         

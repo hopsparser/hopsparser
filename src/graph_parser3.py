@@ -145,8 +145,6 @@ class DependencyDataset:
                 paddedB   = seqB + (max_len - k)*[ self.lexer.BERT_PAD_IDX ]  
                 padded_batchA.append(paddedA)
                 padded_batchB.append(paddedB)
-                print(padded_batchA)
-                print(padded_batchB)
             return  ( Variable(torch.LongTensor(padded_batchA)) , Variable(torch.LongTensor(padded_batchB)) )                
         else:
             sent_lengths = list(map(len, batch))
@@ -762,7 +760,11 @@ if __name__ == '__main__':
         if hp['lexer'] == 'default':
             lexer = DefaultLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'])
         else:
-            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile=hp['lexer'])
+            if 'cased' in hp:
+                cased = True
+            else:
+                cased = 'uncased' not in bert_modelfile
+            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=cased,bert_modelfile=hp['lexer'])
 
         #char rnn lexer
         ordered_charset = CharDataSet.make_vocab(ordered_vocab)
@@ -792,7 +794,11 @@ if __name__ == '__main__':
         if hp['lexer']   == 'default' :
             lexer = DefaultLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'])
         else:
-            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=True,bert_modelfile=hp['lexer'])
+            if 'cased' in hp:
+                cased = True
+            else:
+                cased = 'uncased' not in bert_modelfile
+            lexer = BertBaseLexer(ordered_vocab, hp['word_embedding_size'], hp['word_dropout'], cased=cased,bert_modelfile=hp['lexer'])
 
         #char rnn processor
         ordered_charset =  CharDataSet(loadlist(os.path.join(MODEL_DIR,bert_modelfile+"-charcodes")))
