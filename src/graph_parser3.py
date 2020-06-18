@@ -122,8 +122,7 @@ class DependencyDataset:
         batch_order = list(range(0,N, batch_size))
         if shuffle_batches:
             shuffle(batch_order)
-        print(batch_size)
-        for i in batch_order: 
+        for i in batch_order:
             deps     = self.pad(self.deps[i:i+batch_size])
             tags     = self.pad(self.tags[i:i+batch_size])
             heads    = self.pad(self.heads[i:i+batch_size])
@@ -146,6 +145,7 @@ class DependencyDataset:
                 paddedB   = seqB + (max_len - k)*[ self.lexer.BERT_PAD_IDX ]  
                 padded_batchA.append(paddedA)
                 padded_batchB.append(paddedB)
+            print(len(batch),len(padded_batchA),len(padded_batchB))
             return  ( Variable(torch.LongTensor(padded_batchA)) , Variable(torch.LongTensor(padded_batchB)) )                
         else:
             sent_lengths = list(map(len, batch))
