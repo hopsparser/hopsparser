@@ -152,7 +152,6 @@ class DependencyDataset:
             padded_batch = [ ]
             for k, seq in zip(sent_lengths, batch):
                 padded = seq + (max_len - k) * [ DependencyDataset.PAD_IDX]
-
                 padded_batch.append(padded)
         return Variable( torch.LongTensor(padded_batch) )
 
