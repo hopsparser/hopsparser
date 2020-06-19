@@ -1,7 +1,7 @@
-import np
 import torch
 import fasttext
 import os.path
+import numpy as np
 from torch import nn
 from graph_parser2 import DependencyDataset,DepGraph
 from transformers  import AutoConfig, AutoModel, AutoTokenizer
