@@ -1,3 +1,4 @@
+import np
 import torch
 import fasttext
 import os.path
