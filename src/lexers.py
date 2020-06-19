@@ -3,7 +3,7 @@ import fasttext
 import os.path
 import numpy as np
 from torch import nn
-from graph_parser2 import DependencyDataset,DepGraph
+from graph_parser3 import DependencyDataset,DepGraph
 from transformers  import AutoConfig, AutoModel, AutoTokenizer
 from collections   import Counter,defaultdict
 from random import random
