@@ -22,8 +22,8 @@ class DependencyDataset:
     This is a sorted dataset.
     """
     PAD_IDX            = 0
-    PAD_TOKEN          = '<pad>'
-    UNK_WORD           = '<unk>'
+    PAD_TOKEN          = '[PAD]'
+    UNK_WORD           = '[UNK]'
 
     @staticmethod
     def read_conll(filename):
