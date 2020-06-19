@@ -112,7 +112,7 @@ class BertBaseLexer(nn.Module):
     style models. It concatenates a standard embedding with a Flaubert
     embedding (uses Flaubert).
     """
-    def __init__(self,default_itos,default_embedding_size,word_dropout,cased=False,bert_modelfile="flaubert/flaubert_base_uncased",BERT_SIZE=1024):
+    def __init__(self,default_itos,default_embedding_size,word_dropout,cased=False,bert_modelfile="flaubert/flaubert_base_uncased"):
 
         super(BertBaseLexer,self).__init__()
         self._embedding_size        = default_embedding_size
@@ -123,16 +123,11 @@ class BertBaseLexer(nn.Module):
 
         bert_config                 = AutoConfig.from_pretrained(bert_modelfile, output_hidden_states=True)
         self.bert                   = AutoModel.from_pretrained(bert_modelfile, config=bert_config)
-        self.bert_tokenizer         = AutoTokenizer.from_pretrained(bert_modelfile,
-                                                                    to_lowercase_and_remove_accent=False)#,
-                                                                    #unk_token=DependencyDataset.UNK_WORD)
-                                                                    #pad_token=DependencyDataset.PAD_TOKEN)
+        self.bert_tokenizer         = AutoTokenizer.from_pretrained(bert_modelfile,to_lowercase_and_remove_accent=False)
                                                                        
         self.BERT_PAD_IDX = self.bert_tokenizer.pad_token_id
         self.BERT_UNK_IDX = self.bert_tokenizer.unk_token_id
-        self.BERT_SIZE    = BERT_SIZE #incorrect
-        #assert(self.bert_tokenizer.pad_token == DependencyDataset.PAD_TOKEN)
-        #assert(self.bert_tokenizer.unk_token == DependencyDataset.UNK_WORD)
+        self.BERT_SIZE    = self.bert.hidden_size #incorrect
         
         self.bert_tokenizer.add_tokens([DepGraph.ROOT_TOKEN])
         self.bert.resize_token_embeddings(len(self.bert_tokenizer))
