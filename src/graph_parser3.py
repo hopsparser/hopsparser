@@ -1,11 +1,9 @@
 import sys
-import numpy as np
 import yaml
-import fasttext
 import argparse
 
 import os.path
-from tempfile import gettempdir
+import numpy as np
 
 from torch import nn
 from torch.autograd import Variable

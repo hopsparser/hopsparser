@@ -7,6 +7,8 @@ from graph_parser3 import DependencyDataset,DepGraph
 from transformers  import AutoConfig, AutoModel, AutoTokenizer
 from collections   import Counter,defaultdict
 from random import random
+from tempfile import gettempdir
+
 
 def word_sampler(word_idx,unk_idx,dropout):
     return unk_idx if random() < dropout else word_idx
@@ -274,6 +276,7 @@ class BertBaseLexer(nn.Module):
         self.word_dropout           = word_dropout
         self._dpout                 = 0
         self.cased                  = cased
+        print('Cased model',cased)
         
     @property
     def embedding_size(self):
