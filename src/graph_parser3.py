@@ -139,7 +139,7 @@ class DependencyDataset:
             padded_batchA,padded_batchB = [ ], [ ]
             for k, seq in zip(sent_lengths, batch):
                 seqA,seqB = seq
-                paddedA   = seqA + (max_len - k)*[ self.lexer.BERT_PAD_IDX ]
+                paddedA   = seqA + (max_len - k)*[ DependencyDataset.PAD_IDX ]
                 paddedB   = seqB + (max_len - k)*[ self.lexer.BERT_PAD_IDX ]  
                 padded_batchA.append(paddedA)
                 padded_batchB.append(paddedB)

@@ -3,7 +3,7 @@ import fasttext
 import os.path
 import numpy as np
 from torch import nn
-from graph_parser2 import DependencyDataset,DepGraph
+from graph_parser3 import DependencyDataset,DepGraph
 from transformers  import AutoConfig, AutoModel, AutoTokenizer
 from collections   import Counter,defaultdict
 from random import random
@@ -241,7 +241,7 @@ class DefaultLexer(nn.Module):
         Returns:
            a list of integers
         """
-        word_idxes = [self.stoi.get(token, self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
+        word_idxes     = [self.stoi.get(token, self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
         if self._dpout > 0:
             word_idxes = [word_sampler(widx, self.stoi[DependencyDataset.UNK_WORD], self._dpout) for widx in word_idxes]
         return word_idxes
@@ -268,7 +268,7 @@ class BertBaseLexer(nn.Module):
         self.BERT_UNK_IDX           = self.bert_tokenizer.unk_token_id
         self.BERT_SIZE              = self.bert.config.hidden_size     #incorrect
 
-        self.embedding              = nn.Embedding(len(self.itos), default_embedding_size, padding_idx=self.BERT_PAD_IDX)
+        self.embedding              = nn.Embedding(len(self.itos), default_embedding_size, padding_idx=DependencyDataset.PAD_IDX)
 
         self.bert_tokenizer.add_tokens([DepGraph.ROOT_TOKEN])
         self.bert.resize_token_embeddings(len(self.bert_tokenizer))
