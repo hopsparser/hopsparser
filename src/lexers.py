@@ -3,7 +3,7 @@ import fasttext
 import os.path
 import numpy as np
 from torch import nn
-from graph_parser3 import DependencyDataset,DepGraph
+from graph_parser2 import DependencyDataset,DepGraph
 from transformers  import AutoConfig, AutoModel, AutoTokenizer
 from collections   import Counter,defaultdict
 from random import random
@@ -276,7 +276,7 @@ class BertBaseLexer(nn.Module):
         self.word_dropout           = word_dropout
         self._dpout                 = 0
         self.cased                  = cased
-        print('Cased model',cased)
+        print('Cased model',cased,self.bert_tokenizer.pad_token,self.bert_tokenizer.pad_token_id)
         
     @property
     def embedding_size(self):
@@ -315,14 +315,14 @@ class BertBaseLexer(nn.Module):
         Returns:
            a list of integers 
         """
-        word_idxes  = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
+        word_idxes      = [self.stoi.get(token,self.stoi[DependencyDataset.UNK_WORD]) for token in tok_sequence]
         if self.cased:
             bert_idxes  = [self.bert_tokenizer.convert_tokens_to_ids(self.bert_tokenizer.tokenize(token))[0] for token in tok_sequence]
         else:
             bert_idxes  = [self.bert_tokenizer.convert_tokens_to_ids(self.bert_tokenizer.tokenize(token.lower()))[0] for token in tok_sequence]
 
         if self._dpout:
-            word_idxes = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],self._dpout) for widx in word_idxes]
+            word_idxes  = [word_sampler(widx,self.stoi[DependencyDataset.UNK_WORD],self._dpout) for widx in word_idxes]
 
         #ensure that first index is <root> and not an <unk>
         word_idxes[0] = self.stoi[DependencyDataset.UNK_WORD]
