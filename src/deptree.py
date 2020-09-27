@@ -16,7 +16,7 @@ class DepGraph:
 
         if wordlist is None:
             wordlist  = [ ]
-        self.words    = [DepGraph.ROOT_TOKEN] + wordlist 
+        self.words    = [DepGraph.ROOT_TOKEN] + wordlist
         self.pos_tags = [DepGraph.ROOT_TOKEN] + pos_tags if pos_tags else None
         self.mwe_ranges = [] if mwe_range is None else mwe_range
 
@@ -38,7 +38,7 @@ class DepGraph:
         """
         Returns the list of dependency labels found on the arcs
         """
-        all_labels = [ ] 
+        all_labels = [ ]
         for gov in self.gov2dep:
             all_labels.extend( [label for (gov,label,dep) in self.gov2dep[gov] ] )
         return all_labels
