@@ -538,19 +538,19 @@ class GridSearch:
         return base_filename + '+' + '+'.join([ k+':'+str(v)   for (k,v) in dict_setup.items() if k != 'output_path'] ) + '.conll'
 
 
-if __name__ == '__main__':
+def savelist(strlist, filename):
+    ostream = open(filename, 'w')
+    ostream.write('\n'.join(strlist))
+    ostream.close()
 
-    def savelist(strlist, filename):
-        ostream = open(filename, 'w')
-        ostream.write('\n'.join(strlist))
-        ostream.close()
 
-    def loadlist(filename):
-        istream = open(filename)
-        strlist = [line for line in istream.read().split('\n')]
-        istream.close()
-        return strlist
+def loadlist(filename):
+    istream = open(filename)
+    strlist = [line for line in istream.read().split('\n')]
+    istream.close()
+    return strlist
 
+def main():
     parser = argparse.ArgumentParser(description='Graph based Attention based dependency parser/tagger')
     parser.add_argument('config_file', metavar='CONFIG_FILE', type=str, help='the configuration file')
     parser.add_argument('--train_file', metavar='TRAIN_FILE', type=str, help='the conll training file')
@@ -633,4 +633,8 @@ if __name__ == '__main__':
         parser.predict_batch(testset,ostream,hp['batch_size'],greedy=False)
         ostream.close()
         print('parsing done.',file=sys.stderr)
+
+
+if __name__ == '__main__':
+    main()
 
