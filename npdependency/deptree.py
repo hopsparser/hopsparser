@@ -1,3 +1,6 @@
+import torch
+from torch.autograd import Variable
+from random import shuffle
 
 class DepGraph:
 
