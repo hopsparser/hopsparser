@@ -3,11 +3,12 @@ import fasttext
 import os.path
 import numpy as np
 from torch import nn
-from graph_parser3 import DependencyDataset,DepGraph
 from transformers  import AutoConfig, AutoModel, AutoTokenizer
 from collections   import Counter,defaultdict
 from random import random
 from tempfile import gettempdir
+
+from npdependency.deptree import DependencyDataset,DepGraph
 
 
 def word_sampler(word_idx,unk_idx,dropout):
