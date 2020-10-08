@@ -20,8 +20,15 @@ console entry point
 pip install git+https://github.com/bencrabbe/npdependency
 ```
 
-Alternatively, you can also clone this repo, install the dependencies listed in `setup.cfg` and call
-`python graph_parser3.py` directly.
+If you want a development install (so you can modify the code locally and directly run it), you can install it in editable mode after cloning the repository
+
+```sh
+git clone https://github.com/bencrabbe/npdependency
+cd npdependency
+pip install -e .
+```
+
+Alternatively (but not recommended), you can also clone this repo, install the dependencies listed in `setup.cfg` and call `python -m npdependency.graph_parser3` directly from the root of the repo.
 
 ## Parsing task
 
