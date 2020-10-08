@@ -16,7 +16,7 @@ French, but it might be trained for other languages without difficulties.
 Install with pip, which should take care of all the dependencies and install the `graph_parser`
 console entry point
 
-```shell
+```sh
 pip install git+https://github.com/bencrabbe/npdependency
 ```
 
@@ -29,7 +29,7 @@ The parsing task (or prediction task) assumes you have an already trained model 
 MODEL. You can parse a file FILE in conll format (with empty annotations, just words) with the
 command:
 
-```shell
+```sh
 graph_parser  --pred_file FILE   MODEL/params.yaml
 ```
 
@@ -76,7 +76,7 @@ Training can be performed with the following steps:
 4. Edit the `params.yaml` according to your needs
 5. Run the command:
 
-```shell
+```sh
 graph_parser  --train_file TRAINFILE --dev_file DEVFILE  params.yaml
 ```
 

@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 from random import sample
-from bpe_lexer import *
-from deptree   import *
+from npdependency.bpe_lexer import *
+from npdependency.deptree   import *
 
 class CovingtonParser(nn.Module):
     
