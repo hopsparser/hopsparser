@@ -244,10 +244,11 @@ class DependencyDataset:
 
         for tree in self.treelist:
             depword_idxes = self.lexer.tokenize(tree.words)
-            if self.tagtoi:
+            if tree.pos_tags:
+                print(tree.pos_tags)
                 deptag_idxes  = [self.tagtoi.get(tag,self.tagtoi[DependencyDataset.UNK_WORD]) for tag in tree.pos_tags]
             else:
-                deptag_idxes  = [self.tagtoi[DependencyDataset.UNK_WORD] for tag in tree.pos_tags]
+                deptag_idxes  = [self.tagtoi[DependencyDataset.UNK_WORD] for tag in tree.words]
             self.words.append(tree.words)
             self.cats.append(tree.pos_tags)
             self.tags.append(deptag_idxes)
