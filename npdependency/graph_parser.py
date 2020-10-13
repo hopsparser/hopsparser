@@ -10,8 +10,16 @@ from torch import nn
 from torch.autograd import Variable
 
 from npdependency.mst import chuliu_edmonds
-from npdependency.lexers import *
-from npdependency.deptree import *
+from npdependency.lexers import (
+    BertBaseLexer,
+    CharDataSet,
+    CharRNN,
+    DefaultLexer,
+    FastTextDataSet,
+    FastTextTorch,
+    make_vocab,
+)
+from npdependency.deptree import DependencyDataset, DepGraph
 
 
 class MLP(nn.Module):

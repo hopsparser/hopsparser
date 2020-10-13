@@ -4,8 +4,8 @@ import os.path
 import numpy as np
 from torch import nn
 from transformers import AutoConfig, AutoModel, AutoTokenizer
-from collections import Counter, defaultdict
-from random import random
+from collections import Counter
+from random import random  # nosec:B311
 from tempfile import gettempdir
 
 from npdependency.deptree import DependencyDataset, DepGraph

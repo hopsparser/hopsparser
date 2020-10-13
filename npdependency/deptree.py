@@ -288,13 +288,14 @@ class DependencyDataset:
         print(" ".join(self.itotag), file=out)
         out.close()
 
-    @staticmethod
-    def load_vocab(filename):
-        reloaded = open(filename)
-        itolab = reloaded.readline().split()
-        itotag = reloaded.readline().split()
-        reloaded.close()
-        return itos, itolab, itotag
+    # !COMBAK: Some code is missing here (itos is undefined) and this function seems unused
+    # @staticmethod
+    # def load_vocab(filename):
+    #     reloaded = open(filename)
+    #     itolab = reloaded.readline().split()
+    #     itotag = reloaded.readline().split()
+    #     reloaded.close()
+    #     return itos, itolab, itotag
 
     def shuffle_data(self):
         N = len(self.deps)
