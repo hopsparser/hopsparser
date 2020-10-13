@@ -5,10 +5,10 @@ import argparse
 import os.path
 import numpy as np
 
+import torch
 from torch import nn
 from torch.autograd import Variable
 
-from random import sample, shuffle, random
 from npdependency.mst import chuliu_edmonds
 from npdependency.lexers import *
 from npdependency.deptree import *
