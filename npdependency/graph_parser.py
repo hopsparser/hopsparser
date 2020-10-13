@@ -280,7 +280,6 @@ class BiAffineParser(nn.Module):
 
         for e in range(epochs):
             TRAIN_LOSS = 0
-            TRAIN_TOKS = 0
             BEST_ARC_ACC = 0
             self.lexer.train_mode()
             train_batches = train_set.make_batches(
@@ -391,7 +390,6 @@ class BiAffineParser(nn.Module):
         )  # keep natural order here
 
         with torch.no_grad():
-            softmax = nn.Softmax(dim=1)
             for batch in test_batches:
                 self.eval()
                 words, mwe, chars, subwords, cats, deps, tags, heads, labels = batch
