@@ -28,7 +28,7 @@ cd npdependency
 pip install -e .
 ```
 
-Alternatively (but not recommended), you can also clone this repo, install the dependencies listed in `setup.cfg` and call `python -m npdependency.graph_parser3` directly from the root of the repo.
+Alternatively (but not recommended), you can also clone this repo, install the dependencies listed in `setup.cfg` and call `python -m npdependency.graph_parser` directly from the root of the repo.
 
 ## Parsing task
 
