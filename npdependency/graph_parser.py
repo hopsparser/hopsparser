@@ -708,7 +708,8 @@ def main():
         )
         parser.load_params(os.path.join(MODEL_DIR, bert_modelfile + "-model.pt"))
         with open(
-            os.path.join(args.out_dir, f"{os.path.basename(args.pred_file)}.parsed", "w")
+            os.path.join(args.out_dir, f"{os.path.basename(args.pred_file)}.parsed"),
+            "w",
         ) as ostream:
             parser.predict_batch(testset, ostream, hp["batch_size"], greedy=False)
         print("parsing done.", file=sys.stderr)
