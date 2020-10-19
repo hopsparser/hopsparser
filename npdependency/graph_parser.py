@@ -547,12 +547,22 @@ def main():
     parser.add_argument(
         "--pred_file", metavar="PRED_FILE", type=str, help="the conll file to parse"
     )
+    parser.add_argument(
+        "--out_dir",
+        metavar="OUT_DIR",
+        type=str,
+        help="the path of the output directory (defaults to the config dir)",
+    )
 
     args = parser.parse_args()
     hp = yaml.load(open(args.config_file).read(), Loader=yaml.FullLoader)
 
     CONFIG_FILE = os.path.abspath(args.config_file)
-    MODEL_DIR = os.path.dirname(CONFIG_FILE)
+    if args.out_dir:
+        os.makedirs(args.out_dir, exist_ok=True)
+        MODEL_DIR = args.out_dir
+    else:
+        MODEL_DIR = os.path.dirname(CONFIG_FILE)
 
     if args.train_file and args.dev_file:
         # TRAIN MODE
