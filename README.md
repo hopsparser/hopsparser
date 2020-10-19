@@ -20,7 +20,8 @@ console entry point
 pip install git+https://github.com/bencrabbe/npdependency
 ```
 
-If you want a development install (so you can modify the code locally and directly run it), you can install it in editable mode after cloning the repository
+If you want a development install (so you can modify the code locally and directly run it), you can
+install it in editable mode after cloning the repository
 
 ```sh
 git clone https://github.com/bencrabbe/npdependency
@@ -28,7 +29,8 @@ cd npdependency
 pip install -e .
 ```
 
-Alternatively (but not recommended), you can also clone this repo, install the dependencies listed in `setup.cfg` and call `python -m npdependency.graph_parser` directly from the root of the repo.
+Alternatively (but not recommended), you can also clone this repo, install the dependencies listed
+in `setup.cfg` and call `python -m npdependency.graph_parser3` directly from the root of the repo.
 
 ## Parsing task
 
@@ -53,14 +55,14 @@ provides an option for controlling the GPU actually used for performing computat
 
 We provide some pretrained models:
 
-| Model name | Language | device | LAS  | speed  | Comment | Download link
-| ---------- | -------- | ------ | ---- | -----  | ------- | -------------
-|   ftb_default  | French   | GPU/CPU| 85.9 | fast   | French treebank + fasttext   | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ftb_default.tar.gz)
-|   ftb_flaubert | French   | GPU    | 88.3 | average| FlaubertBase+French treebank + fasttext| [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ftb_flaubert.tar.gz)
-|   ftb_camembert| French   | GPU    | 87.9 | average| camembert+French treebank + fasttext | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ftb_camembert.tar.gz)
-|    ud_fr_gsd_default  | French   | GPU/CPU| 90.2 | fast   | UD French GSD + fasttext    | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/fr_gsd_default.tar.gz)
-| ud_fr_gsd_flaubert | French| GPU  | 92.4 | average| FlaubertBase + UD French GSD + fasttext | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ud_fr_gsd_flaubert.tar.gz) 
-| ud_fro_default | Old French | GPU/CPU | 85.9 | fast | SRCMF treebank + fasttext| [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ud_of_default.tar.gz)
+| Model name         | Language   | device  | LAS  | speed   | Comment                                 | Download link                                                                                            |
+| ------------------ | ---------- | ------- | ---- | ------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| ftb_default        | French     | GPU/CPU | 85.9 | fast    | French treebank + fasttext              | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ftb_default.tar.gz)        |
+| ftb_flaubert       | French     | GPU     | 88.3 | average | FlaubertBase+French treebank + fasttext | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ftb_flaubert.tar.gz)       |
+| ftb_camembert      | French     | GPU     | 87.9 | average | camembert+French treebank + fasttext    | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ftb_camembert.tar.gz)      |
+| ud_fr_gsd_default  | French     | GPU/CPU | 90.2 | fast    | UD French GSD + fasttext                | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/fr_gsd_default.tar.gz)     |
+| ud_fr_gsd_flaubert | French     | GPU     | 92.4 | average | FlaubertBase + UD French GSD + fasttext | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ud_fr_gsd_flaubert.tar.gz) |
+| ud_fro_default     | Old French | GPU/CPU | 85.9 | fast    | SRCMF treebank + fasttext               | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ud_of_default.tar.gz)      |
 
 The reader may notice a difference with the results published in
 [(Le et al 2020)](https://arxiv.org/abs/1912.05372). The difference comes from a better usage of
