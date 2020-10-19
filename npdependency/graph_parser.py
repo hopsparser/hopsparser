@@ -559,8 +559,8 @@ def main():
 
     CONFIG_FILE = os.path.abspath(args.config_file)
     if args.out_dir:
-        os.makedirs(args.out_dir, exist_ok=True)
-        MODEL_DIR = args.out_dir
+        MODEL_DIR = os.path.join(args.out_dir, "model")
+        os.makedirs(MODEL_DIR, exist_ok=True)
     else:
         MODEL_DIR = os.path.dirname(CONFIG_FILE)
 
@@ -705,9 +705,11 @@ def main():
             hp["device"],
         )
         parser.load_params(os.path.join(MODEL_DIR, bert_modelfile + "-model.pt"))
-        ostream = open(args.pred_file + ".parsed", "w")
-        parser.predict_batch(testset, ostream, hp["batch_size"], greedy=False)
-        ostream.close()
+        with open(
+            os.path.join(MODEL_DIR, f"{os.path.basename(args.pred_file)}.parsed", "w")
+        ) as ostream:
+            parser.predict_batch(testset, ostream, hp["batch_size"], greedy=False)
+            ostream.close()
         print("parsing done.", file=sys.stderr)
 
 
