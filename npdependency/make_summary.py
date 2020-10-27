@@ -47,12 +47,12 @@ def make_csv_summary(
 ):
     gold_conllu = evaluator.load_conllu_file(gold_file)
 
-    header = [f"{m}_{p}" for p in ("P", "R", "F") for m in CONLL_METRICS]
+    header = ["name", *(f"{m}_{p}" for p in ("P", "R", "F") for m in CONLL_METRICS)]
     print(",".join(header), file=out_file)
     for syst_file in syst_files:
         syst_conllu = evaluator.load_conllu_file(syst_file)
         metrics = evaluator.evaluate(gold_conllu, syst_conllu)
-        row: List[str] = []
+        row: List[str] = [syst_file.stem]
         for m in CONLL_METRICS:
             mres = metrics[m]
             row.extend((str(mres.precision), str(mres.recall), str(mres.f1)))
