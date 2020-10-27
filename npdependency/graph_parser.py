@@ -574,7 +574,7 @@ def main():
         bert_modelfile = hp["lexer"].split("/")[-1]
         ordered_vocab = make_vocab(traintrees, 0)
 
-        savelist(ordered_vocab, os.path.join(MODEL_DIR, bert_modelfile + "-vocab"))
+        savelist(ordered_vocab, os.path.join(MODEL_DIR, f"{bert_modelfile}-vocab"))
 
         if hp["lexer"] == "default":
             lexer = DefaultLexer(
@@ -596,7 +596,7 @@ def main():
         # char rnn lexer
         ordered_charset = CharDataSet.make_vocab(ordered_vocab)
         savelist(
-            ordered_charset.i2c, os.path.join(MODEL_DIR, bert_modelfile + "-charcodes")
+            ordered_charset.i2c, os.path.join(MODEL_DIR, f"{bert_modelfile}-charcodes")
         )
         char_rnn = CharRNN(
             len(ordered_charset), hp["char_embedding_size"], hp["charlstm_output_size"]
@@ -610,8 +610,8 @@ def main():
 
         trainset = DependencyDataset(traintrees, lexer, ordered_charset, ft_dataset)
         itolab, itotag = trainset.itolab, trainset.itotag
-        savelist(itolab, os.path.join(MODEL_DIR, bert_modelfile + "-labcodes"))
-        savelist(itotag, os.path.join(MODEL_DIR, bert_modelfile + "-tagcodes"))
+        savelist(itolab, os.path.join(MODEL_DIR, f"{bert_modelfile}-labcodes"))
+        savelist(itotag, os.path.join(MODEL_DIR, f"{bert_modelfile}-tagcodes"))
         devset = DependencyDataset(
             devtrees,
             lexer,
@@ -641,7 +641,7 @@ def main():
             hp["epochs"],
             hp["batch_size"],
             hp["lr"],
-            modelpath=os.path.join(MODEL_DIR, bert_modelfile + "-model.pt"),
+            modelpath=os.path.join(MODEL_DIR, f"{bert_modelfile}-model.pt"),
         )
         print("training done.", file=sys.stderr)
 
@@ -649,7 +649,7 @@ def main():
         # TEST MODE
         testtrees = DependencyDataset.read_conll(args.pred_file)
         bert_modelfile = hp["lexer"].split("/")[-1]
-        ordered_vocab = loadlist(os.path.join(MODEL_DIR, bert_modelfile + "-vocab"))
+        ordered_vocab = loadlist(os.path.join(MODEL_DIR, f"{bert_modelfile}-vocab"))
 
         if hp["lexer"] == "default":
             lexer = DefaultLexer(
@@ -706,7 +706,7 @@ def main():
             len(itolab),
             hp["device"],
         )
-        parser.load_params(os.path.join(MODEL_DIR, bert_modelfile + "-model.pt"))
+        parser.load_params(os.path.join(MODEL_DIR, f"{bert_modelfile}-model.pt"))
         parsed_testset_path = os.path.join(
             args.out_dir, f"{os.path.basename(args.pred_file)}.parsed"
         )
