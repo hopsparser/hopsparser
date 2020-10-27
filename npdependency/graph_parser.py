@@ -520,15 +520,13 @@ class GridSearch:
 
 
 def savelist(strlist, filename):
-    ostream = open(filename, "w")
-    ostream.write("\n".join(strlist))
-    ostream.close()
+    with open(filename, "w") as ostream:
+        ostream.write("\n".join(strlist))
 
 
 def loadlist(filename):
-    istream = open(filename)
-    strlist = [line for line in istream.read().split("\n")]
-    istream.close()
+    with open(filename) as istream:
+        strlist = [line.strip() for line in istream]
     return strlist
 
 
@@ -707,10 +705,10 @@ def main():
             hp["device"],
         )
         parser.load_params(os.path.join(MODEL_DIR, bert_modelfile + "-model.pt"))
-        with open(
-            os.path.join(args.out_dir, f"{os.path.basename(args.pred_file)}.parsed"),
-            "w",
-        ) as ostream:
+        parsed_testset_path = os.path.join(
+            args.out_dir, f"{os.path.basename(args.pred_file)}.parsed"
+        )
+        with open(parsed_testset_path, "w") as ostream:
             parser.predict_batch(testset, ostream, hp["batch_size"], greedy=False)
         print("parsing done.", file=sys.stderr)
 
