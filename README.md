@@ -45,7 +45,7 @@ graph_parser  --pred_file FILE   MODEL/params.yaml
 This results in a parsed file called `FILE.parsed`. The `MODEL/params.yaml` is the model
 hyperparameters file. An example model is stored in the `default` directory. The file
 `default/params.yaml` is an example of such parameter file. The `FILE` argument is supposed to be
-formatted in truncated [CONLL-U](https://universaldependencies.org/format.html) format:
+formatted in truncated [CONLL-U](https://universaldependencies.org/format.html) format. For instance:
 ```
 1       Flaubert
 2       a
