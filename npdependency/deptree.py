@@ -217,13 +217,11 @@ class DepGraph:
     def __len__(self):
         return len(self.words)
 
-
 class DependencyDataset:
     """
     A representation of the DepBank for efficient processing.
     This is a sorted dataset.
     """
-
     PAD_IDX = 0
     PAD_TOKEN = "<pad>"
     UNK_WORD = "<unk>"
@@ -418,14 +416,7 @@ class DependencyDataset:
         Returns:
         a tensor of size N.
         """
-<<<<<<< HEAD
-        N         = len( depgraph )
-        edges     = depgraph.get_all_edges( )
-        rev_edges = dict( [(dep,gov) for (gov,label,dep) in edges ] )
-        return [ rev_edges.get(idx,0) for idx in range(N) ]
-=======
         N = len(depgraph)
         edges = depgraph.get_all_edges()
         rev_edges = dict([(dep, gov) for (gov, label, dep) in edges])
         return [rev_edges.get(idx, 0) for idx in range(N)]
->>>>>>> 01111d983a1ac14af429f212542cd0d5d7d5a206
