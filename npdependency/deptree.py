@@ -168,6 +168,7 @@ class DepGraph:
         for dataline in conll:
             if len(dataline) < 10 : #pads the dataline
                 dataline.extend('-'*10-len(dataline))
+                dataline[6] = 0
             if "-" in dataline[0]:
                 mwe_ranges.append(dataline[0].split("-") + [dataline[1]])
                 continue
