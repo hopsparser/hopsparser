@@ -13,7 +13,7 @@ French, but it might be trained for other languages without difficulties.
 
 ## Installation
 
-Install with pip, which should take care of all the dependencies and install the `graph_parser`
+The parser is known to work with python >= 3.7. Install with pip, which should take care of all the dependencies and install the `graph_parser`
 console entry point
 
 ```sh
