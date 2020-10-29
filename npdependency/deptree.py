@@ -157,7 +157,7 @@ class DepGraph:
             line = istream.readline()
         while istream and not line.strip() == "":
             if line[0] != "#":
-                conll.append(line.split("\t"))
+                conll.append(line.strip().split("\t"))
             line = istream.readline()
         if not conll:
             return None
