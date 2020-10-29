@@ -101,6 +101,6 @@ Training can be performed with the following steps:
 ```sh
 graph_parser  --train_file TRAINFILE --dev_file DEVFILE  params.yaml
 ```
-
-after some time (minutes,hours,days...) you are done and the model is ready to run (go back to the
+where TRAINFILE and DEVFILE are given in CONLL-U format (without empty words).
+After some time (minutes, hours ...) you are done and the model is ready to run (go back to the
 parsing section)
