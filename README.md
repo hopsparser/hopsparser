@@ -35,7 +35,7 @@ in `setup.cfg` and call `python -m npdependency.graph_parser3` directly from the
 ## Parsing task
 
 The parsing task (or prediction task) assumes you have an already trained model in the directory
-MODEL. You can parse a file FILE in conll format (with empty annotations, just words) with the
+MODEL. You can parse a file FILE in truncated CONLL-U format with the
 command:
 
 ```sh
