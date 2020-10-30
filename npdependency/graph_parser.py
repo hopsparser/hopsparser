@@ -2,6 +2,8 @@ import sys
 import yaml
 import argparse
 
+import shutil
+
 import os.path
 import numpy as np
 
@@ -10,6 +12,7 @@ from torch import nn
 from torch.autograd import Variable
 
 from npdependency.mst import chuliu_edmonds_one_root as chuliu_edmonds
+
 from npdependency.lexers import (
     BertBaseLexer,
     CharDataSet,
@@ -519,15 +522,13 @@ class GridSearch:
 
 
 def savelist(strlist, filename):
-    ostream = open(filename, "w")
-    ostream.write("\n".join(strlist))
-    ostream.close()
+    with open(filename, "w") as ostream:
+        ostream.write("\n".join(strlist))
 
 
 def loadlist(filename):
-    istream = open(filename)
-    strlist = [line for line in istream.read().split("\n")]
-    istream.close()
+    with open(filename) as istream:
+        strlist = [line.strip() for line in istream]
     return strlist
 
 
@@ -547,12 +548,23 @@ def main():
     parser.add_argument(
         "--pred_file", metavar="PRED_FILE", type=str, help="the conll file to parse"
     )
+    parser.add_argument(
+        "--out_dir",
+        metavar="OUT_DIR",
+        type=str,
+        help="the path of the output directory (defaults to the config dir)",
+    )
 
     args = parser.parse_args()
     hp = yaml.load(open(args.config_file).read(), Loader=yaml.FullLoader)
 
     CONFIG_FILE = os.path.abspath(args.config_file)
-    MODEL_DIR = os.path.dirname(CONFIG_FILE)
+    if args.out_dir:
+        MODEL_DIR = os.path.join(args.out_dir, "model")
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        shutil.copy(args.config_file, MODEL_DIR)
+    else:
+        MODEL_DIR = os.path.dirname(CONFIG_FILE)
 
     if args.train_file and args.dev_file:
         # TRAIN MODE
@@ -562,7 +574,7 @@ def main():
         bert_modelfile = hp["lexer"].split("/")[-1]
         ordered_vocab = make_vocab(traintrees, 0)
 
-        savelist(ordered_vocab, os.path.join(MODEL_DIR, bert_modelfile + "-vocab"))
+        savelist(ordered_vocab, os.path.join(MODEL_DIR, f"{bert_modelfile}-vocab"))
 
         if hp["lexer"] == "default":
             lexer = DefaultLexer(
@@ -584,7 +596,7 @@ def main():
         # char rnn lexer
         ordered_charset = CharDataSet.make_vocab(ordered_vocab)
         savelist(
-            ordered_charset.i2c, os.path.join(MODEL_DIR, bert_modelfile + "-charcodes")
+            ordered_charset.i2c, os.path.join(MODEL_DIR, f"{bert_modelfile}-charcodes")
         )
         char_rnn = CharRNN(
             len(ordered_charset), hp["char_embedding_size"], hp["charlstm_output_size"]
@@ -598,8 +610,8 @@ def main():
 
         trainset = DependencyDataset(traintrees, lexer, ordered_charset, ft_dataset)
         itolab, itotag = trainset.itolab, trainset.itotag
-        savelist(itolab, os.path.join(MODEL_DIR, bert_modelfile + "-labcodes"))
-        savelist(itotag, os.path.join(MODEL_DIR, bert_modelfile + "-tagcodes"))
+        savelist(itolab, os.path.join(MODEL_DIR, f"{bert_modelfile}-labcodes"))
+        savelist(itotag, os.path.join(MODEL_DIR, f"{bert_modelfile}-tagcodes"))
         devset = DependencyDataset(
             devtrees,
             lexer,
@@ -629,7 +641,7 @@ def main():
             hp["epochs"],
             hp["batch_size"],
             hp["lr"],
-            modelpath=os.path.join(MODEL_DIR, bert_modelfile + "-model.pt"),
+            modelpath=os.path.join(MODEL_DIR, f"{bert_modelfile}-model.pt"),
         )
         print("training done.", file=sys.stderr)
 
@@ -637,7 +649,7 @@ def main():
         # TEST MODE
         testtrees = DependencyDataset.read_conll(args.pred_file)
         bert_modelfile = hp["lexer"].split("/")[-1]
-        ordered_vocab = loadlist(os.path.join(MODEL_DIR, bert_modelfile + "-vocab"))
+        ordered_vocab = loadlist(os.path.join(MODEL_DIR, f"{bert_modelfile}-vocab"))
 
         if hp["lexer"] == "default":
             lexer = DefaultLexer(
@@ -694,10 +706,12 @@ def main():
             len(itolab),
             hp["device"],
         )
-        parser.load_params(os.path.join(MODEL_DIR, bert_modelfile + "-model.pt"))
-        ostream = open(args.pred_file + ".parsed", "w")
-        parser.predict_batch(testset, ostream, hp["batch_size"], greedy=False)
-        ostream.close()
+        parser.load_params(os.path.join(MODEL_DIR, f"{bert_modelfile}-model.pt"))
+        parsed_testset_path = os.path.join(
+            args.out_dir, f"{os.path.basename(args.pred_file)}.parsed"
+        )
+        with open(parsed_testset_path, "w") as ostream:
+            parser.predict_batch(testset, ostream, hp["batch_size"], greedy=False)
         print("parsing done.", file=sys.stderr)
 
 

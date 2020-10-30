@@ -1,56 +1,63 @@
-import os
-import os.path
-import sys
+import pathlib
 
-"""
-Usage :
+from typing import Iterable, List, TextIO
 
-     python make_summary dirname
+import click
+import click_pathlib
 
-generates a dirname_summary.csv file
-"""
+from npdependency import conll2018_eval as evaluator
 
 
-def make_csv_summary(dirname, goldfile):
-
-    header = ""
-    csv_out = open(dirname + "_summary.csv", "w")
-    for filename in os.listdir(dirname):
-        if not filename.endswith("conll"):
-            continue
-        print(filename)
-        KVlist = filename[:-6].split("+")[1:]
-        if not header:
-            header = [KV.split(":")[0] for KV in KVlist] + ["UAS", "LAS"]
-            print(",".join(header), file=csv_out)
-        values = [KV.split(":")[1] for KV in KVlist]
-
-        filename = os.path.join(dirname, filename)
-        try:
-            os.system(
-                "perl eval07.pl -q -g %s -s %s > /tmp/eval.tmp" % (goldfile, filename)
-            )
-            (las, uas) = process_eval07("/tmp/eval.tmp")
-            values.append(uas)
-            values.append(las)
-        except IndexError:
-            values.append("nan")
-            values.append("nan")
-        print(",".join(values), file=csv_out)
-    csv_out.close()
+CONLL_METRICS = [
+    "Tokens",
+    "Sentences",
+    "Words",
+    "UPOS",
+    "XPOS",
+    "UFeats",
+    "AllTags",
+    "Lemmas",
+    "UAS",
+    "LAS",
+    "CLAS",
+    "MLAS",
+    "BLEX",
+]
 
 
-def process_eval07(filename):
+@click.command()
+@click.argument(
+    "gold_file",
+    type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
+)
+@click.argument(
+    "syst_file",
+    type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
+    nargs=-1,
+)
+@click.option(
+    "--out_file",
+    type=click.File("w"),
+    default="-",
+)
+def make_csv_summary(
+    syst_files: Iterable[pathlib.Path],
+    gold_file: pathlib.Path,
+    out_file: TextIO,
+):
+    gold_conllu = evaluator.load_conllu_file(gold_file)
 
-    istream = open(filename)
-    las = istream.readline()
-    uas = istream.readline()
-    istream.close()
-    las = las.split("=")[1]
-    las = float(las[:-2])
-    uas = uas.split("=")[1]
-    uas = float(uas[:-2])
-    return (str(las), str(uas))
+    header = ["name", *(f"{m}_{p}" for p in ("P", "R", "F") for m in CONLL_METRICS)]
+    print(",".join(header), file=out_file)
+    for syst_file in syst_files:
+        syst_conllu = evaluator.load_conllu_file(syst_file)
+        metrics = evaluator.evaluate(gold_conllu, syst_conllu)
+        row: List[str] = [syst_file.stem]
+        for m in CONLL_METRICS:
+            mres = metrics[m]
+            row.extend((str(mres.precision), str(mres.recall), str(mres.f1)))
+        print(",".join(row), file=out_file)
 
 
-make_csv_summary(sys.argv[1], "../spmrl/test.French.pred.conll")
+if __name__ == "__main__":
+    make_csv_summary()

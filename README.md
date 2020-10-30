@@ -67,7 +67,6 @@ provides an option for controlling the GPU actually used for performing computat
 
 We provide some pretrained models:
 
-
 | Model name         | Language   | device  | LAS  | speed   | Comment                                 | Download link                                                                                            |
 | ------------------ | ---------- | ------- | ---- | ------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | ftb_default        | French     | GPU/CPU | 85.9 | fast    | French treebank + fasttext              | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ftb_default.tar.gz)        |
