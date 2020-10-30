@@ -644,6 +644,26 @@ def main():
             modelpath=os.path.join(MODEL_DIR, f"{bert_modelfile}-model.pt"),
         )
         print("training done.", file=sys.stderr)
+        # Load final params
+        parser.load_params(os.path.join(MODEL_DIR, f"{bert_modelfile}-model.pt"))
+        if args.out_dir is not None:
+            parsed_devset_path = os.path.join(
+                args.out_dir, f"{os.path.basename(args.dev_file)}.parsed"
+            )
+        else:
+            parsed_devset_path = os.path.join(
+                os.path.dirname(args.dev_file),
+                f"{os.path.basename(args.dev_file)}.parsed",
+            )
+        with open(parsed_devset_path, "w") as ostream:
+            parser.predict_batch(devset, ostream, hp["batch_size"], greedy=False)
+        gold_devset = evaluator.load_conllu_file(args.dev_file)
+        syst_devset = evaluator.load_conllu_file(parsed_devset_path)
+        dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
+        print(
+            f"Dev-best results: {dev_metrics['UPOS'][2]} UPOS\t{dev_metrics['UAS'][2]} UAS\t{dev_metrics['LAS'][2]} LAS",
+            file=sys.stderr,
+        )
 
     if args.pred_file:
         # TEST MODE
@@ -707,9 +727,15 @@ def main():
             hp["device"],
         )
         parser.load_params(os.path.join(MODEL_DIR, f"{bert_modelfile}-model.pt"))
-        parsed_testset_path = os.path.join(
-            args.out_dir, f"{os.path.basename(args.pred_file)}.parsed"
-        )
+        if args.out_dir is not None:
+            parsed_testset_path = os.path.join(
+                args.out_dir, f"{os.path.basename(args.pred_file)}.parsed"
+            )
+        else:
+            parsed_testset_path = os.path.join(
+                os.path.dirname(args.pred_file),
+                f"{os.path.basename(args.pred_file)}.parsed",
+            )
         with open(parsed_testset_path, "w") as ostream:
             parser.predict_batch(testset, ostream, hp["batch_size"], greedy=False)
         print("parsing done.", file=sys.stderr)
