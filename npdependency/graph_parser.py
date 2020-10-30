@@ -1,6 +1,7 @@
 import sys
 import yaml
 import argparse
+
 import shutil
 
 import os.path
@@ -10,7 +11,8 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 
-from npdependency.mst import chuliu_edmonds
+from npdependency.mst import chuliu_edmonds_one_root as chuliu_edmonds
+
 from npdependency.lexers import (
     BertBaseLexer,
     CharDataSet,

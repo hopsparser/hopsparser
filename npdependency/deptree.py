@@ -157,7 +157,7 @@ class DepGraph:
             line = istream.readline()
         while istream and not line.strip() == "":
             if line[0] != "#":
-                conll.append(line.split("\t"))
+                conll.append(line.strip().split("\t"))
             line = istream.readline()
         if not conll:
             return None
@@ -166,6 +166,10 @@ class DepGraph:
         postags = []
         edges = []
         for dataline in conll:
+            if len(dataline) < 10 : #pads the dataline
+                dataline.extend(['-']*(10-len(dataline)))
+                dataline[6] = 0
+
             if "-" in dataline[0]:
                 mwe_ranges.append(dataline[0].split("-") + [dataline[1]])
                 continue
@@ -217,13 +221,11 @@ class DepGraph:
     def __len__(self):
         return len(self.words)
 
-
 class DependencyDataset:
     """
     A representation of the DepBank for efficient processing.
     This is a sorted dataset.
     """
-
     PAD_IDX = 0
     PAD_TOKEN = "<pad>"
     UNK_WORD = "<unk>"

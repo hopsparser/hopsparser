@@ -13,7 +13,7 @@ French, but it might be trained for other languages without difficulties.
 
 ## Installation
 
-Install with pip, which should take care of all the dependencies and install the `graph_parser`
+The parser is known to work with python >= 3.7. Install with pip, which should take care of all the dependencies and install the `graph_parser`
 console entry point
 
 ```sh
@@ -35,7 +35,7 @@ in `setup.cfg` and call `python -m npdependency.graph_parser3` directly from the
 ## Parsing task
 
 The parsing task (or prediction task) assumes you have an already trained model in the directory
-MODEL. You can parse a file FILE in conll format (with empty annotations, just words) with the
+MODEL. You can parse a file FILE in truncated CONLL-U format with the
 command:
 
 ```sh
@@ -44,7 +44,19 @@ graph_parser  --pred_file FILE   MODEL/params.yaml
 
 This results in a parsed file called `FILE.parsed`. The `MODEL/params.yaml` is the model
 hyperparameters file. An example model is stored in the `default` directory. The file
-`default/params.yaml` is an example of such parameter file.
+`default/params.yaml` is an example of such parameter file. The `FILE` argument is supposed to be
+formatted in truncated [CONLL-U](https://universaldependencies.org/format.html) format. For instance:
+```
+1       Flaubert
+2       a
+3       écrit
+4       Madame
+5       Bovary
+6       .
+```
+That is we require word indexation and word forms only. Empty words are currently not supported.
+Multi-word tokens are not taken into account by the parsing models.
+
 
 We advise to use the `flaubert` model which is stored in the flaubert directory. Depending on the
 model, the parser will be more or less fast and more or less accurate. We can however expect the
@@ -88,6 +100,6 @@ Training can be performed with the following steps:
 ```sh
 graph_parser  --train_file TRAINFILE --dev_file DEVFILE  params.yaml
 ```
-
-after some time (minutes,hours,days...) you are done and the model is ready to run (go back to the
+where TRAINFILE and DEVFILE are given in CONLL-U format (without empty words).
+After some time (minutes, hours ...) you are done and the model is ready to run (go back to the
 parsing section)
