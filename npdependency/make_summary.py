@@ -31,7 +31,7 @@ CONLL_METRICS = [
     type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
 )
 @click.argument(
-    "syst_file",
+    "syst_files",
     type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
     nargs=-1,
 )
