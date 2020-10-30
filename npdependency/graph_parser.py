@@ -23,6 +23,7 @@ from npdependency.lexers import (
     make_vocab,
 )
 from npdependency.deptree import DependencyDataset, DepGraph
+from npdependency import conll2018_eval as evaluator
 
 
 class MLP(nn.Module):
@@ -644,6 +645,20 @@ def main():
             modelpath=os.path.join(MODEL_DIR, f"{bert_modelfile}-model.pt"),
         )
         print("training done.", file=sys.stderr)
+        # Load final params
+        parser.load_params(os.path.join(MODEL_DIR, f"{bert_modelfile}-model.pt"))
+        parsed_devset_path = os.path.join(
+            args.out_dir, f"{os.path.basename(args.dev_file)}.parsed"
+        )
+        with open(parsed_devset_path, "w") as ostream:
+            parser.predict_batch(devset, ostream, hp["batch_size"], greedy=False)
+        gold_devset = evaluator.load_conllu_file(args.dev_file)
+        syst_devset = evaluator.load_conllu_file(parsed_devset_path)
+        dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
+        print(
+            f"Dev-best results: {dev_metrics['UPOS'][2]} UPOS\t{dev_metrics['UAS'][2]} UAS\t{dev_metrics['LAS'][2]} LAS",
+            file=sys.stderr,
+        )
 
     if args.pred_file:
         # TEST MODE
