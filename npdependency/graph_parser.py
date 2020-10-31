@@ -23,6 +23,7 @@ from npdependency.lexers import (
     make_vocab,
 )
 from npdependency.deptree import DependencyDataset, DepGraph
+from npdependency import conll2018_eval as evaluator
 
 
 class MLP(nn.Module):
