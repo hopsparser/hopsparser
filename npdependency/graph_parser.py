@@ -145,8 +145,7 @@ class BiAffineParser(nn.Module):
         torch.save(self.state_dict(), path)
 
     def load_params(self, path):
-
-        self.load_state_dict(torch.load(path))
+        self.load_state_dict(torch.load(path, map_location=self.device))
         self.eval()
 
     def forward(self, xwords, xchars, xft):
