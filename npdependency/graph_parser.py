@@ -587,10 +587,7 @@ def main():
                 ordered_vocab, hp["word_embedding_size"], hp["word_dropout"]
             )
         else:
-            if "cased" in hp:
-                cased = True
-            else:
-                cased = "uncased" not in bert_modelfile
+            cased = hp.get("cased", "uncased" not in bert_modelfile)
             lexer = BertBaseLexer(
                 ordered_vocab,
                 hp["word_embedding_size"],
@@ -682,10 +679,7 @@ def main():
                 ordered_vocab, hp["word_embedding_size"], hp["word_dropout"]
             )
         else:
-            if "cased" in hp:
-                cased = True
-            else:
-                cased = "uncased" not in bert_modelfile
+            cased = hp.get("cased", "uncased" not in bert_modelfile)
             lexer = BertBaseLexer(
                 ordered_vocab,
                 hp["word_embedding_size"],
