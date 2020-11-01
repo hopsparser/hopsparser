@@ -38,6 +38,11 @@ class MLP(nn.Module):
         return self.Wup(self.dropout(self.g(self.Wdown(input))))
 
 
+# FIXME: Why not `torch.nn.Bilinear(bias=False)`
+# Note: This is the biaffine layer used in Qi et al. (2018) rather than Dozat and Manning (2017).
+# HOWEVER, contrarily to what the equations in the former, their biaffine layer actually adds linear
+# terms (see
+# <https://github.com/tdozat/Parser-v3/blob/85c40a54075f07eed7cd84cebe2275fabf9ce336/parser/neural/classifiers.py#L205>)
 class BiAffine(nn.Module):
     """Biaffine attention layer."""
 
@@ -662,7 +667,7 @@ def main():
         syst_devset = evaluator.load_conllu_file(parsed_devset_path)
         dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
         print(
-            f"Dev-best results: {dev_metrics['UPOS'][2]} UPOS\t{dev_metrics['UAS'][2]} UAS\t{dev_metrics['LAS'][2]} LAS",
+            f"Dev-best results: {dev_metrics['UPOS'].f1} UPOS\t{dev_metrics['UAS'].f1} UAS\t{dev_metrics['LAS']f1} LAS",
             file=sys.stderr,
         )
 
