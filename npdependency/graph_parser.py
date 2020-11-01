@@ -1,4 +1,6 @@
+import pathlib
 import sys
+from typing import Union
 import yaml
 import argparse
 
@@ -78,17 +80,18 @@ class BiAffineParser(nn.Module):
     def __init__(
         self,
         lexer,
+        charset,
         char_rnn,
         ft_lexer,
-        tagset_size,
+        tagset,
         encoder_dropout,  # lstm dropout
         mlp_input,
         mlp_tag_hidden,
         mlp_arc_hidden,
         mlp_lab_hidden,
         mlp_dropout,
-        num_labels,
-        device="cuda:1",
+        labels,
+        device,
     ):
 
         super(BiAffineParser, self).__init__()
@@ -105,10 +108,13 @@ class BiAffineParser(nn.Module):
             bidirectional=True,
         ).to(self.device)
 
+        self.tagset = tagset
+        self.labels = labels
         # POS tagger & char RNN
-        self.pos_tagger = MLP(mlp_input * 2, mlp_tag_hidden, tagset_size).to(
+        self.pos_tagger = MLP(mlp_input * 2, mlp_tag_hidden, len(self.tagset)).to(
             self.device
         )
+        self.charset = charset
         self.char_rnn = char_rnn.to(self.device)
         self.ft_lexer = ft_lexer.to(self.device)
 
@@ -129,19 +135,16 @@ class BiAffineParser(nn.Module):
 
         # BiAffine layers
         self.arc_biaffine = BiAffine(mlp_input, 1).to(self.device)
-        self.lab_biaffine = BiAffine(mlp_input, num_labels).to(self.device)
+        self.lab_biaffine = BiAffine(mlp_input, len(self.labels)).to(self.device)
 
         # hyperparams for saving...
-        self.tagset_size = tagset_size
         self.mlp_input, self.mlp_arc_hidden, self.mlp_lab_hidden = (
             mlp_input,
             mlp_arc_hidden,
             mlp_lab_hidden,
         )
-        self.num_labels = num_labels
 
     def save_params(self, path):
-
         torch.save(self.state_dict(), path)
 
     def load_params(self, path):
@@ -483,6 +486,61 @@ class BiAffineParser(nn.Module):
                     print(dg, file=ostream)
                     print(file=ostream)
 
+    @classmethod
+    def from_config(cls, config_path: Union[str, pathlib.Path]) -> "BiAffineParser":
+        config_path = pathlib.Path(config_path)
+        with open(config_path) as in_stream:
+            hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
+        config_dir = config_path.parent
+        bert_model_name = hp["lexer"].split("/")[-1]
+        ordered_vocab = loadlist(config_dir / f"{bert_model_name}-vocab")
+
+        lexer: Union[DefaultLexer, BertBaseLexer]
+        if hp["lexer"] == "default":
+            lexer = DefaultLexer(
+                ordered_vocab, hp["word_embedding_size"], hp["word_dropout"]
+            )
+        else:
+            cased = hp.get("cased", "uncased" not in bert_model_name)
+            lexer = BertBaseLexer(
+                ordered_vocab,
+                hp["word_embedding_size"],
+                hp["word_dropout"],
+                cased=cased,
+                bert_modelfile=hp["lexer"],
+            )
+
+        # char rnn processor
+        ordered_charset = CharDataSet(
+            loadlist(config_dir / f"{bert_model_name}-charcodes")
+        )
+        char_rnn = CharRNN(
+            len(ordered_charset), hp["char_embedding_size"], hp["charlstm_output_size"]
+        )
+
+        # fasttext lexer
+        ft_lexer = FastTextTorch.loadmodel(str(config_dir / "fasttext_model.bin"))
+
+        itolab = loadlist(config_dir / f"{bert_model_name}-labcodes")
+        itotag = loadlist(config_dir / f"{bert_model_name}-tagcodes")
+        parser = cls(
+            lexer,
+            ordered_charset,
+            char_rnn,
+            ft_lexer,
+            itotag,
+            hp["encoder_dropout"],
+            hp["mlp_input"],
+            hp["mlp_tag_hidden"],
+            hp["mlp_arc_hidden"],
+            hp["mlp_lab_hidden"],
+            hp["mlp_dropout"],
+            itolab,
+            hp["device"],
+        )
+        parser.load_params(config_dir / f"{bert_model_name}-model.pt")
+        return parser
+
 
 class GridSearch:
     """ This generates all the possible experiments specified by a yaml config file """
@@ -625,16 +683,17 @@ def main():
 
         parser = BiAffineParser(
             lexer,
+            ordered_charset,
             char_rnn,
             ft_lexer,
-            len(itotag),
+            itotag,
             hp["encoder_dropout"],
             hp["mlp_input"],
             hp["mlp_tag_hidden"],
             hp["mlp_arc_hidden"],
             hp["mlp_lab_hidden"],
             hp["mlp_dropout"],
-            len(itolab),
+            itolab,
             hp["device"],
         )
         parser.train_model(
@@ -669,63 +728,17 @@ def main():
 
     if args.pred_file:
         # TEST MODE
+        parser = BiAffineParser.from_config(args.config_file)
         testtrees = DependencyDataset.read_conll(args.pred_file)
-        bert_modelfile = hp["lexer"].split("/")[-1]
-        ordered_vocab = loadlist(os.path.join(MODEL_DIR, f"{bert_modelfile}-vocab"))
-
-        if hp["lexer"] == "default":
-            lexer = DefaultLexer(
-                ordered_vocab, hp["word_embedding_size"], hp["word_dropout"]
-            )
-        else:
-            cased = hp.get("cased", "uncased" not in bert_modelfile)
-            lexer = BertBaseLexer(
-                ordered_vocab,
-                hp["word_embedding_size"],
-                hp["word_dropout"],
-                cased=cased,
-                bert_modelfile=hp["lexer"],
-            )
-
-        # char rnn processor
-        ordered_charset = CharDataSet(
-            loadlist(os.path.join(MODEL_DIR, bert_modelfile + "-charcodes"))
-        )
-        char_rnn = CharRNN(
-            len(ordered_charset), hp["char_embedding_size"], hp["charlstm_output_size"]
-        )
-
-        # fasttext lexer
-        ft_lexer = FastTextTorch.loadmodel(
-            os.path.join(MODEL_DIR, "fasttext_model.bin")
-        )
-        ft_dataset = FastTextDataSet(ft_lexer)
-
-        itolab = loadlist(os.path.join(MODEL_DIR, bert_modelfile + "-labcodes"))
-        itotag = loadlist(os.path.join(MODEL_DIR, bert_modelfile + "-tagcodes"))
+        ft_dataset = FastTextDataSet(parser.ft_lexer)
         testset = DependencyDataset(
             testtrees,
-            lexer,
-            ordered_charset,
+            parser.lexer,
+            parser.charset,
             ft_dataset,
-            use_labels=itolab,
-            use_tags=itotag,
+            use_labels=parser.labels,
+            use_tags=parser.tagset,
         )
-        parser = BiAffineParser(
-            lexer,
-            char_rnn,
-            ft_lexer,
-            len(itotag),
-            hp["encoder_dropout"],
-            hp["mlp_input"],
-            hp["mlp_tag_hidden"],
-            hp["mlp_arc_hidden"],
-            hp["mlp_lab_hidden"],
-            hp["mlp_dropout"],
-            len(itolab),
-            hp["device"],
-        )
-        parser.load_params(os.path.join(MODEL_DIR, f"{bert_modelfile}-model.pt"))
         if args.out_dir is not None:
             parsed_testset_path = os.path.join(
                 args.out_dir, f"{os.path.basename(args.pred_file)}.parsed"
