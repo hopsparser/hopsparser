@@ -149,7 +149,6 @@ class BiAffineParser(nn.Module):
 
     def load_params(self, path):
         self.load_state_dict(torch.load(path, map_location=self.device))
-        self.eval()
 
     def forward(self, xwords, xchars, xft):
         """Computes char embeddings"""
@@ -707,6 +706,7 @@ def main():
         print("training done.", file=sys.stderr)
         # Load final params
         parser.load_params(os.path.join(MODEL_DIR, f"{bert_modelfile}-model.pt"))
+        parser.eval()
         if args.out_dir is not None:
             parsed_devset_path = os.path.join(
                 args.out_dir, f"{os.path.basename(args.dev_file)}.parsed"
@@ -729,6 +729,7 @@ def main():
     if args.pred_file:
         # TEST MODE
         parser = BiAffineParser.from_config(args.config_file)
+        parser.eval()
         testtrees = DependencyDataset.read_conll(args.pred_file)
         ft_dataset = FastTextDataSet(parser.ft_lexer)
         testset = DependencyDataset(
