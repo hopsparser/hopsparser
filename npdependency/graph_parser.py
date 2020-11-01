@@ -24,7 +24,7 @@ from npdependency.lexers import (
     FastTextTorch,
     make_vocab,
 )
-from npdependency.deptree import DependencyDataset, DepGraph
+from npdependency.deptree import DependencyDataset, DepGraph, gen_labels, gen_tags
 from npdependency import conll2018_eval as evaluator
 
 
@@ -616,6 +616,11 @@ def main():
         type=str,
         help="the path of the output directory (defaults to the config dir)",
     )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="If a model already exists, restart training from scratch instead of continuing.",
+    )
 
     args = parser.parse_args()
     hp = yaml.load(open(args.config_file).read(), Loader=yaml.FullLoader)
@@ -630,42 +635,51 @@ def main():
 
     if args.train_file and args.dev_file:
         # TRAIN MODE
+        weights_file = os.path.join(model_dir, "model.pt")
+        if os.path.exists(weights_file):
+            print(f"Found existing trained model in {model_dir}", file=sys.stderr)
+            overwrite = args.overwrite
+            if args.overwrite:
+                print("Erasing it since --overwrite was asked", file=sys.stderr)
+                # Ensure the parser won't load existing weights
+                os.remove(weights_file)
+                overwrite = True
+            else:
+                print("Continuing training", file=sys.stderr)
+                overwrite = False
+        else:
+            overwrite = True
         traintrees = DependencyDataset.read_conll(args.train_file)
         devtrees = DependencyDataset.read_conll(args.dev_file)
 
-        ft_lexer = FastTextTorch.train_model(
-            traintrees, os.path.join(model_dir, "fasttext_model.bin")
-        )
-        ft_dataset = FastTextDataSet(ft_lexer)
-
-        ordered_vocab = make_vocab(traintrees, 0)
-        savelist(ordered_vocab, os.path.join(model_dir, "vocab.lst"))
-
-        ordered_charset = CharDataSet.make_vocab(ordered_vocab)
-        savelist(ordered_charset.i2c, os.path.join(model_dir, "charcodes.lst"))
-
-        if hp["lexer"] == "default":
-            lexer = DefaultLexer(
-                ordered_vocab, hp["word_embedding_size"], hp["word_dropout"]
-            )
-        else:
-            bert_modelfile = hp["lexer"].split("/")[-1]
-            cased = hp.get("cased", "uncased" not in bert_modelfile)
-            lexer = BertBaseLexer(
-                ordered_vocab,
-                hp["word_embedding_size"],
-                hp["word_dropout"],
-                cased=cased,
-                bert_modelfile=hp["lexer"],
+        if overwrite:
+            FastTextTorch.train_model(
+                traintrees, os.path.join(model_dir, "fasttext_model.bin")
             )
 
-        trainset = DependencyDataset(traintrees, lexer, ordered_charset, ft_dataset)
-        itolab, itotag = trainset.itolab, trainset.itotag
-        savelist(itolab, os.path.join(model_dir, "labcodes.lst"))
-        savelist(itotag, os.path.join(model_dir, "tagcodes.lst"))
+            ordered_vocab = make_vocab(traintrees, 0)
+            savelist(ordered_vocab, os.path.join(model_dir, "vocab.lst"))
+
+            ordered_charset = CharDataSet.make_vocab(ordered_vocab)
+            savelist(ordered_charset.i2c, os.path.join(model_dir, "charcodes.lst"))
+
+            itolab = gen_labels(traintrees)
+            savelist(itolab, os.path.join(model_dir, "labcodes.lst"))
+
+            itotag = gen_tags(traintrees)
+            savelist(itotag, os.path.join(model_dir, "tagcodes.lst"))
 
         parser = BiAffineParser.from_config(config_file)
 
+        ft_dataset = FastTextDataSet(parser.ft_lexer)
+        trainset = DependencyDataset(
+            traintrees,
+            parser.lexer,
+            parser.charset,
+            ft_dataset,
+            use_labels=parser.labels,
+            use_tags=parser.tagset,
+        )
         devset = DependencyDataset(
             devtrees,
             parser.lexer,
@@ -681,11 +695,11 @@ def main():
             hp["epochs"],
             hp["batch_size"],
             hp["lr"],
-            modelpath=os.path.join(model_dir, "model.pt"),
+            modelpath=weights_file,
         )
         print("training done.", file=sys.stderr)
         # Load final params
-        parser.load_params(os.path.join(model_dir, "model.pt"))
+        parser.load_params(weights_file)
         parser.eval()
         if args.out_dir is not None:
             parsed_devset_path = os.path.join(
