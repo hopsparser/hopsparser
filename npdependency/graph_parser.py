@@ -667,7 +667,7 @@ def main():
         syst_devset = evaluator.load_conllu_file(parsed_devset_path)
         dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
         print(
-            f"Dev-best results: {dev_metrics['UPOS'].f1} UPOS\t{dev_metrics['UAS'].f1} UAS\t{dev_metrics['LAS']f1} LAS",
+            f"Dev-best results: {dev_metrics['UPOS'].f1} UPOS\t{dev_metrics['UAS'].f1} UAS\t{dev_metrics['LAS'].f1} LAS",
             file=sys.stderr,
         )
 
