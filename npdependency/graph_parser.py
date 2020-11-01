@@ -617,6 +617,12 @@ def main():
         help="the path of the output directory (defaults to the config dir)",
     )
     parser.add_argument(
+        "--device",
+        metavar="DEVICE",
+        type=str,
+        help="the (torch) device to use for the parser. Supersedes configuration if given",
+    )
+    parser.add_argument(
         "--overwrite",
         action="store_true",
         help="If a model already exists, restart training from scratch instead of continuing.",
@@ -624,6 +630,8 @@ def main():
 
     args = parser.parse_args()
     hp = yaml.load(open(args.config_file).read(), Loader=yaml.FullLoader)
+    if args.device is not None:
+        hp["device"] = args.device
 
     config_file = os.path.abspath(args.config_file)
     if args.out_dir:
@@ -670,6 +678,7 @@ def main():
             savelist(itotag, os.path.join(model_dir, "tagcodes.lst"))
 
         parser = BiAffineParser.from_config(config_file)
+        parser.to(hp.get("device", "cpu"))
 
         ft_dataset = FastTextDataSet(parser.ft_lexer)
         trainset = DependencyDataset(
