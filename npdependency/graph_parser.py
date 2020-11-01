@@ -533,7 +533,7 @@ class BiAffineParser(nn.Module):
             hp["mlp_lab_hidden"],
             hp["mlp_dropout"],
             itolab,
-            hp["device"],
+            hp.get("device", "cpu"),
         )
         weights_file = config_dir / "model.pt"
         if weights_file.exists():
