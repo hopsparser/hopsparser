@@ -629,7 +629,7 @@ def main():
     )
 
     args = parser.parse_args()
-    hp = yaml.load(open(args.config_file).read(), Loader=yaml.FullLoader)
+    hp = yaml.load(open(args.config_file).read(), Loader=yaml.SafeLoader)
     if args.device is not None:
         hp["device"] = args.device
 
