@@ -617,6 +617,11 @@ def main():
         help="the path of the output directory (defaults to the config dir)",
     )
     parser.add_argument(
+        "--fasttext",
+        metavar="PATH",
+        help="The path to either an existing FastText model or a raw text file to train one. If this option is absent, a model will be trained from the parsing train set.",
+    )
+    parser.add_argument(
         "--device",
         metavar="DEVICE",
         type=str,
@@ -661,9 +666,30 @@ def main():
         devtrees = DependencyDataset.read_conll(args.dev_file)
 
         if overwrite:
-            FastTextTorch.train_model(
-                traintrees, os.path.join(model_dir, "fasttext_model.bin")
-            )
+            fasttext_model_path = os.path.join(model_dir, "fasttext_model.bin")
+            if args.fasttext is None:
+                if os.path.exists(fasttext_model_path):
+                    print(f"Using the FastText model at {fasttext_model_path}")
+                    FastTextTorch.loadmodel(fasttext_model_path)
+                else:
+                    print(f"Generating a FastText model from {args.train_file}")
+                    FastTextTorch.train_model_from_trees(traintrees, fasttext_model_path)
+            elif os.path.exists(args.fasttext):
+                if os.path.exists(fasttext_model_path):
+                    os.remove(fasttext_model_path)
+                try:
+                    # ugly, but we have no better way of checking if a file is a valid model
+                    FastTextTorch.loadmodel(args.fasttext)
+                    print(f"Using the FastText model at {args.fasttext}")
+                    shutil.copy(args.fasttext, fasttext_model_path)
+                except ValueError:
+                    # FastText couldn't load it, so it should be raw text
+                    print(f"Generating a FastText model from {args.fasttext}")
+                    FastTextTorch.train_model_from_raw(
+                        args.fasttext, fasttext_model_path
+                    )
+            else:
+                raise ValueError(f"{args.fasttext} not found")
 
             ordered_vocab = make_vocab(traintrees, 0)
             savelist(ordered_vocab, os.path.join(model_dir, "vocab.lst"))
