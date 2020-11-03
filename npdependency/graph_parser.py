@@ -1,6 +1,6 @@
 import pathlib
 import sys
-from typing import Union
+from typing import Any, Dict, Union
 import yaml
 import argparse
 
@@ -486,10 +486,13 @@ class BiAffineParser(nn.Module):
                     print(file=ostream)
 
     @classmethod
-    def from_config(cls, config_path: Union[str, pathlib.Path]) -> "BiAffineParser":
+    def from_config(cls, config_path: Union[str, pathlib.Path], overrides: Dict[str, Any]) -> "BiAffineParser":
         config_path = pathlib.Path(config_path)
         with open(config_path) as in_stream:
             hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
+        hp.update(overrides)
+        hp.setdefault("device", "cpu")
+
         config_dir = config_path.parent
         ordered_vocab = loadlist(config_dir / "vocab.lst")
 
@@ -533,7 +536,7 @@ class BiAffineParser(nn.Module):
             hp["mlp_lab_hidden"],
             hp["mlp_dropout"],
             itolab,
-            hp.get("device", "cpu"),
+            hp["device"],
         )
         weights_file = config_dir / "model.pt"
         if weights_file.exists():
@@ -634,9 +637,10 @@ def main():
     )
 
     args = parser.parse_args()
-    hp = yaml.load(open(args.config_file).read(), Loader=yaml.SafeLoader)
     if args.device is not None:
-        hp["device"] = args.device
+        overrides = {"device": args.device}
+    else:
+        overrides = dict()
 
     config_file = os.path.abspath(args.config_file)
     if args.out_dir:
@@ -668,9 +672,8 @@ def main():
         if overwrite:
             fasttext_model_path = os.path.join(model_dir, "fasttext_model.bin")
             if args.fasttext is None:
-                if os.path.exists(fasttext_model_path):
+                if os.path.exists(fasttext_model_path) and not args.out_dir:
                     print(f"Using the FastText model at {fasttext_model_path}")
-                    FastTextTorch.loadmodel(fasttext_model_path)
                 else:
                     print(f"Generating a FastText model from {args.train_file}")
                     FastTextTorch.train_model_from_trees(traintrees, fasttext_model_path)
@@ -703,8 +706,7 @@ def main():
             itotag = gen_tags(traintrees)
             savelist(itotag, os.path.join(model_dir, "tagcodes.lst"))
 
-        parser = BiAffineParser.from_config(config_file)
-        parser.to(hp.get("device", "cpu"))
+        parser = BiAffineParser.from_config(config_file, overrides)
 
         ft_dataset = FastTextDataSet(parser.ft_lexer)
         trainset = DependencyDataset(
@@ -723,6 +725,9 @@ def main():
             use_labels=parser.labels,
             use_tags=parser.tagset,
         )
+
+        with open(config_file) as in_stream:
+            hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
 
         parser.train_model(
             trainset,
@@ -757,7 +762,7 @@ def main():
 
     if args.pred_file:
         # TEST MODE
-        parser = BiAffineParser.from_config(args.config_file)
+        parser = BiAffineParser.from_config(config_file, overrides)
         parser.eval()
         testtrees = DependencyDataset.read_conll(args.pred_file)
         ft_dataset = FastTextDataSet(parser.ft_lexer)
