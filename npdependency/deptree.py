@@ -1,3 +1,4 @@
+from typing import Iterable, List
 import torch
 from torch.autograd import Variable
 from random import shuffle
@@ -166,8 +167,8 @@ class DepGraph:
         postags = []
         edges = []
         for dataline in conll:
-            if len(dataline) < 10 : #pads the dataline
-                dataline.extend(['-']*(10-len(dataline)))
+            if len(dataline) < 10:  # pads the dataline
+                dataline.extend(["-"] * (10 - len(dataline)))
                 dataline[6] = 0
 
             if "-" in dataline[0]:
@@ -221,11 +222,13 @@ class DepGraph:
     def __len__(self):
         return len(self.words)
 
+
 class DependencyDataset:
     """
     A representation of the DepBank for efficient processing.
     This is a sorted dataset.
     """
+
     PAD_IDX = 0
     PAD_TOKEN = "<pad>"
     UNK_WORD = "<unk>"
@@ -385,17 +388,12 @@ class DependencyDataset:
                 padded_batch.append(padded)
         return Variable(torch.LongTensor(padded_batch))
 
-    def init_labels(self, treelist):
-        labels = set(
-            [lbl for tree in treelist for (gov, lbl, dep) in tree.get_all_edges()]
-        )
-        self.itolab = [DependencyDataset.PAD_TOKEN] + list(labels)
+    def init_labels(self, treelist: Iterable[DepGraph]):
+        self.itolab = gen_labels(treelist)
         self.labtoi = {label: idx for idx, label in enumerate(self.itolab)}
 
-    def init_tags(self, treelist):
-        tagset = set([tag for tree in treelist for tag in tree.pos_tags])
-        tagset.update([DepGraph.ROOT_TOKEN, DependencyDataset.UNK_WORD])
-        self.itotag = [DependencyDataset.PAD_TOKEN] + list(tagset)
+    def init_tags(self, treelist: Iterable[DepGraph]):
+        self.itotag = gen_tags(treelist)
         self.tagtoi = {tag: idx for idx, tag in enumerate(self.itotag)}
 
     def __len__(self):
@@ -424,3 +422,20 @@ class DependencyDataset:
         edges = depgraph.get_all_edges()
         rev_edges = dict([(dep, gov) for (gov, label, dep) in edges])
         return [rev_edges.get(idx, 0) for idx in range(N)]
+
+
+def gen_tags(treelist: Iterable[DepGraph]) -> List[str]:
+    tagset = set([tag for tree in treelist for tag in tree.pos_tags])
+    return [
+        DependencyDataset.PAD_TOKEN,
+        DepGraph.ROOT_TOKEN,
+        DependencyDataset.UNK_WORD,
+        *sorted(tagset),
+    ]
+
+
+def gen_labels(treelist: Iterable[DepGraph]) -> List[str]:
+    labels = set(
+        [lbl for tree in treelist for (_gov, lbl, _dep) in tree.get_all_edges()]
+    )
+    return [DependencyDataset.PAD_TOKEN, *sorted(labels)]

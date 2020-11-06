@@ -1,3 +1,4 @@
+from typing import Iterable
 import torch
 import fasttext
 import os.path
@@ -206,14 +207,14 @@ class FastTextTorch(nn.Module):
             dim=1
         )  # maybe compute true means or sums, currently uses <pad> tokens into this mean...
 
-    @staticmethod
-    def loadmodel(modelfile):
-        return FastTextTorch(fasttext.load_model(modelfile))
+    @classmethod
+    def loadmodel(cls, modelfile: str) -> "FastTextTorch":
+        return cls(fasttext.load_model(modelfile))
 
-    @staticmethod
-    def train_model(source_trees, target_file):
+    @classmethod
+    def train_model_from_trees(cls, source_trees: Iterable[DepGraph], target_file: str) -> "FastTextTorch":
         if os.path.exists(target_file):
-            return FastTextTorch(fasttext.load_model(target_file))
+            raise ValueError(f"{target_file} already exists!")
         else:
             source_file = os.path.join(gettempdir(), "source.ft")
             source_stream = open(source_file, "w")
@@ -230,7 +231,19 @@ class FastTextTorch(nn.Module):
                 source_file, model="skipgram", neg=10, minCount=5, epoch=10
             )
             model.save_model(target_file)
-        return FastTextTorch(model)
+        return cls(model)
+    
+    @classmethod
+    def train_model_from_raw(cls, raw_text_path: str, target_file: str) -> "FastTextTorch":
+        if os.path.exists(target_file):
+            raise ValueError(f"{target_file} already exists!")
+        else:
+            print("Training fasttext model...")
+            model = fasttext.train_unsupervised(
+                raw_text_path, model="skipgram", neg=10, minCount=5, epoch=10
+            )
+            model.save_model(target_file)
+        return cls(model)
 
 
 class DefaultLexer(nn.Module):
