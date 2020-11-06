@@ -13,8 +13,8 @@ French, but it might be trained for other languages without difficulties.
 
 ## Installation
 
-The parser is known to work with python >= 3.7. Install with pip, which should take care of all the dependencies and install the `graph_parser`
-console entry point
+The parser is known to work with python >= 3.7. Install with pip, which should take care of all the
+dependencies and install the `graph_parser` console entry point
 
 ```sh
 pip install git+https://github.com/bencrabbe/npdependency
@@ -35,8 +35,7 @@ in `setup.cfg` and call `python -m npdependency.graph_parser3` directly from the
 ## Parsing task
 
 The parsing task (or prediction task) assumes you have an already trained model in the directory
-MODEL. You can parse a file FILE in truncated CONLL-U format with the
-command:
+MODEL. You can parse a file FILE in truncated CONLL-U format with the command:
 
 ```sh
 graph_parser  --pred_file FILE   MODEL/params.yaml
@@ -45,7 +44,9 @@ graph_parser  --pred_file FILE   MODEL/params.yaml
 This results in a parsed file called `FILE.parsed`. The `MODEL/params.yaml` is the model
 hyperparameters file. An example model is stored in the `default` directory. The file
 `default/params.yaml` is an example of such parameter file. The `FILE` argument is supposed to be
-formatted in truncated [CONLL-U](https://universaldependencies.org/format.html) format. For instance:
+formatted in truncated [CONLL-U](https://universaldependencies.org/format.html) format. For
+instance:
+
 ```
 1       Flaubert
 2       a
@@ -54,9 +55,9 @@ formatted in truncated [CONLL-U](https://universaldependencies.org/format.html) 
 5       Bovary
 6       .
 ```
+
 That is we require word indexation and word forms only. Empty words are currently not supported.
 Multi-word tokens are not taken into account by the parsing models.
-
 
 We advise to use the `flaubert` model which is stored in the flaubert directory. Depending on the
 model, the parser will be more or less fast and more or less accurate. We can however expect the
@@ -67,14 +68,14 @@ provides an option for controlling the GPU actually used for performing computat
 
 We provide some pretrained models:
 
-| Model name         | Language   | device  | LAS  | speed   | Comment                                 | Download link                                                                                            |
-| ------------------ | ---------- | ------- | ---- | ------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| ftb_default        | French     | GPU/CPU | 85.9 | fast    | French treebank + fasttext              | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ftb_default.tar.gz)        |
-| ftb_flaubert       | French     | GPU     | 88.3 | average | FlaubertBase+French treebank + fasttext | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ftb_flaubert.tar.gz)       |
-| ftb_camembert      | French     | GPU     | 87.9 | average | camembert+French treebank + fasttext    | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ftb_camembert.tar.gz)      |
-| ud_fr_gsd_default  | French     | GPU/CPU | 90.2 | fast    | UD French GSD + fasttext                | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/fr_gsd_default.tar.gz)     |
-| ud_fr_gsd_flaubert | French     | GPU     | 92.4 | average | FlaubertBase + UD French GSD + fasttext | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ud_fr_gsd_flaubert.tar.gz) |
-| ud_fro_default     | Old French | GPU/CPU | 85.9 | fast    | SRCMF treebank + fasttext               | [download model](http://www.linguist.univ-paris-diderot.fr/~bcrabbe/depmodels/ud_of_default.tar.gz)      |
+| Model name         | Language   | device  | LAS  | speed   | Comment                                 | Download link                                                                                                     |
+| ------------------ | ---------- | ------- | ---- | ------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| ftb_default        | French     | GPU/CPU | 85.9 | fast    | French treebank + fasttext              | [download model](https://github.com/bencrabbe/npdependency/releases/download/v0.1.0dev0/ftb_default.tar.gz)       |
+| ftb_flaubert       | French     | GPU     | 88.3 | average | FlaubertBase+French treebank + fasttext | [download model](https://sharedocs.huma-num.fr/wl/?id=fVAdiTHwZhVeqrscNTMXehxsNJtBx9Zc)                           |
+| ftb_camembert      | French     | GPU     | 87.9 | average | camembert+French treebank + fasttext    | [download model](https://sharedocs.huma-num.fr/wl/?id=r0H0HESGOawmWiRxSqXDARC81TiGDBwW)                           |
+| ud_fr_gsd_default  | French     | GPU/CPU | 90.2 | fast    | UD French GSD + fasttext                | [download model](https://github.com/bencrabbe/npdependency/releases/download/v0.1.0dev0/fr_gsd_default.tar.gz)    |
+| ud_fr_gsd_flaubert | French     | GPU     | 92.4 | average | FlaubertBase + UD French GSD + fasttext | [download model](https://sharedocs.huma-num.fr/wl/?id=zWyaLI0xUkogeMFn9MoiVPjKPeDOzDW0)                           |
+| ud_fro_default     | Old French | GPU/CPU | 85.9 | fast    | SRCMF treebank + fasttext               | [download model](https://github.com/bencrabbe/npdependency/releases/download/v0.1.0dev0/fro_srcmf_default.tar.gz) |
 
 The reader may notice a difference with the results published in
 [(Le et al 2020)](https://arxiv.org/abs/1912.05372). The difference comes from a better usage of
@@ -100,6 +101,6 @@ Training can be performed with the following steps:
 ```sh
 graph_parser  --train_file TRAINFILE --dev_file DEVFILE  params.yaml
 ```
-where TRAINFILE and DEVFILE are given in CONLL-U format (without empty words).
-After some time (minutes, hours ...) you are done and the model is ready to run (go back to the
-parsing section)
+
+where TRAINFILE and DEVFILE are given in CONLL-U format (without empty words). After some time
+(minutes, hours ...) you are done and the model is ready to run (go back to the parsing section)
