@@ -650,6 +650,9 @@ def main():
     else:
         model_dir = os.path.dirname(config_file)
 
+    with open(config_file) as in_stream:
+            hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
+
     if args.train_file and args.dev_file:
         # TRAIN MODE
         weights_file = os.path.join(model_dir, "model.pt")
@@ -725,9 +728,6 @@ def main():
             use_labels=parser.labels,
             use_tags=parser.tagset,
         )
-
-        with open(config_file) as in_stream:
-            hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
 
         parser.train_model(
             trainset,
