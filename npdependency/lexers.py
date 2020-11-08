@@ -1,4 +1,4 @@
-from typing import Iterable, Sequence
+from typing import Iterable, List, Sequence, Tuple
 import torch
 import fasttext
 import os.path
@@ -264,13 +264,14 @@ class DefaultLexer(nn.Module):
         self.itos = itos
         self.stoi = {token: idx for idx, token in enumerate(self.itos)}
         self.word_dropout = word_dropout
-        self._dpout = 0
+        self._dpout = 0.0
 
-    def train_mode(self):
-        self._dpout = self.word_dropout
-
-    def eval_mode(self):
-        self._dpout = 0
+    def train(self, mode: bool = True) -> "DefaultLexer":
+        if mode:
+            self._dpout = self.word_dropout
+        else:
+            self._dpout = 0.0
+        return super().train(mode)
 
     def forward(self, word_sequences):
         """
@@ -334,11 +335,11 @@ class BertBaseLexer(nn.Module):
             padding_idx=DependencyDataset.PAD_IDX,
         )
 
-        self.bert_tokenizer.add_tokens([DepGraph.ROOT_TOKEN])
+        self.bert_tokenizer.add_tokens([DepGraph.ROOT_TOKEN], special_tokens=True)
         self.bert.resize_token_embeddings(len(self.bert_tokenizer))
 
         self.word_dropout = word_dropout
-        self._dpout = 0
+        self._dpout = 0.0
         self.cased = cased
 
     @property
@@ -349,13 +350,12 @@ class BertBaseLexer(nn.Module):
     def embedding_size(self, value):
         self._embedding_size = value + self.BERT_SIZE
 
-    def train_mode(self):
-        self._dpout = self.word_dropout
-        self.bert.train()
-
-    def eval_mode(self):
-        self._dpout = 0
-        self.bert.eval()
+    def train(self, mode: bool = True) -> "BertBaseLexer":
+        if mode:
+            self._dpout = self.word_dropout
+        else:
+            self._dpout = 0.0
+        return super().train(mode)
 
     def forward(self, coupled_sequences):
         """
@@ -371,7 +371,7 @@ class BertBaseLexer(nn.Module):
         wordE = self.embedding(word_idxes)
         return torch.cat((wordE, bertE), dim=2)
 
-    def tokenize(self, tok_sequence, word_dropout=0.0):
+    def tokenize(self, tok_sequence: Sequence[str]) -> Tuple[List[int], List[int]]:
         """
         This maps word tokens to integer indexes.
         When a word decomposes as multiple BPE units, we keep only the first (!)
@@ -384,6 +384,8 @@ class BertBaseLexer(nn.Module):
             self.stoi.get(token, self.stoi[DependencyDataset.UNK_WORD])
             for token in tok_sequence
         ]
+        # ? COMBAK: lowercasing should be done by the loaded tokenizer or am I missing something
+        # ? here? (2020-11-08)
         if self.cased:
             bert_idxes = [
                 self.bert_tokenizer.convert_tokens_to_ids(

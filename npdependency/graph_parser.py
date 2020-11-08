@@ -183,7 +183,6 @@ class BiAffineParser(nn.Module):
         # Note: the accurracy scoring is approximative and cannot be interpreted as an UAS/LAS score !
 
         self.eval()
-        self.lexer.eval_mode()
 
         dev_batches = dev_set.make_batches(
             batch_size, shuffle_batches=True, shuffle_data=True, order_by_length=True
@@ -291,7 +290,6 @@ class BiAffineParser(nn.Module):
         for e in range(epochs):
             TRAIN_LOSS = 0
             BEST_ARC_ACC = 0
-            self.lexer.train_mode()
             train_batches = train_set.make_batches(
                 batch_size,
                 shuffle_batches=True,
@@ -394,14 +392,13 @@ class BiAffineParser(nn.Module):
 
     def predict_batch(self, test_set, ostream, batch_size, greedy=False):
 
-        self.lexer.eval_mode()
+        self.eval()
         test_batches = test_set.make_batches(
             batch_size, shuffle_batches=False, shuffle_data=False, order_by_length=False
         )  # keep natural order here
 
         with torch.no_grad():
             for batch in test_batches:
-                self.eval()
                 words, mwe, chars, subwords, cats, deps, tags, heads, labels = batch
                 if type(deps) == tuple:
                     depsA, depsB = deps
