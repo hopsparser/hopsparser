@@ -326,7 +326,6 @@ class BertBaseLexer(nn.Module):
 
         self.BERT_PAD_IDX = self.bert_tokenizer.pad_token_id
         self.BERT_UNK_IDX = self.bert_tokenizer.unk_token_id
-        self.BERT_SIZE = self.bert.config.hidden_size  # incorrect
 
         self.embedding = nn.Embedding(
             len(self.itos),
