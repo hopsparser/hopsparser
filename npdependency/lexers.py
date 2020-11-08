@@ -354,7 +354,6 @@ class BertBaseLexer(nn.Module):
         the embeddings from the last (top) BERT layer.
         """
         word_idxes, bert_idxes = coupled_sequences
-        # bertE                = self.bert(bert_idxes)[0]
         bert_layers = self.bert(bert_idxes)[-1]
         bertE = torch.mean(
             torch.stack(bert_layers[4:8]), 0

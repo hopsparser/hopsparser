@@ -1,6 +1,5 @@
 from typing import Iterable, List
 import torch
-from torch.autograd import Variable
 from random import shuffle
 
 
@@ -376,8 +375,8 @@ class DependencyDataset:
                 padded_batchA.append(paddedA)
                 padded_batchB.append(paddedB)
             return (
-                Variable(torch.LongTensor(padded_batchA)),
-                Variable(torch.LongTensor(padded_batchB)),
+                torch.tensor(padded_batchA, dtype=torch.long),
+                torch.tensor(padded_batchB, dtype=torch.long),
             )
         else:
             sent_lengths = list(map(len, batch))
@@ -386,7 +385,7 @@ class DependencyDataset:
             for k, seq in zip(sent_lengths, batch):
                 padded = seq + (max_len - k) * [DependencyDataset.PAD_IDX]
                 padded_batch.append(padded)
-        return Variable(torch.LongTensor(padded_batch))
+        return torch.tensor(padded_batch, dtype=torch.long)
 
     def init_labels(self, treelist: Iterable[DepGraph]):
         self.itolab = gen_labels(treelist)
