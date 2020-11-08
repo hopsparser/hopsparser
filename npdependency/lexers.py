@@ -316,7 +316,6 @@ class BertBaseLexer(nn.Module):
     ):
 
         super(BertBaseLexer, self).__init__()
-        self._embedding_size = default_embedding_size
         self.itos = default_itos
         self.stoi = {token: idx for idx, token in enumerate(self.itos)}
 
@@ -341,14 +340,6 @@ class BertBaseLexer(nn.Module):
         self.word_dropout = word_dropout
         self._dpout = 0.0
         self.cased = cased
-
-    @property
-    def embedding_size(self):
-        return self._embedding_size + self.BERT_SIZE
-
-    @embedding_size.setter
-    def embedding_size(self, value):
-        self._embedding_size = value + self.BERT_SIZE
 
     def train(self, mode: bool = True) -> "BertBaseLexer":
         if mode:
