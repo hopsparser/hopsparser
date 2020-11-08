@@ -1,10 +1,10 @@
-from typing import Iterable
+from typing import Iterable, Sequence
 import torch
 import fasttext
 import os.path
 import numpy as np
 from torch import nn
-from transformers import AutoConfig, AutoModel, AutoTokenizer
+from transformers import AutoModel, AutoTokenizer
 from collections import Counter
 from random import random  # nosec:B311
 from tempfile import gettempdir
@@ -212,7 +212,9 @@ class FastTextTorch(nn.Module):
         return cls(fasttext.load_model(modelfile))
 
     @classmethod
-    def train_model_from_trees(cls, source_trees: Iterable[DepGraph], target_file: str) -> "FastTextTorch":
+    def train_model_from_trees(
+        cls, source_trees: Iterable[DepGraph], target_file: str
+    ) -> "FastTextTorch":
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
         else:
@@ -232,9 +234,11 @@ class FastTextTorch(nn.Module):
             )
             model.save_model(target_file)
         return cls(model)
-    
+
     @classmethod
-    def train_model_from_raw(cls, raw_text_path: str, target_file: str) -> "FastTextTorch":
+    def train_model_from_raw(
+        cls, raw_text_path: str, target_file: str
+    ) -> "FastTextTorch":
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
         else:
@@ -297,17 +301,17 @@ class DefaultLexer(nn.Module):
 class BertBaseLexer(nn.Module):
     """
     This Lexer performs tokenization and embedding mapping with BERT
-    style models. It concatenates a standard embedding with a Flaubert
-    embedding (uses Flaubert).
+    style models. It concatenates a standard embedding with a BERT
+    embedding.
     """
 
     def __init__(
         self,
-        default_itos,
-        default_embedding_size,
-        word_dropout,
-        cased=False,
-        bert_modelfile="flaubert/flaubert_base_uncased",
+        default_itos: Sequence[str],
+        default_embedding_size: int,
+        word_dropout: float,
+        cased: bool = False,
+        bert_modelfile: str = "flaubert/flaubert_base_uncased",
     ):
 
         super(BertBaseLexer, self).__init__()
@@ -315,10 +319,7 @@ class BertBaseLexer(nn.Module):
         self.itos = default_itos
         self.stoi = {token: idx for idx, token in enumerate(self.itos)}
 
-        bert_config = AutoConfig.from_pretrained(
-            bert_modelfile, output_hidden_states=True
-        )
-        self.bert = AutoModel.from_pretrained(bert_modelfile, config=bert_config)
+        self.bert = AutoModel.from_pretrained(bert_modelfile, output_hidden_states=True)
         self.bert_tokenizer = AutoTokenizer.from_pretrained(
             bert_modelfile, to_lowercase_and_remove_accent=False
         )
@@ -339,12 +340,6 @@ class BertBaseLexer(nn.Module):
         self.word_dropout = word_dropout
         self._dpout = 0
         self.cased = cased
-        print(
-            "Cased model",
-            cased,
-            self.bert_tokenizer.pad_token,
-            self.bert_tokenizer.pad_token_id,
-        )
 
     @property
     def embedding_size(self):
