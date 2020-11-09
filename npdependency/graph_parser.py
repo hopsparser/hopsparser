@@ -297,20 +297,18 @@ class BiAffineParser(nn.Module):
                 order_by_length=True,
             )
             overall_size = 0
+            self.train()
             for batch in train_batches:
-                self.train()
                 words, mwe, chars, subwords, cats, deps, tags, heads, labels = batch
                 if type(deps) == tuple:
                     depsA, depsB = deps
                     deps = (depsA.to(self.device), depsB.to(self.device))
-                    overall_size += depsA.size(0) * depsA.size(
-                        1
-                    )  # bc no masking at training
+                    # bc no masking at training
+                    overall_size += depsA.size(0) * depsA.size(1)
                 else:
+                    # bc no masking at training
                     deps = deps.to(self.device)
-                    overall_size += deps.size(0) * deps.size(
-                        1
-                    )  # bc no masking at training
+                    overall_size += deps.size(0) * deps.size(1)
                 heads, labels, tags = (
                     heads.to(self.device),
                     labels.to(self.device),
@@ -504,11 +502,13 @@ class BiAffineParser(nn.Module):
             bert_model_name = hp["lexer"].split("/")[-1]
             cased = hp.get("cased", "uncased" not in bert_model_name)
             lexer = BertBaseLexer(
-                ordered_vocab,
-                hp["word_embedding_size"],
-                hp["word_dropout"],
+                default_itos=ordered_vocab,
+                default_embedding_size=hp["word_embedding_size"],
+                word_dropout=hp["word_dropout"],
                 cased=cased,
                 bert_modelfile=hp["lexer"],
+                bert_layers=hp.get("bert_layers", [4, 5, 6, 7]),
+                bert_weighted=hp.get("bert_weighted", False),
             )
 
         # char rnn processor

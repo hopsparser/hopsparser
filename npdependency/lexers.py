@@ -1,4 +1,4 @@
-from typing import Iterable, List, Sequence, Tuple
+from typing import List, Sequence, Tuple
 import torch
 import fasttext
 import os.path
@@ -213,7 +213,7 @@ class FastTextTorch(nn.Module):
 
     @classmethod
     def train_model_from_trees(
-        cls, source_trees: Iterable[DepGraph], target_file: str
+        cls, source_trees: Sequence[DepGraph], target_file: str
     ) -> "FastTextTorch":
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
@@ -311,8 +311,10 @@ class BertBaseLexer(nn.Module):
         default_itos: Sequence[str],
         default_embedding_size: int,
         word_dropout: float,
+        bert_modelfile: str,
+        bert_layers: Sequence[int],
+        bert_weighted: bool,
         cased: bool = False,
-        bert_modelfile: str = "flaubert/flaubert_base_uncased",
     ):
 
         super(BertBaseLexer, self).__init__()
@@ -341,6 +343,13 @@ class BertBaseLexer(nn.Module):
         self._dpout = 0.0
         self.cased = cased
 
+        self.bert_layers = bert_layers
+        self.bert_weighted = bert_weighted
+        self.layer_weights = nn.Parameter(
+            torch.ones(len(bert_layers), dtype=torch.float),
+            requires_grad=self.bert_weighted,
+        )
+
     def train(self, mode: bool = True) -> "BertBaseLexer":
         if mode:
             self._dpout = self.word_dropout
@@ -354,10 +363,18 @@ class BertBaseLexer(nn.Module):
         the embeddings from the last (top) BERT layer.
         """
         word_idxes, bert_idxes = coupled_sequences
-        bert_layers = self.bert(bert_idxes)[-1]
-        bertE = torch.mean(
-            torch.stack(bert_layers[4:8]), 0
-        )  # 4th to 8th layers are said to encode syntax
+        bert_layers = self.bert(bert_idxes, return_dict=True).hidden_states
+        # Shape: layers×batch×sequence×features
+        selected_bert_layers = torch.stack(
+            [bert_layers[i] for i in self.bert_layers], 0
+        )
+        # ELMo softmaxes and rescale, but that usually results in peaked weights distributions and
+        # we want more uniform mixtures
+        # Torch has no equivalent to `np.average` so this is somewhat annoying
+        # Shape: layers
+        normal_weights = self.layer_weights.div(self.layer_weights.sum())
+        # shape: batch×sequence×features
+        bertE = torch.einsum("l,lbsf->bsf", normal_weights.matmul, selected_bert_layers)
         wordE = self.embedding(word_idxes)
         return torch.cat((wordE, bertE), dim=2)
 

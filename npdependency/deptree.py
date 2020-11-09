@@ -361,6 +361,7 @@ class DependencyDataset:
             subwords = self.ft_dataset.batch_sentences(self.words[i : i + batch_size])
             yield (words, mwe, chars, subwords, cats, deps, tags, heads, labels)
 
+    # TODO: make this use torch padding utility instead
     def pad(self, batch):
         if (
             type(batch[0]) == tuple and len(batch[0]) == 2
