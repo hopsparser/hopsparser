@@ -643,7 +643,7 @@ def main():
         overrides = dict()
 
     config_file = os.path.abspath(args.config_file)
-    if args.out_dir:
+    if args.train_file and args.out_dir:
         model_dir = os.path.join(args.out_dir, "model")
         os.makedirs(model_dir, exist_ok=True)
         config_file = shutil.copy(args.config_file, model_dir)
