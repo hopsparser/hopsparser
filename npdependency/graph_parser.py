@@ -147,8 +147,12 @@ class BiAffineParser(nn.Module):
     def save_params(self, path):
         torch.save(self.state_dict(), path)
 
-    def load_params(self, path):
-        self.load_state_dict(torch.load(path, map_location=self.device))
+    def load_params(self, path: str):
+        state_dict = torch.load(path, map_location=self.device)
+        # Legacy models do not have BERT layer weights, so we inject them here they always use only
+        # 4 layers so we don't have to guess the size of the weight vector
+        state_dict.setdefault("lexer.layer_weights", torch.ones(4, dtype=torch.float))
+        self.load_state_dict(state_dict)
 
     def forward(self, xwords, xchars, xft):
         """Computes char embeddings"""

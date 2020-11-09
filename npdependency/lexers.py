@@ -374,7 +374,7 @@ class BertBaseLexer(nn.Module):
         # Shape: layers
         normal_weights = self.layer_weights.div(self.layer_weights.sum())
         # shape: batch×sequence×features
-        bertE = torch.einsum("l,lbsf->bsf", normal_weights.matmul, selected_bert_layers)
+        bertE = torch.einsum("l,lbsf->bsf", normal_weights, selected_bert_layers)
         wordE = self.embedding(word_idxes)
         return torch.cat((wordE, bertE), dim=2)
 
