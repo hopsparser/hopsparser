@@ -349,6 +349,10 @@ class BertBaseLexer(nn.Module):
             torch.ones(len(bert_layers), dtype=torch.float),
             requires_grad=self.bert_weighted,
         )
+        self.layers_gamma = nn.Parameter(
+            torch.ones(1, dtype=torch.float),
+            requires_grad=self.bert_weighted,
+        )
 
     def train(self, mode: bool = True) -> "BertBaseLexer":
         if mode:
@@ -368,13 +372,18 @@ class BertBaseLexer(nn.Module):
         selected_bert_layers = torch.stack(
             [bert_layers[i] for i in self.bert_layers], 0
         )
-        # ELMo softmaxes and rescale, but that usually results in peaked weights distributions and
-        # we want more uniform mixtures
-        # Torch has no equivalent to `np.average` so this is somewhat annoying
-        # Shape: layers
-        normal_weights = self.layer_weights.div(self.layer_weights.sum())
-        # shape: batch×sequence×features
-        bertE = torch.einsum("l,lbsf->bsf", normal_weights, selected_bert_layers)
+        if self.bert_weighted:
+            # Torch has no equivalent to `np.average` so this is somewhat annoying
+            # FIXME: recomputing the softmax for every batch is needed at train time but is wasting
+            # time in eval
+            # Shape: layers
+            normal_weights = self.layer_weights.softmax()
+            # shape: batch×sequence×features
+            bertE = self.layers_gamma * torch.einsum(
+                "l,lbsf->bsf", normal_weights, selected_bert_layers
+            )
+        else:
+            bertE = selected_bert_layers.mean(dim=0)
         wordE = self.embedding(word_idxes)
         return torch.cat((wordE, bertE), dim=2)
 
