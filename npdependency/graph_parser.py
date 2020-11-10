@@ -151,7 +151,8 @@ class BiAffineParser(nn.Module):
         state_dict = torch.load(path, map_location=self.device)
         # Legacy models do not have BERT layer weights, so we inject them here they always use only
         # 4 layers so we don't have to guess the size of the weight vector
-        state_dict.setdefault("lexer.layer_weights", torch.ones(4, dtype=torch.float))
+        if hasattr(self.lexer, "layer_weights"):
+            state_dict.setdefault("lexer.layer_weights", torch.ones(4, dtype=torch.float))
         self.load_state_dict(state_dict)
 
     def forward(self, xwords, xchars, xft):
