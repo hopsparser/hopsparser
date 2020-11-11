@@ -404,7 +404,7 @@ class BertBaseLexer(nn.Module):
             # FIXME: recomputing the softmax for every batch is needed at train time but is wasting
             # time in eval
             # Shape: layers
-            normal_weights = self.layer_weights.softmax()
+            normal_weights = self.layer_weights.softmax(dim=0)
             # shape: batch×sequence×features
             bertE = self.layers_gamma * torch.einsum(
                 "l,lbsf->bsf", normal_weights, selected_bert_layers
