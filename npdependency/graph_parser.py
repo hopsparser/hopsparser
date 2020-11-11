@@ -486,7 +486,9 @@ class BiAffineParser(nn.Module):
                     print(file=ostream)
 
     @classmethod
-    def from_config(cls, config_path: Union[str, pathlib.Path], overrides: Dict[str, Any]) -> "BiAffineParser":
+    def from_config(
+        cls, config_path: Union[str, pathlib.Path], overrides: Dict[str, Any]
+    ) -> "BiAffineParser":
         config_path = pathlib.Path(config_path)
         with open(config_path) as in_stream:
             hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
@@ -651,7 +653,7 @@ def main():
         model_dir = os.path.dirname(config_file)
 
     with open(config_file) as in_stream:
-            hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
+        hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
 
     if args.train_file and args.dev_file:
         # TRAIN MODE
@@ -678,8 +680,16 @@ def main():
                 if os.path.exists(fasttext_model_path) and not args.out_dir:
                     print(f"Using the FastText model at {fasttext_model_path}")
                 else:
+                    if os.path.exists(fasttext_model_path):
+                        print(
+                            f"Erasing the FastText model at {fasttext_model_path} since --overwrite was asked",
+                            file=sys.stderr,
+                        )
+                        os.remove(fasttext_model_path)
                     print(f"Generating a FastText model from {args.train_file}")
-                    FastTextTorch.train_model_from_trees(traintrees, fasttext_model_path)
+                    FastTextTorch.train_model_from_trees(
+                        traintrees, fasttext_model_path
+                    )
             elif os.path.exists(args.fasttext):
                 if os.path.exists(fasttext_model_path):
                     os.remove(fasttext_model_path)
