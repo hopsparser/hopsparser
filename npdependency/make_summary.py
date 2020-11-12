@@ -47,7 +47,7 @@ def make_csv_summary(
 ):
     gold_conllu = evaluator.load_conllu_file(gold_file)
 
-    header = ["name", *(f"{m}_{p}" for m in CONLL_METRICS) for p in ("P", "R", "F")]
+    header = ["name", *(f"{m}_{p}" for m in CONLL_METRICS for p in ("P", "R", "F"))]
     print(",".join(header), file=out_file)
     for syst_file in syst_files:
         syst_conllu = evaluator.load_conllu_file(syst_file)
