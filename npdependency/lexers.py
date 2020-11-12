@@ -299,31 +299,31 @@ class DefaultLexer(nn.Module):
         return word_idxes
 
 
-def freeze_module(transformer, freezing: bool = True):
+def freeze_module(module, freezing: bool = True):
     """Make a `torch.nn.Module` either finetunable 🔥 or frozen ❄.
 
     **WARNINGS**
-    
+
     - Freezing a module will put it in eval mode (since a frozen module can't be in training mode),
       but unfreezing it will not put it back in training mode (since an unfrozen module still has an
       eval mode that you might want to use), you have to do that yourself.
     - Manually setting the submodules of a frozen module to train is not disabled, but if you want
-      to do that, writing a custom freezing function is probably a better idea
+      to do that, writing a custom freezing function is probably a better idea.
     """
 
-    # This will replace the transformer train function
+    # This will replace the module's train function when freezing
     def no_train(model, mode=True):
         return model
 
     if freezing:
-        transformer.eval()
-        transformer.train = no_train
-        for p in transformer.parameters():
+        module.eval()
+        module.train = no_train
+        for p in module.parameters():
             p.requires_grad = False
     else:
-        for p in transformer.parameters():
-            p.requires_grad = False
-        transformer.train = type(transformer).train
+        for p in module.parameters():
+            p.requires_grad = True
+        module.train = type(module).train
 
 
 class BertBaseLexer(nn.Module):
