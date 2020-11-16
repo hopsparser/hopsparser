@@ -363,6 +363,9 @@ class BertBaseLexer(nn.Module):
             padding_idx=DependencyDataset.PAD_IDX,
         )
 
+        # ! FIXME: this is still somewhat brittle, since the BERT models have not been trained with
+        # ! the root token at sentence beginning. Maybe we could use the BOS token for that purpose
+        # ! instead?
         self.bert_tokenizer.add_tokens([DepGraph.ROOT_TOKEN], special_tokens=True)
         self.bert.resize_token_embeddings(len(self.bert_tokenizer))
 
