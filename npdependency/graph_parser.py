@@ -22,6 +22,7 @@ from npdependency.lexers import (
     DefaultLexer,
     FastTextDataSet,
     FastTextTorch,
+    freeze_module,
     make_vocab,
 )
 from npdependency.deptree import DependencyDataset, DepGraph, gen_labels, gen_tags
@@ -147,8 +148,18 @@ class BiAffineParser(nn.Module):
     def save_params(self, path):
         torch.save(self.state_dict(), path)
 
-    def load_params(self, path):
-        self.load_state_dict(torch.load(path, map_location=self.device))
+    def load_params(self, path: str):
+        state_dict = torch.load(path, map_location=self.device)
+        # Legacy models do not have BERT layer weights, so we inject them here they always use only
+        # 4 layers so we don't have to guess the size of the weight vector
+        if hasattr(self.lexer, "layers_gamma"):
+            state_dict.setdefault(
+                "lexer.layer_weights", torch.ones(4, dtype=torch.float)
+            )
+            state_dict.setdefault(
+                "lexer.layers_gamma", torch.ones(1, dtype=torch.float)
+            )
+        self.load_state_dict(state_dict)
 
     def forward(self, xwords, xchars, xft):
         """Computes char embeddings"""
@@ -183,7 +194,6 @@ class BiAffineParser(nn.Module):
         # Note: the accurracy scoring is approximative and cannot be interpreted as an UAS/LAS score !
 
         self.eval()
-        self.lexer.eval_mode()
 
         dev_batches = dev_set.make_batches(
             batch_size, shuffle_batches=True, shuffle_data=True, order_by_length=True
@@ -291,7 +301,6 @@ class BiAffineParser(nn.Module):
         for e in range(epochs):
             TRAIN_LOSS = 0
             BEST_ARC_ACC = 0
-            self.lexer.train_mode()
             train_batches = train_set.make_batches(
                 batch_size,
                 shuffle_batches=True,
@@ -299,20 +308,18 @@ class BiAffineParser(nn.Module):
                 order_by_length=True,
             )
             overall_size = 0
+            self.train()
             for batch in train_batches:
-                self.train()
                 words, mwe, chars, subwords, cats, deps, tags, heads, labels = batch
                 if type(deps) == tuple:
                     depsA, depsB = deps
                     deps = (depsA.to(self.device), depsB.to(self.device))
-                    overall_size += depsA.size(0) * depsA.size(
-                        1
-                    )  # bc no masking at training
+                    # bc no masking at training
+                    overall_size += depsA.size(0) * depsA.size(1)
                 else:
+                    # bc no masking at training
                     deps = deps.to(self.device)
-                    overall_size += deps.size(0) * deps.size(
-                        1
-                    )  # bc no masking at training
+                    overall_size += deps.size(0) * deps.size(1)
                 heads, labels, tags = (
                     heads.to(self.device),
                     labels.to(self.device),
@@ -394,14 +401,13 @@ class BiAffineParser(nn.Module):
 
     def predict_batch(self, test_set, ostream, batch_size, greedy=False):
 
-        self.lexer.eval_mode()
+        self.eval()
         test_batches = test_set.make_batches(
             batch_size, shuffle_batches=False, shuffle_data=False, order_by_length=False
         )  # keep natural order here
 
         with torch.no_grad():
             for batch in test_batches:
-                self.eval()
                 words, mwe, chars, subwords, cats, deps, tags, heads, labels = batch
                 if type(deps) == tuple:
                     depsA, depsB = deps
@@ -507,11 +513,13 @@ class BiAffineParser(nn.Module):
             bert_model_name = hp["lexer"].split("/")[-1]
             cased = hp.get("cased", "uncased" not in bert_model_name)
             lexer = BertBaseLexer(
-                ordered_vocab,
-                hp["word_embedding_size"],
-                hp["word_dropout"],
+                default_itos=ordered_vocab,
+                default_embedding_size=hp["word_embedding_size"],
+                word_dropout=hp["word_dropout"],
                 cased=cased,
                 bert_modelfile=hp["lexer"],
+                bert_layers=hp.get("bert_layers", [4, 5, 6, 7]),
+                bert_weighted=hp.get("bert_weighted", False),
             )
 
         # char rnn processor
@@ -543,6 +551,13 @@ class BiAffineParser(nn.Module):
         weights_file = config_dir / "model.pt"
         if weights_file.exists():
             parser.load_params(str(weights_file))
+        if hp.get("freeze_bert", False):
+            try:
+                freeze_module(lexer.bert)
+            except AttributeError:
+                print(
+                    "Warning: a non-BERT lexer has no BERT to freeze, ignoring `freeze_bert` hypereparameter"
+                )
         return parser
 
 

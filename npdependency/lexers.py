@@ -1,10 +1,10 @@
-from typing import Iterable
+from typing import List, Sequence, Tuple
 import torch
 import fasttext
 import os.path
 import numpy as np
 from torch import nn
-from transformers import AutoConfig, AutoModel, AutoTokenizer
+from transformers import AutoModel, AutoTokenizer
 from collections import Counter
 from random import random  # nosec:B311
 from tempfile import gettempdir
@@ -212,7 +212,9 @@ class FastTextTorch(nn.Module):
         return cls(fasttext.load_model(modelfile))
 
     @classmethod
-    def train_model_from_trees(cls, source_trees: Iterable[DepGraph], target_file: str) -> "FastTextTorch":
+    def train_model_from_trees(
+        cls, source_trees: Sequence[DepGraph], target_file: str
+    ) -> "FastTextTorch":
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
         else:
@@ -232,9 +234,11 @@ class FastTextTorch(nn.Module):
             )
             model.save_model(target_file)
         return cls(model)
-    
+
     @classmethod
-    def train_model_from_raw(cls, raw_text_path: str, target_file: str) -> "FastTextTorch":
+    def train_model_from_raw(
+        cls, raw_text_path: str, target_file: str
+    ) -> "FastTextTorch":
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
         else:
@@ -260,13 +264,14 @@ class DefaultLexer(nn.Module):
         self.itos = itos
         self.stoi = {token: idx for idx, token in enumerate(self.itos)}
         self.word_dropout = word_dropout
-        self._dpout = 0
+        self._dpout = 0.0
 
-    def train_mode(self):
-        self._dpout = self.word_dropout
-
-    def eval_mode(self):
-        self._dpout = 0
+    def train(self, mode: bool = True) -> "DefaultLexer":
+        if mode:
+            self._dpout = self.word_dropout
+        else:
+            self._dpout = 0.0
+        return super().train(mode)
 
     def forward(self, word_sequences):
         """
@@ -294,38 +299,63 @@ class DefaultLexer(nn.Module):
         return word_idxes
 
 
+def freeze_module(module, freezing: bool = True):
+    """Make a `torch.nn.Module` either finetunable 🔥 or frozen ❄.
+
+    **WARNINGS**
+
+    - Freezing a module will put it in eval mode (since a frozen module can't be in training mode),
+      but unfreezing it will not put it back in training mode (since an unfrozen module still has an
+      eval mode that you might want to use), you have to do that yourself.
+    - Manually setting the submodules of a frozen module to train is not disabled, but if you want
+      to do that, writing a custom freezing function is probably a better idea.
+    """
+
+    # This will replace the module's train function when freezing
+    def no_train(model, mode=True):
+        return model
+
+    if freezing:
+        module.eval()
+        module.train = no_train
+        for p in module.parameters():
+            p.requires_grad = False
+    else:
+        for p in module.parameters():
+            p.requires_grad = True
+        module.train = type(module).train
+
+
 class BertBaseLexer(nn.Module):
     """
     This Lexer performs tokenization and embedding mapping with BERT
-    style models. It concatenates a standard embedding with a Flaubert
-    embedding (uses Flaubert).
+    style models. It concatenates a standard embedding with a BERT
+    embedding.
     """
 
     def __init__(
         self,
-        default_itos,
-        default_embedding_size,
-        word_dropout,
-        cased=False,
-        bert_modelfile="flaubert/flaubert_base_uncased",
+        default_itos: Sequence[str],
+        default_embedding_size: int,
+        word_dropout: float,
+        bert_modelfile: str,
+        bert_layers: Sequence[int],
+        bert_weighted: bool,
+        cased: bool = False,
     ):
 
         super(BertBaseLexer, self).__init__()
-        self._embedding_size = default_embedding_size
         self.itos = default_itos
         self.stoi = {token: idx for idx, token in enumerate(self.itos)}
 
-        bert_config = AutoConfig.from_pretrained(
-            bert_modelfile, output_hidden_states=True
-        )
-        self.bert = AutoModel.from_pretrained(bert_modelfile, config=bert_config)
+        self.bert = AutoModel.from_pretrained(bert_modelfile, output_hidden_states=True)
         self.bert_tokenizer = AutoTokenizer.from_pretrained(
-            bert_modelfile, to_lowercase_and_remove_accent=False
+            bert_modelfile, use_fast=True
         )
 
         self.BERT_PAD_IDX = self.bert_tokenizer.pad_token_id
         self.BERT_UNK_IDX = self.bert_tokenizer.unk_token_id
-        self.BERT_SIZE = self.bert.config.hidden_size  # incorrect
+        self.embedding_size = default_embedding_size + self.bert.config.hidden_size
 
         self.embedding = nn.Embedding(
             len(self.itos),
@@ -333,34 +363,33 @@ class BertBaseLexer(nn.Module):
             padding_idx=DependencyDataset.PAD_IDX,
         )
 
-        self.bert_tokenizer.add_tokens([DepGraph.ROOT_TOKEN])
+        # ! FIXME: this is still somewhat brittle, since the BERT models have not been trained with
+        # ! the root token at sentence beginning. Maybe we could use the BOS token for that purpose
+        # ! instead?
+        self.bert_tokenizer.add_tokens([DepGraph.ROOT_TOKEN], special_tokens=True)
         self.bert.resize_token_embeddings(len(self.bert_tokenizer))
 
         self.word_dropout = word_dropout
-        self._dpout = 0
+        self._dpout = 0.0
         self.cased = cased
-        print(
-            "Cased model",
-            cased,
-            self.bert_tokenizer.pad_token,
-            self.bert_tokenizer.pad_token_id,
+
+        self.bert_layers = bert_layers
+        self.bert_weighted = bert_weighted
+        self.layer_weights = nn.Parameter(
+            torch.ones(len(bert_layers), dtype=torch.float),
+            requires_grad=self.bert_weighted,
+        )
+        self.layers_gamma = nn.Parameter(
+            torch.ones(1, dtype=torch.float),
+            requires_grad=self.bert_weighted,
         )
 
-    @property
-    def embedding_size(self):
-        return self._embedding_size + self.BERT_SIZE
-
-    @embedding_size.setter
-    def embedding_size(self, value):
-        self._embedding_size = value + self.BERT_SIZE
-
-    def train_mode(self):
-        self._dpout = self.word_dropout
-        self.bert.train()
-
-    def eval_mode(self):
-        self._dpout = 0
-        self.bert.eval()
+    def train(self, mode: bool = True) -> "BertBaseLexer":
+        if mode:
+            self._dpout = self.word_dropout
+        else:
+            self._dpout = 0.0
+        return super().train(mode)
 
     def forward(self, coupled_sequences):
         """
@@ -368,15 +397,27 @@ class BertBaseLexer(nn.Module):
         the embeddings from the last (top) BERT layer.
         """
         word_idxes, bert_idxes = coupled_sequences
-        # bertE                = self.bert(bert_idxes)[0]
-        bert_layers = self.bert(bert_idxes)[-1]
-        bertE = torch.mean(
-            torch.stack(bert_layers[4:8]), 0
-        )  # 4th to 8th layers are said to encode syntax
+        bert_layers = self.bert(bert_idxes, return_dict=True).hidden_states
+        # Shape: layers×batch×sequence×features
+        selected_bert_layers = torch.stack(
+            [bert_layers[i] for i in self.bert_layers], 0
+        )
+        if self.bert_weighted:
+            # Torch has no equivalent to `np.average` so this is somewhat annoying
+            # ! FIXME: recomputing the softmax for every batch is needed at train time but is wasting
+            # ! time in eval
+            # Shape: layers
+            normal_weights = self.layer_weights.softmax(dim=0)
+            # shape: batch×sequence×features
+            bertE = self.layers_gamma * torch.einsum(
+                "l,lbsf->bsf", normal_weights, selected_bert_layers
+            )
+        else:
+            bertE = selected_bert_layers.mean(dim=0)
         wordE = self.embedding(word_idxes)
         return torch.cat((wordE, bertE), dim=2)
 
-    def tokenize(self, tok_sequence, word_dropout=0.0):
+    def tokenize(self, tok_sequence: Sequence[str]) -> Tuple[List[int], List[int]]:
         """
         This maps word tokens to integer indexes.
         When a word decomposes as multiple BPE units, we keep only the first (!)
@@ -389,20 +430,19 @@ class BertBaseLexer(nn.Module):
             self.stoi.get(token, self.stoi[DependencyDataset.UNK_WORD])
             for token in tok_sequence
         ]
+        # ? COMBAK: lowercasing should be done by the loaded tokenizer or am I missing something
+        # ? here? (2020-11-08)
         if self.cased:
-            bert_idxes = [
-                self.bert_tokenizer.convert_tokens_to_ids(
-                    self.bert_tokenizer.tokenize(token)
-                )[0]
-                for token in tok_sequence
+            bert_tokens = [
+                self.bert_tokenizer.tokenize(token) for token in tok_sequence
             ]
         else:
-            bert_idxes = [
-                self.bert_tokenizer.convert_tokens_to_ids(
-                    self.bert_tokenizer.tokenize(token.lower())
-                )[0]
-                for token in tok_sequence
+            bert_tokens = [
+                self.bert_tokenizer.tokenize(token.lower()) for token in tok_sequence
             ]
+        bert_idxes = [
+            self.bert_tokenizer.convert_tokens_to_ids(token)[0] for token in bert_tokens
+        ]
 
         if self._dpout:
             word_idxes = [
