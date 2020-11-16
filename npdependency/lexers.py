@@ -401,8 +401,8 @@ class BertBaseLexer(nn.Module):
         )
         if self.bert_weighted:
             # Torch has no equivalent to `np.average` so this is somewhat annoying
-            # FIXME: recomputing the softmax for every batch is needed at train time but is wasting
-            # time in eval
+            # ! FIXME: recomputing the softmax for every batch is needed at train time but is wasting
+            # ! time in eval
             # Shape: layers
             normal_weights = self.layer_weights.softmax(dim=0)
             # shape: batch×sequence×features
@@ -430,19 +430,16 @@ class BertBaseLexer(nn.Module):
         # ? COMBAK: lowercasing should be done by the loaded tokenizer or am I missing something
         # ? here? (2020-11-08)
         if self.cased:
-            bert_idxes = [
-                self.bert_tokenizer.convert_tokens_to_ids(
-                    self.bert_tokenizer.tokenize(token)
-                )[0]
-                for token in tok_sequence
+            bert_tokens = [
+                self.bert_tokenizer.tokenize(token) for token in tok_sequence
             ]
         else:
-            bert_idxes = [
-                self.bert_tokenizer.convert_tokens_to_ids(
-                    self.bert_tokenizer.tokenize(token.lower())
-                )[0]
-                for token in tok_sequence
+            bert_tokens = [
+                self.bert_tokenizer.tokenize(token.lower()) for token in tok_sequence
             ]
+        bert_idxes = [
+            self.bert_tokenizer.convert_tokens_to_ids(token)[0] for token in bert_tokens
+        ]
 
         if self._dpout:
             word_idxes = [
