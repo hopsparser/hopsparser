@@ -254,14 +254,22 @@ class DefaultLexer(nn.Module):
     This is the basic lexer wrapping an embedding layer.
     """
 
-    def __init__(self, itos, embedding_size, word_dropout):
+    def __init__(
+        self,
+        itos: Sequence[str],
+        embedding_size: int,
+        word_dropout: float,
+        words_padding_idx: int,
+        unk_word: str,
+    ):
         super(DefaultLexer, self).__init__()
         self.embedding = nn.Embedding(
-            len(itos), embedding_size, padding_idx=DependencyDataset.PAD_IDX
+            len(itos), embedding_size, padding_idx=words_padding_idx
         )
         self.embedding_size = embedding_size  # thats the interface property
         self.itos = itos
         self.stoi = {token: idx for idx, token in enumerate(self.itos)}
+        self.unk_word_idx = self.stoi[unk_word]
         self.word_dropout = word_dropout
         self._dpout = 0.0
 
@@ -286,25 +294,20 @@ class DefaultLexer(nn.Module):
         Returns:
            a list of integers
         """
-        word_idxes = [
-            self.stoi.get(token, self.stoi[DependencyDataset.UNK_WORD])
-            for token in tok_sequence
-        ]
+        word_idxes = [self.stoi.get(token, self.unk_word_idx) for token in tok_sequence]
         if self._dpout > 0:
             word_idxes = [
-                word_sampler(widx, self.stoi[DependencyDataset.UNK_WORD], self._dpout)
+                word_sampler(widx, self.unk_word_idx, self._dpout)
                 for widx in word_idxes
             ]
         return word_idxes
 
-    def pad_batch(
-        self, batch: Sequence[Sequence[int]], padding_value: int = 0
-    ) -> torch.Tensor:
+    def pad_batch(self, batch: Sequence[Sequence[int]]) -> torch.Tensor:
         """Pad a batch of sentences."""
         tensorized_sents = [torch.tensor(sent, dtype=torch.long) for sent in batch]
         return pad_sequence(
             tensorized_sents,
-            padding_value=padding_value,
+            padding_value=self.embedding.padding_idx,
             batch_first=True,
         )
 
@@ -345,18 +348,21 @@ class BertBaseLexer(nn.Module):
 
     def __init__(
         self,
-        default_itos: Sequence[str],
-        default_embedding_size: int,
+        itos: Sequence[str],
+        embedding_size: int,
         word_dropout: float,
         bert_modelfile: str,
         bert_layers: Sequence[int],
         bert_weighted: bool,
+        words_padding_idx: int,
+        unk_word: str,
         cased: bool = False,
     ):
 
         super(BertBaseLexer, self).__init__()
-        self.itos = default_itos
+        self.itos = itos
         self.stoi = {token: idx for idx, token in enumerate(self.itos)}
+        self.unk_word_idx = self.stoi(unk_word)
 
         self.bert = AutoModel.from_pretrained(bert_modelfile, output_hidden_states=True)
         self.bert_tokenizer = AutoTokenizer.from_pretrained(
@@ -365,12 +371,12 @@ class BertBaseLexer(nn.Module):
 
         self.BERT_PAD_IDX = self.bert_tokenizer.pad_token_id
         self.BERT_UNK_IDX = self.bert_tokenizer.unk_token_id
-        self.embedding_size = default_embedding_size + self.bert.config.hidden_size
+        self.embedding_size = embedding_size + self.bert.config.hidden_size
 
         self.embedding = nn.Embedding(
             len(self.itos),
-            default_embedding_size,
-            padding_idx=DependencyDataset.PAD_IDX,
+            embedding_size,
+            padding_idx=words_padding_idx,
         )
 
         # ! FIXME: this is still somewhat brittle, since the BERT models have not been trained with
@@ -439,7 +445,9 @@ class BertBaseLexer(nn.Module):
             bert_batch.append(torch.tensor(bert_subwords_sent, dtype=torch.long))
         return (
             pad_sequence(words_batch, batch_first=True, padding_value=padding_value),
-            pad_sequence(bert_batch, batch_first=True, padding_value=self.BERT_PAD_IDX),
+            pad_sequence(
+                bert_batch, batch_first=True, padding_value=self.embedding.padding_idx
+            ),
         )
 
     def tokenize(self, tok_sequence: Sequence[str]) -> Tuple[List[int], List[int]]:
@@ -451,10 +459,7 @@ class BertBaseLexer(nn.Module):
         Returns:
            a list of integers
         """
-        word_idxes = [
-            self.stoi.get(token, self.stoi[DependencyDataset.UNK_WORD])
-            for token in tok_sequence
-        ]
+        word_idxes = [self.stoi.get(token, self.unk_word_idx) for token in tok_sequence]
         # ? COMBAK: lowercasing should be done by the loaded tokenizer or am I missing something
         # ? here? (2020-11-08)
         if self.cased:
@@ -471,12 +476,12 @@ class BertBaseLexer(nn.Module):
 
         if self._dpout:
             word_idxes = [
-                word_sampler(widx, self.stoi[DependencyDataset.UNK_WORD], self._dpout)
+                word_sampler(widx, self.unk_word_idx, self._dpout)
                 for widx in word_idxes
             ]
 
-        # ensure that first index is <root> and not an <unk>
-        word_idxes[0] = self.stoi[DependencyDataset.UNK_WORD]
+        # TODO: ensure that first index is <root> and not an <unk>
+        word_idxes[0] = self.unk_word_idx
         bert_idxes[0] = self.bert_tokenizer.convert_tokens_to_ids(DepGraph.ROOT_TOKEN)
         return (word_idxes, bert_idxes)
 

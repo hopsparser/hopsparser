@@ -278,13 +278,14 @@ class BiAffineParser(nn.Module):
 
                 # greedy arc accurracy (without parsing)
                 _, pred = arc_scores.max(dim=-2)
-                mask = (heads != DependencyDataset.PAD_IDX).float()
+                mask = (heads != dev_set.PAD_IDX).float()
                 arc_accurracy = torch.sum((pred == heads).float() * mask, dim=-1)
                 arc_acc += torch.sum(arc_accurracy).item()
 
                 # tagger accurracy
                 _, tag_pred = tagger_scores.max(dim=2)
-                mask = (tags != DependencyDataset.PAD_IDX).float()
+                # FIXME: do we really need to recompute the mask?
+                mask = (tags != dev_set.PAD_IDX).float()
                 tag_accurracy = torch.sum((tag_pred == tags).float() * mask, dim=-1)
                 tag_acc += torch.sum(tag_accurracy).item()
                 taggerZ += torch.sum(mask).item()
@@ -292,7 +293,8 @@ class BiAffineParser(nn.Module):
                 # greedy label accurracy (without parsing)
                 _, pred = lab_scores.max(dim=1)
                 pred = torch.gather(pred, 1, heads.unsqueeze(1)).squeeze(1)
-                mask = (heads != DependencyDataset.PAD_IDX).float()
+                # FIXME: do we really need to recompute the mask?
+                mask = (heads != dev_set.PAD_IDX).float()
                 lab_accurracy = torch.sum((pred == labels).float() * mask, dim=-1)
                 lab_acc += torch.sum(lab_accurracy).item()
                 arcsZ += torch.sum(mask).item()
@@ -451,14 +453,10 @@ class BiAffineParser(nn.Module):
                         base_words.to(self.device),
                         bert_subwords.to(self.device),
                     )
-                    sent_lengths = (
-                        (base_words != DependencyDataset.PAD_IDX).long().sum(-1)
-                    )
+                    sent_lengths = (base_words != test_set.PAD_IDX).long().sum(-1)
                 else:
                     encoded_words = encoded_words.to(self.device)
-                    sent_lengths = (
-                        (encoded_words != DependencyDataset.PAD_IDX).long().sum(-1)
-                    )
+                    sent_lengths = (encoded_words != test_set.PAD_IDX).long().sum(-1)
                 heads, labels, tags = (
                     heads.to(self.device),
                     labels.to(self.device),
@@ -550,19 +548,25 @@ class BiAffineParser(nn.Module):
         lexer: Union[DefaultLexer, BertBaseLexer]
         if hp["lexer"] == "default":
             lexer = DefaultLexer(
-                ordered_vocab, hp["word_embedding_size"], hp["word_dropout"]
+                ordered_vocab,
+                hp["word_embedding_size"],
+                hp["word_dropout"],
+                words_padding_idx=DependencyDataset.PAD_IDX,
+                unk_word=DependencyDataset.UNK_WORD,
             )
         else:
             bert_model_name = hp["lexer"].split("/")[-1]
             cased = hp.get("cased", "uncased" not in bert_model_name)
             lexer = BertBaseLexer(
-                default_itos=ordered_vocab,
-                default_embedding_size=hp["word_embedding_size"],
+                itos=ordered_vocab,
+                embedding_size=hp["word_embedding_size"],
                 word_dropout=hp["word_dropout"],
                 cased=cased,
                 bert_modelfile=hp["lexer"],
                 bert_layers=hp.get("bert_layers", [4, 5, 6, 7]),
                 bert_weighted=hp.get("bert_weighted", False),
+                words_padding_idx=DependencyDataset.PAD_IDX,
+                unk_word=DependencyDataset.UNK_WORD,
             )
 
         # char rnn processor

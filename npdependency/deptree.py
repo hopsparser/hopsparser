@@ -358,9 +358,7 @@ class DependencyDataset:
         if shuffle_batches:
             shuffle(batch_order)
         for i in batch_order:
-            encoded_words = self.lexer.pad_batch(
-                self.encoded_words[i : i + batch_size], padding_value=self.PAD_IDX
-            )
+            encoded_words = self.lexer.pad_batch(self.encoded_words[i : i + batch_size])
             tags = self.pad(self.tags[i : i + batch_size])
             heads = self.pad(self.heads[i : i + batch_size])
             labels = self.pad(self.labels[i : i + batch_size])
