@@ -223,9 +223,7 @@ class BiAffineParser(nn.Module):
                 chars = [token.to(self.device) for token in chars]
                 subwords = [token.to(self.device) for token in subwords]
                 # preds
-                tagger_scores, arc_scores, lab_scores = self.forward(
-                    deps, chars, subwords
-                )
+                tagger_scores, arc_scores, lab_scores = self(deps, chars, subwords)
 
                 # get global loss
                 # ARC LOSS
@@ -329,9 +327,7 @@ class BiAffineParser(nn.Module):
                 subwords = [token.to(self.device) for token in subwords]
 
                 # FORWARD
-                tagger_scores, arc_scores, lab_scores = self.forward(
-                    deps, chars, subwords
-                )
+                tagger_scores, arc_scores, lab_scores = self(deps, chars, subwords)
 
                 # ARC LOSS
                 arc_scores = arc_scores.transpose(-1, -2)  # [batch, sent_len, sent_len]
@@ -425,7 +421,7 @@ class BiAffineParser(nn.Module):
                 subwords = [token.to(self.device) for token in subwords]
 
                 # batch prediction
-                tagger_scores_batch, arc_scores_batch, lab_scores_batch = self.forward(
+                tagger_scores_batch, arc_scores_batch, lab_scores_batch = self(
                     deps, chars, subwords
                 )
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = (

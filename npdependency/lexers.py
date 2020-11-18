@@ -219,14 +219,13 @@ class FastTextTorch(nn.Module):
             raise ValueError(f"{target_file} already exists!")
         else:
             source_file = os.path.join(gettempdir(), "source.ft")
-            source_stream = open(source_file, "w")
-            print(
-                "\n".join(
-                    [" ".join(tree.words[1:]) for tree in reversed(source_trees)]
-                ),
-                file=source_stream,
-            )
-            source_stream.close()
+            with open(source_file, "w") as source_stream:
+                print(
+                    "\n".join(
+                        [" ".join(tree.words[1:]) for tree in reversed(source_trees)]
+                    ),
+                    file=source_stream,
+                )
 
             print("Training fasttext model...")
             model = fasttext.train_unsupervised(
