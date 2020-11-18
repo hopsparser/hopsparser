@@ -135,7 +135,7 @@ class CharRNN(nn.Module):
             bidirectional=True,
         )
 
-    def forward(self, xinput):
+    def forward(self, xinput: torch.Tensor) -> torch.Tensor:
         """
         Predicts the word embedding from the token characters.
         :param xinput: is a tensor of char indexes encoding a batch of tokens [batch,token_len,char_seq_idx]
@@ -153,18 +153,17 @@ class FastTextDataSet:
     By convention, the padding vector is the last element of the embedding matrix
     """
 
-    def __init__(self, fasttextmodel):
+    def __init__(self, fasttextmodel: "FastTextTorch"):
         self.fasttextmodel = fasttextmodel
         self.PAD_IDX = self.fasttextmodel.vocab_size
 
-    def word2subcodes(self, token):
+    def word2subcodes(self, token: str) -> torch.Tensor:
         """
         Turns a string into a list of subword codes.
         """
-        if token == DependencyDataset.PAD_TOKEN:
-            return [self.PAD_IDX]
-        else:
-            return list(self.fasttextmodel.subwords_idxes(token))
+        if token == "":
+            return torch.tensor([self.PAD_IDX], dtype=torch.long)
+        return self.fasttextmodel.subwords_idxes(token)
 
     def batch_tokens(self, token_sequence):
         """
@@ -173,26 +172,25 @@ class FastTextDataSet:
         :return: a list of of list of codes (matrix with padding)
         """
         subcodes = [self.word2subcodes(token) for token in token_sequence]
-        code_lengths = list(map(len, subcodes))
-        max_len = max(code_lengths)
-        padded_codes = []
-        for k, seq in zip(code_lengths, subcodes):
-            padded = seq + (max_len - k) * [self.PAD_IDX]
-            padded_codes.append(padded)
-        return torch.tensor(padded_codes)
+        return pad_sequence(subcodes, padding_value=self.PAD_IDX, batch_first=True)
 
-    def batch_sentences(self, sent_batch):
+    def batch_sentences(self, sent_batch: List[str]) -> List[torch.Tensor]:
         """
         Batches a list of sentences such that each sentence is padded with the same word length.
         :yields: the subword encodings for each word position in this batch of sentences
                  (yields the columns of the batch)
         """
-        sent_lengths = list(map(len, sent_batch))
+        sent_lengths = [len(sent) for sent in sent_batch]
         max_sent_len = max(sent_lengths)
-        batched_sents = []
-        for k, seq in zip(sent_lengths, sent_batch):
-            padded = seq + (max_sent_len - k) * [DependencyDataset.PAD_TOKEN]
-            batched_sents.append(padded)
+
+        # The empty string here serves as padding, which, contrarily to CharsDataSet is a bit ugly,
+        # since we intercept it instead of passing it to FastText
+        batched_sents = [
+            ["" for _ in range(max_sent_len)]
+            for _ in sent_batch
+        ]
+        for batch_sent, l, sent in zip(batched_sents, sent_lengths, sent_batch):
+            batch_sent[:l] = sent
 
         for idx in range(max_sent_len):
             yield self.batch_tokens([sentence[idx] for sentence in batched_sents])
@@ -204,7 +202,7 @@ class FastTextTorch(nn.Module):
     It follows the same interface as the CharRNN
     """
 
-    def __init__(self, fasttextmodel):
+    def __init__(self, fasttextmodel: fasttext.FastText):
         super(FastTextTorch, self).__init__()
         self.fasttextmodel = fasttextmodel
         weights = fasttextmodel.get_input_matrix()
@@ -214,15 +212,15 @@ class FastTextTorch(nn.Module):
             torch.from_numpy(weights), padding_idx=self.vocab_size
         ).to(torch.float)
 
-    def subwords_idxes(self, token):
+    def subwords_idxes(self, token: str) -> torch.Tensor:
         """
         Returns a list of ft subwords indexes for the token
         :param tok_sequence:
         :return:
         """
-        return self.fasttextmodel.get_subwords(token)[1]
+        return torch.from_numpy(self.fasttextmodel.get_subwords(token)[1])
 
-    def forward(self, xinput):
+    def forward(self, xinput: torch.Tensor) -> torch.Tensor:
         """
         :param xinput: a batch of subwords
         :return: the fasttext embeddings for this batch
