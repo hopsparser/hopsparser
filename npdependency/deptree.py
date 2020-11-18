@@ -342,9 +342,9 @@ class DependencyDataset:
         self.encode()
         if shuffle_data:
             self.shuffle_data()
-        if (
-            order_by_length
-        ):  # shuffling and ordering is relevant : it change the way ties are resolved and thus batch construction
+        # shuffling and ordering is relevant : it change the way ties are resolved and thus batch
+        # construction
+        if order_by_length:
             self.order_data()
 
         N = len(self.encoded_words)
@@ -352,7 +352,7 @@ class DependencyDataset:
         if shuffle_batches:
             shuffle(batch_order)
         for i in batch_order:
-            deps = self.pad(self.encoded_words[i : i + batch_size])
+            encoded_words = self.pad(self.encoded_words[i : i + batch_size])
             tags = self.pad(self.tags[i : i + batch_size])
             heads = self.pad(self.heads[i : i + batch_size])
             labels = self.pad(self.labels[i : i + batch_size])
@@ -361,7 +361,7 @@ class DependencyDataset:
             cats = self.cats[i : i + batch_size]
             chars = self.char_dataset.batch_chars(self.words[i : i + batch_size])
             subwords = self.ft_dataset.batch_sentences(self.words[i : i + batch_size])
-            yield (words, mwe, chars, subwords, cats, deps, tags, heads, labels)
+            yield (words, mwe, chars, subwords, cats, encoded_words, tags, heads, labels)
 
     @overload
     def pad(self, batch: List[List[int]]) -> torch.Tensor:

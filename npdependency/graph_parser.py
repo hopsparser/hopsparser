@@ -203,16 +203,29 @@ class BiAffineParser(nn.Module):
 
         with torch.no_grad():
             for batch in dev_batches:
-                words, mwe, chars, subwords, cats, deps, tags, heads, labels = batch
-                if type(deps) == tuple:
-                    depsA, depsB = deps
-                    deps = (depsA.to(self.device), depsB.to(self.device))
-                    overall_size += depsA.size(0) * depsA.size(
+                (
+                    words,
+                    mwe,
+                    chars,
+                    subwords,
+                    cats,
+                    encoded_words,
+                    tags,
+                    heads,
+                    labels,
+                ) = batch
+                if type(encoded_words) == tuple:
+                    base_words, bert_subwords = encoded_words
+                    encoded_words = (
+                        base_words.to(self.device),
+                        bert_subwords.to(self.device),
+                    )
+                    overall_size += base_words.size(0) * base_words.size(
                         1
                     )  # bc no masking at training
                 else:
-                    deps = deps.to(self.device)
-                    overall_size += deps.size(0) * deps.size(
+                    encoded_words = encoded_words.to(self.device)
+                    overall_size += encoded_words.size(0) * encoded_words.size(
                         1
                     )  # bc no masking at training
                 heads, labels, tags = (
@@ -223,7 +236,9 @@ class BiAffineParser(nn.Module):
                 chars = [token.to(self.device) for token in chars]
                 subwords = [token.to(self.device) for token in subwords]
                 # preds
-                tagger_scores, arc_scores, lab_scores = self(deps, chars, subwords)
+                tagger_scores, arc_scores, lab_scores = self(
+                    encoded_words, chars, subwords
+                )
 
                 # get global loss
                 # ARC LOSS
@@ -308,16 +323,29 @@ class BiAffineParser(nn.Module):
             overall_size = 0
             self.train()
             for batch in train_batches:
-                words, mwe, chars, subwords, cats, deps, tags, heads, labels = batch
-                if type(deps) == tuple:
-                    depsA, depsB = deps
-                    deps = (depsA.to(self.device), depsB.to(self.device))
+                (
+                    words,
+                    mwe,
+                    chars,
+                    subwords,
+                    cats,
+                    encoded_words,
+                    tags,
+                    heads,
+                    labels,
+                ) = batch
+                if type(encoded_words) == tuple:
+                    base_words, bert_subwords = encoded_words
+                    encoded_words = (
+                        base_words.to(self.device),
+                        bert_subwords.to(self.device),
+                    )
                     # bc no masking at training
-                    overall_size += depsA.size(0) * depsA.size(1)
+                    overall_size += base_words.size(0) * base_words.size(1)
                 else:
                     # bc no masking at training
-                    deps = deps.to(self.device)
-                    overall_size += deps.size(0) * deps.size(1)
+                    encoded_words = encoded_words.to(self.device)
+                    overall_size += encoded_words.size(0) * encoded_words.size(1)
                 heads, labels, tags = (
                     heads.to(self.device),
                     labels.to(self.device),
@@ -327,7 +355,9 @@ class BiAffineParser(nn.Module):
                 subwords = [token.to(self.device) for token in subwords]
 
                 # FORWARD
-                tagger_scores, arc_scores, lab_scores = self(deps, chars, subwords)
+                tagger_scores, arc_scores, lab_scores = self(
+                    encoded_words, chars, subwords
+                )
 
                 # ARC LOSS
                 arc_scores = arc_scores.transpose(-1, -2)  # [batch, sent_len, sent_len]
@@ -404,14 +434,14 @@ class BiAffineParser(nn.Module):
 
         with torch.no_grad():
             for batch in test_batches:
-                words, mwe, chars, subwords, cats, deps, tags, heads, labels = batch
-                if type(deps) == tuple:
-                    depsA, depsB = deps
-                    deps = (depsA.to(self.device), depsB.to(self.device))
-                    SLENGTHS = (depsA != DependencyDataset.PAD_IDX).long().sum(-1)
+                words, mwe, chars, subwords, cats, encoded_words, tags, heads, labels = batch
+                if type(encoded_words) == tuple:
+                    base_words, bert_subwords = encoded_words
+                    encoded_words = (base_words.to(self.device), bert_subwords.to(self.device))
+                    SLENGTHS = (base_words != DependencyDataset.PAD_IDX).long().sum(-1)
                 else:
-                    deps = deps.to(self.device)
-                    SLENGTHS = (deps != DependencyDataset.PAD_IDX).long().sum(-1)
+                    encoded_words = encoded_words.to(self.device)
+                    SLENGTHS = (encoded_words != DependencyDataset.PAD_IDX).long().sum(-1)
                 heads, labels, tags = (
                     heads.to(self.device),
                     labels.to(self.device),
@@ -422,7 +452,7 @@ class BiAffineParser(nn.Module):
 
                 # batch prediction
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = self(
-                    deps, chars, subwords
+                    encoded_words, chars, subwords
                 )
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = (
                     tagger_scores_batch.cpu(),
