@@ -1,5 +1,6 @@
+import pathlib
 from random import shuffle
-from typing import Iterable, List
+from typing import Iterable, List, Union
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -235,17 +236,16 @@ class DependencyDataset:
     UNK_WORD = "<unk>"
 
     @staticmethod
-    def read_conll(filename):
-        istream = open(filename)
-        treelist = []
-        tree = DepGraph.read_tree(istream)
-        while tree:
-            if len(tree.words) <= 150:
-                treelist.append(tree)
-            else:
-                print("dropped tree with length", len(tree.words))
+    def read_conll(filename: Union[str, pathlib.Path]) -> List[DepGraph]:
+        with open(filename) as istream:
+            treelist = []
             tree = DepGraph.read_tree(istream)
-        istream.close()
+            while tree:
+                if len(tree.words) <= 150:
+                    treelist.append(tree)
+                else:
+                    print(f"Dropped tree with length {len(tree.words)} > 150", )
+                tree = DepGraph.read_tree(istream)
         return treelist
 
     def __init__(
