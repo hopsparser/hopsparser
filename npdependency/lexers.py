@@ -1,4 +1,4 @@
-from typing import List, Sequence, Tuple
+from typing import List, Sequence, Tuple, Union
 import torch
 import fasttext
 import os.path
@@ -301,9 +301,7 @@ class DefaultLexer(nn.Module):
         self, batch: Sequence[Sequence[int]], padding_value: int = 0
     ) -> torch.Tensor:
         """Pad a batch of sentences."""
-        tensorized_sents = [
-            torch.tensor(sent, dtype=torch.long) for sent in batch
-        ]
+        tensorized_sents = [torch.tensor(sent, dtype=torch.long) for sent in batch]
         return pad_sequence(
             tensorized_sents,
             padding_value=padding_value,
@@ -428,9 +426,11 @@ class BertBaseLexer(nn.Module):
             bertE = selected_bert_layers.mean(dim=0)
         wordE = self.embedding(word_idxes)
         return torch.cat((wordE, bertE), dim=2)
-    
+
     def pad_batch(
-        self, batch: Sequence[Tuple[Sequence[int], Sequence[int]]], padding_value: int = 0
+        self,
+        batch: Sequence[Tuple[Sequence[int], Sequence[int]]],
+        padding_value: int = 0,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Pad a batch of sentences."""
         words_batch, bert_batch = [], []
@@ -479,3 +479,6 @@ class BertBaseLexer(nn.Module):
         word_idxes[0] = self.stoi[DependencyDataset.UNK_WORD]
         bert_idxes[0] = self.bert_tokenizer.convert_tokens_to_ids(DepGraph.ROOT_TOKEN)
         return (word_idxes, bert_idxes)
+
+
+Lexer = Union[DefaultLexer, BertBaseLexer]

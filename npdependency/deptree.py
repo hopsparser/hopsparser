@@ -1,5 +1,5 @@
 from random import shuffle
-from typing import Iterable, List, Tuple, overload
+from typing import Iterable, List
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -249,7 +249,13 @@ class DependencyDataset:
         return treelist
 
     def __init__(
-        self, treelist, lexer, char_dataset, ft_dataset, use_labels=None, use_tags=None
+        self,
+        treelist,
+        lexer,
+        char_dataset,
+        ft_dataset,
+        use_labels=None,
+        use_tags=None,
     ):
         self.lexer = lexer
         self.char_dataset = char_dataset
@@ -352,7 +358,9 @@ class DependencyDataset:
         if shuffle_batches:
             shuffle(batch_order)
         for i in batch_order:
-            encoded_words = self.pad(self.encoded_words[i : i + batch_size])
+            encoded_words = self.lexer.pad_batch(
+                self.encoded_words[i : i + batch_size], padding_value=self.PAD_IDX
+            )
             tags = self.pad(self.tags[i : i + batch_size])
             heads = self.pad(self.heads[i : i + batch_size])
             labels = self.pad(self.labels[i : i + batch_size])
@@ -361,33 +369,25 @@ class DependencyDataset:
             cats = self.cats[i : i + batch_size]
             chars = self.char_dataset.batch_chars(self.words[i : i + batch_size])
             subwords = self.ft_dataset.batch_sentences(self.words[i : i + batch_size])
-            yield (words, mwe, chars, subwords, cats, encoded_words, tags, heads, labels)
-
-    @overload
-    def pad(self, batch: List[List[int]]) -> torch.Tensor:
-        """When using a default lexer."""
-        pass
-
-    @overload
-    def pad(
-        self, batch: List[Tuple[List[int], List[int]]]
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """When using a BERT lexer."""
-        pass
-
-    # TODO: make this use torch padding utility instead
-    # TODO: wrap the BERT case in a named tuple of some sort to make this nicer
-    def pad(self, batch):
-        # Ad hoc stuff for BERT Lexers
-        if type(batch[0]) == tuple and len(batch[0]) == 2:
-            return self.lexer.pad_batch(batch, padding_value=self.PAD_IDX)
-        else:
-            tensorized_seqs = [torch.tensor(sent, dtype=torch.long) for sent in batch]
-            return pad_sequence(
-                tensorized_seqs,
-                padding_value=DependencyDataset.PAD_IDX,
-                batch_first=True,
+            yield (
+                words,
+                mwe,
+                chars,
+                subwords,
+                cats,
+                encoded_words,
+                tags,
+                heads,
+                labels,
             )
+
+    def pad(self, batch: List[List[int]]) -> torch.Tensor:
+        tensorized_seqs = [torch.tensor(sent, dtype=torch.long) for sent in batch]
+        return pad_sequence(
+            tensorized_seqs,
+            padding_value=self.PAD_IDX,
+            batch_first=True,
+        )
 
     def init_labels(self, treelist: Iterable[DepGraph]):
         self.itolab = gen_labels(treelist)
