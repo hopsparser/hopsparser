@@ -570,7 +570,10 @@ class BiAffineParser(nn.Module):
             )
 
         # char rnn processor
-        ordered_charset = CharDataSet(loadlist(config_dir / "charcodes.lst"))
+        ordered_charset = CharDataSet(
+            loadlist(config_dir / "charcodes.lst"),
+            special_tokens=[DepGraph.ROOT_TOKEN],
+        )
         char_rnn = CharRNN(
             len(ordered_charset), hp["char_embedding_size"], hp["charlstm_output_size"]
         )
@@ -777,8 +780,10 @@ def main():
             )
             savelist(ordered_vocab, os.path.join(model_dir, "vocab.lst"))
 
-            ordered_charset = CharDataSet.make_vocab(
-                ordered_vocab, pad_token=DependencyDataset.PAD_TOKEN
+            # FIXME: A better save that can restore special tokens is probably a good idea
+            ordered_charset = CharDataSet.from_words(
+                ordered_vocab,
+                special_tokens=[DepGraph.ROOT_TOKEN],
             )
             savelist(ordered_charset.i2c, os.path.join(model_dir, "charcodes.lst"))
 

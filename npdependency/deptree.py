@@ -277,7 +277,7 @@ class DependencyDataset:
         self.words, self.mwe_ranges, self.cats = [], [], []
 
         for tree in self.treelist:
-            depword_idxes = self.lexer.tokenize(tree.words)
+            encoded_words = self.lexer.tokenize(tree.words)
             if tree.pos_tags:
                 deptag_idxes = [
                     self.tagtoi.get(tag, self.tagtoi[DependencyDataset.UNK_WORD])
@@ -290,7 +290,7 @@ class DependencyDataset:
             self.words.append(tree.words)
             self.cats.append(tree.pos_tags)
             self.tags.append(deptag_idxes)
-            self.encoded_words.append(depword_idxes)
+            self.encoded_words.append(encoded_words)
             self.heads.append(self.oracle_governors(tree))
             # the get defaulting to 0 is a hack for labels not found in training set
             self.labels.append(

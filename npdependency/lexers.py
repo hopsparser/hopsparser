@@ -1,4 +1,4 @@
-from typing import Iterable, List, Sequence, TYPE_CHECKING, Tuple, Union
+from typing import Iterable, List, Optional, Sequence, TYPE_CHECKING, Tuple, Union
 import torch
 import fasttext
 import os.path
@@ -14,6 +14,12 @@ from npdependency.deptree import DependencyDataset, DepGraph
 
 if TYPE_CHECKING:
     from npdependency.deptree import DepGraph  # noqa: F811
+
+# Python 3.7 shim
+try:
+    from typing import Final
+except ImportError:
+    from typing_extensions import Final
 
 
 def word_sampler(word_idx, unk_idx, dropout):
@@ -38,55 +44,64 @@ def make_vocab(
 
 class CharDataSet:
     """
-    Namespace for simulating a char dataset
+    Namespace for simulating a char dataset.
+
+    ## Padding and special tokens
+
+    - Char index `0` is for padding
+    - Char index `1` is for special tokens that should not be split into individual characters
+
+    These are **not** configurable in order to allow a simpler handling of the internal vocabulary
     """
 
-    def __init__(self, charlist):
-        self.i2c = charlist
-        self.c2idx = dict([(c, idx) for idx, c in enumerate(charlist)])
+    PAD_IDX: Final[int] = 0
+    SPECIAL_TOKENS_IDX: Final[int] = 1
+
+    def __init__(
+        self, charlist: Iterable[str], special_tokens: Optional[Iterable[str]] = None
+    ):
+        self.i2c = ["<pad>", "<special>", *charlist]
+        self.c2idx = {c: idx for idx, c in enumerate(charlist)}
+        self.special_tokens = set([] if special_tokens is None else special_tokens)
 
     def __len__(self):
         return len(self.i2c)
 
-    def word2charcodes(self, token):
+    def word2charcodes(self, token: str) -> List[int]:
         """
         Turns a string into a list of char codes.
-        If the string is <pad> or <unk> returns an empty list of char codes
+        If the string is <pad> returns an empty list of char codes
         """
-        return (
-            []
-            if token in [DependencyDataset.PAD_TOKEN, DependencyDataset.UNK_WORD]
-            else [self.c2idx[c] for c in token if c in self.c2idx]
-        )
+        if token in self.special_tokens:
+            return [self.SPECIAL_TOKENS_IDX]
+        return [self.c2idx[c] for c in token if c in self.c2idx]
 
-    def batchedtokens2codes(self, toklist):
+    def batchedtokens2codes(self, toklist: List[str]) -> torch.Tensor:
         """
         Codes a list of tokens as a batch of lists of charcodes and pads them if needed
         :param toklist:
         :return:
         """
-        charcodes = [self.word2charcodes(token) for token in toklist]
-        sent_lengths = list(map(len, charcodes))
-        max_len = max(sent_lengths)
-        padded_codes = []
-        for k, seq in zip(sent_lengths, charcodes):
-            padded = seq + (max_len - k) * [DependencyDataset.PAD_IDX]
-            padded_codes.append(padded)
-        return torch.tensor(padded_codes)
+        charcodes = [
+            torch.tensor(self.word2charcodes(token), dtype=torch.long)
+            for token in toklist
+        ]
+        return pad_sequence(charcodes, padding_value=self.PAD_IDX, batch_first=True)
 
-    def batch_chars(self, sent_batch):
+    def batch_chars(self, sent_batch: List[str]) -> List[torch.Tensor]:
         """
         Batches a list of sentences such that each sentence is padded with the same word length.
         :yields: the character encodings for each word position in this batch of sentences
                  (yields the columns of the batch)
         """
-        sent_lengths = list(map(len, sent_batch))
+        sent_lengths = [len(s) for s in sent_batch]
         max_sent_len = max(sent_lengths)
 
-        batched_sents = []
-        for k, seq in zip(sent_lengths, sent_batch):
-            padded = seq + (max_sent_len - k) * [DependencyDataset.PAD_TOKEN]
-            batched_sents.append(padded)
+        # We use empty strings for padding, so they will be correctly filled with the padding value
+        # when we tensorize
+        batched_sents = [["" for _ in range(max_sent_len)] for _ in sent_batch]
+        for batch_sent, l, sent in zip(batched_sents, sent_lengths, sent_batch):
+            batch_sent[:l] = sent
 
         for idx in range(max_sent_len):
             yield self.batchedtokens2codes(
@@ -94,9 +109,13 @@ class CharDataSet:
             )
 
     @classmethod
-    def make_vocab(cls, wordlist: Iterable[str], pad_token: str) -> "CharDataSet":
+    def from_words(
+        cls,
+        wordlist: Iterable[str],
+        special_tokens: Optional[Iterable[str]] = None,
+    ) -> "CharDataSet":
         charset = set((c for word in wordlist for c in word))
-        return cls([pad_token, *sorted(charset)])
+        return cls(sorted(charset), special_tokens=special_tokens)
 
 
 class CharRNN(nn.Module):
@@ -106,7 +125,7 @@ class CharRNN(nn.Module):
 
         self.embedding_size = embedding_size
         self.char_embedding = nn.Embedding(
-            charset_size, char_embedding_size, padding_idx=DependencyDataset.PAD_IDX
+            charset_size, char_embedding_size, padding_idx=CharDataSet.PAD_IDX
         )
         self.char_bilstm = nn.LSTM(
             char_embedding_size,
