@@ -1,6 +1,7 @@
-from typing import Iterable, List
-import torch
 from random import shuffle
+from typing import Iterable, List, Tuple, overload
+
+import torch
 
 
 class DepGraph:
@@ -361,11 +362,23 @@ class DependencyDataset:
             subwords = self.ft_dataset.batch_sentences(self.words[i : i + batch_size])
             yield (words, mwe, chars, subwords, cats, deps, tags, heads, labels)
 
+    @overload
+    def pad(self, batch: List[List[int]]) -> torch.Tensor:
+        """When using a default lexer."""
+        pass
+
+    @overload
+    def pad(
+        self, batch: List[Tuple[List[int], List[int]]]
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """When using a BERT lexer."""
+        pass
+
     # TODO: make this use torch padding utility instead
+    # TODO: wrap the BERT case in a named tuple of some sort to make this nicer
     def pad(self, batch):
-        if (
-            type(batch[0]) == tuple and len(batch[0]) == 2
-        ):  # had hoc stuff for BERT Lexers
+        # Ad hoc stuff for BERT Lexers
+        if type(batch[0]) == tuple and len(batch[0]) == 2:
             sent_lengths = [len(seqA) for (seqA, seqB) in batch]
             max_len = max(sent_lengths)
             padded_batchA, padded_batchB = [], []
@@ -380,13 +393,14 @@ class DependencyDataset:
                 torch.tensor(padded_batchB, dtype=torch.long),
             )
         else:
-            sent_lengths = list(map(len, batch))
+            sent_lengths = [len(sent) for sent in batch]
             max_len = max(sent_lengths)
-            padded_batch = []
-            for k, seq in zip(sent_lengths, batch):
-                padded = seq + (max_len - k) * [DependencyDataset.PAD_IDX]
-                padded_batch.append(padded)
-        return torch.tensor(padded_batch, dtype=torch.long)
+            res = torch.full(
+                (len(batch), max_len), DependencyDataset.PAD_IDX, dtype=torch.long
+            )
+            for i, (k, seq) in enumerate(zip(sent_lengths, batch)):
+                res[i, :k] = seq
+        return res
 
     def init_labels(self, treelist: Iterable[DepGraph]):
         self.itolab = gen_labels(treelist)
