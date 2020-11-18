@@ -4,6 +4,7 @@ import fasttext
 import os.path
 import numpy as np
 from torch import nn
+from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoModel, AutoTokenizer
 from collections import Counter
 from random import random  # nosec:B311
@@ -203,9 +204,8 @@ class FastTextTorch(nn.Module):
         :param xinput: a batch of subwords
         :return: the fasttext embeddings for this batch
         """
-        return self.embeddings(xinput).sum(
-            dim=1
-        )  # maybe compute true means or sums, currently uses <pad> tokens into this mean...
+        # maybe compute true means or sums, currently uses <pad> tokens into this mean...
+        return self.embeddings(xinput).sum(dim=1)
 
     @classmethod
     def loadmodel(cls, modelfile: str) -> "FastTextTorch":
@@ -272,13 +272,13 @@ class DefaultLexer(nn.Module):
             self._dpout = 0.0
         return super().train(mode)
 
-    def forward(self, word_sequences):
+    def forward(self, word_sequences: torch.Tensor) -> torch.Tensor:
         """
         Takes words sequences codes as integer sequences and returns the embeddings
         """
         return self.embedding(word_sequences)
 
-    def tokenize(self, tok_sequence):
+    def tokenize(self, tok_sequence: Sequence[str]) -> List[int]:
         """
         This maps word tokens to integer indexes.
         Args:
@@ -296,6 +296,19 @@ class DefaultLexer(nn.Module):
                 for widx in word_idxes
             ]
         return word_idxes
+
+    def pad_batch(
+        self, batch: Sequence[Sequence[int]], padding_value: int = 0
+    ) -> torch.Tensor:
+        """Pad a batch of sentences."""
+        tensorized_sents = [
+            torch.tensor(sent, dtype=torch.long) for sent in batch
+        ]
+        return pad_sequence(
+            tensorized_sents,
+            padding_value=padding_value,
+            batch_first=True,
+        )
 
 
 def freeze_module(module, freezing: bool = True):
@@ -415,6 +428,19 @@ class BertBaseLexer(nn.Module):
             bertE = selected_bert_layers.mean(dim=0)
         wordE = self.embedding(word_idxes)
         return torch.cat((wordE, bertE), dim=2)
+    
+    def pad_batch(
+        self, batch: Sequence[Tuple[Sequence[int], Sequence[int]]], padding_value: int = 0
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Pad a batch of sentences."""
+        words_batch, bert_batch = [], []
+        for words_sent, bert_subwords_sent in batch:
+            words_batch.append(torch.tensor(words_sent, dtype=torch.long))
+            bert_batch.append(torch.tensor(bert_subwords_sent, dtype=torch.long))
+        return (
+            pad_sequence(words_batch, batch_first=True, padding_value=padding_value),
+            pad_sequence(bert_batch, batch_first=True, padding_value=self.BERT_PAD_IDX),
+        )
 
     def tokenize(self, tok_sequence: Sequence[str]) -> Tuple[List[int], List[int]]:
         """

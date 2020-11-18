@@ -434,14 +434,31 @@ class BiAffineParser(nn.Module):
 
         with torch.no_grad():
             for batch in test_batches:
-                words, mwe, chars, subwords, cats, encoded_words, tags, heads, labels = batch
+                (
+                    words,
+                    mwe,
+                    chars,
+                    subwords,
+                    cats,
+                    encoded_words,
+                    tags,
+                    heads,
+                    labels,
+                ) = batch
                 if type(encoded_words) == tuple:
                     base_words, bert_subwords = encoded_words
-                    encoded_words = (base_words.to(self.device), bert_subwords.to(self.device))
-                    SLENGTHS = (base_words != DependencyDataset.PAD_IDX).long().sum(-1)
+                    encoded_words = (
+                        base_words.to(self.device),
+                        bert_subwords.to(self.device),
+                    )
+                    sent_lengths = (
+                        (base_words != DependencyDataset.PAD_IDX).long().sum(-1)
+                    )
                 else:
                     encoded_words = encoded_words.to(self.device)
-                    SLENGTHS = (encoded_words != DependencyDataset.PAD_IDX).long().sum(-1)
+                    sent_lengths = (
+                        (encoded_words != DependencyDataset.PAD_IDX).long().sum(-1)
+                    )
                 heads, labels, tags = (
                     heads.to(self.device),
                     labels.to(self.device),
@@ -470,7 +487,7 @@ class BiAffineParser(nn.Module):
                 ) in zip(
                     words,
                     mwe,
-                    SLENGTHS,
+                    sent_lengths,
                     tagger_scores_batch,
                     arc_scores_batch,
                     lab_scores_batch,

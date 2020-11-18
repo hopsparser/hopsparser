@@ -380,19 +380,7 @@ class DependencyDataset:
     def pad(self, batch):
         # Ad hoc stuff for BERT Lexers
         if type(batch[0]) == tuple and len(batch[0]) == 2:
-            sent_lengths = [len(seqA) for (seqA, seqB) in batch]
-            max_len = max(sent_lengths)
-            padded_batchA, padded_batchB = [], []
-            for k, seq in zip(sent_lengths, batch):
-                seqA, seqB = seq
-                paddedA = seqA + (max_len - k) * [DependencyDataset.PAD_IDX]
-                paddedB = seqB + (max_len - k) * [self.lexer.BERT_PAD_IDX]
-                padded_batchA.append(paddedA)
-                padded_batchB.append(paddedB)
-            return (
-                torch.tensor(padded_batchA, dtype=torch.long),
-                torch.tensor(padded_batchB, dtype=torch.long),
-            )
+            return self.lexer.pad_batch(batch, padding_value=self.PAD_IDX)
         else:
             tensorized_seqs = [torch.tensor(sent, dtype=torch.long) for sent in batch]
             return pad_sequence(
