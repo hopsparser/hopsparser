@@ -198,7 +198,7 @@ class BiAffineParser(nn.Module):
         dev_batches = dev_set.make_batches(
             batch_size, shuffle_batches=True, shuffle_data=True, order_by_length=True
         )
-        tag_acc, arc_acc, lab_acc, gloss, taggerZ, arcsZ = 0, 0, 0, 0, 0, 0
+        tag_acc, arc_acc, lab_acc, gloss, accZ = 0, 0, 0, 0, 0
         overall_size = 0
 
         with torch.no_grad():
@@ -251,7 +251,8 @@ class BiAffineParser(nn.Module):
                 tagger_loss = loss_fnc(tagger_scoresB, tags.view(-1))
 
                 # LABEL LOSS
-                headsL = heads.unsqueeze(1).unsqueeze(2)  # [batch, 1, 1, sent_len]
+                # [batch, 1, 1, sent_len]
+                headsL = heads.unsqueeze(1).unsqueeze(2)  
                 # [batch, n_labels, 1, sent_len]
                 headsL = headsL.expand(-1, lab_scores.size(1), -1, -1)
                 # [batch, n_labels, sent_len]
@@ -268,7 +269,7 @@ class BiAffineParser(nn.Module):
                 gloss += loss.item()
 
                 mask = heads.ne(dev_set.PAD_IDX)
-                accZ = mask.sum().item()
+                accZ += mask.sum().item()
                 # greedy arc accurracy (without parsing)
                 arc_pred = arc_scores.argmax(dim=-2)
                 arc_accurracy = arc_pred.eq(heads).logical_and(mask).sum()
@@ -278,16 +279,14 @@ class BiAffineParser(nn.Module):
                 tag_pred = tagger_scores.argmax(dim=2)
                 tag_accurracy = tag_pred.eq(tags).logical_and(mask).sum()
                 tag_acc += tag_accurracy.item()
-                taggerZ += accZ
 
                 # greedy label accurracy (without parsing)
                 lab_pred = lab_scores.argmax(dim=1)
                 lab_pred = torch.gather(lab_pred, 1, heads.unsqueeze(1)).squeeze(1)
                 lab_accurracy = lab_pred.eq(labels).logical_and(mask).sum()
                 lab_acc += lab_accurracy.item()
-                arcsZ += accZ
 
-        return gloss / overall_size, tag_acc / taggerZ, arc_acc / arcsZ, lab_acc / arcsZ
+        return gloss / overall_size, tag_acc / accZ, arc_acc / accZ, lab_acc / accZ
 
     def train_model(
         self, train_set, dev_set, epochs, batch_size, lr, modelpath="test_model.pt"
