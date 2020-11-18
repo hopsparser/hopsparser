@@ -5,6 +5,8 @@ from typing import Iterable, List, Union
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
+from npdependency import lexers
+
 
 class DepGraph:
 
@@ -244,16 +246,18 @@ class DependencyDataset:
                 if len(tree.words) <= 150:
                     treelist.append(tree)
                 else:
-                    print(f"Dropped tree with length {len(tree.words)} > 150", )
+                    print(
+                        f"Dropped tree with length {len(tree.words)} > 150",
+                    )
                 tree = DepGraph.read_tree(istream)
         return treelist
 
     def __init__(
         self,
-        treelist,
-        lexer,
-        char_dataset,
-        ft_dataset,
+        treelist: List[DepGraph],
+        lexer: lexers.Lexer,
+        char_dataset: lexers.CharDataSet,
+        ft_dataset: lexers.FastTextDataSet,
         use_labels=None,
         use_tags=None,
     ):
@@ -340,10 +344,10 @@ class DependencyDataset:
 
     def make_batches(
         self,
-        batch_size,
-        shuffle_batches=False,
-        shuffle_data=True,
-        order_by_length=False,
+        batch_size: int,
+        shuffle_batche: bools = False,
+        shuffle_data: bool = True,
+        order_by_length: bool = False,
     ):
         self.encode()
         if shuffle_data:
@@ -398,7 +402,7 @@ class DependencyDataset:
     def __len__(self):
         return len(self.treelist)
 
-    def oracle_labels(self, depgraph):
+    def oracle_labels(self, depgraph: DepGraph) -> List[str]:
         """
         Returns a list where each element list[i] is the label of
         the position of the governor of the word at position i.
@@ -410,7 +414,7 @@ class DependencyDataset:
         rev_labels = dict([(dep, label) for (gov, label, dep) in edges])
         return [rev_labels.get(idx, DependencyDataset.PAD_TOKEN) for idx in range(N)]
 
-    def oracle_governors(self, depgraph):
+    def oracle_governors(self, depgraph: DepGraph) -> List[int]:
         """
         Returns a list where each element list[i] is the index of
         the position of the governor of the word at position i.
