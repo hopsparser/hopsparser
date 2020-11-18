@@ -752,8 +752,8 @@ def main():
                         )
                         os.remove(fasttext_model_path)
                     print(f"Generating a FastText model from {args.train_file}")
-                    FastTextTorch.train_model_from_trees(
-                        traintrees, fasttext_model_path
+                    FastTextTorch.train_model_from_sents(
+                        [tree.words[1:] for tree in traintrees], fasttext_model_path
                     )
             elif os.path.exists(args.fasttext):
                 if os.path.exists(fasttext_model_path):

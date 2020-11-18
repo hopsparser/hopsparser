@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional, Sequence, TYPE_CHECKING, Tuple, Union
+from typing import Iterable, List, Optional, Sequence, Tuple, Union
 import torch
 import fasttext
 import os.path
@@ -9,9 +9,6 @@ from transformers import AutoModel, AutoTokenizer
 from collections import Counter
 from random import random  # nosec:B311
 from tempfile import gettempdir
-
-if TYPE_CHECKING:
-    from npdependency.deptree import DepGraph  # noqa: F811
 
 # Python 3.7 shim
 try:
@@ -183,10 +180,7 @@ class FastTextDataSet:
 
         # The empty string here serves as padding, which, contrarily to CharsDataSet is a bit ugly,
         # since we intercept it instead of passing it to FastText
-        batched_sents = [
-            ["" for _ in range(max_sent_len)]
-            for _ in sent_batch
-        ]
+        batched_sents = [["" for _ in range(max_sent_len)] for _ in sent_batch]
         for batch_sent, l, sent in zip(batched_sents, sent_lengths, sent_batch):
             batch_sent[:l] = sent
 
@@ -231,8 +225,8 @@ class FastTextTorch(nn.Module):
         return cls(fasttext.load_model(modelfile))
 
     @classmethod
-    def train_model_from_trees(
-        cls, source_trees: Sequence["DepGraph"], target_file: str
+    def train_model_from_sents(
+        cls, source_sents: Iterable[List[str]], target_file: str
     ) -> "FastTextTorch":
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
@@ -240,9 +234,7 @@ class FastTextTorch(nn.Module):
             source_file = os.path.join(gettempdir(), "source.ft")
             with open(source_file, "w") as source_stream:
                 print(
-                    "\n".join(
-                        [" ".join(tree.words[1:]) for tree in reversed(source_trees)]
-                    ),
+                    "\n".join([" ".join(sent) for sent in source_sents]),
                     file=source_stream,
                 )
 
