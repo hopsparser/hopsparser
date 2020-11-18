@@ -345,7 +345,7 @@ class DependencyDataset:
     def make_batches(
         self,
         batch_size: int,
-        shuffle_batche: bools = False,
+        shuffle_batches: bool = False,
         shuffle_data: bool = True,
         order_by_length: bool = False,
     ):
