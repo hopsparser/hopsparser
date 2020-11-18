@@ -10,8 +10,6 @@ from collections import Counter
 from random import random  # nosec:B311
 from tempfile import gettempdir
 
-from npdependency.deptree import DependencyDataset, DepGraph
-
 if TYPE_CHECKING:
     from npdependency.deptree import DepGraph  # noqa: F811
 
@@ -400,12 +398,6 @@ class BertBaseLexer(nn.Module):
             padding_idx=words_padding_idx,
         )
 
-        # ! FIXME: this is still somewhat brittle, since the BERT models have not been trained with
-        # ! the root token at sentence beginning. Maybe we could use the BOS token for that purpose
-        # ! instead?
-        self.bert_tokenizer.add_tokens([DepGraph.ROOT_TOKEN], special_tokens=True)
-        self.bert.resize_token_embeddings(len(self.bert_tokenizer))
-
         self.word_dropout = word_dropout
         self._dpout = 0.0
         self.cased = cased
@@ -503,7 +495,7 @@ class BertBaseLexer(nn.Module):
 
         # TODO: in the two line below, change unk to a spe
         word_idxes[0] = self.unk_word_idx
-        bert_idxes[0] = self.bert_tokenizer.convert_tokens_to_ids(DepGraph.ROOT_TOKEN)
+        bert_idxes[0] = 0
         return (word_idxes, bert_idxes)
 
 
