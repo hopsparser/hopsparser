@@ -1,4 +1,4 @@
-from typing import List, Sequence, Tuple, Union
+from typing import Iterable, List, Sequence, TYPE_CHECKING, Tuple, Union
 import torch
 import fasttext
 import os.path
@@ -12,20 +12,27 @@ from tempfile import gettempdir
 
 from npdependency.deptree import DependencyDataset, DepGraph
 
+if TYPE_CHECKING:
+    from npdependency.deptree import DepGraph  # noqa: F811
+
 
 def word_sampler(word_idx, unk_idx, dropout):
     return unk_idx if random() < dropout else word_idx
 
 
-def make_vocab(treelist, threshold):
+def make_vocab(
+    words: Iterable[str], threshold: int, unk_word: str, pad_token: str
+) -> List[str]:
     """
     Extracts the set of tokens found in the data and orders it
     """
-    vocab = Counter([word for tree in treelist for word in tree.words])
-    vocab = set([tok for (tok, counts) in vocab.most_common() if counts > threshold])
-    vocab.update([DependencyDataset.UNK_WORD])
+    vocab_counter = Counter(words)
+    vocab = set(
+        [tok for (tok, counts) in vocab_counter.most_common() if counts > threshold]
+    )
+    vocab.add(unk_word)
 
-    itos = [DependencyDataset.PAD_TOKEN] + list(vocab)
+    itos = [pad_token, *sorted(vocab)]
     return itos
 
 
@@ -86,13 +93,10 @@ class CharDataSet:
                 [sentence[idx] for sentence in batched_sents]
             )
 
-    @staticmethod
-    def make_vocab(wordlist):
-        charset = set()
-        for token in wordlist:
-            charset.update(list(token))
-
-        return CharDataSet([DependencyDataset.PAD_TOKEN] + list(charset))
+    @classmethod
+    def make_vocab(cls, wordlist: Iterable[str], pad_token: str) -> "CharDataSet":
+        charset = set((c for word in wordlist for c in word))
+        return cls([pad_token, *sorted(charset)])
 
 
 class CharRNN(nn.Module):
@@ -213,7 +217,7 @@ class FastTextTorch(nn.Module):
 
     @classmethod
     def train_model_from_trees(
-        cls, source_trees: Sequence[DepGraph], target_file: str
+        cls, source_trees: Sequence["DepGraph"], target_file: str
     ) -> "FastTextTorch":
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
@@ -362,7 +366,7 @@ class BertBaseLexer(nn.Module):
         super(BertBaseLexer, self).__init__()
         self.itos = itos
         self.stoi = {token: idx for idx, token in enumerate(self.itos)}
-        self.unk_word_idx = self.stoi(unk_word)
+        self.unk_word_idx = self.stoi[unk_word]
 
         self.bert = AutoModel.from_pretrained(bert_modelfile, output_hidden_states=True)
         self.bert_tokenizer = AutoTokenizer.from_pretrained(
@@ -480,7 +484,7 @@ class BertBaseLexer(nn.Module):
                 for widx in word_idxes
             ]
 
-        # TODO: ensure that first index is <root> and not an <unk>
+        # TODO: in the two line below, change unk to a spe
         word_idxes[0] = self.unk_word_idx
         bert_idxes[0] = self.bert_tokenizer.convert_tokens_to_ids(DepGraph.ROOT_TOKEN)
         return (word_idxes, bert_idxes)

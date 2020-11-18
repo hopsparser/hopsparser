@@ -769,10 +769,17 @@ def main():
             else:
                 raise ValueError(f"{args.fasttext} not found")
 
-            ordered_vocab = make_vocab(traintrees, 0)
+            ordered_vocab = make_vocab(
+                [word for tree in traintrees for word in tree.words],
+                0,
+                unk_word=DependencyDataset.UNK_WORD,
+                pad_token=DependencyDataset.PAD_TOKEN,
+            )
             savelist(ordered_vocab, os.path.join(model_dir, "vocab.lst"))
 
-            ordered_charset = CharDataSet.make_vocab(ordered_vocab)
+            ordered_charset = CharDataSet.make_vocab(
+                ordered_vocab, pad_token=DependencyDataset.PAD_TOKEN
+            )
             savelist(ordered_charset.i2c, os.path.join(model_dir, "charcodes.lst"))
 
             itolab = gen_labels(traintrees)
