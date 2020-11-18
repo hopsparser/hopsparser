@@ -220,14 +220,12 @@ class BiAffineParser(nn.Module):
                         base_words.to(self.device),
                         bert_subwords.to(self.device),
                     )
-                    overall_size += base_words.size(0) * base_words.size(
-                        1
-                    )  # bc no masking at training
+                    # bc no masking at training
+                    overall_size += base_words.size(0) * base_words.size(1)
                 else:
                     encoded_words = encoded_words.to(self.device)
-                    overall_size += encoded_words.size(0) * encoded_words.size(
-                        1
-                    )  # bc no masking at training
+                    # bc no masking at training
+                    overall_size += encoded_words.size(0) * encoded_words.size(1)
                 heads, labels, tags = (
                     heads.to(self.device),
                     labels.to(self.device),
@@ -242,34 +240,26 @@ class BiAffineParser(nn.Module):
 
                 # get global loss
                 # ARC LOSS
-                arc_scoresL = arc_scores.transpose(
-                    -1, -2
-                )  # [batch, sent_len, sent_len]
-                arc_scoresL = arc_scoresL.contiguous().view(
-                    -1, arc_scoresL.size(-1)
-                )  # [batch*sent_len, sent_len]
+                # [batch, sent_len, sent_len]
+                arc_scoresL = arc_scores.transpose(-1, -2)
+                # [batch*sent_len, sent_len]
+                arc_scoresL = arc_scoresL.reshape(-1, arc_scoresL.size(-1))
                 arc_loss = loss_fnc(arc_scoresL, heads.view(-1))  # [batch*sent_len]
 
                 # TAGGER_LOSS
-                tagger_scoresB = tagger_scores.contiguous().view(
-                    -1, tagger_scores.size(-1)
-                )
+                tagger_scoresB = tagger_scores.reshape(-1, tagger_scores.size(-1))
                 tagger_loss = loss_fnc(tagger_scoresB, tags.view(-1))
 
                 # LABEL LOSS
                 headsL = heads.unsqueeze(1).unsqueeze(2)  # [batch, 1, 1, sent_len]
-                headsL = headsL.expand(
-                    -1, lab_scores.size(1), -1, -1
-                )  # [batch, n_labels, 1, sent_len]
-                lab_scoresL = torch.gather(lab_scores, 2, headsL).squeeze(
-                    2
-                )  # [batch, n_labels, sent_len]
-                lab_scoresL = lab_scoresL.transpose(
-                    -1, -2
-                )  # [batch, sent_len, n_labels]
-                lab_scoresL = lab_scoresL.contiguous().view(
-                    -1, lab_scoresL.size(-1)
-                )  # [batch*sent_len, n_labels]
+                # [batch, n_labels, 1, sent_len]
+                headsL = headsL.expand(-1, lab_scores.size(1), -1, -1)
+                # [batch, n_labels, sent_len]
+                lab_scoresL = torch.gather(lab_scores, 2, headsL).squeeze(2)
+                # [batch, sent_len, n_labels]
+                lab_scoresL = lab_scoresL.transpose(-1, -2)
+                # [batch*sent_len, n_labels]
+                lab_scoresL = lab_scoresL.reshape(-1, lab_scoresL.size(-1))
                 labelsL = labels.view(-1)  # [batch*sent_len]
                 lab_loss = loss_fnc(lab_scoresL, labelsL)
 
@@ -345,8 +335,8 @@ class BiAffineParser(nn.Module):
                     # bc no masking at training
                     overall_size += base_words.size(0) * base_words.size(1)
                 else:
-                    # bc no masking at training
                     encoded_words = encoded_words.to(self.device)
+                    # bc no masking at training
                     overall_size += encoded_words.size(0) * encoded_words.size(1)
                 heads, labels, tags = (
                     heads.to(self.device),
@@ -362,31 +352,30 @@ class BiAffineParser(nn.Module):
                 )
 
                 # ARC LOSS
-                arc_scores = arc_scores.transpose(-1, -2)  # [batch, sent_len, sent_len]
-                arc_scores = arc_scores.contiguous().view(
-                    -1, arc_scores.size(-1)
-                )  # [batch*sent_len, sent_len]
-                arc_loss = loss_fnc(arc_scores, heads.view(-1))  # [batch*sent_len]
+                # [batch, sent_len, sent_len]
+                arc_scores = arc_scores.transpose(-1, -2)
+                # [batch*sent_len, sent_len]
+                arc_scores = arc_scores.reshape(-1, arc_scores.size(-1))
+                # [batch*sent_len]
+                arc_loss = loss_fnc(arc_scores, heads.view(-1))
 
                 # TAGGER_LOSS
-                tagger_scores = tagger_scores.contiguous().view(
-                    -1, tagger_scores.size(-1)
-                )
+                tagger_scores = tagger_scores.reshape(-1, tagger_scores.size(-1))
                 tagger_loss = loss_fnc(tagger_scores, tags.view(-1))
 
                 # LABEL LOSS
-                heads = heads.unsqueeze(1).unsqueeze(2)  # [batch, 1, 1, sent_len]
-                heads = heads.expand(
-                    -1, lab_scores.size(1), -1, -1
-                )  # [batch, n_labels, 1, sent_len]
-                lab_scores = torch.gather(lab_scores, 2, heads).squeeze(
-                    2
-                )  # [batch, n_labels, sent_len]
-                lab_scores = lab_scores.transpose(-1, -2)  # [batch, sent_len, n_labels]
-                lab_scores = lab_scores.contiguous().view(
-                    -1, lab_scores.size(-1)
-                )  # [batch*sent_len, n_labels]
-                labels = labels.view(-1)  # [batch*sent_len]
+                # [batch, 1, 1, sent_len]
+                heads = heads.unsqueeze(1).unsqueeze(2)
+                # [batch, n_labels, 1, sent_len]
+                heads = heads.expand(-1, lab_scores.size(1), -1, -1)
+                # [batch, n_labels, sent_len]
+                lab_scores = torch.gather(lab_scores, 2, heads).squeeze(2)
+                # [batch, sent_len, n_labels]
+                lab_scores = lab_scores.transpose(-1, -2)
+                # [batch*sent_len, n_labels]
+                lab_scores = lab_scores.reshape(-1, lab_scores.size(-1))
+                # [batch*sent_len]
+                labels = labels.view(-1)
                 lab_loss = loss_fnc(lab_scores, labels)
 
                 loss = tagger_loss + arc_loss + lab_loss
@@ -453,10 +442,10 @@ class BiAffineParser(nn.Module):
                         base_words.to(self.device),
                         bert_subwords.to(self.device),
                     )
-                    sent_lengths = (base_words != test_set.PAD_IDX).long().sum(-1)
+                    sent_lengths = base_words.ne(test_set.PAD_IDX).sum(-1)
                 else:
                     encoded_words = encoded_words.to(self.device)
-                    sent_lengths = (encoded_words != test_set.PAD_IDX).long().sum(-1)
+                    sent_lengths = encoded_words.ne(test_set.PAD_IDX).sum(-1)
                 heads, labels, tags = (
                     heads.to(self.device),
                     labels.to(self.device),

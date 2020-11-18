@@ -124,7 +124,7 @@ class CharRNN(nn.Module):
         )
         self.char_bilstm = nn.LSTM(
             char_embedding_size,
-            int(self.embedding_size / 2),
+            self.embedding_size // 2,
             1,
             batch_first=True,
             bidirectional=True,
@@ -138,6 +138,7 @@ class CharRNN(nn.Module):
         """
         embeddings = self.char_embedding(xinput)
         outputs, (_, cembedding) = self.char_bilstm(embeddings)
+        # TODO: why use the cell state and not the output state here?
         result = cembedding.view(-1, self.embedding_size)
         return result
 
@@ -466,6 +467,7 @@ class BertBaseLexer(nn.Module):
         Returns:
            a list of integers
         """
+        # FIXME: I think the padding here is mixed up with whatever happens to be self.stoi[0]
         word_idxes = [self.stoi.get(token, self.unk_word_idx) for token in tok_sequence]
         # ? COMBAK: lowercasing should be done by the loaded tokenizer or am I missing something
         # ? here? (2020-11-08)
