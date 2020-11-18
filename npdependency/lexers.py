@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Generator, Iterable, List, Optional, Sequence, Tuple, Union
 import torch
 import fasttext
 import os.path
@@ -83,7 +83,7 @@ class CharDataSet:
         ]
         return pad_sequence(charcodes, padding_value=self.PAD_IDX, batch_first=True)
 
-    def batch_chars(self, sent_batch: List[str]) -> List[torch.Tensor]:
+    def batch_chars(self, sent_batch: List[str]) -> Generator[torch.Tensor, None, None]:
         """
         Batches a list of sentences such that each sentence is padded with the same word length.
         :yields: the character encodings for each word position in this batch of sentences
@@ -169,7 +169,9 @@ class FastTextDataSet:
         subcodes = [self.word2subcodes(token) for token in token_sequence]
         return pad_sequence(subcodes, padding_value=self.PAD_IDX, batch_first=True)
 
-    def batch_sentences(self, sent_batch: List[str]) -> List[torch.Tensor]:
+    def batch_sentences(
+        self, sent_batch: List[str]
+    ) -> Generator[torch.Tensor, None, None]:
         """
         Batches a list of sentences such that each sentence is padded with the same word length.
         :yields: the subword encodings for each word position in this batch of sentences
