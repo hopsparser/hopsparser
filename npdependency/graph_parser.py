@@ -260,34 +260,32 @@ class BiAffineParser(nn.Module):
                 lab_scoresL = lab_scoresL.transpose(-1, -2)
                 # [batch*sent_len, n_labels]
                 lab_scoresL = lab_scoresL.reshape(-1, lab_scoresL.size(-1))
-                labelsL = labels.view(-1)  # [batch*sent_len]
+                # [batch*sent_len]
+                labelsL = labels.view(-1)
                 lab_loss = loss_fnc(lab_scoresL, labelsL)
 
                 loss = tagger_loss + arc_loss + lab_loss
                 gloss += loss.item()
 
+                mask = heads.ne(dev_set.PAD_IDX)
+                accZ = mask.sum().item()
                 # greedy arc accurracy (without parsing)
-                _, pred = arc_scores.max(dim=-2)
-                mask = (heads != dev_set.PAD_IDX).float()
-                arc_accurracy = torch.sum((pred == heads).float() * mask, dim=-1)
-                arc_acc += torch.sum(arc_accurracy).item()
+                arc_pred = arc_scores.argmax(dim=-2)
+                arc_accurracy = arc_pred.eq(heads).logical_and(mask).sum()
+                arc_acc += arc_accurracy.item()
 
                 # tagger accurracy
-                _, tag_pred = tagger_scores.max(dim=2)
-                # FIXME: do we really need to recompute the mask?
-                mask = (tags != dev_set.PAD_IDX).float()
-                tag_accurracy = torch.sum((tag_pred == tags).float() * mask, dim=-1)
-                tag_acc += torch.sum(tag_accurracy).item()
-                taggerZ += torch.sum(mask).item()
+                tag_pred = tagger_scores.argmax(dim=2)
+                tag_accurracy = tag_pred.eq(tags).logical_and(mask).sum()
+                tag_acc += tag_accurracy.item()
+                taggerZ += accZ
 
                 # greedy label accurracy (without parsing)
-                _, pred = lab_scores.max(dim=1)
-                pred = torch.gather(pred, 1, heads.unsqueeze(1)).squeeze(1)
-                # FIXME: do we really need to recompute the mask?
-                mask = (heads != dev_set.PAD_IDX).float()
-                lab_accurracy = torch.sum((pred == labels).float() * mask, dim=-1)
-                lab_acc += torch.sum(lab_accurracy).item()
-                arcsZ += torch.sum(mask).item()
+                lab_pred = lab_scores.argmax(dim=1)
+                lab_pred = torch.gather(lab_pred, 1, heads.unsqueeze(1)).squeeze(1)
+                lab_accurracy = lab_pred.eq(labels).logical_and(mask).sum()
+                lab_acc += lab_accurracy.item()
+                arcsZ += accZ
 
         return gloss / overall_size, tag_acc / taggerZ, arc_acc / arcsZ, lab_acc / arcsZ
 
@@ -505,7 +503,7 @@ class BiAffineParser(nn.Module):
                     )
                     _, mst_labels = selected.max(dim=0)
                     mst_labels = mst_labels.data.numpy()
-                    # edges          = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
+                    # edges = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
                     edges = [
                         (head, test_set.itolab[lbl], dep)
                         for (dep, head, lbl) in zip(
