@@ -402,7 +402,8 @@ class DependencyDataset:
     def __len__(self):
         return len(self.treelist)
 
-    def oracle_labels(self, depgraph: DepGraph) -> List[str]:
+    @staticmethod
+    def oracle_labels(depgraph: DepGraph) -> List[str]:
         """
         Returns a list where each element list[i] is the label of
         the position of the governor of the word at position i.
@@ -414,7 +415,8 @@ class DependencyDataset:
         rev_labels = dict([(dep, label) for (gov, label, dep) in edges])
         return [rev_labels.get(idx, DependencyDataset.PAD_TOKEN) for idx in range(N)]
 
-    def oracle_governors(self, depgraph: DepGraph) -> List[int]:
+    @staticmethod
+    def oracle_governors(depgraph: DepGraph) -> List[int]:
         """
         Returns a list where each element list[i] is the index of
         the position of the governor of the word at position i.
