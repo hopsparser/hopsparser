@@ -2,6 +2,7 @@ from random import shuffle
 from typing import Iterable, List, Tuple, overload
 
 import torch
+from torch.nn.utils.rnn import pad_sequence
 
 
 class DepGraph:
@@ -393,14 +394,12 @@ class DependencyDataset:
                 torch.tensor(padded_batchB, dtype=torch.long),
             )
         else:
-            sent_lengths = [len(sent) for sent in batch]
-            max_len = max(sent_lengths)
-            res = torch.full(
-                (len(batch), max_len), DependencyDataset.PAD_IDX, dtype=torch.long
+            tensorized_seqs = [torch.tensor(sent, dtype=torch.long) for sent in batch]
+            return pad_sequence(
+                tensorized_seqs,
+                padding_value=DependencyDataset.PAD_IDX,
+                batch_first=True,
             )
-            for i, (k, seq) in enumerate(zip(sent_lengths, batch)):
-                res[i, :k] = seq
-        return res
 
     def init_labels(self, treelist: Iterable[DepGraph]):
         self.itolab = gen_labels(treelist)
