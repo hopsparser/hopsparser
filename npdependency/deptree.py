@@ -267,7 +267,7 @@ class DependencyDataset:
             self.init_tags(self.treelist)
 
     def encode(self):
-        self.deps, self.heads, self.labels, self.tags = [], [], [], []
+        self.encoded_words, self.heads, self.labels, self.tags = [], [], [], []
         self.words, self.mwe_ranges, self.cats = [], [], []
 
         for tree in self.treelist:
@@ -284,7 +284,7 @@ class DependencyDataset:
             self.words.append(tree.words)
             self.cats.append(tree.pos_tags)
             self.tags.append(deptag_idxes)
-            self.deps.append(depword_idxes)
+            self.encoded_words.append(depword_idxes)
             self.heads.append(self.oracle_governors(tree))
             # the get defaulting to 0 is a hack for labels not found in training set
             self.labels.append(
@@ -308,10 +308,10 @@ class DependencyDataset:
     #     return itos, itolab, itotag
 
     def shuffle_data(self):
-        N = len(self.deps)
+        N = len(self.encoded_words)
         order = list(range(N))
         shuffle(order)
-        self.deps = [self.deps[i] for i in order]
+        self.encoded_words = [self.encoded_words[i] for i in order]
         self.tags = [self.tags[i] for i in order]
         self.heads = [self.heads[i] for i in order]
         self.labels = [self.labels[i] for i in order]
@@ -320,11 +320,11 @@ class DependencyDataset:
         self.mwe_ranges = [self.mwe_ranges[i] for i in order]
 
     def order_data(self):
-        N = len(self.deps)
+        N = len(self.encoded_words)
         order = list(range(N))
-        lengths = map(len, self.deps)
+        lengths = map(len, self.encoded_words)
         order = [idx for idx, L in sorted(zip(order, lengths), key=lambda x: x[1])]
-        self.deps = [self.deps[idx] for idx in order]
+        self.encoded_words = [self.encoded_words[idx] for idx in order]
         self.tags = [self.tags[idx] for idx in order]
         self.heads = [self.heads[idx] for idx in order]
         self.labels = [self.labels[idx] for idx in order]
@@ -347,12 +347,12 @@ class DependencyDataset:
         ):  # shuffling and ordering is relevant : it change the way ties are resolved and thus batch construction
             self.order_data()
 
-        N = len(self.deps)
+        N = len(self.encoded_words)
         batch_order = list(range(0, N, batch_size))
         if shuffle_batches:
             shuffle(batch_order)
         for i in batch_order:
-            deps = self.pad(self.deps[i : i + batch_size])
+            deps = self.pad(self.encoded_words[i : i + batch_size])
             tags = self.pad(self.tags[i : i + batch_size])
             heads = self.pad(self.heads[i : i + batch_size])
             labels = self.pad(self.labels[i : i + batch_size])
