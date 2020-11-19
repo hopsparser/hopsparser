@@ -318,6 +318,8 @@ class DefaultLexer(nn.Module):
            a list of integers
         """
         word_idxes = [self.stoi.get(token, self.unk_word_idx) for token in tok_sequence]
+        # FIXME: word dropout is probably better in forward, since that way it would change at every
+        # epoch
         if self._dpout > 0:
             word_idxes = [
                 word_sampler(widx, self.unk_word_idx, self._dpout)
@@ -546,14 +548,11 @@ class BertBaseLexer(nn.Module):
         Args:
            tok_sequence: a sequence of strings
         """
-        # FIXME: I think the padding here is mixed up with whatever happens to be self.stoi[0]
         word_idxes = [self.stoi.get(token, self.unk_word_idx) for token in tok_sequence]
-        # TODO: the root token should have a special embedding instead of unk
-        word_idxes[0] = self.unk_word_idx
 
         # We deal with the root token separately since the BERT model has no reason to know of it
         unrooted_tok_sequence = tok_sequence[1:]
-        # NOTE: for now the 🤗 tokenizer interface is not unified between dast and non-fast
+        # NOTE: for now the 🤗 tokenizer interface is not unified between fast and non-fast
         # tokenizers AND not all tokenizers support the fast mode, so we have to do this little
         # awkward dance. Eventually we should be able to remove the non-fast branch here.
         if self.bert_tokenizer.is_fast:
