@@ -515,13 +515,10 @@ class BiAffineParser(nn.Module):
                 unk_word=DependencyDataset.UNK_WORD,
             )
         else:
-            bert_model_name = hp["lexer"].split("/")[-1]
-            cased = hp.get("cased", "uncased" not in bert_model_name)
             lexer = BertBaseLexer(
                 itos=ordered_vocab,
                 embedding_size=hp["word_embedding_size"],
                 word_dropout=hp["word_dropout"],
-                cased=cased,
                 bert_modelfile=hp["lexer"],
                 bert_layers=hp.get("bert_layers", [4, 5, 6, 7]),
                 bert_weighted=hp.get("bert_weighted", False),
