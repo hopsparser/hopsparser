@@ -214,18 +214,9 @@ class BiAffineParser(nn.Module):
                     heads,
                     labels,
                 ) = batch
-                if type(encoded_words) == tuple:
-                    base_words, bert_subwords = encoded_words
-                    encoded_words = (
-                        base_words.to(self.device),
-                        bert_subwords.to(self.device),
-                    )
-                    # bc no masking at training
-                    overall_size += base_words.size(0) * base_words.size(1)
-                else:
-                    encoded_words = encoded_words.to(self.device)
-                    # bc no masking at training
-                    overall_size += encoded_words.size(0) * encoded_words.size(1)
+                encoded_words = encoded_words.to(self.device)
+                # bc no masking at training
+                overall_size += encoded_words.size(0) * encoded_words.size(1)
                 heads, labels, tags = (
                     heads.to(self.device),
                     labels.to(self.device),
@@ -252,7 +243,7 @@ class BiAffineParser(nn.Module):
 
                 # LABEL LOSS
                 # [batch, 1, 1, sent_len]
-                headsL = heads.unsqueeze(1).unsqueeze(2)  
+                headsL = heads.unsqueeze(1).unsqueeze(2)
                 # [batch, n_labels, 1, sent_len]
                 headsL = headsL.expand(-1, lab_scores.size(1), -1, -1)
                 # [batch, n_labels, sent_len]
@@ -323,18 +314,9 @@ class BiAffineParser(nn.Module):
                     heads,
                     labels,
                 ) = batch
-                if type(encoded_words) == tuple:
-                    base_words, bert_subwords = encoded_words
-                    encoded_words = (
-                        base_words.to(self.device),
-                        bert_subwords.to(self.device),
-                    )
-                    # bc no masking at training
-                    overall_size += base_words.size(0) * base_words.size(1)
-                else:
-                    encoded_words = encoded_words.to(self.device)
-                    # bc no masking at training
-                    overall_size += encoded_words.size(0) * encoded_words.size(1)
+                encoded_words = encoded_words.to(self.device)
+                # bc no masking at training
+                overall_size += encoded_words.size(0) * encoded_words.size(1)
                 heads, labels, tags = (
                     heads.to(self.device),
                     labels.to(self.device),
@@ -433,16 +415,8 @@ class BiAffineParser(nn.Module):
                     heads,
                     labels,
                 ) = batch
-                if type(encoded_words) == tuple:
-                    base_words, bert_subwords = encoded_words
-                    encoded_words = (
-                        base_words.to(self.device),
-                        bert_subwords.to(self.device),
-                    )
-                    sent_lengths = base_words.ne(test_set.PAD_IDX).sum(-1)
-                else:
-                    encoded_words = encoded_words.to(self.device)
-                    sent_lengths = encoded_words.ne(test_set.PAD_IDX).sum(-1)
+                encoded_words = encoded_words.to(self.device)
+                sent_lengths = [len(s) for s in words]
                 heads, labels, tags = (
                     heads.to(self.device),
                     labels.to(self.device),

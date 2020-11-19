@@ -1,4 +1,13 @@
-from typing import Generator, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import (
+    Generator,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 import torch
 import fasttext
 import os.path
@@ -353,6 +362,25 @@ def freeze_module(module, freezing: bool = True):
         module.train = type(module).train
 
 
+class BertLexerBatch(NamedTuple):
+    word_indices: torch.Tensor
+    bert_subword_indices: torch.Tensor
+
+    def to(self, *args, **kwargs):
+        return type(self)(
+            self.word_indices.to(*args, **kwargs),
+            self.bert_subword_indices.to(*args, **kwargs),
+        )
+    
+    def size(self, *args, **kwargs):
+        return self.word_indices.size(*args, **kwargs)
+
+
+class BertLexerSentence(NamedTuple):
+    word_indices: Sequence[int]
+    bert_subword_indices: Sequence[int]
+
+
 class BertBaseLexer(nn.Module):
     """
     This Lexer performs tokenization and embedding mapping with BERT
@@ -443,22 +471,22 @@ class BertBaseLexer(nn.Module):
 
     def pad_batch(
         self,
-        batch: Sequence[Tuple[Sequence[int], Sequence[int]]],
+        batch: Sequence[BertLexerSentence],
         padding_value: int = 0,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Pad a batch of sentences."""
         words_batch, bert_batch = [], []
-        for words_sent, bert_subwords_sent in batch:
-            words_batch.append(torch.tensor(words_sent, dtype=torch.long))
-            bert_batch.append(torch.tensor(bert_subwords_sent, dtype=torch.long))
-        return (
+        for sent in batch:
+            words_batch.append(torch.tensor(sent.word_indices, dtype=torch.long))
+            bert_batch.append(torch.tensor(sent.bert_subword_indices, dtype=torch.long))
+        return BertLexerBatch(
             pad_sequence(words_batch, batch_first=True, padding_value=padding_value),
             pad_sequence(
                 bert_batch, batch_first=True, padding_value=self.embedding.padding_idx
             ),
         )
 
-    def tokenize(self, tok_sequence: Sequence[str]) -> Tuple[List[int], List[int]]:
+    def tokenize(self, tok_sequence: Sequence[str]) -> BertLexerSentence:
         """
         This maps word tokens to integer indexes.
         When a word decomposes as multiple BPE units, we keep only the first (!)
@@ -492,7 +520,7 @@ class BertBaseLexer(nn.Module):
         # TODO: in the two line below, change unk to a spe
         word_idxes[0] = self.unk_word_idx
         bert_idxes[0] = 0
-        return (word_idxes, bert_idxes)
+        return BertLexerSentence(word_idxes, bert_idxes)
 
 
 Lexer = Union[DefaultLexer, BertBaseLexer]
