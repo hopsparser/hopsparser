@@ -509,8 +509,11 @@ class BertBaseLexer(nn.Module):
             )
         )
         for sent_n, alignment in enumerate(inpt.subword_alignments):
-            for word_n, span in enumerate(alignment):
-                # The indexing gives a tensor of shape `span.end-span.start×features` and we reduce it along the first dimension
+            # The word indices start at 1 because word 0 is the root token, for which we have no
+            # bert embedding (so we keep it at zero)
+            for word_n, span in enumerate(alignment, start=1):
+                # The indexing gives a tensor of shape `span.end-span.start×features` and we reduce
+                # it along the first dimension
                 bert_word_embedding = bert_subword_embeddings[
                     sent_n, span.start : span.end, ...
                 ].mean(dim=0)
@@ -548,23 +551,25 @@ class BertBaseLexer(nn.Module):
         # TODO: the root token should have a special embedding instead of unk
         word_idxes[0] = self.unk_word_idx
 
-        # TODO: we have to deal with the root token at some point here too
+        # We deal with the root token separately since the BERT model has no reason to know of it
+        unrooted_tok_sequence = tok_sequence[1:]
         # NOTE: for now the 🤗 tokenizer interface is not unified between dast and non-fast
         # tokenizers AND not all tokenizers support the fast mode, so we have to do this little
         # awkward dance. Eventually we should be able to remove the non-fast branch here.
         if self.bert_tokenizer.is_fast:
             bert_encoding = self.bert_tokenizer(
-                tok_sequence,
+                unrooted_tok_sequence,
                 is_split_into_words=True,
                 return_special_tokens_mask=True,
             )
             # TODO: there might be a better way to do this?
             alignments = [
-                bert_encoding.word_to_tokens(i) for i in range(len(tok_sequence))
+                bert_encoding.word_to_tokens(i)
+                for i in range(len(unrooted_tok_sequence))
             ]
         else:
             bert_tokens = [
-                self.bert_tokenizer.tokenize(token) for token in tok_sequence
+                self.bert_tokenizer.tokenize(token) for token in unrooted_tok_sequence
             ]
             bert_encoding = self.bert_tokenizer.encode_plus(
                 [subtoken for token in bert_tokens for subtoken in token],
