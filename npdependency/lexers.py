@@ -5,7 +5,6 @@ from typing import (
     NamedTuple,
     Optional,
     Sequence,
-    Tuple,
     Union,
 )
 import torch
@@ -15,6 +14,7 @@ import numpy as np
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoModel, AutoTokenizer
+from transformers.tokenization_utils_base import BatchEncoding, TokenSpan
 from collections import Counter
 from random import random  # nosec:B311
 from tempfile import gettempdir
@@ -23,7 +23,7 @@ from tempfile import gettempdir
 try:
     from typing import Final
 except ImportError:
-    from typing_extensions import Final
+    from typing_extensions import Final  # type: ignore
 
 
 def word_sampler(word_idx, unk_idx, dropout):
@@ -364,21 +364,53 @@ def freeze_module(module, freezing: bool = True):
 
 class BertLexerBatch(NamedTuple):
     word_indices: torch.Tensor
-    bert_subword_indices: torch.Tensor
+    bert_encoding: BatchEncoding
+    subword_alignments: Sequence[Sequence[TokenSpan]]
 
-    def to(self, *args, **kwargs):
+    def to(self, device: Union[str, torch.device]) -> "BertLexerBatch":
         return type(self)(
-            self.word_indices.to(*args, **kwargs),
-            self.bert_subword_indices.to(*args, **kwargs),
+            self.word_indices.to(device=device),
+            self.bert_encoding.to(device=device),
+            self.subword_alignments,
         )
-    
+
     def size(self, *args, **kwargs):
         return self.word_indices.size(*args, **kwargs)
 
 
 class BertLexerSentence(NamedTuple):
     word_indices: Sequence[int]
-    bert_subword_indices: Sequence[int]
+    bert_encoding: BatchEncoding
+    subwords_alignments: Sequence[TokenSpan]
+
+
+def align_with_special_tokens(
+    word_lengths: Sequence[int],
+    mask=Sequence[int],
+    special_tokens_code: int = 1,
+    sequence_tokens_code: int = 0,
+) -> List[TokenSpan]:
+    """Provide a word→subwords alignements using an encoded sentence special tokens mask.
+
+    This is only useful for the non-fast 🤗 tokenizers, since the fast ones have native APIs to do
+    that, we also return 🤗 )`TokenSpan`s for compatibility with this API.
+    """
+    res: List[TokenSpan] = []
+    pos = 0
+    for length in word_lengths:
+        while mask[pos] == special_tokens_code:
+            pos += 1
+        word_end = pos + length
+        if any(token_type != sequence_tokens_code for token_type in mask[pos:word_end]):
+            raise ValueError(
+                "mask incompatible with tokenization:"
+                f" needed {length} true tokens (1) at position {pos},"
+                f" got {mask[pos:word_end]} instead"
+            )
+        res.append(TokenSpan(pos, word_end))
+        pos = word_end
+
+    return res
 
 
 class BertBaseLexer(nn.Module):
@@ -441,66 +473,108 @@ class BertBaseLexer(nn.Module):
             self._dpout = 0.0
         return super().train(mode)
 
-    def forward(self, coupled_sequences):
+    def forward(self, inpt: BertLexerBatch) -> torch.Tensor:
         """
         Takes words sequences codes as integer sequences and returns
         the embeddings from the last (top) BERT layer.
         """
-        word_idxes, bert_idxes = coupled_sequences
-        bert_layers = self.bert(bert_idxes, return_dict=True).hidden_states
+        word_embeddings = self.embedding(inpt.word_indices)
+        bert_layers = self.bert(
+            input_ids=inpt.bert_encoding["input_ids"], return_dict=True
+        ).hidden_states
         # Shape: layers×batch×sequence×features
         selected_bert_layers = torch.stack(
             [bert_layers[i] for i in self.bert_layers], 0
         )
+
         if self.bert_weighted:
             # Torch has no equivalent to `np.average` so this is somewhat annoying
             # ! FIXME: recomputing the softmax for every batch is needed at train time but is wasting
             # ! time in eval
             # Shape: layers
             normal_weights = self.layer_weights.softmax(dim=0)
-            # shape: batch×sequence×features
-            bertE = self.layers_gamma * torch.einsum(
+            # shape: batch×subwords_sequence×features
+            bert_subword_embeddings = self.layers_gamma * torch.einsum(
                 "l,lbsf->bsf", normal_weights, selected_bert_layers
             )
         else:
-            bertE = selected_bert_layers.mean(dim=0)
-        wordE = self.embedding(word_idxes)
-        return torch.cat((wordE, bertE), dim=2)
+            bert_subword_embeddings = selected_bert_layers.mean(dim=0)
+        # We already know the shape the BERT embeddings should have and we pad with zeros
+        # shape: batch×sentence×features
+        bert_embeddings = word_embeddings.new_zeros(
+            (
+                word_embeddings.shape[0],
+                word_embeddings.shape[1],
+                bert_subword_embeddings.shape[2],
+            )
+        )
+        for sent_n, alignment in enumerate(inpt.subword_alignments):
+            for word_n, span in enumerate(alignment):
+                # The indexing gives a tensor of shape `span.end-span.start×features` and we reduce it along the first dimension
+                bert_word_embedding = bert_subword_embeddings[
+                    sent_n, span.start : span.end, ...
+                ].mean(dim=0)
+                bert_embeddings[sent_n, word_n, ...] = bert_word_embedding
+
+        return torch.cat((word_embeddings, bert_embeddings), dim=2)
 
     def pad_batch(
         self,
         batch: Sequence[BertLexerSentence],
         padding_value: int = 0,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> BertLexerBatch:
         """Pad a batch of sentences."""
-        words_batch, bert_batch = [], []
+        words_batch, bert_batch, alignments = [], [], []
         for sent in batch:
             words_batch.append(torch.tensor(sent.word_indices, dtype=torch.long))
-            bert_batch.append(torch.tensor(sent.bert_subword_indices, dtype=torch.long))
+            bert_batch.append(sent.bert_encoding)
+            alignments.append(sent.subwords_alignments)
+        bert_encoding = self.bert_tokenizer.pad(bert_batch)
+        bert_encoding.convert_to_tensors("pt")
         return BertLexerBatch(
             pad_sequence(words_batch, batch_first=True, padding_value=padding_value),
-            pad_sequence(
-                bert_batch, batch_first=True, padding_value=self.embedding.padding_idx
-            ),
+            bert_encoding,
+            alignments,
         )
 
     def tokenize(self, tok_sequence: Sequence[str]) -> BertLexerSentence:
         """
         This maps word tokens to integer indexes.
-        When a word decomposes as multiple BPE units, we keep only the first (!)
         Args:
            tok_sequence: a sequence of strings
-        Returns:
-           a list of integers
         """
         # FIXME: I think the padding here is mixed up with whatever happens to be self.stoi[0]
         word_idxes = [self.stoi.get(token, self.unk_word_idx) for token in tok_sequence]
-        bert_tokens = [
-            self.bert_tokenizer.tokenize(token) for token in tok_sequence
-        ]
-        bert_idxes = [
-            self.bert_tokenizer.convert_tokens_to_ids(token)[0] for token in bert_tokens
-        ]
+        # TODO: the root token should have a special embedding instead of unk
+        word_idxes[0] = self.unk_word_idx
+
+        # TODO: we have to deal with the root token at some point here too
+        # NOTE: for now the 🤗 tokenizer interface is not unified between dast and non-fast
+        # tokenizers AND not all tokenizers support the fast mode, so we have to do this little
+        # awkward dance. Eventually we should be able to remove the non-fast branch here.
+        if self.bert_tokenizer.is_fast:
+            bert_encoding = self.bert_tokenizer(
+                tok_sequence,
+                is_split_into_words=True,
+                return_special_tokens_mask=True,
+            )
+            # TODO: there might be a better way to do this?
+            alignments = [
+                bert_encoding.word_to_tokens(i) for i in range(len(tok_sequence))
+            ]
+        else:
+            bert_tokens = [
+                self.bert_tokenizer.tokenize(token) for token in tok_sequence
+            ]
+            bert_encoding = self.bert_tokenizer.encode_plus(
+                [subtoken for token in bert_tokens for subtoken in token],
+                return_special_tokens_mask=True,
+            )
+            bert_word_lengths = [len(word) for word in bert_tokens]
+            alignments = align_with_special_tokens(
+                bert_word_lengths,
+                bert_encoding["special_tokens_mask"],
+            )
 
         if self._dpout:
             word_idxes = [
@@ -508,10 +582,7 @@ class BertBaseLexer(nn.Module):
                 for widx in word_idxes
             ]
 
-        # TODO: in the two line below, change unk to a spe
-        word_idxes[0] = self.unk_word_idx
-        bert_idxes[0] = 0
-        return BertLexerSentence(word_idxes, bert_idxes)
+        return BertLexerSentence(word_idxes, bert_encoding, alignments)
 
 
 Lexer = Union[DefaultLexer, BertBaseLexer]
