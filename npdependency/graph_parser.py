@@ -458,7 +458,7 @@ class BiAffineParser(nn.Module):
                         if greedy
                         else chuliu_edmonds(probs[:length, :length])
                     )
-                    mst_heads = np.pad(mst_heads, (0, batch_width - length)
+                    mst_heads = np.pad(mst_heads, (0, batch_width - length))
 
                     # Predict tags
                     tag_probs = tagger_scores.numpy()
