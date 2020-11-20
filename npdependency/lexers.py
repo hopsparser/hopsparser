@@ -2,6 +2,7 @@ from typing import (
     Generator,
     Iterable,
     List,
+    Literal,
     NamedTuple,
     Optional,
     Sequence,
@@ -425,13 +426,14 @@ class BertBaseLexer(nn.Module):
     def __init__(
         self,
         itos: Sequence[str],
+        unk_word: str,
         embedding_size: int,
         word_dropout: float,
-        bert_modelfile: str,
         bert_layers: Sequence[int],
+        bert_modelfile: str,
+        bert_subwords_reduction: Literal["first", "mean"],
         bert_weighted: bool,
         words_padding_idx: int,
-        unk_word: str,
     ):
 
         super(BertBaseLexer, self).__init__()
@@ -458,6 +460,8 @@ class BertBaseLexer(nn.Module):
         self._dpout = 0.0
 
         self.bert_layers = bert_layers
+        # TODO: check if the value is allowed?
+        self.bert_subwords_reduction = bert_subwords_reduction
         self.bert_weighted = bert_weighted
         self.layer_weights = nn.Parameter(
             torch.ones(len(bert_layers), dtype=torch.float),
@@ -514,12 +518,20 @@ class BertBaseLexer(nn.Module):
             # The word indices start at 1 because word 0 is the root token, for which we have no
             # bert embedding (so we keep it at zero)
             for word_n, span in enumerate(alignment, start=1):
-                # The indexing gives a tensor of shape `span.end-span.start×features` and we reduce
+                # shape: `span.end-span.start×features`
                 # it along the first dimension
-                bert_word_embedding = bert_subword_embeddings[
+                bert_word_embeddings = bert_subword_embeddings[
                     sent_n, span.start : span.end, ...
-                ].mean(dim=0)
-                bert_embeddings[sent_n, word_n, ...] = bert_word_embedding
+                ]
+                if self.bert_subwords_reduction == "first":
+                    reduced_bert_word_embedding = bert_word_embeddings[0, ...]
+                elif self.bert_subwords_reduction == "mean":
+                    reduced_bert_word_embedding = bert_word_embeddings.mean(dim=0)
+                else:
+                    raise ValueError(
+                        f"Unknown reduction {self.bert_subwords_reduction}"
+                    )
+                bert_embeddings[sent_n, word_n, ...] = reduced_bert_word_embedding
 
         return torch.cat((word_embeddings, bert_embeddings), dim=2)
 

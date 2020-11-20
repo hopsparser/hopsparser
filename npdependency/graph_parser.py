@@ -1,6 +1,6 @@
 import pathlib
 import sys
-from typing import Any, Dict, Union
+from typing import Any, Dict, Sequence, Union
 import yaml
 import argparse
 
@@ -80,23 +80,23 @@ class BiAffineParser(nn.Module):
 
     def __init__(
         self,
-        lexer,
-        charset,
-        char_rnn,
-        ft_lexer,
-        tagset,
-        encoder_dropout,  # lstm dropout
-        mlp_input,
-        mlp_tag_hidden,
-        mlp_arc_hidden,
-        mlp_lab_hidden,
-        mlp_dropout,
-        labels,
-        device,
+        lexer: Union[DefaultLexer, BertBaseLexer],
+        charset: CharDataSet,
+        char_rnn: CharRNN,
+        ft_lexer: FastTextTorch,
+        tagset: Sequence[str],
+        encoder_dropout: float,  # lstm dropout
+        mlp_input: int,
+        mlp_tag_hidden: int,
+        mlp_arc_hidden: int,
+        mlp_lab_hidden: int,
+        mlp_dropout: float,
+        labels: Sequence[str],
+        device: Union[str, torch.device],
     ):
 
         super(BiAffineParser, self).__init__()
-        self.device = torch.device(device) if type(device) == str else device
+        self.device = torch.device(device)
         self.lexer = lexer.to(self.device)
         self.dep_rnn = nn.LSTM(
             self.lexer.embedding_size
@@ -521,6 +521,7 @@ class BiAffineParser(nn.Module):
                 word_dropout=hp["word_dropout"],
                 bert_modelfile=hp["lexer"],
                 bert_layers=hp.get("bert_layers", [4, 5, 6, 7]),
+                bert_subwords_reduction=hp.get("bert_subwords_reduction", "first"),
                 bert_weighted=hp.get("bert_weighted", False),
                 words_padding_idx=DependencyDataset.PAD_IDX,
                 unk_word=DependencyDataset.UNK_WORD,
