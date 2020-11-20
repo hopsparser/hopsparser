@@ -1,6 +1,7 @@
+from npdependency.lexers import BertLexerBatch, BertLexerSentence
 import pathlib
 from random import shuffle
-from typing import Iterable, List, Union
+from typing import Iterable, List, NamedTuple, Sequence, Union
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -227,6 +228,18 @@ class DepGraph:
         return len(self.words)
 
 
+class DependencyBatch(NamedTuple):
+    words: List[List[str]]
+    mwe: List[List[str]]
+    chars: Sequence[torch.Tensor]
+    subwords: Sequence[torch.Tensor]
+    cats: List[List[str]]
+    encoded_words: Union[torch.Tensor, BertLexerBatch]
+    tags: torch.Tensor
+    heads: torch.Tensor
+    labels: torch.Tensor
+
+
 class DependencyDataset:
     """
     A representation of the DepBank for efficient processing.
@@ -275,6 +288,14 @@ class DependencyDataset:
             self.tagtoi = {tag: idx for idx, tag in enumerate(self.itotag)}
         else:
             self.init_tags(self.treelist)
+        self.encoded_words: List[Union[List[int], BertLexerSentence]] = []
+        self.heads: List[List[int]] = []
+        self.labels: List[List[int]] = []
+        self.tags: List[List[int]] = []
+        self.words: List[List[str]] = []
+        self.mwe_ranges: List[List[str]] = []
+        self.cats: List[List[str]] = []
+        self.encode()
 
     def encode(self):
         self.encoded_words, self.heads, self.labels, self.tags = [], [], [], []
@@ -303,10 +324,9 @@ class DependencyDataset:
             self.mwe_ranges.append(tree.mwe_ranges)
 
     def save_vocab(self, filename):
-        out = open(filename, "w")
-        print(" ".join(self.itolab), file=out)
-        print(" ".join(self.itotag), file=out)
-        out.close()
+        with open(filename, "w") as out:
+            print(" ".join(self.itolab), file=out)
+            print(" ".join(self.itotag), file=out)
 
     def shuffle_data(self):
         N = len(self.encoded_words)
@@ -339,8 +359,7 @@ class DependencyDataset:
         shuffle_batches: bool = False,
         shuffle_data: bool = True,
         order_by_length: bool = False,
-    ):
-        self.encode()
+    ) -> Iterable[DependencyBatch]:
         if shuffle_data:
             self.shuffle_data()
         # shuffling and ordering is relevant : it change the way ties are resolved and thus batch
@@ -353,25 +372,27 @@ class DependencyDataset:
         if shuffle_batches:
             shuffle(batch_order)
         for i in batch_order:
-            encoded_words = self.lexer.pad_batch(self.encoded_words[i : i + batch_size])
+            encoded_words = self.lexer.pad_batch(self.encoded_words[i : i + batch_size])  # type: ignore
             tags = self.pad(self.tags[i : i + batch_size])
             heads = self.pad(self.heads[i : i + batch_size])
             labels = self.pad(self.labels[i : i + batch_size])
             words = self.words[i : i + batch_size]
             mwe = self.mwe_ranges[i : i + batch_size]
             cats = self.cats[i : i + batch_size]
-            chars = self.char_dataset.batch_chars(self.words[i : i + batch_size])
-            subwords = self.ft_dataset.batch_sentences(self.words[i : i + batch_size])
-            yield (
-                words,
-                mwe,
-                chars,
-                subwords,
-                cats,
-                encoded_words,
-                tags,
-                heads,
-                labels,
+            chars = tuple(self.char_dataset.batch_chars(self.words[i : i + batch_size]))
+            subwords = tuple(
+                self.ft_dataset.batch_sentences(self.words[i : i + batch_size])
+            )
+            yield DependencyBatch(
+                words=words,
+                mwe=mwe,
+                chars=chars,
+                subwords=subwords,
+                cats=cats,
+                encoded_words=encoded_words,
+                tags=tags,
+                heads=heads,
+                labels=labels,
             )
 
     def pad(self, batch: List[List[int]]) -> torch.Tensor:

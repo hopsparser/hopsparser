@@ -162,6 +162,7 @@ class BiAffineParser(nn.Module):
         self.load_state_dict(state_dict)
 
     def forward(self, xwords, xchars, xft):
+        # FIXME: can't these be batched?
         """Computes char embeddings"""
         char_embed = torch.stack([self.char_rnn(column) for column in xchars], dim=1)
         """ Computes fasttext embeddings """
@@ -667,6 +668,7 @@ def main():
     else:
         overrides = dict()
 
+    # TODO: warn about unused parameters in config
     config_file = os.path.abspath(args.config_file)
     if args.train_file and args.out_dir:
         model_dir = os.path.join(args.out_dir, "model")
