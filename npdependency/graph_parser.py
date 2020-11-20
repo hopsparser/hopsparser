@@ -283,7 +283,7 @@ class BiAffineParser(nn.Module):
         self, train_set, dev_set, epochs, batch_size, lr, modelpath="test_model.pt"
     ):
 
-        print("start training", flush=True)
+        print(f"Start training on {self.device}", flush=True)
         loss_fnc = nn.CrossEntropyLoss(reduction="sum")
 
         optimizer = torch.optim.Adam(
