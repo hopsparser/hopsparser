@@ -192,7 +192,8 @@ class BiAffineParser(nn.Module):
 
         loss_fnc = nn.CrossEntropyLoss(reduction="sum")
 
-        # Note: the accurracy scoring is approximative and cannot be interpreted as an UAS/LAS score !
+        # Note: the accurracy scoring is approximative and cannot be interpreted as an UAS/LAS score
+        # Note: fun project: tracke the correlation between them
 
         self.eval()
 

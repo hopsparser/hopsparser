@@ -1,7 +1,7 @@
 from npdependency.lexers import BertLexerBatch, BertLexerSentence
 import pathlib
 from random import shuffle
-from typing import Iterable, List, NamedTuple, Sequence, Union
+from typing import Iterable, List, NamedTuple, Optional, Sequence, TextIO, Union
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -125,7 +125,7 @@ class DepGraph:
             closure.update(succ)
         return closure
 
-    def _gap_degree(self, node):
+    def _gap_degree(self, node: int) -> int:
         """
         Returns the gap degree of a node
         Args :
@@ -140,20 +140,20 @@ class DepGraph:
                     gd += 1
         return gd
 
-    def gap_degree(self):
+    def gap_degree(self) -> int:
         """
         Returns the gap degree of a tree (suboptimal)
         """
         return max(self._gap_degree(node) for node in self.gov2dep)
 
-    def is_projective(self):
+    def is_projective(self) -> bool:
         """
         Returns true if this tree is projective
         """
         return self.gap_degree() == 0
 
-    @staticmethod
-    def read_tree(istream):
+    @classmethod
+    def read_tree(cls, istream: TextIO) -> "DepGraph":
         """
         Reads a conll tree from input stream
         """
@@ -187,9 +187,7 @@ class DepGraph:
                     edges.append(
                         (int(dataline[6]), dataline[7], int(dataline[0]))
                     )  # shift indexes !
-        return DepGraph(
-            edges, words, pos_tags=postags, with_root=True, mwe_range=mwe_ranges
-        )
+        return cls(edges, words, pos_tags=postags, with_root=True, mwe_range=mwe_ranges)
 
     def __str__(self):
         """
@@ -271,8 +269,8 @@ class DependencyDataset:
         lexer: lexers.Lexer,
         char_dataset: lexers.CharDataSet,
         ft_dataset: lexers.FastTextDataSet,
-        use_labels=None,
-        use_tags=None,
+        use_labels: Optional[List[str]] = None,
+        use_tags: Optional[List[str]] = None,
     ):
         self.lexer = lexer
         self.char_dataset = char_dataset
@@ -328,31 +326,6 @@ class DependencyDataset:
             print(" ".join(self.itolab), file=out)
             print(" ".join(self.itotag), file=out)
 
-    def shuffle_data(self):
-        N = len(self.encoded_words)
-        order = list(range(N))
-        shuffle(order)
-        self.encoded_words = [self.encoded_words[i] for i in order]
-        self.tags = [self.tags[i] for i in order]
-        self.heads = [self.heads[i] for i in order]
-        self.labels = [self.labels[i] for i in order]
-        self.words = [self.words[i] for i in order]
-        self.cats = [self.cats[i] for i in order]
-        self.mwe_ranges = [self.mwe_ranges[i] for i in order]
-
-    def order_data(self):
-        N = len(self.encoded_words)
-        order = list(range(N))
-        lengths = map(len, self.encoded_words)
-        order = [idx for idx, L in sorted(zip(order, lengths), key=lambda x: x[1])]
-        self.encoded_words = [self.encoded_words[idx] for idx in order]
-        self.tags = [self.tags[idx] for idx in order]
-        self.heads = [self.heads[idx] for idx in order]
-        self.labels = [self.labels[idx] for idx in order]
-        self.words = [self.words[idx] for idx in order]
-        self.mwe_ranges = [self.mwe_ranges[idx] for idx in order]
-        self.cats = [self.cats[idx] for idx in order]
-
     def make_batches(
         self,
         batch_size: int,
@@ -360,28 +333,34 @@ class DependencyDataset:
         shuffle_data: bool = True,
         order_by_length: bool = False,
     ) -> Iterable[DependencyBatch]:
+        N = len(self.encoded_words)
+        order = list(range(N))
         if shuffle_data:
-            self.shuffle_data()
-        # shuffling and ordering is relevant : it change the way ties are resolved and thus batch
+            shuffle(order)
+
+        # shuffling then ordering is relevant : it change the way ties are resolved and thus batch
         # construction
         if order_by_length:
-            self.order_data()
+            order.sort(key=lambda i: len(self.encoded_words[i]))
 
-        N = len(self.encoded_words)
         batch_order = list(range(0, N, batch_size))
         if shuffle_batches:
             shuffle(batch_order)
+
         for i in batch_order:
-            encoded_words = self.lexer.pad_batch(self.encoded_words[i : i + batch_size])  # type: ignore
-            tags = self.pad(self.tags[i : i + batch_size])
-            heads = self.pad(self.heads[i : i + batch_size])
-            labels = self.pad(self.labels[i : i + batch_size])
-            words = self.words[i : i + batch_size]
-            mwe = self.mwe_ranges[i : i + batch_size]
-            cats = self.cats[i : i + batch_size]
-            chars = tuple(self.char_dataset.batch_chars(self.words[i : i + batch_size]))
+            batch_indices = order[i : i + batch_size]
+            encoded_words = self.lexer.pad_batch([self.encoded_words[j] for j in batch_indices])  # type: ignore
+            tags = self.pad([self.tags[j] for j in batch_indices])
+            heads = self.pad([self.heads[j] for j in batch_indices])
+            labels = self.pad([self.labels[j] for j in batch_indices])
+            words = [self.words[j] for j in batch_indices]
+            mwe = [self.mwe_ranges[j] for j in batch_indices]
+            cats = [self.cats[j] for j in batch_indices]
+            chars = tuple(
+                self.char_dataset.batch_chars([self.words[j] for j in batch_indices])
+            )
             subwords = tuple(
-                self.ft_dataset.batch_sentences(self.words[i : i + batch_size])
+                self.ft_dataset.batch_sentences([self.words[j] for j in batch_indices])
             )
             yield DependencyBatch(
                 words=words,
