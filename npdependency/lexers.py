@@ -150,6 +150,7 @@ class CharRNN(nn.Module):
         :return: a word embedding tensor
         """
         embeddings = self.char_embedding(xinput)
+        # ! FIXME: this does not take the padding into account
         outputs, (_, cembedding) = self.char_bilstm(embeddings)
         # TODO: why use the cell state and not the output state here?
         result = cembedding.view(-1, self.embedding_size)
