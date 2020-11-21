@@ -223,9 +223,10 @@ class FastTextTorch(nn.Module):
         weights = torch.from_numpy(fasttextmodel.get_input_matrix())
         # Note: `vocab_size` is the size of the actual fasttext vocabulary. In pratice, the
         # embeddings here have two more tokens in their vocabulary: one for padding and one for the
-        # special (root) tokens, both with embeddings initialized at 0 but trainable. (which does
-        # not necessarily make a lot of sense, since they should be handled by other lexers but is
-        # not a big issue either)
+        # special (root) tokens, both with embeddings initialized at 0 trainable. (which does not
+        # necessarily make a lot of sense, since they should be handled by other lexers but is not a
+        # big issue either) AND the padding embedding will stay at 0 since the padding embedding in
+        # `torch.nn.Embedding` never receives any gradient.
         self.vocab_size, self.embedding_size = weights.shape
         weights = torch.cat((weights, torch.zeros((2, self.embedding_size))), dim=0).to(
             torch.float
@@ -247,8 +248,9 @@ class FastTextTorch(nn.Module):
         :param xinput: a batch of subwords
         :return: the fasttext embeddings for this batch
         """
-        # maybe compute true means or sums, currently uses <pad> tokens into this mean...
-        return self.embeddings(xinput).sum(dim=1)
+        # Note: the padding embedding is 0 and should not be modified during training (as per the
+        # `torch.nn.Embedding` doc) so the mean here does not include padding tokens
+        return self.embeddings(xinput).mean(dim=1)
 
     @classmethod
     def loadmodel(cls, modelfile: str) -> "FastTextTorch":
