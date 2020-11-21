@@ -8,6 +8,7 @@ from typing import (
     Union,
 )
 import torch
+import torch.jit
 import fasttext
 import os.path
 import numpy as np
@@ -16,7 +17,6 @@ from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoModel, AutoTokenizer
 from transformers.tokenization_utils_base import BatchEncoding, TokenSpan
 from collections import Counter
-from random import random  # nosec:B311
 from tempfile import gettempdir
 
 # Python 3.7 shim
@@ -26,8 +26,10 @@ except ImportError:
     from typing_extensions import Final  # type: ignore
 
 
-def word_sampler(word_idx, unk_idx, dropout):
-    return unk_idx if random() < dropout else word_idx
+@torch.jit.script
+def integer_dropout(t: torch.Tensor, fill_value: int, p: float) -> torch.Tensor:
+    mask = torch.empty_like(t, dtype=torch.bool).bernoulli_(p)
+    return t.masked_fill(mask, fill_value)
 
 
 def make_vocab(
@@ -152,6 +154,7 @@ class CharRNN(nn.Module):
         return result
 
 
+# TODO: root/special token handling
 class FastTextDataSet:
     """
     Namespace for simulating a fasttext encoded dataset.
@@ -305,6 +308,8 @@ class DefaultLexer(nn.Module):
         """
         Takes words sequences codes as integer sequences and returns the embeddings
         """
+        if self._dpout:
+            word_sequences = integer_dropout(word_sequences, self.unk_word_idx, self._dpout)
         return self.embedding(word_sequences)
 
     def tokenize(self, tok_sequence: Sequence[str]) -> List[int]:
@@ -316,13 +321,6 @@ class DefaultLexer(nn.Module):
            a list of integers
         """
         word_idxes = [self.stoi.get(token, self.unk_word_idx) for token in tok_sequence]
-        # FIXME: word dropout is probably better in forward, since that way it would change at every
-        # epoch
-        if self._dpout > 0:
-            word_idxes = [
-                word_sampler(widx, self.unk_word_idx, self._dpout)
-                for widx in word_idxes
-            ]
         return word_idxes
 
     def pad_batch(self, batch: Sequence[Sequence[int]]) -> torch.Tensor:
@@ -481,7 +479,11 @@ class BertBaseLexer(nn.Module):
         Takes words sequences codes as integer sequences and returns
         the embeddings from the last (top) BERT layer.
         """
-        word_embeddings = self.embedding(inpt.word_indices)
+        word_indices = inpt.word_indices
+        if self._dpout:
+            word_indices = integer_dropout(word_indices, self.unk_word_idx, self._dpout)
+        word_embeddings = self.embedding(word_indices)
+
         bert_layers = self.bert(
             input_ids=inpt.bert_encoding["input_ids"], return_dict=True
         ).hidden_states
@@ -588,12 +590,6 @@ class BertBaseLexer(nn.Module):
                 bert_word_lengths,
                 bert_encoding["special_tokens_mask"],
             )
-
-        if self._dpout:
-            word_idxes = [
-                word_sampler(widx, self.unk_word_idx, self._dpout)
-                for widx in word_idxes
-            ]
 
         return BertLexerSentence(word_idxes, bert_encoding, alignments)
 
