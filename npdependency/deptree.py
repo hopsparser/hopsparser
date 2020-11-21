@@ -153,7 +153,7 @@ class DepGraph:
         return self.gap_degree() == 0
 
     @classmethod
-    def read_tree(cls, istream: TextIO) -> "DepGraph":
+    def read_tree(cls, istream: TextIO) -> Optional["DepGraph"]:
         """
         Reads a conll tree from input stream
         """
@@ -174,7 +174,7 @@ class DepGraph:
         for dataline in conll:
             if len(dataline) < 10:  # pads the dataline
                 dataline.extend(["-"] * (10 - len(dataline)))
-                dataline[6] = 0
+                dataline[6] = "0"
 
             if "-" in dataline[0]:
                 mwe_ranges.append(dataline[0].split("-") + [dataline[1]])
