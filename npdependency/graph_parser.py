@@ -733,6 +733,8 @@ def main():
             else:
                 raise ValueError(f"{args.fasttext} not found")
 
+            # NOTE: these include the [ROOT] token, which will thus automatically have a dedicated
+            # word embeddings in layers based on this vocab
             ordered_vocab = make_vocab(
                 [word for tree in traintrees for word in tree.words],
                 0,
@@ -756,7 +758,7 @@ def main():
 
         parser = BiAffineParser.from_config(config_file, overrides)
 
-        ft_dataset = FastTextDataSet(parser.ft_lexer)
+        ft_dataset = FastTextDataSet(parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN])
         trainset = DependencyDataset(
             traintrees,
             parser.lexer,
@@ -810,7 +812,8 @@ def main():
         parser = BiAffineParser.from_config(config_file, overrides)
         parser.eval()
         testtrees = DependencyDataset.read_conll(args.pred_file)
-        ft_dataset = FastTextDataSet(parser.ft_lexer)
+        # FIXME: the special tokens should be saved somewhere instead of hardcoded
+        ft_dataset = FastTextDataSet(parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN])
         testset = DependencyDataset(
             testtrees,
             parser.lexer,

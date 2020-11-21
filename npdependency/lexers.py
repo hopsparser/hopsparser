@@ -120,6 +120,8 @@ class CharDataSet:
         wordlist: Iterable[str],
         special_tokens: Optional[Iterable[str]] = None,
     ) -> "CharDataSet":
+        # FIXME: minor issue, but this way, if the special tokens appear in the word list, their
+        # character will be in the charset (and that might not be a good idea)
         charset = set((c for word in wordlist for c in word))
         return cls(sorted(charset), special_tokens=special_tokens)
 
@@ -161,16 +163,24 @@ class FastTextDataSet:
     By convention, the padding vector is the last element of the embedding matrix
     """
 
-    def __init__(self, fasttextmodel: "FastTextTorch"):
+    def __init__(
+        self,
+        fasttextmodel: "FastTextTorch",
+        special_tokens: Optional[Iterable[str]] = None,
+    ):
         self.fasttextmodel = fasttextmodel
-        self.PAD_IDX = self.fasttextmodel.vocab_size
+        self.special_tokens = set([] if special_tokens is None else special_tokens)
+        self.special_tokens_idx: Final[int] = self.fasttextmodel.vocab_size
+        self.pad_idx: Final[int] = self.fasttextmodel.vocab_size + 1
 
     def word2subcodes(self, token: str) -> torch.Tensor:
         """
         Turns a string into a list of subword codes.
         """
         if token == "":
-            return torch.tensor([self.PAD_IDX], dtype=torch.long)
+            return torch.tensor([self.pad_idx], dtype=torch.long)
+        elif token in self.special_tokens:
+            return torch.tensor([self.special_tokens_idx], dtype=torch.long)
         return self.fasttextmodel.subwords_idxes(token)
 
     def batch_tokens(self, token_sequence):
@@ -180,7 +190,7 @@ class FastTextDataSet:
         :return: a list of of list of codes (matrix with padding)
         """
         subcodes = [self.word2subcodes(token) for token in token_sequence]
-        return pad_sequence(subcodes, padding_value=self.PAD_IDX, batch_first=True)
+        return pad_sequence(subcodes, padding_value=self.pad_idx, batch_first=True)
 
     def batch_sentences(self, sent_batch: List[List[str]]) -> Iterable[torch.Tensor]:
         """
@@ -210,12 +220,19 @@ class FastTextTorch(nn.Module):
     def __init__(self, fasttextmodel: fasttext.FastText):
         super(FastTextTorch, self).__init__()
         self.fasttextmodel = fasttextmodel
-        weights = fasttextmodel.get_input_matrix()
+        weights = torch.from_numpy(fasttextmodel.get_input_matrix())
+        # Note: `vocab_size` is the size of the actual fasttext vocabulary. In pratice, the
+        # embeddings here have two more tokens in their vocabulary: one for padding and one for the
+        # special (root) tokens, both with embeddings initialized at 0 but trainable. (which does
+        # not necessarily make a lot of sense, since they should be handled by other lexers but is
+        # not a big issue either)
         self.vocab_size, self.embedding_size = weights.shape
-        weights = np.vstack((weights, np.zeros(self.embedding_size)))
+        weights = torch.cat((weights, torch.zeros((2, self.embedding_size))), dim=0).to(
+            torch.float
+        )
         self.embeddings = nn.Embedding.from_pretrained(
-            torch.from_numpy(weights), padding_idx=self.vocab_size
-        ).to(torch.float)
+            weights, padding_idx=self.vocab_size + 1
+        )
 
     def subwords_idxes(self, token: str) -> torch.Tensor:
         """
@@ -252,6 +269,7 @@ class FastTextTorch(nn.Module):
                 )
 
             print("Training fasttext model...")
+            # TODO: make the hyperparameters here configurable
             model = fasttext.train_unsupervised(
                 source_file, model="skipgram", neg=10, minCount=5, epoch=10
             )
@@ -266,6 +284,7 @@ class FastTextTorch(nn.Module):
             raise ValueError(f"{target_file} already exists!")
         else:
             print("Training fasttext model...")
+            # TODO: make the hyperparameters here configurable
             model = fasttext.train_unsupervised(
                 raw_text_path, model="skipgram", neg=10, minCount=5, epoch=10
             )
@@ -309,7 +328,9 @@ class DefaultLexer(nn.Module):
         Takes words sequences codes as integer sequences and returns the embeddings
         """
         if self._dpout:
-            word_sequences = integer_dropout(word_sequences, self.unk_word_idx, self._dpout)
+            word_sequences = integer_dropout(
+                word_sequences, self.unk_word_idx, self._dpout
+            )
         return self.embedding(word_sequences)
 
     def tokenize(self, tok_sequence: Sequence[str]) -> List[int]:
