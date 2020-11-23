@@ -232,6 +232,7 @@ class FastTextTorch(nn.Module):
         weights = torch.cat((weights, torch.zeros((2, self.embedding_size))), dim=0).to(
             torch.float
         )
+        weights.requires_grad = True
         self.embeddings = nn.Embedding.from_pretrained(
             weights, padding_idx=self.vocab_size + 1
         )
