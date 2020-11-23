@@ -11,7 +11,6 @@ import torch
 import torch.jit
 import fasttext
 import os.path
-import numpy as np
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoModel, AutoTokenizer
@@ -157,7 +156,6 @@ class CharRNN(nn.Module):
         return result
 
 
-# TODO: root/special token handling
 class FastTextDataSet:
     """
     Namespace for simulating a fasttext encoded dataset.
@@ -368,6 +366,8 @@ def freeze_module(module, freezing: bool = True):
       eval mode that you might want to use), you have to do that yourself.
     - Manually setting the submodules of a frozen module to train is not disabled, but if you want
       to do that, writing a custom freezing function is probably a better idea.
+    - Freezing does not save the parameters `requires_grad`, so if some parameters do not require
+      grad even at training, this will mess that up. Again, in that case, write a custom function.
     """
 
     # This will replace the module's train function when freezing
@@ -377,11 +377,9 @@ def freeze_module(module, freezing: bool = True):
     if freezing:
         module.eval()
         module.train = no_train
-        for p in module.parameters():
-            p.requires_grad = False
+        module.requires_grad_(False)
     else:
-        for p in module.parameters():
-            p.requires_grad = True
+        module.requires_grad_(True)
         module.train = type(module).train
 
 
