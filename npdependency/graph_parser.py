@@ -557,7 +557,7 @@ class BiAffineParser(nn.Module):
             mlp_arc_hidden=hp["mlp_arc_hidden"],
             mlp_lab_hidden=hp["mlp_lab_hidden"],
             mlp_dropout=hp["mlp_dropout"],
-            biased_biaffine=hp.get("biased_biaffine", False),
+            biased_biaffine=hp.get("biased_biaffine", True),
             device=hp["device"],
         )
         weights_file = config_dir / "model.pt"
