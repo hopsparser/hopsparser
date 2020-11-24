@@ -465,7 +465,7 @@ class BertBaseLexer(nn.Module):
             bert_modelfile, use_fast=True
         )
         # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
-        if isinstance(self.bert_tokenize, transformers.GPT2TokenizerFast):
+        if isinstance(self.bert_tokenizer, transformers.GPT2TokenizerFast):
             self.bert_tokenizer = AutoTokenizer.from_pretrained(
                 bert_modelfile, use_fast=True, add_prefix_space=True
             )
