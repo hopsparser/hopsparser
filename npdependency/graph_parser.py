@@ -45,7 +45,7 @@ class MLP(nn.Module):
 class BiAffine(nn.Module):
     """Biaffine attention layer."""
 
-    def __init__(self, input_dim: int, output_dim: int, bias: bool = True):
+    def __init__(self, input_dim: int, output_dim: int, bias: bool):
         super(BiAffine, self).__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -90,6 +90,7 @@ class BiAffineParser(nn.Module):
         mlp_lab_hidden: int,
         mlp_dropout: float,
         labels: Sequence[str],
+        biased_biaffine: bool,
         device: Union[str, torch.device],
     ):
 
@@ -133,8 +134,10 @@ class BiAffineParser(nn.Module):
         )
 
         # BiAffine layers
-        self.arc_biaffine = BiAffine(mlp_input, 1).to(self.device)
-        self.lab_biaffine = BiAffine(mlp_input, len(self.labels)).to(self.device)
+        self.arc_biaffine = BiAffine(mlp_input, 1, bias=biased_biaffine).to(self.device)
+        self.lab_biaffine = BiAffine(
+            mlp_input, len(self.labels), bias=biased_biaffine
+        ).to(self.device)
 
         # hyperparams for saving...
         self.mlp_input, self.mlp_arc_hidden, self.mlp_lab_hidden = (
@@ -542,19 +545,20 @@ class BiAffineParser(nn.Module):
         itolab = loadlist(config_dir / "labcodes.lst")
         itotag = loadlist(config_dir / "tagcodes.lst")
         parser = cls(
-            lexer,
-            ordered_charset,
-            char_rnn,
-            ft_lexer,
-            itotag,
-            hp["encoder_dropout"],
-            hp["mlp_input"],
-            hp["mlp_tag_hidden"],
-            hp["mlp_arc_hidden"],
-            hp["mlp_lab_hidden"],
-            hp["mlp_dropout"],
-            itolab,
-            hp["device"],
+            lexer=lexer,
+            charset=ordered_charset,
+            char_rnn=char_rnn,
+            ft_lexer=ft_lexer,
+            tagset=itotag,
+            labels=itolab,
+            encoder_dropout=hp["encoder_dropout"],
+            mlp_input=hp["mlp_input"],
+            mlp_tag_hidden=hp["mlp_tag_hidden"],
+            mlp_arc_hidden=hp["mlp_arc_hidden"],
+            mlp_lab_hidden=hp["mlp_lab_hidden"],
+            mlp_dropout=hp["mlp_dropout"],
+            biased_biaffine=hp.get("biased_biaffine", False),
+            device=hp["device"],
         )
         weights_file = config_dir / "model.pt"
         if weights_file.exists():
