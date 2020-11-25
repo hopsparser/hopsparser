@@ -224,15 +224,12 @@ class FastTextTorch(nn.Module):
         # Note: `vocab_size` is the size of the actual fasttext vocabulary. In pratice, the
         # embeddings here have two more tokens in their vocabulary: one for padding (embedding fixed
         # at 0, since the padding embedding never receive gradient in `nn.Embedding`) and one for
-        # the special (root) tokens
+        # the special (root) tokens, with values sampled accross the vocabulary
         self.vocab_size, self.embedding_size = weights.shape
-        root_embedding = weights.new_empty(
-            (
-                1,
-                self.embedding_size,
-            )
-        )
-        nn.init.xavier_normal_(root_embedding)
+        root_embedding = weights[
+            torch.randint(high=self.vocab_size, size=(self.embedding_size,)),
+            torch.arange(self.embedding_size),
+        ].unsqueeze(0)
         weights = torch.cat(
             (weights, torch.zeros((1, self.embedding_size)), root_embedding), dim=0
         ).to(torch.float)
