@@ -41,28 +41,26 @@ class MLP(nn.Module):
         return self.Wup(self.dropout(self.g(self.Wdown(input))))
 
 
-# FIXME: Why not `torch.nn.Bilinear(bias=False)`
-# Note: This is the biaffine layer used in Qi et al. (2018) rather than Dozat and Manning (2017).
-# HOWEVER, contrarily to what the equations in the former, their biaffine layer actually adds linear
-# terms (see
-# <https://github.com/tdozat/Parser-v3/blob/85c40a54075f07eed7cd84cebe2275fabf9ce336/parser/neural/classifiers.py#L205>)
+# Note: This is the biaffine layer used in Qi et al. (2018) and Dozat and Manning (2017).
 class BiAffine(nn.Module):
     """Biaffine attention layer."""
 
-    def __init__(self, input_dim, output_dim):
+    def __init__(self, input_dim: int, output_dim: int, bias: bool):
         super(BiAffine, self).__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
-        self.U = nn.Parameter(
-            torch.FloatTensor(output_dim, input_dim, input_dim)
-        )  # check init
-        nn.init.xavier_uniform_(self.U)
+        self.bias = bias
+        weight_input = input_dim + 1 if bias else input_dim
+        self.weight = nn.Parameter(
+            torch.FloatTensor(output_dim, weight_input, weight_input)
+        )
+        nn.init.xavier_uniform_(self.weight)
 
-    def forward(self, Rh, Rd):
-        Rh = Rh.unsqueeze(1)
-        Rd = Rd.unsqueeze(1)
-        S = Rh @ self.U @ Rd.transpose(-1, -2)
-        return S.squeeze(1)
+    def forward(self, h: torch.Tensor, d: torch.Tensor) -> torch.Tensor:
+        if self.bias:
+            h = torch.cat((h, h.new_ones((*h.shape[:-1], 1))), dim=-1)
+            d = torch.cat((d, d.new_ones((*d.shape[:-1], 1))), dim=-1)
+        return torch.einsum("bxi,oij,byj->boxy", h, self.weight, d)
 
 
 class Tagger(nn.Module):
@@ -92,6 +90,7 @@ class BiAffineParser(nn.Module):
         mlp_lab_hidden: int,
         mlp_dropout: float,
         labels: Sequence[str],
+        biased_biaffine: bool,
         device: Union[str, torch.device],
     ):
 
@@ -135,8 +134,10 @@ class BiAffineParser(nn.Module):
         )
 
         # BiAffine layers
-        self.arc_biaffine = BiAffine(mlp_input, 1).to(self.device)
-        self.lab_biaffine = BiAffine(mlp_input, len(self.labels)).to(self.device)
+        self.arc_biaffine = BiAffine(mlp_input, 1, bias=biased_biaffine).to(self.device)
+        self.lab_biaffine = BiAffine(
+            mlp_input, len(self.labels), bias=biased_biaffine
+        ).to(self.device)
 
         # hyperparams for saving...
         self.mlp_input, self.mlp_arc_hidden, self.mlp_lab_hidden = (
@@ -183,7 +184,7 @@ class BiAffineParser(nn.Module):
         lab_h = self.lab_mlp_h(dep_embeddings)
         lab_d = self.lab_mlp_d(dep_embeddings)
 
-        arc_scores = self.arc_biaffine(arc_h, arc_d)
+        arc_scores = self.arc_biaffine(arc_h, arc_d).squeeze(1)
         lab_scores = self.lab_biaffine(lab_h, lab_d)
 
         return tag_scores, arc_scores, lab_scores
@@ -544,19 +545,20 @@ class BiAffineParser(nn.Module):
         itolab = loadlist(config_dir / "labcodes.lst")
         itotag = loadlist(config_dir / "tagcodes.lst")
         parser = cls(
-            lexer,
-            ordered_charset,
-            char_rnn,
-            ft_lexer,
-            itotag,
-            hp["encoder_dropout"],
-            hp["mlp_input"],
-            hp["mlp_tag_hidden"],
-            hp["mlp_arc_hidden"],
-            hp["mlp_lab_hidden"],
-            hp["mlp_dropout"],
-            itolab,
-            hp["device"],
+            lexer=lexer,
+            charset=ordered_charset,
+            char_rnn=char_rnn,
+            ft_lexer=ft_lexer,
+            tagset=itotag,
+            labels=itolab,
+            encoder_dropout=hp["encoder_dropout"],
+            mlp_input=hp["mlp_input"],
+            mlp_tag_hidden=hp["mlp_tag_hidden"],
+            mlp_arc_hidden=hp["mlp_arc_hidden"],
+            mlp_lab_hidden=hp["mlp_lab_hidden"],
+            mlp_dropout=hp["mlp_dropout"],
+            biased_biaffine=hp.get("biased_biaffine", True),
+            device=hp["device"],
         )
         weights_file = config_dir / "model.pt"
         if weights_file.exists():
@@ -758,7 +760,9 @@ def main():
 
         parser = BiAffineParser.from_config(config_file, overrides)
 
-        ft_dataset = FastTextDataSet(parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN])
+        ft_dataset = FastTextDataSet(
+            parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN]
+        )
         trainset = DependencyDataset(
             traintrees,
             parser.lexer,
@@ -813,7 +817,9 @@ def main():
         parser.eval()
         testtrees = DependencyDataset.read_conll(args.pred_file)
         # FIXME: the special tokens should be saved somewhere instead of hardcoded
-        ft_dataset = FastTextDataSet(parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN])
+        ft_dataset = FastTextDataSet(
+            parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN]
+        )
         testset = DependencyDataset(
             testtrees,
             parser.lexer,
