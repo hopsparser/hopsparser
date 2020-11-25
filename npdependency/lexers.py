@@ -9,6 +9,7 @@ from typing import (
 )
 import torch
 import torch.jit
+import transformers
 import fasttext
 import os.path
 from torch import nn
@@ -463,6 +464,11 @@ class BertBaseLexer(nn.Module):
         self.bert_tokenizer = AutoTokenizer.from_pretrained(
             bert_modelfile, use_fast=True
         )
+        # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
+        if isinstance(self.bert_tokenizer, transformers.GPT2TokenizerFast):
+            self.bert_tokenizer = AutoTokenizer.from_pretrained(
+                bert_modelfile, use_fast=True, add_prefix_space=True
+            )
 
         self.BERT_PAD_IDX = self.bert_tokenizer.pad_token_id
         self.BERT_UNK_IDX = self.bert_tokenizer.unk_token_id
