@@ -222,15 +222,17 @@ class FastTextTorch(nn.Module):
         self.fasttextmodel = fasttextmodel
         weights = torch.from_numpy(fasttextmodel.get_input_matrix())
         # Note: `vocab_size` is the size of the actual fasttext vocabulary. In pratice, the
-        # embeddings here have two more tokens in their vocabulary: one for padding and one for the
-        # special (root) tokens, both with embeddings initialized at 0 trainable. (which does not
-        # necessarily make a lot of sense, since they should be handled by other lexers but is not a
-        # big issue either) AND the padding embedding will stay at 0 since the padding embedding in
-        # `torch.nn.Embedding` never receives any gradient.
+        # embeddings here have two more tokens in their vocabulary: one for padding (embedding fixed
+        # at 0, since the padding embedding never receive gradient in `nn.Embedding`) and one for
+        # the special (root) tokens, with values sampled accross the vocabulary
         self.vocab_size, self.embedding_size = weights.shape
-        weights = torch.cat((weights, torch.zeros((2, self.embedding_size))), dim=0).to(
-            torch.float
-        )
+        root_embedding = weights[
+            torch.randint(high=self.vocab_size, size=(self.embedding_size,)),
+            torch.arange(self.embedding_size),
+        ].unsqueeze(0)
+        weights = torch.cat(
+            (weights, torch.zeros((1, self.embedding_size)), root_embedding), dim=0
+        ).to(torch.float)
         weights.requires_grad = True
         self.embeddings = nn.Embedding.from_pretrained(
             weights, padding_idx=self.vocab_size + 1
@@ -542,9 +544,10 @@ class BertBaseLexer(nn.Module):
                 bert_subword_embeddings.shape[2],
             )
         )
+        bert_embeddings[:, 0, ...] = bert_subword_embeddings.mean(dim=1)
         for sent_n, alignment in enumerate(inpt.subword_alignments):
             # The word indices start at 1 because word 0 is the root token, for which we have no
-            # bert embedding (so we keep it at zero)
+            # bert embedding so we use the average of all subword embeddings
             for word_n, span in enumerate(alignment, start=1):
                 # shape: `span.end-span.start×features`
                 # it along the first dimension
