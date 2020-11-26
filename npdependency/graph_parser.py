@@ -564,7 +564,7 @@ class BiAffineParser(nn.Module):
         if weights_file.exists():
             parser.load_params(str(weights_file))
 
-        if hp.get("freeze_fasttext", True):
+        if hp.get("freeze_fasttext", False):
             freeze_module(ft_lexer)
         if hp.get("freeze_bert", False):
             try:
