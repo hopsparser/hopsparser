@@ -59,7 +59,7 @@ class CharDataSet:
         """
         charcodes = [self.word2charcodes(token) for token in toklist]
         sent_lengths = list(map(len, charcodes))
-        max_len = max(sent_lengths)
+        max_len = max(sent_lengths,1)
         padded_codes = []
         for k, seq in zip(sent_lengths, charcodes):
             padded = seq + (max_len - k) * [DependencyDataset.PAD_IDX]
