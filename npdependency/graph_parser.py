@@ -295,8 +295,8 @@ class BiAffineParser(nn.Module):
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
 
         for e in range(epochs):
-            TRAIN_LOSS = 0
-            BEST_ARC_ACC = 0
+            TRAIN_LOSS = 0.0
+            BEST_ARC_ACC = 0.0
             train_batches = train_set.make_batches(
                 batch_size,
                 shuffle_batches=True,
@@ -563,6 +563,8 @@ class BiAffineParser(nn.Module):
         weights_file = config_dir / "model.pt"
         if weights_file.exists():
             parser.load_params(str(weights_file))
+        else:
+            parser.save_params(str(weights_file))
 
         if hp.get("freeze_fasttext", False):
             freeze_module(ft_lexer)
