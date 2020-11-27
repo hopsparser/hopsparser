@@ -76,17 +76,17 @@ class CharDataSet:
     def word2charcodes(self, token: str) -> List[int]:
         """
         Turns a string into a list of char codes.
-        If the string is <pad> returns an empty list of char codes
         """
         if token in self.special_tokens:
             return [self.SPECIAL_TOKENS_IDX]
-        return [self.c2idx[c] for c in token if c in self.c2idx]
+        res = [self.c2idx[c] for c in token if c in self.c2idx]
+        if not res:
+            return [self.PAD_IDX]
+        return res
 
     def batchedtokens2codes(self, toklist: List[str]) -> torch.Tensor:
         """
         Codes a list of tokens as a batch of lists of charcodes and pads them if needed
-        :param toklist:
-        :return:
         """
         charcodes = [
             torch.tensor(self.word2charcodes(token), dtype=torch.long)
