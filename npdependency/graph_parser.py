@@ -1,6 +1,6 @@
 import pathlib
 import sys
-from typing import Any, Dict, Sequence, Union
+from typing import Any, Dict, Sequence, TextIO, Tuple, Union
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import yaml
 import argparse
@@ -163,7 +163,9 @@ class BiAffineParser(nn.Module):
             )
         self.load_state_dict(state_dict)
 
-    def forward(self, xwords, xchars, xft, sent_lengths: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, xwords, xchars, xft, sent_lengths: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Computes char embeddings
         char_embed = torch.stack([self.char_rnn(column) for column in xchars], dim=1)
         # Computes fasttext embeddings
@@ -193,7 +195,7 @@ class BiAffineParser(nn.Module):
 
         return tag_scores, arc_scores, lab_scores
 
-    def eval_model(self, dev_set, batch_size):
+    def eval_model(self, dev_set: DependencyDataset, batch_size: int):
 
         loss_fnc = nn.CrossEntropyLoss(reduction="sum")
 
@@ -288,7 +290,13 @@ class BiAffineParser(nn.Module):
         return gloss / overall_size, tag_acc / accZ, arc_acc / accZ, lab_acc / accZ
 
     def train_model(
-        self, train_set, dev_set, epochs, batch_size, lr, modelpath="test_model.pt"
+        self,
+        train_set: DependencyDataset,
+        dev_set: DependencyDataset,
+        epochs: int,
+        batch_size: int,
+        lr: float,
+        modelpath="test_model.pt",
     ):
 
         print(f"Start training on {self.device}", flush=True)
@@ -405,7 +413,13 @@ class BiAffineParser(nn.Module):
         self.load_params(modelpath)
         self.save_params(modelpath)
 
-    def predict_batch(self, test_set, ostream, batch_size, greedy=False):
+    def predict_batch(
+        self,
+        test_set: DependencyDataset,
+        ostream: TextIO,
+        batch_size: int,
+        greedy: bool = False,
+    ):
 
         self.eval()
         test_batches = test_set.make_batches(
