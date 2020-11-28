@@ -1,6 +1,6 @@
 import pathlib
 import sys
-from typing import Any, Dict, Sequence, TextIO, Tuple, Union
+from typing import Any, Dict, Iterable, Sequence, TextIO, Tuple, Union
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import yaml
 import argparse
@@ -18,6 +18,7 @@ from npdependency.mst import chuliu_edmonds_one_root as chuliu_edmonds
 
 from npdependency.lexers import (
     BertBaseLexer,
+    BertLexerBatch,
     CharDataSet,
     CharRNN,
     DefaultLexer,
@@ -164,7 +165,11 @@ class BiAffineParser(nn.Module):
         self.load_state_dict(state_dict)
 
     def forward(
-        self, xwords, xchars, xft, sent_lengths: torch.Tensor
+        self,
+        xwords: Union[torch.Tensor, BertLexerBatch],
+        xchars: Iterable[torch.Tensor],
+        xft: Iterable[torch.Tensor],
+        sent_lengths: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Computes char embeddings
         char_embed = torch.stack([self.char_rnn(column) for column in xchars], dim=1)
@@ -271,17 +276,17 @@ class BiAffineParser(nn.Module):
 
                 mask = heads.ne(dev_set.PAD_IDX)
                 accZ += mask.sum().item()
-                # greedy arc accurracy (without parsing)
+                # greedy arc accuracy (without parsing)
                 arc_pred = arc_scores.argmax(dim=-2)
                 arc_accurracy = arc_pred.eq(heads).logical_and(mask).sum()
                 arc_acc += arc_accurracy.item()
 
-                # tagger accurracy
+                # tagger accuracy
                 tag_pred = tagger_scores.argmax(dim=2)
                 tag_accurracy = tag_pred.eq(tags).logical_and(mask).sum()
                 tag_acc += tag_accurracy.item()
 
-                # greedy label accurracy (without parsing)
+                # greedy label accuracy (without parsing)
                 lab_pred = lab_scores.argmax(dim=1)
                 lab_pred = torch.gather(lab_pred, 1, heads.unsqueeze(1)).squeeze(1)
                 lab_accurracy = lab_pred.eq(labels).logical_and(mask).sum()
@@ -400,7 +405,7 @@ class BiAffineParser(nn.Module):
                 "valid label acc",
                 DEV_LAB_ACC,
                 "Base LR",
-                scheduler.get_lr()[0],
+                scheduler.get_last_lr()[0],
                 flush=True,
             )
 
@@ -441,7 +446,6 @@ class BiAffineParser(nn.Module):
                     sent_lengths,
                 ) = batch
                 encoded_words = encoded_words.to(self.device)
-                sent_lengths = [len(s) for s in words]
                 heads, labels, tags = (
                     heads.to(self.device),
                     labels.to(self.device),
