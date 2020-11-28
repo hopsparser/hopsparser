@@ -1,6 +1,7 @@
 import pathlib
 import sys
 from typing import Any, Dict, Sequence, Union
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import yaml
 import argparse
 
@@ -162,23 +163,26 @@ class BiAffineParser(nn.Module):
             )
         self.load_state_dict(state_dict)
 
-    def forward(self, xwords, xchars, xft):
-        # FIXME: can't these be batched?
-        """Computes char embeddings"""
+    def forward(self, xwords, xchars, xft, sent_lengths: torch.Tensor) -> torch.Tensor:
+        # Computes char embeddings
         char_embed = torch.stack([self.char_rnn(column) for column in xchars], dim=1)
-        """ Computes fasttext embeddings """
+        # Computes fasttext embeddings
         ft_embed = torch.stack([self.ft_lexer(column) for column in xft], dim=1)
-        """ Computes word embeddings """
+        # Computes word embeddings
         lex_emb = self.lexer(xwords)
 
-        """ Encodes input for tagging and parsing """
+        # Encodes input for tagging and parsing
         xinput = torch.cat((lex_emb, char_embed, ft_embed), dim=2)
-        dep_embeddings, _ = self.dep_rnn(xinput)
+        packed_xinput = pack_padded_sequence(
+            xinput, sent_lengths, batch_first=True, enforce_sorted=False
+        )
+        packed_dep_embeddings, _ = self.dep_rnn(packed_xinput)
+        dep_embeddings, _ = pad_packed_sequence(packed_dep_embeddings, batch_first=True)
 
-        """ Tagging """
+        # Tagging
         tag_scores = self.pos_tagger(dep_embeddings)
 
-        """Compute the score matrices for the arcs and labels."""
+        # Compute the score matrices for the arcs and labels.
         arc_h = self.arc_mlp_h(dep_embeddings)
         arc_d = self.arc_mlp_d(dep_embeddings)
         lab_h = self.lab_mlp_h(dep_embeddings)
@@ -216,6 +220,7 @@ class BiAffineParser(nn.Module):
                     tags,
                     heads,
                     labels,
+                    sent_lengths,
                 ) = batch
                 encoded_words = encoded_words.to(self.device)
                 # bc no masking at training
@@ -229,7 +234,7 @@ class BiAffineParser(nn.Module):
                 subwords = [token.to(self.device) for token in subwords]
                 # preds
                 tagger_scores, arc_scores, lab_scores = self(
-                    encoded_words, chars, subwords
+                    encoded_words, chars, subwords, sent_lengths
                 )
 
                 # get global loss
@@ -297,6 +302,7 @@ class BiAffineParser(nn.Module):
         for e in range(epochs):
             TRAIN_LOSS = 0.0
             BEST_ARC_ACC = 0.0
+            # FIXME: why order by length here?
             train_batches = train_set.make_batches(
                 batch_size,
                 shuffle_batches=True,
@@ -316,6 +322,7 @@ class BiAffineParser(nn.Module):
                     tags,
                     heads,
                     labels,
+                    sent_lengths,
                 ) = batch
                 encoded_words = encoded_words.to(self.device)
                 # bc no masking at training
@@ -330,7 +337,7 @@ class BiAffineParser(nn.Module):
 
                 # FORWARD
                 tagger_scores, arc_scores, lab_scores = self(
-                    encoded_words, chars, subwords
+                    encoded_words, chars, subwords, sent_lengths
                 )
 
                 # ARC LOSS
@@ -417,6 +424,7 @@ class BiAffineParser(nn.Module):
                     tags,
                     heads,
                     labels,
+                    sent_lengths,
                 ) = batch
                 encoded_words = encoded_words.to(self.device)
                 sent_lengths = [len(s) for s in words]
@@ -430,7 +438,10 @@ class BiAffineParser(nn.Module):
 
                 # batch prediction
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = self(
-                    encoded_words, chars, subwords
+                    encoded_words,
+                    chars,
+                    subwords,
+                    sent_lengths,
                 )
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = (
                     tagger_scores_batch.cpu(),

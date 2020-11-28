@@ -236,6 +236,7 @@ class DependencyBatch(NamedTuple):
     tags: torch.Tensor
     heads: torch.Tensor
     labels: torch.Tensor
+    sent_lengths: torch.Tensor
 
 
 class DependencyDataset:
@@ -362,6 +363,7 @@ class DependencyDataset:
             subwords = tuple(
                 self.ft_dataset.batch_sentences([self.words[j] for j in batch_indices])
             )
+            sent_lengths = torch.tensor([len(self.encoded_words[j]) for j in batch_indices])
             yield DependencyBatch(
                 words=words,
                 mwe=mwe,
@@ -372,6 +374,7 @@ class DependencyDataset:
                 tags=tags,
                 heads=heads,
                 labels=labels,
+                sent_lengths=sent_lengths
             )
 
     def pad(self, batch: List[List[int]]) -> torch.Tensor:
