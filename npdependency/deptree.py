@@ -363,7 +363,7 @@ class DependencyDataset:
             subwords = tuple(
                 self.ft_dataset.batch_sentences([self.words[j] for j in batch_indices])
             )
-            sent_lengths = torch.tensor([len(self.encoded_words[j]) for j in batch_indices])
+            sent_lengths = torch.tensor([len(self.words[j]) for j in batch_indices])
             yield DependencyBatch(
                 words=words,
                 mwe=mwe,
