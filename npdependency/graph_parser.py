@@ -210,7 +210,7 @@ class BiAffineParser(nn.Module):
         self.eval()
 
         dev_batches = dev_set.make_batches(
-            batch_size, shuffle_batches=True, shuffle_data=True, order_by_length=True
+            batch_size, shuffle_batches=False, shuffle_data=False, order_by_length=True
         )
         tag_acc, arc_acc, lab_acc, gloss, accZ = 0, 0, 0, 0, 0
         overall_size = 0
@@ -320,7 +320,7 @@ class BiAffineParser(nn.Module):
                 batch_size,
                 shuffle_batches=True,
                 shuffle_data=True,
-                order_by_length=True,
+                order_by_length=False,
             )
             overall_size = 0
             self.train()
