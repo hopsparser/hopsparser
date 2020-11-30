@@ -12,7 +12,6 @@ import numpy as np
 
 import torch
 from torch import nn
-from torch.autograd import Variable
 
 from npdependency.mst import chuliu_edmonds_one_root as chuliu_edmonds
 
@@ -307,6 +306,7 @@ class BiAffineParser(nn.Module):
         print(f"Start training on {self.device}", flush=True)
         loss_fnc = nn.CrossEntropyLoss(reduction="sum")
 
+        # TODO: make these configurable?
         optimizer = torch.optim.Adam(
             self.parameters(), betas=(0.9, 0.9), lr=lr, eps=1e-09
         )
@@ -380,6 +380,8 @@ class BiAffineParser(nn.Module):
                 labels = labels.view(-1)
                 lab_loss = loss_fnc(lab_scores, labels)
 
+                # TODO: see if other loss combination functions wouldn't help here, e.g.
+                # <https://arxiv.org/abs/1805.06334>
                 loss = tagger_loss + arc_loss + lab_loss
 
                 optimizer.zero_grad()
@@ -427,9 +429,10 @@ class BiAffineParser(nn.Module):
     ):
 
         self.eval()
+        # keep natural order here
         test_batches = test_set.make_batches(
             batch_size, shuffle_batches=False, shuffle_data=False, order_by_length=False
-        )  # keep natural order here
+        )
 
         with torch.no_grad():
             for batch in test_batches:
@@ -493,22 +496,18 @@ class BiAffineParser(nn.Module):
                     mst_heads = np.pad(mst_heads, (0, batch_width - length))
 
                     # Predict tags
-                    tag_probs = tagger_scores.numpy()
-                    tag_idxes = np.argmax(tag_probs, axis=1)
+                    tag_idxes = tagger_scores.argmax(dim=1)
                     pos_tags = [test_set.itotag[idx] for idx in tag_idxes]
                     # Predict labels
                     select = (
-                        torch.LongTensor(mst_heads)
+                        torch.from_numpy(mst_heads)
                         .unsqueeze(0)
                         .expand(lab_scores.size(0), -1)
                     )
-                    select = Variable(select)
                     selected = torch.gather(lab_scores, 1, select.unsqueeze(1)).squeeze(
                         1
                     )
-                    _, mst_labels = selected.max(dim=0)
-                    mst_labels = mst_labels.data.numpy()
-                    # edges = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
+                    mst_labels = selected.argmax(dim=0)
                     edges = [
                         (head, test_set.itolab[lbl], dep)
                         for (dep, head, lbl) in zip(
@@ -628,7 +627,7 @@ class GridSearch:
             else:
                 for elt in setuplist:
                     elt.append(value)
-        print("#%d" % (len(setuplist)), "runs to be performed")
+        print(f"#{len(setuplist)} runs to be performed")
 
         for setup in setuplist:
             yield dict(zip(K, setup))
