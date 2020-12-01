@@ -1,6 +1,7 @@
 import pathlib
 import sys
-from typing import Any, Dict, Union
+from typing import Any, Dict, Iterable, Sequence, TextIO, Tuple, Union
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import yaml
 import argparse
 
@@ -11,12 +12,12 @@ import numpy as np
 
 import torch
 from torch import nn
-from torch.autograd import Variable
 
 from npdependency.mst import chuliu_edmonds_one_root as chuliu_edmonds
 
 from npdependency.lexers import (
     BertBaseLexer,
+    BertLexerBatch,
     CharDataSet,
     CharRNN,
     DefaultLexer,
@@ -41,28 +42,26 @@ class MLP(nn.Module):
         return self.Wup(self.dropout(self.g(self.Wdown(input))))
 
 
-# FIXME: Why not `torch.nn.Bilinear(bias=False)`
-# Note: This is the biaffine layer used in Qi et al. (2018) rather than Dozat and Manning (2017).
-# HOWEVER, contrarily to what the equations in the former, their biaffine layer actually adds linear
-# terms (see
-# <https://github.com/tdozat/Parser-v3/blob/85c40a54075f07eed7cd84cebe2275fabf9ce336/parser/neural/classifiers.py#L205>)
+# Note: This is the biaffine layer used in Qi et al. (2018) and Dozat and Manning (2017).
 class BiAffine(nn.Module):
     """Biaffine attention layer."""
 
-    def __init__(self, input_dim, output_dim):
+    def __init__(self, input_dim: int, output_dim: int, bias: bool):
         super(BiAffine, self).__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
-        self.U = nn.Parameter(
-            torch.FloatTensor(output_dim, input_dim, input_dim)
-        )  # check init
-        nn.init.xavier_uniform_(self.U)
+        self.bias = bias
+        weight_input = input_dim + 1 if bias else input_dim
+        self.weight = nn.Parameter(
+            torch.FloatTensor(output_dim, weight_input, weight_input)
+        )
+        nn.init.xavier_uniform_(self.weight)
 
-    def forward(self, Rh, Rd):
-        Rh = Rh.unsqueeze(1)
-        Rd = Rd.unsqueeze(1)
-        S = Rh @ self.U @ Rd.transpose(-1, -2)
-        return S.squeeze(1)
+    def forward(self, h: torch.Tensor, d: torch.Tensor) -> torch.Tensor:
+        if self.bias:
+            h = torch.cat((h, h.new_ones((*h.shape[:-1], 1))), dim=-1)
+            d = torch.cat((d, d.new_ones((*d.shape[:-1], 1))), dim=-1)
+        return torch.einsum("bxi,oij,byj->boxy", h, self.weight, d)
 
 
 class Tagger(nn.Module):
@@ -80,23 +79,24 @@ class BiAffineParser(nn.Module):
 
     def __init__(
         self,
-        lexer,
-        charset,
-        char_rnn,
-        ft_lexer,
-        tagset,
-        encoder_dropout,  # lstm dropout
-        mlp_input,
-        mlp_tag_hidden,
-        mlp_arc_hidden,
-        mlp_lab_hidden,
-        mlp_dropout,
-        labels,
-        device,
+        lexer: Union[DefaultLexer, BertBaseLexer],
+        charset: CharDataSet,
+        char_rnn: CharRNN,
+        ft_lexer: FastTextTorch,
+        tagset: Sequence[str],
+        encoder_dropout: float,  # lstm dropout
+        mlp_input: int,
+        mlp_tag_hidden: int,
+        mlp_arc_hidden: int,
+        mlp_lab_hidden: int,
+        mlp_dropout: float,
+        labels: Sequence[str],
+        biased_biaffine: bool,
+        device: Union[str, torch.device],
     ):
 
         super(BiAffineParser, self).__init__()
-        self.device = torch.device(device) if type(device) == str else device
+        self.device = torch.device(device)
         self.lexer = lexer.to(self.device)
         self.dep_rnn = nn.LSTM(
             self.lexer.embedding_size
@@ -135,8 +135,10 @@ class BiAffineParser(nn.Module):
         )
 
         # BiAffine layers
-        self.arc_biaffine = BiAffine(mlp_input, 1).to(self.device)
-        self.lab_biaffine = BiAffine(mlp_input, len(self.labels)).to(self.device)
+        self.arc_biaffine = BiAffine(mlp_input, 1, bias=biased_biaffine).to(self.device)
+        self.lab_biaffine = BiAffine(
+            mlp_input, len(self.labels), bias=biased_biaffine
+        ).to(self.device)
 
         # hyperparams for saving...
         self.mlp_input, self.mlp_arc_hidden, self.mlp_lab_hidden = (
@@ -161,60 +163,74 @@ class BiAffineParser(nn.Module):
             )
         self.load_state_dict(state_dict)
 
-    def forward(self, xwords, xchars, xft):
-        """Computes char embeddings"""
+    def forward(
+        self,
+        xwords: Union[torch.Tensor, BertLexerBatch],
+        xchars: Iterable[torch.Tensor],
+        xft: Iterable[torch.Tensor],
+        sent_lengths: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        # Computes char embeddings
         char_embed = torch.stack([self.char_rnn(column) for column in xchars], dim=1)
-        """ Computes fasttext embeddings """
+        # Computes fasttext embeddings
         ft_embed = torch.stack([self.ft_lexer(column) for column in xft], dim=1)
-        """ Computes word embeddings """
+        # Computes word embeddings
         lex_emb = self.lexer(xwords)
 
-        """ Encodes input for tagging and parsing """
+        # Encodes input for tagging and parsing
         xinput = torch.cat((lex_emb, char_embed, ft_embed), dim=2)
-        dep_embeddings, _ = self.dep_rnn(xinput)
+        packed_xinput = pack_padded_sequence(
+            xinput, sent_lengths, batch_first=True, enforce_sorted=False
+        )
+        packed_dep_embeddings, _ = self.dep_rnn(packed_xinput)
+        dep_embeddings, _ = pad_packed_sequence(packed_dep_embeddings, batch_first=True)
 
-        """ Tagging """
+        # Tagging
         tag_scores = self.pos_tagger(dep_embeddings)
 
-        """Compute the score matrices for the arcs and labels."""
+        # Compute the score matrices for the arcs and labels.
         arc_h = self.arc_mlp_h(dep_embeddings)
         arc_d = self.arc_mlp_d(dep_embeddings)
         lab_h = self.lab_mlp_h(dep_embeddings)
         lab_d = self.lab_mlp_d(dep_embeddings)
 
-        arc_scores = self.arc_biaffine(arc_h, arc_d)
+        arc_scores = self.arc_biaffine(arc_h, arc_d).squeeze(1)
         lab_scores = self.lab_biaffine(lab_h, lab_d)
 
         return tag_scores, arc_scores, lab_scores
 
-    def eval_model(self, dev_set, batch_size):
+    def eval_model(self, dev_set: DependencyDataset, batch_size: int):
 
         loss_fnc = nn.CrossEntropyLoss(reduction="sum")
 
-        # Note: the accurracy scoring is approximative and cannot be interpreted as an UAS/LAS score !
+        # Note: the accurracy scoring is approximative and cannot be interpreted as an UAS/LAS score
+        # Note: fun project: tracke the correlation between them
 
         self.eval()
 
         dev_batches = dev_set.make_batches(
-            batch_size, shuffle_batches=True, shuffle_data=True, order_by_length=True
+            batch_size, shuffle_batches=False, shuffle_data=False, order_by_length=True
         )
-        tag_acc, arc_acc, lab_acc, gloss, taggerZ, arcsZ = 0, 0, 0, 0, 0, 0
+        tag_acc, arc_acc, lab_acc, gloss, accZ = 0, 0, 0, 0, 0
         overall_size = 0
 
         with torch.no_grad():
             for batch in dev_batches:
-                words, mwe, chars, subwords, cats, deps, tags, heads, labels = batch
-                if type(deps) == tuple:
-                    depsA, depsB = deps
-                    deps = (depsA.to(self.device), depsB.to(self.device))
-                    overall_size += depsA.size(0) * depsA.size(
-                        1
-                    )  # bc no masking at training
-                else:
-                    deps = deps.to(self.device)
-                    overall_size += deps.size(0) * deps.size(
-                        1
-                    )  # bc no masking at training
+                (
+                    words,
+                    mwe,
+                    chars,
+                    subwords,
+                    cats,
+                    encoded_words,
+                    tags,
+                    heads,
+                    labels,
+                    sent_lengths,
+                ) = batch
+                encoded_words = encoded_words.to(self.device)
+                # bc no masking at training
+                overall_size += encoded_words.size(0) * encoded_words.size(1)
                 heads, labels, tags = (
                     heads.to(self.device),
                     labels.to(self.device),
@@ -223,103 +239,107 @@ class BiAffineParser(nn.Module):
                 chars = [token.to(self.device) for token in chars]
                 subwords = [token.to(self.device) for token in subwords]
                 # preds
-                tagger_scores, arc_scores, lab_scores = self.forward(
-                    deps, chars, subwords
+                tagger_scores, arc_scores, lab_scores = self(
+                    encoded_words, chars, subwords, sent_lengths
                 )
 
                 # get global loss
                 # ARC LOSS
-                arc_scoresL = arc_scores.transpose(
-                    -1, -2
-                )  # [batch, sent_len, sent_len]
-                arc_scoresL = arc_scoresL.contiguous().view(
-                    -1, arc_scoresL.size(-1)
-                )  # [batch*sent_len, sent_len]
+                # [batch, sent_len, sent_len]
+                arc_scoresL = arc_scores.transpose(-1, -2)
+                # [batch*sent_len, sent_len]
+                arc_scoresL = arc_scoresL.reshape(-1, arc_scoresL.size(-1))
                 arc_loss = loss_fnc(arc_scoresL, heads.view(-1))  # [batch*sent_len]
 
                 # TAGGER_LOSS
-                tagger_scoresB = tagger_scores.contiguous().view(
-                    -1, tagger_scores.size(-1)
-                )
+                tagger_scoresB = tagger_scores.reshape(-1, tagger_scores.size(-1))
                 tagger_loss = loss_fnc(tagger_scoresB, tags.view(-1))
 
                 # LABEL LOSS
-                headsL = heads.unsqueeze(1).unsqueeze(2)  # [batch, 1, 1, sent_len]
-                headsL = headsL.expand(
-                    -1, lab_scores.size(1), -1, -1
-                )  # [batch, n_labels, 1, sent_len]
-                lab_scoresL = torch.gather(lab_scores, 2, headsL).squeeze(
-                    2
-                )  # [batch, n_labels, sent_len]
-                lab_scoresL = lab_scoresL.transpose(
-                    -1, -2
-                )  # [batch, sent_len, n_labels]
-                lab_scoresL = lab_scoresL.contiguous().view(
-                    -1, lab_scoresL.size(-1)
-                )  # [batch*sent_len, n_labels]
-                labelsL = labels.view(-1)  # [batch*sent_len]
+                # [batch, 1, 1, sent_len]
+                headsL = heads.unsqueeze(1).unsqueeze(2)
+                # [batch, n_labels, 1, sent_len]
+                headsL = headsL.expand(-1, lab_scores.size(1), -1, -1)
+                # [batch, n_labels, sent_len]
+                lab_scoresL = torch.gather(lab_scores, 2, headsL).squeeze(2)
+                # [batch, sent_len, n_labels]
+                lab_scoresL = lab_scoresL.transpose(-1, -2)
+                # [batch*sent_len, n_labels]
+                lab_scoresL = lab_scoresL.reshape(-1, lab_scoresL.size(-1))
+                # [batch*sent_len]
+                labelsL = labels.view(-1)
                 lab_loss = loss_fnc(lab_scoresL, labelsL)
 
                 loss = tagger_loss + arc_loss + lab_loss
                 gloss += loss.item()
 
-                # greedy arc accurracy (without parsing)
-                _, pred = arc_scores.max(dim=-2)
-                mask = (heads != DependencyDataset.PAD_IDX).float()
-                arc_accurracy = torch.sum((pred == heads).float() * mask, dim=-1)
-                arc_acc += torch.sum(arc_accurracy).item()
+                mask = heads.ne(dev_set.PAD_IDX)
+                accZ += mask.sum().item()
+                # greedy arc accuracy (without parsing)
+                arc_pred = arc_scores.argmax(dim=-2)
+                arc_accurracy = arc_pred.eq(heads).logical_and(mask).sum()
+                arc_acc += arc_accurracy.item()
 
-                # tagger accurracy
-                _, tag_pred = tagger_scores.max(dim=2)
-                mask = (tags != DependencyDataset.PAD_IDX).float()
-                tag_accurracy = torch.sum((tag_pred == tags).float() * mask, dim=-1)
-                tag_acc += torch.sum(tag_accurracy).item()
-                taggerZ += torch.sum(mask).item()
+                # tagger accuracy
+                tag_pred = tagger_scores.argmax(dim=2)
+                tag_accurracy = tag_pred.eq(tags).logical_and(mask).sum()
+                tag_acc += tag_accurracy.item()
 
-                # greedy label accurracy (without parsing)
-                _, pred = lab_scores.max(dim=1)
-                pred = torch.gather(pred, 1, heads.unsqueeze(1)).squeeze(1)
-                mask = (heads != DependencyDataset.PAD_IDX).float()
-                lab_accurracy = torch.sum((pred == labels).float() * mask, dim=-1)
-                lab_acc += torch.sum(lab_accurracy).item()
-                arcsZ += torch.sum(mask).item()
+                # greedy label accuracy (without parsing)
+                lab_pred = lab_scores.argmax(dim=1)
+                lab_pred = torch.gather(lab_pred, 1, heads.unsqueeze(1)).squeeze(1)
+                lab_accurracy = lab_pred.eq(labels).logical_and(mask).sum()
+                lab_acc += lab_accurracy.item()
 
-        return gloss / overall_size, tag_acc / taggerZ, arc_acc / arcsZ, lab_acc / arcsZ
+        return gloss / overall_size, tag_acc / accZ, arc_acc / accZ, lab_acc / accZ
 
     def train_model(
-        self, train_set, dev_set, epochs, batch_size, lr, modelpath="test_model.pt"
+        self,
+        train_set: DependencyDataset,
+        dev_set: DependencyDataset,
+        epochs: int,
+        batch_size: int,
+        lr: float,
+        modelpath="test_model.pt",
     ):
 
-        print("start training", flush=True)
+        print(f"Start training on {self.device}", flush=True)
         loss_fnc = nn.CrossEntropyLoss(reduction="sum")
 
+        # TODO: make these configurable?
         optimizer = torch.optim.Adam(
             self.parameters(), betas=(0.9, 0.9), lr=lr, eps=1e-09
         )
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
 
         for e in range(epochs):
-            TRAIN_LOSS = 0
-            BEST_ARC_ACC = 0
+            TRAIN_LOSS = 0.0
+            BEST_ARC_ACC = 0.0
+            # FIXME: why order by length here?
             train_batches = train_set.make_batches(
                 batch_size,
                 shuffle_batches=True,
                 shuffle_data=True,
-                order_by_length=True,
+                order_by_length=False,
             )
             overall_size = 0
             self.train()
             for batch in train_batches:
-                words, mwe, chars, subwords, cats, deps, tags, heads, labels = batch
-                if type(deps) == tuple:
-                    depsA, depsB = deps
-                    deps = (depsA.to(self.device), depsB.to(self.device))
-                    # bc no masking at training
-                    overall_size += depsA.size(0) * depsA.size(1)
-                else:
-                    # bc no masking at training
-                    deps = deps.to(self.device)
-                    overall_size += deps.size(0) * deps.size(1)
+                (
+                    words,
+                    mwe,
+                    chars,
+                    subwords,
+                    cats,
+                    encoded_words,
+                    tags,
+                    heads,
+                    labels,
+                    sent_lengths,
+                ) = batch
+                encoded_words = encoded_words.to(self.device)
+                # bc no masking at training
+                overall_size += encoded_words.size(0) * encoded_words.size(1)
                 heads, labels, tags = (
                     heads.to(self.device),
                     labels.to(self.device),
@@ -329,38 +349,39 @@ class BiAffineParser(nn.Module):
                 subwords = [token.to(self.device) for token in subwords]
 
                 # FORWARD
-                tagger_scores, arc_scores, lab_scores = self.forward(
-                    deps, chars, subwords
+                tagger_scores, arc_scores, lab_scores = self(
+                    encoded_words, chars, subwords, sent_lengths
                 )
 
                 # ARC LOSS
-                arc_scores = arc_scores.transpose(-1, -2)  # [batch, sent_len, sent_len]
-                arc_scores = arc_scores.contiguous().view(
-                    -1, arc_scores.size(-1)
-                )  # [batch*sent_len, sent_len]
-                arc_loss = loss_fnc(arc_scores, heads.view(-1))  # [batch*sent_len]
+                # [batch, sent_len, sent_len]
+                arc_scores = arc_scores.transpose(-1, -2)
+                # [batch*sent_len, sent_len]
+                arc_scores = arc_scores.reshape(-1, arc_scores.size(-1))
+                # [batch*sent_len]
+                arc_loss = loss_fnc(arc_scores, heads.view(-1))
 
                 # TAGGER_LOSS
-                tagger_scores = tagger_scores.contiguous().view(
-                    -1, tagger_scores.size(-1)
-                )
+                tagger_scores = tagger_scores.reshape(-1, tagger_scores.size(-1))
                 tagger_loss = loss_fnc(tagger_scores, tags.view(-1))
 
                 # LABEL LOSS
-                heads = heads.unsqueeze(1).unsqueeze(2)  # [batch, 1, 1, sent_len]
-                heads = heads.expand(
-                    -1, lab_scores.size(1), -1, -1
-                )  # [batch, n_labels, 1, sent_len]
-                lab_scores = torch.gather(lab_scores, 2, heads).squeeze(
-                    2
-                )  # [batch, n_labels, sent_len]
-                lab_scores = lab_scores.transpose(-1, -2)  # [batch, sent_len, n_labels]
-                lab_scores = lab_scores.contiguous().view(
-                    -1, lab_scores.size(-1)
-                )  # [batch*sent_len, n_labels]
-                labels = labels.view(-1)  # [batch*sent_len]
+                # [batch, 1, 1, sent_len]
+                heads = heads.unsqueeze(1).unsqueeze(2)
+                # [batch, n_labels, 1, sent_len]
+                heads = heads.expand(-1, lab_scores.size(1), -1, -1)
+                # [batch, n_labels, sent_len]
+                lab_scores = torch.gather(lab_scores, 2, heads).squeeze(2)
+                # [batch, sent_len, n_labels]
+                lab_scores = lab_scores.transpose(-1, -2)
+                # [batch*sent_len, n_labels]
+                lab_scores = lab_scores.reshape(-1, lab_scores.size(-1))
+                # [batch*sent_len]
+                labels = labels.view(-1)
                 lab_loss = loss_fnc(lab_scores, labels)
 
+                # TODO: see if other loss combination functions wouldn't help here, e.g.
+                # <https://arxiv.org/abs/1805.06334>
                 loss = tagger_loss + arc_loss + lab_loss
 
                 optimizer.zero_grad()
@@ -386,7 +407,7 @@ class BiAffineParser(nn.Module):
                 "valid label acc",
                 DEV_LAB_ACC,
                 "Base LR",
-                scheduler.get_lr()[0],
+                scheduler.get_last_lr()[0],
                 flush=True,
             )
 
@@ -399,23 +420,35 @@ class BiAffineParser(nn.Module):
         self.load_params(modelpath)
         self.save_params(modelpath)
 
-    def predict_batch(self, test_set, ostream, batch_size, greedy=False):
+    def predict_batch(
+        self,
+        test_set: DependencyDataset,
+        ostream: TextIO,
+        batch_size: int,
+        greedy: bool = False,
+    ):
 
         self.eval()
+        # keep natural order here
         test_batches = test_set.make_batches(
             batch_size, shuffle_batches=False, shuffle_data=False, order_by_length=False
-        )  # keep natural order here
+        )
 
         with torch.no_grad():
             for batch in test_batches:
-                words, mwe, chars, subwords, cats, deps, tags, heads, labels = batch
-                if type(deps) == tuple:
-                    depsA, depsB = deps
-                    deps = (depsA.to(self.device), depsB.to(self.device))
-                    SLENGTHS = (depsA != DependencyDataset.PAD_IDX).long().sum(-1)
-                else:
-                    deps = deps.to(self.device)
-                    SLENGTHS = (deps != DependencyDataset.PAD_IDX).long().sum(-1)
+                (
+                    words,
+                    mwe,
+                    chars,
+                    subwords,
+                    cats,
+                    encoded_words,
+                    tags,
+                    heads,
+                    labels,
+                    sent_lengths,
+                ) = batch
+                encoded_words = encoded_words.to(self.device)
                 heads, labels, tags = (
                     heads.to(self.device),
                     labels.to(self.device),
@@ -425,8 +458,11 @@ class BiAffineParser(nn.Module):
                 subwords = [token.to(self.device) for token in subwords]
 
                 # batch prediction
-                tagger_scores_batch, arc_scores_batch, lab_scores_batch = self.forward(
-                    deps, chars, subwords
+                tagger_scores_batch, arc_scores_batch, lab_scores_batch = self(
+                    encoded_words,
+                    chars,
+                    subwords,
+                    sent_lengths,
                 )
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = (
                     tagger_scores_batch.cpu(),
@@ -444,7 +480,7 @@ class BiAffineParser(nn.Module):
                 ) in zip(
                     words,
                     mwe,
-                    SLENGTHS,
+                    sent_lengths,
                     tagger_scores_batch,
                     arc_scores_batch,
                     lab_scores_batch,
@@ -457,25 +493,21 @@ class BiAffineParser(nn.Module):
                         if greedy
                         else chuliu_edmonds(probs[:length, :length])
                     )
-                    mst_heads = np.pad(mst_heads, (0, batch_width - length.item()))
+                    mst_heads = np.pad(mst_heads, (0, batch_width - length))
 
                     # Predict tags
-                    tag_probs = tagger_scores.numpy()
-                    tag_idxes = np.argmax(tag_probs, axis=1)
+                    tag_idxes = tagger_scores.argmax(dim=1)
                     pos_tags = [test_set.itotag[idx] for idx in tag_idxes]
                     # Predict labels
                     select = (
-                        torch.LongTensor(mst_heads)
+                        torch.from_numpy(mst_heads)
                         .unsqueeze(0)
                         .expand(lab_scores.size(0), -1)
                     )
-                    select = Variable(select)
                     selected = torch.gather(lab_scores, 1, select.unsqueeze(1)).squeeze(
                         1
                     )
-                    _, mst_labels = selected.max(dim=0)
-                    mst_labels = mst_labels.data.numpy()
-                    # edges          = [ (head,test_set.itolab[lbl],dep) for (dep,head,lbl) in zip(list(range(length)),mst_heads[:length], mst_labels[:length]) ]
+                    mst_labels = selected.argmax(dim=0)
                     edges = [
                         (head, test_set.itolab[lbl], dep)
                         for (dep, head, lbl) in zip(
@@ -507,23 +539,30 @@ class BiAffineParser(nn.Module):
         lexer: Union[DefaultLexer, BertBaseLexer]
         if hp["lexer"] == "default":
             lexer = DefaultLexer(
-                ordered_vocab, hp["word_embedding_size"], hp["word_dropout"]
+                ordered_vocab,
+                hp["word_embedding_size"],
+                hp["word_dropout"],
+                words_padding_idx=DependencyDataset.PAD_IDX,
+                unk_word=DependencyDataset.UNK_WORD,
             )
         else:
-            bert_model_name = hp["lexer"].split("/")[-1]
-            cased = hp.get("cased", "uncased" not in bert_model_name)
             lexer = BertBaseLexer(
-                default_itos=ordered_vocab,
-                default_embedding_size=hp["word_embedding_size"],
+                itos=ordered_vocab,
+                embedding_size=hp["word_embedding_size"],
                 word_dropout=hp["word_dropout"],
-                cased=cased,
                 bert_modelfile=hp["lexer"],
                 bert_layers=hp.get("bert_layers", [4, 5, 6, 7]),
+                bert_subwords_reduction=hp.get("bert_subwords_reduction", "first"),
                 bert_weighted=hp.get("bert_weighted", False),
+                words_padding_idx=DependencyDataset.PAD_IDX,
+                unk_word=DependencyDataset.UNK_WORD,
             )
 
         # char rnn processor
-        ordered_charset = CharDataSet(loadlist(config_dir / "charcodes.lst"))
+        ordered_charset = CharDataSet(
+            loadlist(config_dir / "charcodes.lst"),
+            special_tokens=[DepGraph.ROOT_TOKEN],
+        )
         char_rnn = CharRNN(
             len(ordered_charset), hp["char_embedding_size"], hp["charlstm_output_size"]
         )
@@ -534,23 +573,29 @@ class BiAffineParser(nn.Module):
         itolab = loadlist(config_dir / "labcodes.lst")
         itotag = loadlist(config_dir / "tagcodes.lst")
         parser = cls(
-            lexer,
-            ordered_charset,
-            char_rnn,
-            ft_lexer,
-            itotag,
-            hp["encoder_dropout"],
-            hp["mlp_input"],
-            hp["mlp_tag_hidden"],
-            hp["mlp_arc_hidden"],
-            hp["mlp_lab_hidden"],
-            hp["mlp_dropout"],
-            itolab,
-            hp["device"],
+            lexer=lexer,
+            charset=ordered_charset,
+            char_rnn=char_rnn,
+            ft_lexer=ft_lexer,
+            tagset=itotag,
+            labels=itolab,
+            encoder_dropout=hp["encoder_dropout"],
+            mlp_input=hp["mlp_input"],
+            mlp_tag_hidden=hp["mlp_tag_hidden"],
+            mlp_arc_hidden=hp["mlp_arc_hidden"],
+            mlp_lab_hidden=hp["mlp_lab_hidden"],
+            mlp_dropout=hp["mlp_dropout"],
+            biased_biaffine=hp.get("biased_biaffine", True),
+            device=hp["device"],
         )
         weights_file = config_dir / "model.pt"
         if weights_file.exists():
             parser.load_params(str(weights_file))
+        else:
+            parser.save_params(str(weights_file))
+
+        if hp.get("freeze_fasttext", False):
+            freeze_module(ft_lexer)
         if hp.get("freeze_bert", False):
             try:
                 freeze_module(lexer.bert)
@@ -582,7 +627,7 @@ class GridSearch:
             else:
                 for elt in setuplist:
                     elt.append(value)
-        print("#%d" % (len(setuplist)), "runs to be performed")
+        print(f"#{len(setuplist)} runs to be performed")
 
         for setup in setuplist:
             yield dict(zip(K, setup))
@@ -659,6 +704,7 @@ def main():
     else:
         overrides = dict()
 
+    # TODO: warn about unused parameters in config
     config_file = os.path.abspath(args.config_file)
     if args.train_file and args.out_dir:
         model_dir = os.path.join(args.out_dir, "model")
@@ -702,8 +748,8 @@ def main():
                         )
                         os.remove(fasttext_model_path)
                     print(f"Generating a FastText model from {args.train_file}")
-                    FastTextTorch.train_model_from_trees(
-                        traintrees, fasttext_model_path
+                    FastTextTorch.train_model_from_sents(
+                        [tree.words[1:] for tree in traintrees], fasttext_model_path
                     )
             elif os.path.exists(args.fasttext):
                 if os.path.exists(fasttext_model_path):
@@ -722,10 +768,21 @@ def main():
             else:
                 raise ValueError(f"{args.fasttext} not found")
 
-            ordered_vocab = make_vocab(traintrees, 0)
+            # NOTE: these include the [ROOT] token, which will thus automatically have a dedicated
+            # word embeddings in layers based on this vocab
+            ordered_vocab = make_vocab(
+                [word for tree in traintrees for word in tree.words],
+                0,
+                unk_word=DependencyDataset.UNK_WORD,
+                pad_token=DependencyDataset.PAD_TOKEN,
+            )
             savelist(ordered_vocab, os.path.join(model_dir, "vocab.lst"))
 
-            ordered_charset = CharDataSet.make_vocab(ordered_vocab)
+            # FIXME: A better save that can restore special tokens is probably a good idea
+            ordered_charset = CharDataSet.from_words(
+                ordered_vocab,
+                special_tokens=[DepGraph.ROOT_TOKEN],
+            )
             savelist(ordered_charset.i2c, os.path.join(model_dir, "charcodes.lst"))
 
             itolab = gen_labels(traintrees)
@@ -736,7 +793,9 @@ def main():
 
         parser = BiAffineParser.from_config(config_file, overrides)
 
-        ft_dataset = FastTextDataSet(parser.ft_lexer)
+        ft_dataset = FastTextDataSet(
+            parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN]
+        )
         trainset = DependencyDataset(
             traintrees,
             parser.lexer,
@@ -790,7 +849,10 @@ def main():
         parser = BiAffineParser.from_config(config_file, overrides)
         parser.eval()
         testtrees = DependencyDataset.read_conll(args.pred_file)
-        ft_dataset = FastTextDataSet(parser.ft_lexer)
+        # FIXME: the special tokens should be saved somewhere instead of hardcoded
+        ft_dataset = FastTextDataSet(
+            parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN]
+        )
         testset = DependencyDataset(
             testtrees,
             parser.lexer,

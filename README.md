@@ -47,7 +47,7 @@ hyperparameters file. An example model is stored in the `default` directory. The
 formatted in truncated [CONLL-U](https://universaldependencies.org/format.html) format. For
 instance:
 
-```
+```conllu
 1       Flaubert
 2       a
 3       écrit
@@ -68,14 +68,14 @@ provides an option for controlling the GPU actually used for performing computat
 
 We provide some pretrained models:
 
-| Model name         | Language   | device  | LAS  | speed   | Comment                                 | Download link                                                                                                     |
-| ------------------ | ---------- | ------- | ---- | ------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| ftb_default        | French     | GPU/CPU | 85.9 | fast    | French treebank + fasttext              | [download model](https://github.com/bencrabbe/npdependency/releases/download/v0.1.0dev0/ftb_default.tar.gz)       |
-| ftb_flaubert       | French     | GPU     | 88.3 | average | FlaubertBase+French treebank + fasttext | [download model](https://sharedocs.huma-num.fr/wl/?id=fVAdiTHwZhVeqrscNTMXehxsNJtBx9Zc)                           |
-| ftb_camembert      | French     | GPU     | 87.9 | average | camembert+French treebank + fasttext    | [download model](https://sharedocs.huma-num.fr/wl/?id=r0H0HESGOawmWiRxSqXDARC81TiGDBwW)                           |
-| ud_fr_gsd_default  | French     | GPU/CPU | 90.2 | fast    | UD French GSD + fasttext                | [download model](https://github.com/bencrabbe/npdependency/releases/download/v0.1.0dev0/fr_gsd_default.tar.gz)    |
-| ud_fr_gsd_flaubert | French     | GPU     | 92.4 | average | FlaubertBase + UD French GSD + fasttext | [download model](https://sharedocs.huma-num.fr/wl/?id=zWyaLI0xUkogeMFn9MoiVPjKPeDOzDW0)                           |
-| ud_fro_default     | Old French | GPU/CPU | 85.9 | fast    | SRCMF treebank + fasttext               | [download model](https://github.com/bencrabbe/npdependency/releases/download/v0.1.0dev0/fro_srcmf_default.tar.gz) |
+| Model name          | Language   | device  | LAS (dev) | LAS (test) | speed   | Comment                                            | Download link                                                                                                     |
+| ------------------- | ---------- | ------- | --------- | ---------- | ------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| ftb_default         | French     | GPU/CPU |           | 85.9       | fast    | French treebank + fasttext                         | [download model](https://github.com/bencrabbe/npdependency/releases/download/v0.1.0dev0/ftb_default.tar.gz)       |
+| ftb_flaubert        | French     | GPU     |           | 88.3       | average | FlaubertBase+French treebank + fasttext            | [download model](https://sharedocs.huma-num.fr/wl/?id=fVAdiTHwZhVeqrscNTMXehxsNJtBx9Zc)                           |
+| ftb_camembert       | French     | GPU     |           | 87.9       | average | camembert+French treebank + fasttext               | [download model](https://sharedocs.huma-num.fr/wl/?id=r0H0HESGOawmWiRxSqXDARC81TiGDBwW)                           |
+| ud_fr_gsd_default   | French     | GPU/CPU | 91.98     | 88.96      | fast    | UD French GSD 2.6 + fasttext                       | [download model](https://github.com/bencrabbe/npdependency/releases/download/v0.2.0dev0/ud_fr_gsd_default.tar.gz) |
+| ud_fr_gsd_flaubert  | French     | GPU     | 95.06     | 93.77      | average | flaubert_base_cased + UD French GSD 2.6 + fasttext | [download model](https://sharedocs.huma-num.fr/wl/?id=sAARm9xFNdITZArRYn2qF9UUTj0KqBtu)                           |
+| ud_fr_gsd_camembert | French     | GPU     | 95.06     | 93.28      | average | camembert-base + UD French GSD 2.6 + fasttext      | [download model](https://sharedocs.huma-num.fr/wl/?id=DrKZLgdikOI5TZoVLfcykRLEmUUyLoBN)                           |
 
 The reader may notice a difference with the results published in
 [(Le et al 2020)](https://arxiv.org/abs/1912.05372). The difference comes from a better usage of

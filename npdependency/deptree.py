@@ -1,6 +1,12 @@
-from typing import Iterable, List
-import torch
+from npdependency.lexers import BertLexerBatch, BertLexerSentence
+import pathlib
 from random import shuffle
+from typing import Iterable, List, NamedTuple, Optional, Sequence, TextIO, Union
+
+import torch
+from torch.nn.utils.rnn import pad_sequence
+
+from npdependency import lexers
 
 
 class DepGraph:
@@ -119,7 +125,7 @@ class DepGraph:
             closure.update(succ)
         return closure
 
-    def _gap_degree(self, node):
+    def _gap_degree(self, node: int) -> int:
         """
         Returns the gap degree of a node
         Args :
@@ -134,20 +140,20 @@ class DepGraph:
                     gd += 1
         return gd
 
-    def gap_degree(self):
+    def gap_degree(self) -> int:
         """
         Returns the gap degree of a tree (suboptimal)
         """
         return max(self._gap_degree(node) for node in self.gov2dep)
 
-    def is_projective(self):
+    def is_projective(self) -> bool:
         """
         Returns true if this tree is projective
         """
         return self.gap_degree() == 0
 
-    @staticmethod
-    def read_tree(istream):
+    @classmethod
+    def read_tree(cls, istream: TextIO) -> Optional["DepGraph"]:
         """
         Reads a conll tree from input stream
         """
@@ -168,7 +174,7 @@ class DepGraph:
         for dataline in conll:
             if len(dataline) < 10:  # pads the dataline
                 dataline.extend(["-"] * (10 - len(dataline)))
-                dataline[6] = 0
+                dataline[6] = "0"
 
             if "-" in dataline[0]:
                 mwe_ranges.append(dataline[0].split("-") + [dataline[1]])
@@ -181,9 +187,7 @@ class DepGraph:
                     edges.append(
                         (int(dataline[6]), dataline[7], int(dataline[0]))
                     )  # shift indexes !
-        return DepGraph(
-            edges, words, pos_tags=postags, with_root=True, mwe_range=mwe_ranges
-        )
+        return cls(edges, words, pos_tags=postags, with_root=True, mwe_range=mwe_ranges)
 
     def __str__(self):
         """
@@ -222,6 +226,19 @@ class DepGraph:
         return len(self.words)
 
 
+class DependencyBatch(NamedTuple):
+    words: List[List[str]]
+    mwe: List[List[str]]
+    chars: Sequence[torch.Tensor]
+    subwords: Sequence[torch.Tensor]
+    cats: List[List[str]]
+    encoded_words: Union[torch.Tensor, BertLexerBatch]
+    tags: torch.Tensor
+    heads: torch.Tensor
+    labels: torch.Tensor
+    sent_lengths: torch.Tensor
+
+
 class DependencyDataset:
     """
     A representation of the DepBank for efficient processing.
@@ -233,21 +250,28 @@ class DependencyDataset:
     UNK_WORD = "<unk>"
 
     @staticmethod
-    def read_conll(filename):
-        istream = open(filename)
-        treelist = []
-        tree = DepGraph.read_tree(istream)
-        while tree:
-            if len(tree.words) <= 150:
-                treelist.append(tree)
-            else:
-                print("dropped tree with length", len(tree.words))
+    def read_conll(filename: Union[str, pathlib.Path]) -> List[DepGraph]:
+        with open(filename) as istream:
+            treelist = []
             tree = DepGraph.read_tree(istream)
-        istream.close()
+            while tree:
+                if len(tree.words) <= 150:
+                    treelist.append(tree)
+                else:
+                    print(
+                        f"Dropped tree with length {len(tree.words)} > 150",
+                    )
+                tree = DepGraph.read_tree(istream)
         return treelist
 
     def __init__(
-        self, treelist, lexer, char_dataset, ft_dataset, use_labels=None, use_tags=None
+        self,
+        treelist: List[DepGraph],
+        lexer: lexers.Lexer,
+        char_dataset: lexers.CharDataSet,
+        ft_dataset: lexers.FastTextDataSet,
+        use_labels: Optional[List[str]] = None,
+        use_tags: Optional[List[str]] = None,
     ):
         self.lexer = lexer
         self.char_dataset = char_dataset
@@ -263,13 +287,21 @@ class DependencyDataset:
             self.tagtoi = {tag: idx for idx, tag in enumerate(self.itotag)}
         else:
             self.init_tags(self.treelist)
+        self.encoded_words: List[Union[List[int], BertLexerSentence]] = []
+        self.heads: List[List[int]] = []
+        self.labels: List[List[int]] = []
+        self.tags: List[List[int]] = []
+        self.words: List[List[str]] = []
+        self.mwe_ranges: List[List[str]] = []
+        self.cats: List[List[str]] = []
+        self.encode()
 
     def encode(self):
-        self.deps, self.heads, self.labels, self.tags = [], [], [], []
+        self.encoded_words, self.heads, self.labels, self.tags = [], [], [], []
         self.words, self.mwe_ranges, self.cats = [], [], []
 
         for tree in self.treelist:
-            depword_idxes = self.lexer.tokenize(tree.words)
+            encoded_words = self.lexer.tokenize(tree.words)
             if tree.pos_tags:
                 deptag_idxes = [
                     self.tagtoi.get(tag, self.tagtoi[DependencyDataset.UNK_WORD])
@@ -282,7 +314,7 @@ class DependencyDataset:
             self.words.append(tree.words)
             self.cats.append(tree.pos_tags)
             self.tags.append(deptag_idxes)
-            self.deps.append(depword_idxes)
+            self.encoded_words.append(encoded_words)
             self.heads.append(self.oracle_governors(tree))
             # the get defaulting to 0 is a hack for labels not found in training set
             self.labels.append(
@@ -291,102 +323,67 @@ class DependencyDataset:
             self.mwe_ranges.append(tree.mwe_ranges)
 
     def save_vocab(self, filename):
-        out = open(filename, "w")
-        print(" ".join(self.itolab), file=out)
-        print(" ".join(self.itotag), file=out)
-        out.close()
-
-    # !COMBAK: Some code is missing here (itos is undefined) and this function seems unused
-    # @staticmethod
-    # def load_vocab(filename):
-    #     reloaded = open(filename)
-    #     itolab = reloaded.readline().split()
-    #     itotag = reloaded.readline().split()
-    #     reloaded.close()
-    #     return itos, itolab, itotag
-
-    def shuffle_data(self):
-        N = len(self.deps)
-        order = list(range(N))
-        shuffle(order)
-        self.deps = [self.deps[i] for i in order]
-        self.tags = [self.tags[i] for i in order]
-        self.heads = [self.heads[i] for i in order]
-        self.labels = [self.labels[i] for i in order]
-        self.words = [self.words[i] for i in order]
-        self.cats = [self.cats[i] for i in order]
-        self.mwe_ranges = [self.mwe_ranges[i] for i in order]
-
-    def order_data(self):
-        N = len(self.deps)
-        order = list(range(N))
-        lengths = map(len, self.deps)
-        order = [idx for idx, L in sorted(zip(order, lengths), key=lambda x: x[1])]
-        self.deps = [self.deps[idx] for idx in order]
-        self.tags = [self.tags[idx] for idx in order]
-        self.heads = [self.heads[idx] for idx in order]
-        self.labels = [self.labels[idx] for idx in order]
-        self.words = [self.words[idx] for idx in order]
-        self.mwe_ranges = [self.mwe_ranges[idx] for idx in order]
-        self.cats = [self.cats[idx] for idx in order]
+        with open(filename, "w") as out:
+            print(" ".join(self.itolab), file=out)
+            print(" ".join(self.itotag), file=out)
 
     def make_batches(
         self,
-        batch_size,
-        shuffle_batches=False,
-        shuffle_data=True,
-        order_by_length=False,
-    ):
-        self.encode()
+        batch_size: int,
+        shuffle_batches: bool = False,
+        shuffle_data: bool = True,
+        order_by_length: bool = False,
+    ) -> Iterable[DependencyBatch]:
+        N = len(self.encoded_words)
+        order = list(range(N))
         if shuffle_data:
-            self.shuffle_data()
-        if (
-            order_by_length
-        ):  # shuffling and ordering is relevant : it change the way ties are resolved and thus batch construction
-            self.order_data()
+            shuffle(order)
 
-        N = len(self.deps)
+        # shuffling then ordering is relevant : it change the way ties are resolved and thus batch
+        # construction
+        if order_by_length:
+            order.sort(key=lambda i: len(self.encoded_words[i]))
+
         batch_order = list(range(0, N, batch_size))
         if shuffle_batches:
             shuffle(batch_order)
-        for i in batch_order:
-            deps = self.pad(self.deps[i : i + batch_size])
-            tags = self.pad(self.tags[i : i + batch_size])
-            heads = self.pad(self.heads[i : i + batch_size])
-            labels = self.pad(self.labels[i : i + batch_size])
-            words = self.words[i : i + batch_size]
-            mwe = self.mwe_ranges[i : i + batch_size]
-            cats = self.cats[i : i + batch_size]
-            chars = self.char_dataset.batch_chars(self.words[i : i + batch_size])
-            subwords = self.ft_dataset.batch_sentences(self.words[i : i + batch_size])
-            yield (words, mwe, chars, subwords, cats, deps, tags, heads, labels)
 
-    # TODO: make this use torch padding utility instead
-    def pad(self, batch):
-        if (
-            type(batch[0]) == tuple and len(batch[0]) == 2
-        ):  # had hoc stuff for BERT Lexers
-            sent_lengths = [len(seqA) for (seqA, seqB) in batch]
-            max_len = max(sent_lengths)
-            padded_batchA, padded_batchB = [], []
-            for k, seq in zip(sent_lengths, batch):
-                seqA, seqB = seq
-                paddedA = seqA + (max_len - k) * [DependencyDataset.PAD_IDX]
-                paddedB = seqB + (max_len - k) * [self.lexer.BERT_PAD_IDX]
-                padded_batchA.append(paddedA)
-                padded_batchB.append(paddedB)
-            return (
-                torch.tensor(padded_batchA, dtype=torch.long),
-                torch.tensor(padded_batchB, dtype=torch.long),
+        for i in batch_order:
+            batch_indices = order[i : i + batch_size]
+            encoded_words = self.lexer.pad_batch([self.encoded_words[j] for j in batch_indices])  # type: ignore
+            tags = self.pad([self.tags[j] for j in batch_indices])
+            heads = self.pad([self.heads[j] for j in batch_indices])
+            labels = self.pad([self.labels[j] for j in batch_indices])
+            words = [self.words[j] for j in batch_indices]
+            mwe = [self.mwe_ranges[j] for j in batch_indices]
+            cats = [self.cats[j] for j in batch_indices]
+            chars = tuple(
+                self.char_dataset.batch_chars([self.words[j] for j in batch_indices])
             )
-        else:
-            sent_lengths = list(map(len, batch))
-            max_len = max(sent_lengths)
-            padded_batch = []
-            for k, seq in zip(sent_lengths, batch):
-                padded = seq + (max_len - k) * [DependencyDataset.PAD_IDX]
-                padded_batch.append(padded)
-        return torch.tensor(padded_batch, dtype=torch.long)
+            subwords = tuple(
+                self.ft_dataset.batch_sentences([self.words[j] for j in batch_indices])
+            )
+            sent_lengths = torch.tensor([len(self.words[j]) for j in batch_indices])
+            yield DependencyBatch(
+                words=words,
+                mwe=mwe,
+                chars=chars,
+                subwords=subwords,
+                cats=cats,
+                encoded_words=encoded_words,
+                tags=tags,
+                heads=heads,
+                labels=labels,
+                sent_lengths=sent_lengths
+            )
+
+    def pad(self, batch: List[List[int]]) -> torch.Tensor:
+        tensorized_seqs = [torch.tensor(sent, dtype=torch.long) for sent in batch]
+        return pad_sequence(
+            tensorized_seqs,
+            padding_value=self.PAD_IDX,
+            batch_first=True,
+        )
 
     def init_labels(self, treelist: Iterable[DepGraph]):
         self.itolab = gen_labels(treelist)
@@ -399,7 +396,8 @@ class DependencyDataset:
     def __len__(self):
         return len(self.treelist)
 
-    def oracle_labels(self, depgraph):
+    @staticmethod
+    def oracle_labels(depgraph: DepGraph) -> List[str]:
         """
         Returns a list where each element list[i] is the label of
         the position of the governor of the word at position i.
@@ -411,7 +409,8 @@ class DependencyDataset:
         rev_labels = dict([(dep, label) for (gov, label, dep) in edges])
         return [rev_labels.get(idx, DependencyDataset.PAD_TOKEN) for idx in range(N)]
 
-    def oracle_governors(self, depgraph):
+    @staticmethod
+    def oracle_governors(depgraph: DepGraph) -> List[int]:
         """
         Returns a list where each element list[i] is the index of
         the position of the governor of the word at position i.
