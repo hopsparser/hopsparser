@@ -76,7 +76,6 @@ We provide some pretrained models:
 | ud_fr_gsd_default   | French     | GPU/CPU | 91.98     | 88.96      | fast    | UD French GSD 2.6 + fasttext                       | [download model](https://github.com/bencrabbe/npdependency/releases/download/v0.2.0dev0/ud_fr_gsd_default.tar.gz) |
 | ud_fr_gsd_flaubert  | French     | GPU     | 95.06     | 93.77      | average | flaubert_base_cased + UD French GSD 2.6 + fasttext | [download model](https://sharedocs.huma-num.fr/wl/?id=sAARm9xFNdITZArRYn2qF9UUTj0KqBtu)                           |
 | ud_fr_gsd_camembert | French     | GPU     | 95.06     | 93.28      | average | camembert-base + UD French GSD 2.6 + fasttext      | [download model](https://sharedocs.huma-num.fr/wl/?id=DrKZLgdikOI5TZoVLfcykRLEmUUyLoBN)                           |
-| ud_fro_default      | Old French | GPU/CPU |           | 85.9       | fast    | SRCMF treebank + fasttext                          | [download model](https://github.com/bencrabbe/npdependency/releases/download/v0.1.0dev0/fro_srcmf_default.tar.gz) |
 
 The reader may notice a difference with the results published in
 [(Le et al 2020)](https://arxiv.org/abs/1912.05372). The difference comes from a better usage of
