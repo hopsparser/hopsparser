@@ -74,7 +74,8 @@ We provide some pretrained models:
 | ftb_flaubert       | French     | GPU     | 88.3 | average | FlaubertBase+French treebank + fasttext | [download model](https://sharedocs.huma-num.fr/wl/?id=fVAdiTHwZhVeqrscNTMXehxsNJtBx9Zc)                           |
 | ftb_camembert      | French     | GPU     | 87.9 | average | camembert+French treebank + fasttext    | [download model](https://sharedocs.huma-num.fr/wl/?id=r0H0HESGOawmWiRxSqXDARC81TiGDBwW)                           |
 | ud_fr_gsd_default  | French     | GPU/CPU | 90.2 | fast    | UD French GSD + fasttext                | [download model](https://github.com/bencrabbe/npdependency/releases/download/v0.1.0dev0/fr_gsd_default.tar.gz)    |
-| ud_fr_gsd_flaubert | French     | GPU     | 92.4 | average | FlaubertBase + UD French GSD + fasttext | [download model](https://sharedocs.huma-num.fr/wl/?id=zWyaLI0xUkogeMFn9MoiVPjKPeDOzDW0)                           |
+| ud_fr_gsd_flaubert | French     | GPU     | 92.4 | average | flaubert_base_cased + UD French GSD + fasttext | [download model](https://sharedocs.huma-num.fr/wl/?id=sAARm9xFNdITZArRYn2qF9UUTj0KqBtu)                           |
+| ud_fr_gsd_camembert | French     | GPU     | 92.4 | average | camembert-base + UD French GSD + fasttext | [download model](https://sharedocs.huma-num.fr/wl/?id=DrKZLgdikOI5TZoVLfcykRLEmUUyLoBN)                           |
 | ud_fro_default     | Old French | GPU/CPU | 85.9 | fast    | SRCMF treebank + fasttext               | [download model](https://github.com/bencrabbe/npdependency/releases/download/v0.1.0dev0/fro_srcmf_default.tar.gz) |
 
 The reader may notice a difference with the results published in
