@@ -417,7 +417,7 @@ def align_with_special_tokens(
     """Provide a word→subwords alignements using an encoded sentence special tokens mask.
 
     This is only useful for the non-fast 🤗 tokenizers, since the fast ones have native APIs to do
-    that, we also return 🤗 )`TokenSpan`s for compatibility with this API.
+    that, we also return 🤗 `TokenSpan`s for compatibility with this API.
     """
     res: List[TokenSpan] = []
     pos = 0
@@ -472,8 +472,6 @@ class BertBaseLexer(nn.Module):
                 bert_modelfile, use_fast=True, add_prefix_space=True
             )
 
-        self.BERT_PAD_IDX = self.bert_tokenizer.pad_token_id
-        self.BERT_UNK_IDX = self.bert_tokenizer.unk_token_id
         self.embedding_size = embedding_size + self.bert.config.hidden_size
 
         self.embedding = nn.Embedding(
@@ -506,10 +504,6 @@ class BertBaseLexer(nn.Module):
         return super().train(mode)
 
     def forward(self, inpt: BertLexerBatch) -> torch.Tensor:
-        """
-        Takes words sequences codes as integer sequences and returns
-        the embeddings from the last (top) BERT layer.
-        """
         word_indices = inpt.word_indices
         if self._dpout:
             word_indices = integer_dropout(word_indices, self.unk_word_idx, self._dpout)
