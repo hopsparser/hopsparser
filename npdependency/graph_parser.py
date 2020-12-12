@@ -1,6 +1,16 @@
 import pathlib
 import sys
-from typing import Any, Dict, Iterable, Sequence, TextIO, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    Literal,
+    Sequence,
+    TextIO,
+    Tuple,
+    TypedDict,
+    Union,
+)
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import yaml
 import argparse
@@ -72,6 +82,11 @@ class Tagger(nn.Module):
 
     def forward(self, input):
         return self.W(input)
+
+
+class LRSchedule(TypedDict):
+    shape: Literal["exponential", "linear", "constant"]
+    warmup_steps: int
 
 
 class BiAffineParser(nn.Module):
@@ -289,6 +304,7 @@ class BiAffineParser(nn.Module):
         epochs: int,
         batch_size: int,
         lr: float,
+        lr_schedule: LRSchedule,
         modelpath="test_model.pt",
     ):
 
@@ -299,7 +315,17 @@ class BiAffineParser(nn.Module):
         optimizer = torch.optim.Adam(
             self.parameters(), betas=(0.9, 0.9), lr=lr, eps=1e-09
         )
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+
+        if lr_schedule["shape"] == "exponential":
+            scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+        elif lr_schedule["shape"] == "linear":
+            scheduler = torch.optim.lr_scheduler.LambdaLR(
+                optimizer, (lambda n: 1 - n / epochs)
+            )
+        elif lr_schedule["shape"] == "constant":
+            scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, (lambda n: 1))
+        else:
+            raise ValueError(f"Unkown lr schedule shape {lr_schedule['shape']!r}")
 
         for e in range(epochs):
             TRAIN_LOSS = 0.0
@@ -767,11 +793,14 @@ def main():
         )
 
         parser.train_model(
-            trainset,
-            devset,
-            hp["epochs"],
-            hp["batch_size"],
-            hp["lr"],
+            train_set=trainset,
+            dev_set=devset,
+            epochs=hp["epochs"],
+            batch_size=hp["batch_size"],
+            lr=hp["lr"],
+            lr_schedule=hp.get(
+                "lr_schedule", {"shape": "exponential", "warmup_steps": 0}
+            ),
             modelpath=weights_file,
         )
         print("training done.", file=sys.stderr)
