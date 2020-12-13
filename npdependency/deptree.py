@@ -1,7 +1,17 @@
 from npdependency.lexers import BertLexerBatch, BertLexerSentence
 import pathlib
 from random import shuffle
-from typing import Iterable, List, NamedTuple, Optional, Sequence, TextIO, Union
+from typing import (
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Set,
+    TextIO,
+    Union,
+)
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -9,53 +19,71 @@ from torch.nn.utils.rnn import pad_sequence
 from npdependency import lexers
 
 
+class MWERange(NamedTuple):
+    start: int
+    end: int
+    form: str
+
+    def to_conll(self) -> str:
+        return f"{self.start}-{self.end}\t{self.form}\t_\t_\t_\t_\t_\t_\t_\t_"
+
+
+class Edge(NamedTuple):
+    gov: int
+    label: str
+    dep: int
+
+
 class DepGraph:
 
     ROOT_TOKEN = "<root>"
 
     def __init__(
-        self, edges, wordlist=None, pos_tags=None, with_root=False, mwe_range=None
+        self,
+        edges: Iterable[Edge],
+        wordlist: Optional[Iterable[str]] = None,
+        pos_tags: Optional[Iterable[str]] = None,
+        with_root: bool = False,
+        mwe_range: Optional[Iterable[MWERange]] = None,
+        metadata: Optional[Iterable[str]] = None,
     ):
 
-        self.gov2dep = {}
-        self.has_gov = set()  # set of nodes with a governor
+        self.gov2dep: Dict[int, List[Edge]] = {}
+        self.has_gov: Set[int] = set()  # set of nodes with a governor
 
-        for (gov, label, dep) in edges:
-            self.add_arc(gov, label, dep)
+        for e in edges:
+            self.add_arc(e)
 
         if with_root:
             self.add_root()
 
-        if wordlist is None:
-            wordlist = []
-        self.words = [DepGraph.ROOT_TOKEN] + wordlist
-        self.pos_tags = [DepGraph.ROOT_TOKEN] + pos_tags if pos_tags else None
+        self.words = [self.ROOT_TOKEN, *(wordlist if wordlist is not None else [])]
+        self.pos_tags = [
+            self.ROOT_TOKEN,
+            *(pos_tags if pos_tags is not None else []),
+        ]
         self.mwe_ranges = [] if mwe_range is None else mwe_range
+        self.metadata = [] if metadata is None else metadata
 
-    def fastcopy(self):
+    def fastcopy(self) -> "DepGraph":
         """
         copy edges only not word nor tags nor mwe_ranges
         """
-        edgelist = list(self.gov2dep.values())
-        flatlist = [edge for sublist in edgelist for edge in sublist]
-        return DepGraph(flatlist)
+        return DepGraph(self.get_all_edges())
 
-    def get_all_edges(self):
+    def get_all_edges(self) -> List[Edge]:
         """
         Returns the list of edges found in this graph
         """
-        return [edge for gov in self.gov2dep for edge in self.gov2dep[gov]]
+        return [edge for siblinghood in self.gov2dep.values() for edge in siblinghood]
 
-    def get_all_labels(self):
+    def get_all_labels(self) -> List[str]:
         """
         Returns the list of dependency labels found on the arcs
         """
-        all_labels = []
-        for gov in self.gov2dep:
-            all_labels.extend([label for (gov, label, dep) in self.gov2dep[gov]])
-        return all_labels
+        return [edge.label for edge in self.get_all_edges()]
 
-    def get_arc(self, gov, dep):
+    def get_arc(self, gov: int, dep: int) -> Optional[Edge]:
         """
         Returns the arc between gov and dep if it exists or None otherwise
         Args:
@@ -64,50 +92,44 @@ class DepGraph:
         Returns:
             A triple (gov,label,dep) or None.
         """
-        if gov in self.gov2dep:
-            for (_gov, deplabel, _dep) in self.gov2dep[gov]:
-                if _dep == dep:
-                    return (_gov, deplabel, _dep)
+        for edge in self.gov2dep.get(gov, []):
+            if edge.dep == dep:
+                return edge
         return None
 
     def add_root(self):
-
-        if self.gov2dep and 0 not in self.gov2dep:
-            root = list(set(self.gov2dep) - self.has_gov)
-            if len(root) == 1:
-                self.add_arc(0, "root", root[0])
-            else:
-                # print(self)
-                assert False  # no single root... problem.
-        elif not self.gov2dep:  # single word sentence
+        if not self.gov2dep:  # single word sentence
             self.add_arc(0, "root", 1)
+        elif 0 not in self.gov2dep:
+            roots = set(self.gov2dep) - self.has_gov
+            if len(roots) > 1:
+                raise ValueError("Malformed tree: multiple roots")
+            elif len(roots) == 0:
+                raise ValueError("Malformed tree: no root")
+            self.add_arc(Edge(0, "root", roots.pop()))
 
-    def add_arc(self, gov, label, dep):
+    def add_arc(self, edge: Edge):
         """
         Adds an arc to the dep graph
         """
-        if gov in self.gov2dep:
-            self.gov2dep[gov].append((gov, label, dep))
-        else:
-            self.gov2dep[gov] = [(gov, label, dep)]
+        self.gov2dep.setdefault(edge.gov, []).append(edge)
+        self.has_gov.add(edge.dep)
 
-        self.has_gov.add(dep)
-
-    def is_cyclic_add(self, gov, dep):
+    def is_cyclic_add(self, gov: int, dep: int) -> bool:
         """
         Checks if the addition of an arc from gov to dep would create
         a cycle in the dep tree
         """
         return gov in self.span(dep)
 
-    def is_dag_add(self, gov, dep):
+    def is_dag_add(self, gov: int, dep: int) -> bool:
         """
         Checks if the addition of an arc from gov to dep would create
         a Dag
         """
         return dep in self.has_gov
 
-    def span(self, gov):
+    def span(self, gov: int) -> Set[int]:
         """
         Returns the list of nodes in the yield of this node
         the set of j such that (i -*> j).
@@ -116,11 +138,10 @@ class DepGraph:
         closure = set([gov])
         while agenda:
             node = agenda.pop()
-            succ = (
-                [dep for (gov, label, dep) in self.gov2dep[node]]
-                if node in self.gov2dep
-                else []
-            )
+            if node in self.gov2dep:
+                succ = [edge.dep for edge in self.gov2dep[node]]
+            else:
+                succ = []
             agenda.extend([node for node in succ if node not in closure])
             closure.update(succ)
         return closure
@@ -158,12 +179,15 @@ class DepGraph:
         Reads a conll tree from input stream
         """
         conll = []
+        metadata = []
         line = istream.readline()
-        while istream and line.isspace():
+        while line and line.isspace():
             line = istream.readline()
-        while istream and not line.strip() == "":
-            if line[0] != "#":
-                conll.append(line.strip().split("\t"))
+        while line and line.startswith("#"):
+            metadata.append(line)
+            line = istream.readline()
+        while line and not line.isspace():
+            conll.append(line.strip().split("\t"))
             line = istream.readline()
         if not conll:
             return None
@@ -177,49 +201,44 @@ class DepGraph:
                 dataline[6] = "0"
 
             if "-" in dataline[0]:
-                mwe_ranges.append(dataline[0].split("-") + [dataline[1]])
+                mwe_start, mwe_end = dataline[0].split("-")
+                mwe_ranges.append(MWERange(int(mwe_start), int(mwe_end), dataline[1]))
                 continue
             else:
                 words.append(dataline[1])
                 if dataline[3] not in ["-", "_"]:
                     postags.append(dataline[3])
                 if dataline[6] != "0":  # do not add root immediately
-                    edges.append(
-                        (int(dataline[6]), dataline[7], int(dataline[0]))
-                    )  # shift indexes !
-        return cls(edges, words, pos_tags=postags, with_root=True, mwe_range=mwe_ranges)
+                    # shift indexes !
+                    edges.append(Edge(int(dataline[6]), dataline[7], int(dataline[0])))
+        return cls(
+            edges,
+            words,
+            pos_tags=postags,
+            with_root=True,
+            mwe_range=mwe_ranges,
+            metadata=metadata,
+        )
 
     def __str__(self):
         """
         Conll string for the dep tree
         """
-        lines = []
-        revdeps = [
-            (dep, (label, gov))
-            for node in self.gov2dep
-            for (gov, label, dep) in self.gov2dep[node]
-        ]
-        revdeps = dict(revdeps)
-        for node in range(1, len(self.words)):
-            L = ["_"] * 10
-            L[0] = str(node)
-            L[1] = self.words[node]
+        lines = self.metadata
+        revdeps = {edge.dep: (edge.label, edge.gov) for edge in self.get_all_edges()}
+        for node_idx, form in enumerate(self.words[1:], start=1):
+            dataline = ["_"] * 10
+            dataline[0] = str(node_idx)
+            dataline[1] = form
             if self.pos_tags:
-                L[3] = self.pos_tags[node]
-            label, head = revdeps[node] if node in revdeps else ("root", 0)
-            L[6] = str(head)
-            L[7] = label
-            mwe_list = [
-                (left, right, word)
-                for (left, right, word) in self.mwe_ranges
-                if left == L[0]
-            ]
+                dataline[3] = self.pos_tags[node_idx]
+            deprel, head = revdeps.get(node_idx, ("root", 0))
+            dataline[6] = str(head)
+            dataline[7] = deprel
+            mwe_list = [mwe for mwe in self.mwe_ranges if mwe.start == dataline[0]]
             for mwe in mwe_list:
-                MWE = ["_"] * 10
-                MWE[0] = "-".join(mwe[:2])
-                MWE[1] = mwe[2]
-                lines.append("\t".join(MWE))
-            lines.append("\t".join(L))
+                lines.append(mwe.to_conll())
+            lines.append("\t".join(dataline))
         return "\n".join(lines)
 
     def __len__(self):
@@ -398,8 +417,8 @@ class DependencyDataset:
     def __len__(self):
         return len(self.treelist)
 
-    @staticmethod
-    def oracle_labels(depgraph: DepGraph) -> List[str]:
+    @classmethod
+    def oracle_labels(cls, depgraph: DepGraph) -> List[str]:
         """
         Returns a list where each element list[i] is the label of
         the position of the governor of the word at position i.
@@ -409,7 +428,7 @@ class DependencyDataset:
         N = len(depgraph)
         edges = depgraph.get_all_edges()
         rev_labels = dict([(dep, label) for (gov, label, dep) in edges])
-        return [rev_labels.get(idx, DependencyDataset.PAD_TOKEN) for idx in range(N)]
+        return [rev_labels.get(idx, cls.PAD_TOKEN) for idx in range(N)]
 
     @staticmethod
     def oracle_governors(depgraph: DepGraph) -> List[int]:

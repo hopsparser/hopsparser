@@ -12,6 +12,7 @@ import numpy as np
 
 import torch
 from torch import nn
+from npdependency import deptree
 
 from npdependency.mst import chuliu_edmonds_one_root as chuliu_edmonds
 
@@ -509,7 +510,7 @@ class BiAffineParser(nn.Module):
                     )
                     mst_labels = selected.argmax(dim=0)
                     edges = [
-                        (head, test_set.itolab[lbl], dep)
+                        deptree.Edge(head, test_set.itolab[lbl], dep)
                         for (dep, head, lbl) in zip(
                             list(range(length)), mst_heads, mst_labels
                         )
