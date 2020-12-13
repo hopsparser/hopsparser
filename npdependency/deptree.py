@@ -250,16 +250,18 @@ class DependencyDataset:
     UNK_WORD = "<unk>"
 
     @staticmethod
-    def read_conll(filename: Union[str, pathlib.Path]) -> List[DepGraph]:
+    def read_conll(
+        filename: Union[str, pathlib.Path], max_tree_length: Optional[int] = None
+    ) -> List[DepGraph]:
         with open(filename) as istream:
             treelist = []
             tree = DepGraph.read_tree(istream)
             while tree:
-                if len(tree.words) <= 150:
+                if max_tree_length is not None and len(tree.words) <= max_tree_length:
                     treelist.append(tree)
                 else:
                     print(
-                        f"Dropped tree with length {len(tree.words)} > 150",
+                        f"Dropped tree with length {len(tree.words)} > {max_tree_length}",
                     )
                 tree = DepGraph.read_tree(istream)
         return treelist
@@ -374,7 +376,7 @@ class DependencyDataset:
                 tags=tags,
                 heads=heads,
                 labels=labels,
-                sent_lengths=sent_lengths
+                sent_lengths=sent_lengths,
             )
 
     def pad(self, batch: List[List[int]]) -> torch.Tensor:

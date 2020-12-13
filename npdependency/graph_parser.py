@@ -732,7 +732,7 @@ def main():
                 overwrite = False
         else:
             overwrite = True
-        traintrees = DependencyDataset.read_conll(args.train_file)
+        traintrees = DependencyDataset.read_conll(args.train_file, max_tree_length=150)
         devtrees = DependencyDataset.read_conll(args.dev_file)
 
         if overwrite:
