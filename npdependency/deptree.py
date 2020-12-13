@@ -257,7 +257,7 @@ class DependencyDataset:
             treelist = []
             tree = DepGraph.read_tree(istream)
             while tree:
-                if max_tree_length is not None and len(tree.words) <= max_tree_length:
+                if max_tree_length is None or len(tree.words) <= max_tree_length:
                     treelist.append(tree)
                 else:
                     print(
