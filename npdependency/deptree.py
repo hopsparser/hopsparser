@@ -44,7 +44,7 @@ class DepGraph:
         wordlist: Optional[Iterable[str]] = None,
         pos_tags: Optional[Iterable[str]] = None,
         with_root: bool = False,
-        mwe_range: Optional[Iterable[MWERange]] = None,
+        mwe_ranges: Optional[Iterable[MWERange]] = None,
         metadata: Optional[Iterable[str]] = None,
     ):
 
@@ -62,7 +62,7 @@ class DepGraph:
             self.ROOT_TOKEN,
             *(pos_tags if pos_tags is not None else []),
         ]
-        self.mwe_ranges = [] if mwe_range is None else mwe_range
+        self.mwe_ranges = [] if mwe_ranges is None else mwe_ranges
         self.metadata = [] if metadata is None else metadata
 
     def fastcopy(self) -> "DepGraph":
@@ -184,7 +184,7 @@ class DepGraph:
         while line and line.isspace():
             line = istream.readline()
         while line and line.startswith("#"):
-            metadata.append(line)
+            metadata.append(line.strip())
             line = istream.readline()
         while line and not line.isspace():
             conll.append(line.strip().split("\t"))
@@ -216,7 +216,7 @@ class DepGraph:
             words,
             pos_tags=postags,
             with_root=True,
-            mwe_range=mwe_ranges,
+            mwe_ranges=mwe_ranges,
             metadata=metadata,
         )
 
@@ -246,11 +246,9 @@ class DepGraph:
 
 
 class DependencyBatch(NamedTuple):
-    words: List[List[str]]
-    mwe: List[List[str]]
+    trees: Sequence[DepGraph]
     chars: Sequence[torch.Tensor]
     subwords: Sequence[torch.Tensor]
-    cats: List[List[str]]
     encoded_words: Union[torch.Tensor, BertLexerBatch]
     tags: torch.Tensor
     heads: torch.Tensor
@@ -355,7 +353,7 @@ class DependencyDataset:
         shuffle_data: bool = True,
         order_by_length: bool = False,
     ) -> Iterable[DependencyBatch]:
-        N = len(self.encoded_words)
+        N = len(self.treelist)
         order = list(range(N))
         if shuffle_data:
             shuffle(order)
@@ -363,7 +361,7 @@ class DependencyDataset:
         # shuffling then ordering is relevant : it change the way ties are resolved and thus batch
         # construction
         if order_by_length:
-            order.sort(key=lambda i: len(self.encoded_words[i]))
+            order.sort(key=lambda i: len(self.treelist[i]))
 
         batch_order = list(range(0, N, batch_size))
         if shuffle_batches:
@@ -371,13 +369,11 @@ class DependencyDataset:
 
         for i in batch_order:
             batch_indices = order[i : i + batch_size]
+            trees = [self.treelist[j] for j in batch_indices]
             encoded_words = self.lexer.pad_batch([self.encoded_words[j] for j in batch_indices])  # type: ignore
             tags = self.pad([self.tags[j] for j in batch_indices])
             heads = self.pad([self.heads[j] for j in batch_indices])
             labels = self.pad([self.labels[j] for j in batch_indices])
-            words = [self.words[j] for j in batch_indices]
-            mwe = [self.mwe_ranges[j] for j in batch_indices]
-            cats = [self.cats[j] for j in batch_indices]
             chars = tuple(
                 self.char_dataset.batch_chars([self.words[j] for j in batch_indices])
             )
@@ -386,11 +382,9 @@ class DependencyDataset:
             )
             sent_lengths = torch.tensor([len(self.words[j]) for j in batch_indices])
             yield DependencyBatch(
-                words=words,
-                mwe=mwe,
+                trees=trees,
                 chars=chars,
                 subwords=subwords,
-                cats=cats,
                 encoded_words=encoded_words,
                 tags=tags,
                 heads=heads,
