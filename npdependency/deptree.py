@@ -119,7 +119,7 @@ class DepGraph:
 
     def add_root(self):
         if not self.gov2dep:  # single word sentence
-            self.add_arc(0, "root", 1)
+            self.add_arc(Edge(0, "root", 1))
         elif 0 not in self.gov2dep:
             roots = set(self.gov2dep) - self.has_gov
             if len(roots) > 1:
