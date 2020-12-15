@@ -97,6 +97,26 @@ class DepGraph:
                 return edge
         return None
 
+    def oracle_governors(self) -> List[int]:
+        """
+        Returns a list where each element list[i] is the index of
+        the position of the governor of the word at position i.
+        """
+        N = len(self)
+        govs = {edge.dep: edge.gov for edge in self.get_all_edges()}
+        govs[0] = 0
+        return [govs[idx] for idx in range(N)]
+
+    def oracle_labels(self) -> List[str]:
+        """
+        Returns a list where each element list[i] is the label of
+        the position of the governor of the word at position i.
+        """
+        N = len(self)
+        labels = {edge.dep: edge.label for edge in self.get_all_edges()}
+        labels[0] = "_"
+        return [labels[idx] for idx in range(N)]
+
     def add_root(self):
         if not self.gov2dep:  # single word sentence
             self.add_arc(0, "root", 1)
@@ -310,36 +330,29 @@ class DependencyDataset:
         self.heads: List[List[int]] = []
         self.labels: List[List[int]] = []
         self.tags: List[List[int]] = []
-        self.words: List[List[str]] = []
-        self.mwe_ranges: List[List[str]] = []
-        self.cats: List[List[str]] = []
         self.encode()
 
     def encode(self):
         self.encoded_words, self.heads, self.labels, self.tags = [], [], [], []
-        self.words, self.mwe_ranges, self.cats = [], [], []
 
         for tree in self.treelist:
             encoded_words = self.lexer.tokenize(tree.words)
             if tree.pos_tags:
                 deptag_idxes = [
-                    self.tagtoi.get(tag, self.tagtoi[DependencyDataset.UNK_WORD])
+                    self.tagtoi.get(tag, self.tagtoi[self.UNK_WORD])
                     for tag in tree.pos_tags
                 ]
             else:
                 deptag_idxes = [
-                    self.tagtoi[DependencyDataset.UNK_WORD] for tag in tree.words
+                    self.tagtoi[self.UNK_WORD] for _ in tree.words
                 ]
-            self.words.append(tree.words)
-            self.cats.append(tree.pos_tags)
             self.tags.append(deptag_idxes)
             self.encoded_words.append(encoded_words)
-            self.heads.append(self.oracle_governors(tree))
+            self.heads.append(tree.oracle_governors())
             # the get defaulting to 0 is a hack for labels not found in training set
             self.labels.append(
-                [self.labtoi.get(lab, 0) for lab in self.oracle_labels(tree)]
+                [self.labtoi.get(lab, 0) for lab in tree.oracle_labels()]
             )
-            self.mwe_ranges.append(tree.mwe_ranges)
 
     def save_vocab(self, filename):
         with open(filename, "w") as out:
@@ -375,12 +388,12 @@ class DependencyDataset:
             heads = self.pad([self.heads[j] for j in batch_indices])
             labels = self.pad([self.labels[j] for j in batch_indices])
             chars = tuple(
-                self.char_dataset.batch_chars([self.words[j] for j in batch_indices])
+                self.char_dataset.batch_chars([t.words for t in trees])
             )
             subwords = tuple(
-                self.ft_dataset.batch_sentences([self.words[j] for j in batch_indices])
+                self.ft_dataset.batch_sentences([t.words for t in trees])
             )
-            sent_lengths = torch.tensor([len(self.words[j]) for j in batch_indices])
+            sent_lengths = torch.tensor([len(t) for t in trees])
             yield DependencyBatch(
                 trees=trees,
                 chars=chars,
@@ -410,32 +423,6 @@ class DependencyDataset:
 
     def __len__(self):
         return len(self.treelist)
-
-    @classmethod
-    def oracle_labels(cls, depgraph: DepGraph) -> List[str]:
-        """
-        Returns a list where each element list[i] is the label of
-        the position of the governor of the word at position i.
-        Returns:
-        a tensor of size N.
-        """
-        N = len(depgraph)
-        edges = depgraph.get_all_edges()
-        rev_labels = dict([(dep, label) for (gov, label, dep) in edges])
-        return [rev_labels.get(idx, cls.PAD_TOKEN) for idx in range(N)]
-
-    @staticmethod
-    def oracle_governors(depgraph: DepGraph) -> List[int]:
-        """
-        Returns a list where each element list[i] is the index of
-        the position of the governor of the word at position i.
-        Returns:
-        a tensor of size N.
-        """
-        N = len(depgraph)
-        edges = depgraph.get_all_edges()
-        rev_edges = dict([(dep, gov) for (gov, label, dep) in edges])
-        return [rev_edges.get(idx, 0) for idx in range(N)]
 
 
 def gen_tags(treelist: Iterable[DepGraph]) -> List[str]:
