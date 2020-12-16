@@ -1,3 +1,4 @@
+import math
 import pathlib
 import sys
 from typing import (
@@ -12,6 +13,7 @@ from typing import (
     Union,
 )
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+import transformers
 import yaml
 import argparse
 
@@ -317,13 +319,20 @@ class BiAffineParser(nn.Module):
         )
 
         if lr_schedule["shape"] == "exponential":
-            scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
-        elif lr_schedule["shape"] == "linear":
             scheduler = torch.optim.lr_scheduler.LambdaLR(
-                optimizer, (lambda n: 1 - n / epochs)
+                optimizer,
+                (lambda n: 0.95 * (n // (math.ceil(len(train_set) / batch_size)))),
+            )
+        elif lr_schedule["shape"] == "linear":
+            scheduler = transformers.get_linear_schedule_with_warmup(
+                optimizer,
+                lr_schedule["warmup_steps"],
+                epochs * math.ceil(len(train_set) / batch_size) + 1,
             )
         elif lr_schedule["shape"] == "constant":
-            scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, (lambda n: 1))
+            scheduler = transformers.get_linear_constant_with_warmup(
+                optimizer, lr_schedule["warmup_steps"]
+            )
         else:
             raise ValueError(f"Unkown lr schedule shape {lr_schedule['shape']!r}")
 
@@ -390,6 +399,8 @@ class BiAffineParser(nn.Module):
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+                scheduler.step()
+                print(scheduler.get_last_lr())
 
                 TRAIN_LOSS += loss.item()
 
@@ -417,8 +428,6 @@ class BiAffineParser(nn.Module):
             if DEV_ARC_ACC > BEST_ARC_ACC:
                 self.save_params(modelpath)
                 BEST_ARC_ACC = DEV_ARC_ACC
-
-            scheduler.step()
 
         self.load_params(modelpath)
         self.save_params(modelpath)
