@@ -383,11 +383,8 @@ class DependencyDataset:
 
         for i in batch_order:
             batch_indices = order[i : i + batch_size]
-            trees = [self.treelist[j] for j in batch_indices]
+            chars = tuple(self.char_dataset.batch_chars([t.words for t in trees]))
             encoded_words = self.lexer.pad_batch([self.encoded_words[j] for j in batch_indices])  # type: ignore
-            tags = self.pad(
-                [self.tags[j] for j in batch_indices], padding_value=self.LABEL_PADDING
-            )
             heads = self.pad(
                 [self.heads[j] for j in batch_indices], padding_value=self.LABEL_PADDING
             )
@@ -395,18 +392,21 @@ class DependencyDataset:
                 [self.labels[j] for j in batch_indices],
                 padding_value=self.LABEL_PADDING,
             )
-            chars = tuple(self.char_dataset.batch_chars([t.words for t in trees]))
-            subwords = tuple(self.ft_dataset.batch_sentences([t.words for t in trees]))
             sent_lengths = torch.tensor([len(t) for t in trees])
+            subwords = tuple(self.ft_dataset.batch_sentences([t.words for t in trees]))
+            tags = self.pad(
+                [self.tags[j] for j in batch_indices], padding_value=self.LABEL_PADDING
+            )
+            trees = [self.treelist[j] for j in batch_indices]
             yield DependencyBatch(
-                trees=trees,
                 chars=chars,
-                subwords=subwords,
                 encoded_words=encoded_words,
-                tags=tags,
                 heads=heads,
                 labels=labels,
                 sent_lengths=sent_lengths,
+                subwords=subwords,
+                tags=tags,
+                trees=trees,
             )
 
     def pad(
