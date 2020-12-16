@@ -400,7 +400,6 @@ class BiAffineParser(nn.Module):
                 loss.backward()
                 optimizer.step()
                 scheduler.step()
-                print(scheduler.get_last_lr())
 
                 TRAIN_LOSS += loss.item()
 
