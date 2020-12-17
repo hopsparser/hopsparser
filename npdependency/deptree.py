@@ -255,7 +255,7 @@ class DepGraph:
             deprel, head = revdeps.get(node_idx, ("root", 0))
             dataline[6] = str(head)
             dataline[7] = deprel
-            mwe_list = [mwe for mwe in self.mwe_ranges if mwe.start == dataline[0]]
+            mwe_list = [mwe for mwe in self.mwe_ranges if mwe.start == node_idx]
             for mwe in mwe_list:
                 lines.append(mwe.to_conll())
             lines.append("\t".join(dataline))
