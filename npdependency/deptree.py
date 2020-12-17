@@ -352,7 +352,9 @@ class DependencyDataset:
             deptag_idxes[0] = -100
             self.tags.append(deptag_idxes)
             self.encoded_words.append(encoded_words)
-            self.heads.append(tree.oracle_governors())
+            heads = tree.oracle_governors()
+            heads[0] = -100
+            self.heads.append(heads)
             labels = [self.labtoi.get(lab, 0) for lab in tree.oracle_labels()]
             labels[0] = -100
             self.labels.append(labels)
@@ -390,7 +392,7 @@ class DependencyDataset:
             chars = tuple(self.char_dataset.batch_chars([t.words for t in trees]))
             encoded_words = self.lexer.pad_batch([self.encoded_words[j] for j in batch_indices])  # type: ignore
             heads = self.pad(
-                [self.heads[j] for j in batch_indices], padding_value=self.PAD_IDX
+                [self.heads[j] for j in batch_indices], padding_value=self.LABEL_PADDING
             )
             labels = self.pad(
                 [self.labels[j] for j in batch_indices],

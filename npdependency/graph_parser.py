@@ -242,6 +242,7 @@ class BiAffineParser(nn.Module):
                     batch.labels.to(self.device),
                     batch.tags.to(self.device),
                 )
+
                 chars = [token.to(self.device) for token in batch.chars]
                 subwords = [token.to(self.device) for token in batch.subwords]
                 # preds
@@ -250,9 +251,11 @@ class BiAffineParser(nn.Module):
                 )
 
                 # get global loss
+                # TODO: that mask could be a batch attribute instead
+                mask = heads.ne(dev_set.LABEL_PADDING)
                 # ARC LOSS
-                # [batch, sent_len, sent_len]
                 arc_scoresL = arc_scores.transpose(-1, -2)
+                # [batch, sent_len, sent_len]
                 # [batch*sent_len, sent_len]
                 arc_scoresL = arc_scoresL.reshape(-1, arc_scoresL.size(-1))
                 arc_loss = loss_fnc(arc_scoresL, heads.view(-1))  # [batch*sent_len]
@@ -261,10 +264,13 @@ class BiAffineParser(nn.Module):
                 tagger_scoresB = tagger_scores.reshape(-1, tagger_scores.size(-1))
                 tagger_loss = loss_fnc(tagger_scoresB, tags.view(-1))
 
-                # TODO: don't give points for correctly guessing that the root is its own head
                 # LABEL LOSS
+                # We will select the labels for the true heads, so we have to give a true head to
+                # the padding tokens (even if they will be ignore in the crossentropy since the true
+                # label for that head is set to -100) so we give them the root.
+                positive_heads = heads.masked_fill(mask.logical_not(), 0)
                 # [batch, 1, 1, sent_len]
-                headsL = heads.unsqueeze(1).unsqueeze(2)
+                headsL = positive_heads.unsqueeze(1).unsqueeze(2)
                 # [batch, n_labels, 1, sent_len]
                 headsL = headsL.expand(-1, lab_scores.size(1), -1, -1)
                 # [batch, n_labels, sent_len]
@@ -280,8 +286,6 @@ class BiAffineParser(nn.Module):
                 loss = tagger_loss + arc_loss + lab_loss
                 gloss += loss.item()
 
-                # TODO: that mask could be a batch attribute instead
-                mask = heads.ne(dev_set.PAD_IDX)
                 accZ += mask.sum().item()
                 # greedy arc accuracy (without parsing)
                 arc_pred = arc_scores.argmax(dim=-2)
@@ -295,7 +299,7 @@ class BiAffineParser(nn.Module):
 
                 # greedy label accuracy (without parsing)
                 lab_pred = lab_scores.argmax(dim=1)
-                lab_pred = torch.gather(lab_pred, 1, heads.unsqueeze(1)).squeeze(1)
+                lab_pred = torch.gather(lab_pred, 1, positive_heads.unsqueeze(1)).squeeze(1)
                 lab_accurracy = lab_pred.eq(labels).logical_and(mask).sum()
                 lab_acc += lab_accurracy.item()
 
@@ -367,7 +371,9 @@ class BiAffineParser(nn.Module):
                     encoded_words, chars, subwords, batch.sent_lengths
                 )
 
+                # TODO: unify the loss computation with that of eval
                 # ARC LOSS
+                # Before this line, `arc_scores[i, j]` is the confidence that i is the head of j
                 # [batch, sent_len, sent_len]
                 arc_scores = arc_scores.transpose(-1, -2)
                 # [batch*sent_len, sent_len]
@@ -380,12 +386,16 @@ class BiAffineParser(nn.Module):
                 tagger_loss = loss_fnc(tagger_scores, tags.view(-1))
 
                 # LABEL LOSS
+                # We will select the labels for the true heads, so we have to give a true head to
+                # the padding tokens (even if they will be ignore in the crossentropy since the true
+                # label for that head is set to -100) so we give them the root.
+                headsL = heads.masked_fill(heads.eq(train_set.LABEL_PADDING), 0)
                 # [batch, 1, 1, sent_len]
-                heads = heads.unsqueeze(1).unsqueeze(2)
+                headsL = headsL.unsqueeze(1).unsqueeze(2)
                 # [batch, n_labels, 1, sent_len]
-                heads = heads.expand(-1, lab_scores.size(1), -1, -1)
+                headsL = headsL.expand(-1, lab_scores.size(1), -1, -1)
                 # [batch, n_labels, sent_len]
-                lab_scores = torch.gather(lab_scores, 2, heads).squeeze(2)
+                lab_scores = torch.gather(lab_scores, 2, headsL).squeeze(2)
                 # [batch, sent_len, n_labels]
                 lab_scores = lab_scores.transpose(-1, -2)
                 # [batch*sent_len, n_labels]
