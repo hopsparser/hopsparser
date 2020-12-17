@@ -359,11 +359,6 @@ class DependencyDataset:
             labels[0] = -100
             self.labels.append(labels)
 
-    def save_vocab(self, filename):
-        with open(filename, "w") as out:
-            print(" ".join(self.itolab), file=out)
-            print(" ".join(self.itotag), file=out)
-
     def make_batches(
         self,
         batch_size: int,
