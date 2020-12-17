@@ -336,6 +336,8 @@ class DependencyDataset:
         self.encode()
 
     def encode(self):
+        # NOTE: we mask the ROOT token features with -100 that will be ignored by crossentropy, it's
+        # not very satisfying though, maybe hardcode it in (lab|tag)toi ?
         self.encoded_words, self.heads, self.labels, self.tags = [], [], [], []
 
         for tree in self.treelist:
@@ -347,13 +349,13 @@ class DependencyDataset:
                 ]
             else:
                 deptag_idxes = [self.tagtoi[self.UNK_WORD] for _ in tree.words]
+            deptag_idxes[0] = -100
             self.tags.append(deptag_idxes)
             self.encoded_words.append(encoded_words)
             self.heads.append(tree.oracle_governors())
-            # the get defaulting to 0 is a hack for labels not found in training set
-            self.labels.append(
-                [self.labtoi.get(lab, 0) for lab in tree.oracle_labels()]
-            )
+            labels = [self.labtoi.get(lab, 0) for lab in tree.oracle_labels()]
+            labels[0] = -100
+            self.labels.append(labels)
 
     def save_vocab(self, filename):
         with open(filename, "w") as out:
@@ -388,7 +390,7 @@ class DependencyDataset:
             chars = tuple(self.char_dataset.batch_chars([t.words for t in trees]))
             encoded_words = self.lexer.pad_batch([self.encoded_words[j] for j in batch_indices])  # type: ignore
             heads = self.pad(
-                [self.heads[j] for j in batch_indices], padding_value=self.LABEL_PADDING
+                [self.heads[j] for j in batch_indices], padding_value=self.PAD_IDX
             )
             labels = self.pad(
                 [self.labels[j] for j in batch_indices],
@@ -399,7 +401,7 @@ class DependencyDataset:
             tags = self.pad(
                 [self.tags[j] for j in batch_indices], padding_value=self.LABEL_PADDING
             )
-            
+
             yield DependencyBatch(
                 chars=chars,
                 encoded_words=encoded_words,
@@ -419,7 +421,7 @@ class DependencyDataset:
         tensorized_seqs = [torch.tensor(sent, dtype=torch.long) for sent in batch]
         return pad_sequence(
             tensorized_seqs,
-            padding_value=self.PAD_IDX,
+            padding_value=padding_value,
             batch_first=True,
         )
 

@@ -236,7 +236,7 @@ class BiAffineParser(nn.Module):
             for batch in dev_batches:
                 encoded_words = batch.encoded_words.to(self.device)
                 # bc no masking at training
-                overall_size += encoded_words.size(0) * encoded_words.size(1)
+                overall_size += batch.sent_lengths.sum().item()
                 heads, labels, tags = (
                     batch.heads.to(self.device),
                     batch.labels.to(self.device),
@@ -261,6 +261,7 @@ class BiAffineParser(nn.Module):
                 tagger_scoresB = tagger_scores.reshape(-1, tagger_scores.size(-1))
                 tagger_loss = loss_fnc(tagger_scoresB, tags.view(-1))
 
+                # TODO: don't give points for correctly guessing that the root is its own head
                 # LABEL LOSS
                 # [batch, 1, 1, sent_len]
                 headsL = heads.unsqueeze(1).unsqueeze(2)
@@ -279,6 +280,7 @@ class BiAffineParser(nn.Module):
                 loss = tagger_loss + arc_loss + lab_loss
                 gloss += loss.item()
 
+                # TODO: that mask could be a batch attribute instead
                 mask = heads.ne(dev_set.PAD_IDX)
                 accZ += mask.sum().item()
                 # greedy arc accuracy (without parsing)
@@ -337,8 +339,8 @@ class BiAffineParser(nn.Module):
             raise ValueError(f"Unkown lr schedule shape {lr_schedule['shape']!r}")
 
         for e in range(epochs):
-            TRAIN_LOSS = 0.0
-            BEST_ARC_ACC = 0.0
+            train_loss = 0.0
+            best_arc_acc = 0.0
             # FIXME: why order by length here?
             train_batches = train_set.make_batches(
                 batch_size,
@@ -351,7 +353,7 @@ class BiAffineParser(nn.Module):
             for batch in train_batches:
                 encoded_words = batch.encoded_words.to(self.device)
                 # bc no masking at training
-                overall_size += encoded_words.size(0) * encoded_words.size(1)
+                overall_size += batch.sent_lengths.sum().item()
                 heads, labels, tags = (
                     batch.heads.to(self.device),
                     batch.labels.to(self.device),
@@ -401,32 +403,23 @@ class BiAffineParser(nn.Module):
                 optimizer.step()
                 scheduler.step()
 
-                TRAIN_LOSS += loss.item()
+                train_loss += loss.item()
 
-            DEV_LOSS, DEV_TAG_ACC, DEV_ARC_ACC, DEV_LAB_ACC = self.eval_model(
+            dev_loss, dev_tag_acc, dev_arc_acc, dev_lab_acc = self.eval_model(
                 dev_set, batch_size
             )
             print(
-                "Epoch ",
-                e,
-                "train mean loss",
-                TRAIN_LOSS / overall_size,
-                "valid mean loss",
-                DEV_LOSS,
-                "valid tag acc",
-                DEV_TAG_ACC,
-                "valid arc acc",
-                DEV_ARC_ACC,
-                "valid label acc",
-                DEV_LAB_ACC,
-                "Base LR",
-                scheduler.get_last_lr()[0],
+                (
+                    f"Epoch {e} train mean loss {train_loss / overall_size}"
+                    f"valid mean loss {dev_loss} valid tag acc {dev_tag_acc} valid arc acc {dev_arc_acc} valid label acc {dev_lab_acc}"
+                    f"Base LR {scheduler.get_last_lr()[0]}"
+                ),
                 flush=True,
             )
 
-            if DEV_ARC_ACC > BEST_ARC_ACC:
+            if dev_arc_acc > best_arc_acc:
                 self.save_params(modelpath)
-                BEST_ARC_ACC = DEV_ARC_ACC
+                best_arc_acc = dev_arc_acc
 
         self.load_params(modelpath)
         self.save_params(modelpath)
