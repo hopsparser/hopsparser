@@ -333,7 +333,7 @@ class BiAffineParser(nn.Module):
         if lr_schedule["shape"] == "exponential":
             scheduler = torch.optim.lr_scheduler.LambdaLR(
                 optimizer,
-                (lambda n: 0.95 * (n // (math.ceil(len(train_set) / batch_size)))),
+                (lambda n: 0.95 ** (n // (math.ceil(len(train_set) / batch_size)))),
             )
         elif lr_schedule["shape"] == "linear":
             scheduler = transformers.get_linear_schedule_with_warmup(
