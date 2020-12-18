@@ -8,7 +8,6 @@ from typing import (
     Sequence,
     TextIO,
     Tuple,
-    TypedDict,
     Union,
 )
 import warnings
@@ -44,9 +43,9 @@ from npdependency import conll2018_eval as evaluator
 
 # Python 3.7 shim
 try:
-    from typing import Literal
+    from typing import Literal, TypedDict
 except ImportError:
-    from typing_extensions import Literal  # type: ignore
+    from typing_extensions import Literal, TypedDict  # type: ignore
 
 class MLP(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, dropout=0.0):
