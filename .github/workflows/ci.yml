@@ -63,8 +63,7 @@ jobs:
               with:
                   python-version: "3.8"
             - name: Build wheels
-              run: |
-                  pip wheel --no-deps -w ./dist .
+              run: pip wheel --no-deps -w ./dist .
             - uses: actions/upload-artifact@v2
               with:
                   path: ./dist/*.whl
