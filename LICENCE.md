@@ -26,5 +26,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - [`npdependency/conll2018_eval.py`](npdependency/conll2018_eval.py) is taken from [the CoNLL 2018
   evaluation
   toolkit](https://github.com/ufal/conll2018/blob/37bc4d70bf415f188dc82a2e2600a38971d1137c/evaluation_script/conll18_ud_eval.py)
-  and released under the terms of the [Mozilla Public v2.0](http://mozilla.org/MPL/2.0/),
-  see its header for additional information.
+  and released under the terms of the [Mozilla Public v2.0](http://mozilla.org/MPL/2.0/), see its
+  header for additional information.
+- [`test/fixtures/truncated-sv_talbanken-ud-dev.conllu`](test/fixtures/truncated-sv_talbanken-ud-dev.conllu)
+  is taken from Universal Dependencies 2.7 and released under the CC-BY-SA 4.0 International
+  Licence, see [`test/fixtures/README.md`](test/fixtures/README.md) for the details.

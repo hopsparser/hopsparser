@@ -14,8 +14,8 @@ French, but it might be trained for other languages without difficulties.
 
 ## Installation
 
-The parser is known to work with python >= 3.7. Install with pip, which should take care of all the
-dependencies and install the `graph_parser` console entry point
+The parser is meant to work with python >= 3.8. Install with pip, which should take care of all the
+dependencies and install t he `graph_parser` console entry point
 
 ```sh
 pip install git+https://github.com/bencrabbe/npdependency
@@ -29,6 +29,8 @@ git clone https://github.com/bencrabbe/npdependency
 cd npdependency
 pip install -e .
 ```
+
+In that case, you can run the smoketests with `tox` to ensure that everything works on your end.
 
 Alternatively (but not recommended), you can also clone this repo, install the dependencies listed
 in `setup.cfg` and call `python -m npdependency.graph_parser3` directly from the root of the repo.
@@ -102,3 +104,8 @@ graph_parser  --train_file TRAINFILE --dev_file DEVFILE --out_dir OUT params.yam
 
 where TRAINFILE and DEVFILE are given in CONLL-U format (without empty words). After some time
 (minutes, hours…) you are done and the model is ready to run (go back to the parsing section)
+
+## Licence
+
+This software is released under the MIT Licence, with some files released under compatible free
+licences, see [LICENCE.md](LICENCE.md) for the details.
