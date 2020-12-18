@@ -47,6 +47,7 @@ try:
 except ImportError:
     from typing_extensions import Literal, TypedDict  # type: ignore
 
+
 class MLP(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, dropout=0.0):
         super(MLP, self).__init__()
@@ -223,7 +224,9 @@ class BiAffineParser(nn.Module):
 
     def eval_model(self, dev_set: DependencyDataset, batch_size: int):
 
-        loss_fnc = nn.CrossEntropyLoss(reduction="sum")
+        loss_fnc = nn.CrossEntropyLoss(
+            reduction="sum", ignore_index=dev_set.LABEL_PADDING
+        )
 
         # Note: the accurracy scoring is approximative and cannot be interpreted as an UAS/LAS score
         # Note: fun project: tracke the correlation between them
@@ -323,7 +326,9 @@ class BiAffineParser(nn.Module):
     ):
 
         print(f"Start training on {self.device}", flush=True)
-        loss_fnc = nn.CrossEntropyLoss(reduction="sum")
+        loss_fnc = nn.CrossEntropyLoss(
+            reduction="sum", ignore_index=train_set.LABEL_PADDING
+        )
 
         # TODO: make these configurable?
         optimizer = torch.optim.Adam(
