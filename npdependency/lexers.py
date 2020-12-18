@@ -1,7 +1,6 @@
 from typing import (
     Iterable,
     List,
-    Literal,
     NamedTuple,
     Optional,
     Sequence,
