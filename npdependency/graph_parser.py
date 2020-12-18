@@ -12,6 +12,7 @@ from typing import (
     TypedDict,
     Union,
 )
+import warnings
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import transformers
 import yaml
@@ -299,7 +300,9 @@ class BiAffineParser(nn.Module):
 
                 # greedy label accuracy (without parsing)
                 lab_pred = lab_scores.argmax(dim=1)
-                lab_pred = torch.gather(lab_pred, 1, positive_heads.unsqueeze(1)).squeeze(1)
+                lab_pred = torch.gather(
+                    lab_pred, 1, positive_heads.unsqueeze(1)
+                ).squeeze(1)
                 lab_accurracy = lab_pred.eq(labels).logical_and(mask).sum()
                 lab_acc += lab_accurracy.item()
 
@@ -421,8 +424,8 @@ class BiAffineParser(nn.Module):
             print(
                 (
                     f"Epoch {e} train mean loss {train_loss / overall_size}"
-                    f"valid mean loss {dev_loss} valid tag acc {dev_tag_acc} valid arc acc {dev_arc_acc} valid label acc {dev_lab_acc}"
-                    f"Base LR {scheduler.get_last_lr()[0]}"
+                    f" valid mean loss {dev_loss} valid tag acc {dev_tag_acc} valid arc acc {dev_arc_acc} valid label acc {dev_lab_acc}"
+                    f" Base LR {scheduler.get_last_lr()[0]}"
                 ),
                 flush=True,
             )
@@ -705,6 +708,10 @@ def main():
 
     with open(config_file) as in_stream:
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
+    if "device" in hp:
+        warnings.warn(
+            "Setting a device directly in a configuration file is deprecated and will be removed in a future version. Use --device instead."
+        )
 
     if args.train_file and args.dev_file:
         # TRAIN MODE
