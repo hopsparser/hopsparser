@@ -11,6 +11,7 @@ from typing import (
     Sequence,
     Set,
     TextIO,
+    TypeVar,
     Union,
 )
 
@@ -266,6 +267,9 @@ class DepGraph:
         return len(self.words)
 
 
+T = TypeVar("T", bound="DependencyBatch")
+
+
 class DependencyBatch(NamedTuple):
     trees: Sequence[DepGraph]
     chars: Sequence[torch.Tensor]
@@ -275,6 +279,21 @@ class DependencyBatch(NamedTuple):
     heads: torch.Tensor
     labels: torch.Tensor
     sent_lengths: torch.Tensor
+
+    def to(self: T, device: Union[str, torch.device]) -> T:
+        encoded_words = self.encoded_words.to(device)
+        chars = [token.to(device) for token in self.chars]
+        subwords = [token.to(device) for token in self.subwords]
+        return type(self)(
+            trees=self.trees,
+            chars=chars,
+            subwords=subwords,
+            encoded_words=encoded_words,
+            tags=self.tags,
+            heads=self.heads,
+            labels=self.labels,
+            sent_lengths=self.sent_lengths,
+        )
 
 
 class DependencyDataset:

@@ -241,41 +241,36 @@ class BiAffineParser(nn.Module):
 
         with torch.no_grad():
             for batch in dev_batches:
-                encoded_words = batch.encoded_words.to(self.device)
-                # bc no masking at training
                 overall_size += batch.sent_lengths.sum().item()
-                heads, labels, tags = (
-                    batch.heads.to(self.device),
-                    batch.labels.to(self.device),
-                    batch.tags.to(self.device),
-                )
 
-                chars = [token.to(self.device) for token in batch.chars]
-                subwords = [token.to(self.device) for token in batch.subwords]
+                batch = batch.to(self.device)
+
                 # preds
                 tagger_scores, arc_scores, lab_scores = self(
-                    encoded_words, chars, subwords, batch.sent_lengths
+                    batch.encoded_words, batch.chars, batch.subwords, batch.sent_lengths
                 )
 
                 # get global loss
                 # TODO: that mask could be a batch attribute instead
-                mask = heads.ne(dev_set.LABEL_PADDING)
+                mask = batch.heads.ne(dev_set.LABEL_PADDING)
                 # ARC LOSS
                 arc_scoresL = arc_scores.transpose(-1, -2)
                 # [batch, sent_len, sent_len]
                 # [batch*sent_len, sent_len]
                 arc_scoresL = arc_scoresL.reshape(-1, arc_scoresL.size(-1))
-                arc_loss = loss_fnc(arc_scoresL, heads.view(-1))  # [batch*sent_len]
+                arc_loss = loss_fnc(
+                    arc_scoresL, batch.heads.view(-1)
+                )  # [batch*sent_len]
 
                 # TAGGER_LOSS
                 tagger_scoresB = tagger_scores.reshape(-1, tagger_scores.size(-1))
-                tagger_loss = loss_fnc(tagger_scoresB, tags.view(-1))
+                tagger_loss = loss_fnc(tagger_scoresB, batch.tags.view(-1))
 
                 # LABEL LOSS
                 # We will select the labels for the true heads, so we have to give a true head to
                 # the padding tokens (even if they will be ignore in the crossentropy since the true
                 # label for that head is set to -100) so we give them the root.
-                positive_heads = heads.masked_fill(mask.logical_not(), 0)
+                positive_heads = batch.heads.masked_fill(mask.logical_not(), 0)
                 # [batch, 1, 1, sent_len]
                 headsL = positive_heads.unsqueeze(1).unsqueeze(2)
                 # [batch, n_labels, 1, sent_len]
@@ -287,7 +282,7 @@ class BiAffineParser(nn.Module):
                 # [batch*sent_len, n_labels]
                 lab_scoresL = lab_scoresL.reshape(-1, lab_scoresL.size(-1))
                 # [batch*sent_len]
-                labelsL = labels.view(-1)
+                labelsL = batch.labels.view(-1)
                 lab_loss = loss_fnc(lab_scoresL, labelsL)
 
                 loss = tagger_loss + arc_loss + lab_loss
@@ -296,12 +291,12 @@ class BiAffineParser(nn.Module):
                 accZ += mask.sum().item()
                 # greedy arc accuracy (without parsing)
                 arc_pred = arc_scores.argmax(dim=-2)
-                arc_accurracy = arc_pred.eq(heads).logical_and(mask).sum()
+                arc_accurracy = arc_pred.eq(batch.heads).logical_and(mask).sum()
                 arc_acc += arc_accurracy.item()
 
                 # tagger accuracy
                 tag_pred = tagger_scores.argmax(dim=2)
-                tag_accurracy = tag_pred.eq(tags).logical_and(mask).sum()
+                tag_accurracy = tag_pred.eq(batch.tags).logical_and(mask).sum()
                 tag_acc += tag_accurracy.item()
 
                 # greedy label accuracy (without parsing)
@@ -309,7 +304,7 @@ class BiAffineParser(nn.Module):
                 lab_pred = torch.gather(
                     lab_pred, 1, positive_heads.unsqueeze(1)
                 ).squeeze(1)
-                lab_accurracy = lab_pred.eq(labels).logical_and(mask).sum()
+                lab_accurracy = lab_pred.eq(batch.labels).logical_and(mask).sum()
                 lab_acc += lab_accurracy.item()
 
         return gloss / overall_size, tag_acc / accZ, arc_acc / accZ, lab_acc / accZ
@@ -366,20 +361,13 @@ class BiAffineParser(nn.Module):
             overall_size = 0
             self.train()
             for batch in train_batches:
-                encoded_words = batch.encoded_words.to(self.device)
-                # bc no masking at training
                 overall_size += batch.sent_lengths.sum().item()
-                heads, labels, tags = (
-                    batch.heads.to(self.device),
-                    batch.labels.to(self.device),
-                    batch.tags.to(self.device),
-                )
-                chars = [token.to(self.device) for token in batch.chars]
-                subwords = [token.to(self.device) for token in batch.subwords]
+
+                batch = batch.to(self.device)
 
                 # FORWARD
                 tagger_scores, arc_scores, lab_scores = self(
-                    encoded_words, chars, subwords, batch.sent_lengths
+                    batch.encoded_words, batch.chars, batch.subwords, batch.sent_lengths
                 )
 
                 # TODO: unify the loss computation with that of eval
@@ -390,17 +378,19 @@ class BiAffineParser(nn.Module):
                 # [batch*sent_len, sent_len]
                 arc_scores = arc_scores.reshape(-1, arc_scores.size(-1))
                 # [batch*sent_len]
-                arc_loss = loss_fnc(arc_scores, heads.view(-1))
+                arc_loss = loss_fnc(arc_scores, batch.heads.view(-1))
 
                 # TAGGER_LOSS
                 tagger_scores = tagger_scores.reshape(-1, tagger_scores.size(-1))
-                tagger_loss = loss_fnc(tagger_scores, tags.view(-1))
+                tagger_loss = loss_fnc(tagger_scores, batch.tags.view(-1))
 
                 # LABEL LOSS
                 # We will select the labels for the true heads, so we have to give a true head to
                 # the padding tokens (even if they will be ignore in the crossentropy since the true
                 # label for that head is set to -100) so we give them the root.
-                headsL = heads.masked_fill(heads.eq(train_set.LABEL_PADDING), 0)
+                headsL = batch.heads.masked_fill(
+                    batch.heads.eq(train_set.LABEL_PADDING), 0
+                )
                 # [batch, 1, 1, sent_len]
                 headsL = headsL.unsqueeze(1).unsqueeze(2)
                 # [batch, n_labels, 1, sent_len]
@@ -412,7 +402,7 @@ class BiAffineParser(nn.Module):
                 # [batch*sent_len, n_labels]
                 lab_scores = lab_scores.reshape(-1, lab_scores.size(-1))
                 # [batch*sent_len]
-                labels = labels.view(-1)
+                labels = batch.labels.view(-1)
                 lab_loss = loss_fnc(lab_scores, labels)
 
                 # TODO: see if other loss combination functions wouldn't help here, e.g.
@@ -452,7 +442,6 @@ class BiAffineParser(nn.Module):
         batch_size: int,
         greedy: bool = False,
     ):
-
         self.eval()
         # keep natural order here
         test_batches = test_set.make_batches(
@@ -461,15 +450,13 @@ class BiAffineParser(nn.Module):
 
         with torch.no_grad():
             for batch in test_batches:
-                encoded_words = batch.encoded_words.to(self.device)
-                chars = [token.to(self.device) for token in batch.chars]
-                subwords = [token.to(self.device) for token in batch.subwords]
+                batch = batch.to(self.device)
 
                 # batch prediction
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = self(
-                    encoded_words,
-                    chars,
-                    subwords,
+                    batch.encoded_words,
+                    batch.chars,
+                    batch.subwords,
                     batch.sent_lengths,
                 )
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = (
@@ -478,7 +465,7 @@ class BiAffineParser(nn.Module):
                     lab_scores_batch.cpu(),
                 )
 
-                for (tree, length, tagger_scores, arc_scores, lab_scores,) in zip(
+                for (tree, length, tagger_scores, arc_scores, lab_scores) in zip(
                     batch.trees,
                     batch.sent_lengths,
                     tagger_scores_batch,
