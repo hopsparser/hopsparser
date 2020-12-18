@@ -21,9 +21,9 @@ from tempfile import gettempdir
 
 # Python 3.7 shim
 try:
-    from typing import Final
+    from typing import Final, Literal
 except ImportError:
-    from typing_extensions import Final  # type: ignore
+    from typing_extensions import Final, Literal  # type: ignore
 
 
 @torch.jit.script

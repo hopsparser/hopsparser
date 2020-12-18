@@ -5,7 +5,6 @@ from typing import (
     Any,
     Dict,
     Iterable,
-    Literal,
     Sequence,
     TextIO,
     Tuple,
@@ -43,6 +42,11 @@ from npdependency.lexers import (
 from npdependency.deptree import DependencyDataset, DepGraph, gen_labels, gen_tags
 from npdependency import conll2018_eval as evaluator
 
+# Python 3.7 shim
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal  # type: ignore
 
 class MLP(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, dropout=0.0):
