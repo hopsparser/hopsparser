@@ -38,7 +38,12 @@ from npdependency.lexers import (
     freeze_module,
     make_vocab,
 )
-from npdependency.deptree import DependencyDataset, DepGraph, gen_labels, gen_tags
+from npdependency.deptree import (
+    DependencyDataset,
+    DepGraph,
+    gen_labels,
+    gen_tags,
+)
 from npdependency import conll2018_eval as evaluator
 
 # Python 3.7 shim
@@ -251,8 +256,6 @@ class BiAffineParser(nn.Module):
                 )
 
                 # get global loss
-                # TODO: that mask could be a batch attribute instead
-                mask = batch.heads.ne(dev_set.LABEL_PADDING)
                 # ARC LOSS
                 arc_scoresL = arc_scores.transpose(-1, -2)
                 # [batch, sent_len, sent_len]
@@ -270,7 +273,9 @@ class BiAffineParser(nn.Module):
                 # We will select the labels for the true heads, so we have to give a true head to
                 # the padding tokens (even if they will be ignore in the crossentropy since the true
                 # label for that head is set to -100) so we give them the root.
-                positive_heads = batch.heads.masked_fill(mask.logical_not(), 0)
+                positive_heads = batch.heads.masked_fill(
+                    batch.content_mask.logical_not(), 0
+                )
                 # [batch, 1, 1, sent_len]
                 headsL = positive_heads.unsqueeze(1).unsqueeze(2)
                 # [batch, n_labels, 1, sent_len]
@@ -288,15 +293,19 @@ class BiAffineParser(nn.Module):
                 loss = tagger_loss + arc_loss + lab_loss
                 gloss += loss.item()
 
-                accZ += mask.sum().item()
+                accZ += batch.sent_lengths.sum().item()
                 # greedy arc accuracy (without parsing)
                 arc_pred = arc_scores.argmax(dim=-2)
-                arc_accurracy = arc_pred.eq(batch.heads).logical_and(mask).sum()
+                arc_accurracy = (
+                    arc_pred.eq(batch.heads).logical_and(batch.content_mask).sum()
+                )
                 arc_acc += arc_accurracy.item()
 
                 # tagger accuracy
                 tag_pred = tagger_scores.argmax(dim=2)
-                tag_accurracy = tag_pred.eq(batch.tags).logical_and(mask).sum()
+                tag_accurracy = (
+                    tag_pred.eq(batch.tags).logical_and(batch.content_mask).sum()
+                )
                 tag_acc += tag_accurracy.item()
 
                 # greedy label accuracy (without parsing)
@@ -304,7 +313,9 @@ class BiAffineParser(nn.Module):
                 lab_pred = torch.gather(
                     lab_pred, 1, positive_heads.unsqueeze(1)
                 ).squeeze(1)
-                lab_accurracy = lab_pred.eq(batch.labels).logical_and(mask).sum()
+                lab_accurracy = (
+                    lab_pred.eq(batch.labels).logical_and(batch.content_mask).sum()
+                )
                 lab_acc += lab_accurracy.item()
 
         return gloss / overall_size, tag_acc / accZ, arc_acc / accZ, lab_acc / accZ
@@ -388,9 +399,7 @@ class BiAffineParser(nn.Module):
                 # We will select the labels for the true heads, so we have to give a true head to
                 # the padding tokens (even if they will be ignore in the crossentropy since the true
                 # label for that head is set to -100) so we give them the root.
-                headsL = batch.heads.masked_fill(
-                    batch.heads.eq(train_set.LABEL_PADDING), 0
-                )
+                headsL = batch.heads.masked_fill(batch.content_mask.logical_not(), 0)
                 # [batch, 1, 1, sent_len]
                 headsL = headsL.unsqueeze(1).unsqueeze(2)
                 # [batch, n_labels, 1, sent_len]

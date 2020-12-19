@@ -4,6 +4,7 @@ from typing import (
     NamedTuple,
     Optional,
     Sequence,
+    TypeVar,
     Union,
 )
 import torch
@@ -385,12 +386,15 @@ def freeze_module(module, freezing: bool = True):
         module.train = type(module).train
 
 
+T = TypeVar("T", bound="BertLexerBatch")
+
+
 class BertLexerBatch(NamedTuple):
     word_indices: torch.Tensor
     bert_encoding: BatchEncoding
     subword_alignments: Sequence[Sequence[TokenSpan]]
 
-    def to(self, device: Union[str, torch.device]) -> "BertLexerBatch":
+    def to(self: T, device: Union[str, torch.device]) -> T:
         return type(self)(
             self.word_indices.to(device=device),
             self.bert_encoding.to(device=device),
