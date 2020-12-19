@@ -279,8 +279,8 @@ class BiAffineParser(nn.Module):
             reduction="sum", ignore_index=dev_set.LABEL_PADDING
         )
 
-        # Note: the accuracy scoring is approximative and cannot be interpreted as an UAS/LAS score
-        # Note: fun project: tracke the correlation between them
+        # NOTE: the accuracy scoring is approximative and cannot be interpreted as an UAS/LAS score
+        # NOTE: fun project: track the correlation between them
 
         self.eval()
 
@@ -351,7 +351,7 @@ class BiAffineParser(nn.Module):
         modelpath="test_model.pt",
     ):
 
-        print(f"Start training on {self.device}", flush=True)
+        print(f"Start training on {self.device}")
         loss_fnc = nn.CrossEntropyLoss(
             reduction="sum", ignore_index=train_set.LABEL_PADDING
         )
@@ -414,12 +414,9 @@ class BiAffineParser(nn.Module):
                 dev_set, batch_size
             )
             print(
-                (
-                    f"Epoch {e} train mean loss {train_loss / overall_size}"
-                    f" valid mean loss {dev_loss} valid tag acc {dev_tag_acc} valid arc acc {dev_arc_acc} valid label acc {dev_lab_acc}"
-                    f" Base LR {scheduler.get_last_lr()[0]}"
-                ),
-                flush=True,
+                f"Epoch {e} train mean loss {train_loss / overall_size}"
+                f" valid mean loss {dev_loss} valid tag acc {dev_tag_acc} valid arc acc {dev_arc_acc} valid label acc {dev_lab_acc}"
+                f" Base LR {scheduler.get_last_lr()[0]}"
             )
 
             if dev_arc_acc > best_arc_acc:
@@ -455,11 +452,7 @@ class BiAffineParser(nn.Module):
                     batch.subwords,
                     batch.sent_lengths,
                 )
-                tagger_scores_batch, arc_scores_batch, lab_scores_batch = (
-                    tagger_scores_batch.cpu(),
-                    arc_scores_batch.cpu(),
-                    lab_scores_batch.cpu(),
-                )
+                arc_scores_batch = arc_scores_batch.cpu()
 
                 for (tree, length, tagger_scores, arc_scores, lab_scores) in zip(
                     batch.trees,
