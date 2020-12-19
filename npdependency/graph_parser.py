@@ -239,15 +239,15 @@ class BiAffineParser(nn.Module):
         marginal_loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
     ) -> torch.Tensor:
         # ARC LOSS
-        arc_scoresL = arc_scores.transpose(-1, -2)
         # [batch, sent_len, sent_len]
+        arc_scoresL = arc_scores.transpose(-1, -2)
         # [batch*sent_len, sent_len]
         arc_scoresL = arc_scoresL.reshape(-1, arc_scoresL.size(-1))
         # [batch*sent_len]
         arc_loss = marginal_loss(arc_scoresL, batch.heads.view(-1))
 
         # TAGGER_LOSS
-        tagger_scoresB = tagger_scores.reshape(-1, tagger_scores.size(-1))
+        tagger_scoresB = tagger_scores.view(-1, tagger_scores.size(-1))
         tagger_loss = marginal_loss(tagger_scoresB, batch.tags.view(-1))
 
         # LABEL LOSS
