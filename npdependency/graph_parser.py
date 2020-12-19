@@ -6,6 +6,7 @@ from typing import (
     Callable,
     Dict,
     Iterable,
+    List,
     Sequence,
     TextIO,
     Tuple,
@@ -304,7 +305,6 @@ class BiAffineParser(nn.Module):
                     tagger_scores, arc_scores, lab_scores, batch, loss_fnc
                 ).item()
 
-                accZ += batch.sent_lengths.sum().item()
                 # greedy arc accuracy (without parsing)
                 arc_pred = arc_scores.argmax(dim=-2)
                 arc_accurracy = (
@@ -333,7 +333,12 @@ class BiAffineParser(nn.Module):
                 )
                 lab_acc += lab_accurracy.item()
 
-        return gloss / overall_size, tag_acc / accZ, arc_acc / accZ, lab_acc / accZ
+        return (
+            gloss / overall_size,
+            tag_acc / overall_size,
+            arc_acc / overall_size,
+            lab_acc / overall_size,
+        )
 
     def train_model(
         self,
@@ -437,6 +442,8 @@ class BiAffineParser(nn.Module):
             batch_size, shuffle_batches=False, shuffle_data=False, order_by_length=False
         )
 
+        out_trees: List[DepGraph] = []
+
         with torch.no_grad():
             for batch in test_batches:
                 batch = batch.to(self.device)
@@ -486,19 +493,22 @@ class BiAffineParser(nn.Module):
                     mst_labels = selected.argmax(dim=0)
                     edges = [
                         deptree.Edge(head, test_set.itolab[lbl], dep)
-                        for (dep, head, lbl) in zip(
-                            list(range(length)), mst_heads, mst_labels
+                        for (dep, lbl, head) in zip(
+                            list(range(length)), mst_labels, mst_heads
                         )
                     ]
-                    dg = DepGraph(
-                        edges[1:],
-                        wordlist=tree.words[1:],
-                        pos_tags=pos_tags[1:],
-                        mwe_ranges=tree.mwe_ranges,
-                        metadata=tree.metadata,
+                    out_trees.append(
+                        DepGraph(
+                            edges[1:],
+                            wordlist=tree.words[1:],
+                            pos_tags=pos_tags[1:],
+                            mwe_ranges=tree.mwe_ranges,
+                            metadata=tree.metadata,
+                        )
                     )
-                    print(dg, file=ostream)
-                    print(file=ostream)
+
+        for tree in out_trees:
+            print(str(tree), file=ostream, end="\n\n")
 
     @classmethod
     def from_config(
