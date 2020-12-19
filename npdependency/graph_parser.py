@@ -279,7 +279,7 @@ class BiAffineParser(nn.Module):
             reduction="sum", ignore_index=dev_set.LABEL_PADDING
         )
 
-        # Note: the accurracy scoring is approximative and cannot be interpreted as an UAS/LAS score
+        # Note: the accuracy scoring is approximative and cannot be interpreted as an UAS/LAS score
         # Note: fun project: tracke the correlation between them
 
         self.eval()
@@ -287,7 +287,7 @@ class BiAffineParser(nn.Module):
         dev_batches = dev_set.make_batches(
             batch_size, shuffle_batches=False, shuffle_data=False, order_by_length=True
         )
-        tag_acc, arc_acc, lab_acc, gloss, accZ = 0, 0, 0, 0.0, 0
+        tag_acc, arc_acc, lab_acc, gloss = 0, 0, 0, 0.0
         overall_size = 0
 
         with torch.no_grad():
@@ -307,17 +307,17 @@ class BiAffineParser(nn.Module):
 
                 # greedy arc accuracy (without parsing)
                 arc_pred = arc_scores.argmax(dim=-2)
-                arc_accurracy = (
+                arc_accuracy = (
                     arc_pred.eq(batch.heads).logical_and(batch.content_mask).sum()
                 )
-                arc_acc += arc_accurracy.item()
+                arc_acc += arc_accuracy.item()
 
                 # tagger accuracy
                 tag_pred = tagger_scores.argmax(dim=2)
-                tag_accurracy = (
+                tag_accuracy = (
                     tag_pred.eq(batch.tags).logical_and(batch.content_mask).sum()
                 )
-                tag_acc += tag_accurracy.item()
+                tag_acc += tag_accuracy.item()
 
                 # greedy label accuracy (without parsing)
                 lab_pred = lab_scores.argmax(dim=1)
@@ -328,10 +328,10 @@ class BiAffineParser(nn.Module):
                         batch.content_mask.logical_not(), 0
                     ).unsqueeze(1),
                 ).squeeze(1)
-                lab_accurracy = (
+                lab_accuracy = (
                     lab_pred.eq(batch.labels).logical_and(batch.content_mask).sum()
                 )
-                lab_acc += lab_accurracy.item()
+                lab_acc += lab_accuracy.item()
 
         return (
             gloss / overall_size,
