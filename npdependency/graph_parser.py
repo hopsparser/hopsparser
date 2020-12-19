@@ -3,6 +3,7 @@ import pathlib
 import sys
 from typing import (
     Any,
+    Callable,
     Dict,
     Iterable,
     Sequence,
@@ -39,6 +40,7 @@ from npdependency.lexers import (
     make_vocab,
 )
 from npdependency.deptree import (
+    DependencyBatch,
     DependencyDataset,
     DepGraph,
     gen_labels,
@@ -227,6 +229,49 @@ class BiAffineParser(nn.Module):
 
         return tag_scores, arc_scores, lab_scores
 
+    def parser_loss(
+        self,
+        tagger_scores: torch.Tensor,
+        arc_scores: torch.Tensor,
+        lab_scores: torch.Tensor,
+        batch: DependencyBatch,
+        marginal_loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
+    ) -> torch.Tensor:
+        # ARC LOSS
+        arc_scoresL = arc_scores.transpose(-1, -2)
+        # [batch, sent_len, sent_len]
+        # [batch*sent_len, sent_len]
+        arc_scoresL = arc_scoresL.reshape(-1, arc_scoresL.size(-1))
+        # [batch*sent_len]
+        arc_loss = marginal_loss(arc_scoresL, batch.heads.view(-1))
+
+        # TAGGER_LOSS
+        tagger_scoresB = tagger_scores.reshape(-1, tagger_scores.size(-1))
+        tagger_loss = marginal_loss(tagger_scoresB, batch.tags.view(-1))
+
+        # LABEL LOSS
+        # We will select the labels for the true heads, so we have to give a true head to
+        # the padding tokens (even if they will be ignore in the crossentropy since the true
+        # label for that head is set to -100) so we give them the root.
+        positive_heads = batch.heads.masked_fill(batch.content_mask.logical_not(), 0)
+        # [batch, 1, 1, sent_len]
+        headsL = positive_heads.unsqueeze(1).unsqueeze(2)
+        # [batch, n_labels, 1, sent_len]
+        headsL = headsL.expand(-1, lab_scores.size(1), -1, -1)
+        # [batch, n_labels, sent_len]
+        lab_scoresL = torch.gather(lab_scores, 2, headsL).squeeze(2)
+        # [batch, sent_len, n_labels]
+        lab_scoresL = lab_scoresL.transpose(-1, -2)
+        # [batch*sent_len, n_labels]
+        lab_scoresL = lab_scoresL.reshape(-1, lab_scoresL.size(-1))
+        # [batch*sent_len]
+        labelsL = batch.labels.view(-1)
+        lab_loss = marginal_loss(lab_scoresL, labelsL)
+
+        # TODO: see if other loss combination functions wouldn't help here, e.g.
+        # <https://arxiv.org/abs/1805.06334>
+        return tagger_loss + arc_loss + lab_loss
+
     def eval_model(self, dev_set: DependencyDataset, batch_size: int):
 
         loss_fnc = nn.CrossEntropyLoss(
@@ -241,7 +286,7 @@ class BiAffineParser(nn.Module):
         dev_batches = dev_set.make_batches(
             batch_size, shuffle_batches=False, shuffle_data=False, order_by_length=True
         )
-        tag_acc, arc_acc, lab_acc, gloss, accZ = 0, 0, 0, 0, 0
+        tag_acc, arc_acc, lab_acc, gloss, accZ = 0, 0, 0, 0.0, 0
         overall_size = 0
 
         with torch.no_grad():
@@ -255,43 +300,9 @@ class BiAffineParser(nn.Module):
                     batch.encoded_words, batch.chars, batch.subwords, batch.sent_lengths
                 )
 
-                # get global loss
-                # ARC LOSS
-                arc_scoresL = arc_scores.transpose(-1, -2)
-                # [batch, sent_len, sent_len]
-                # [batch*sent_len, sent_len]
-                arc_scoresL = arc_scoresL.reshape(-1, arc_scoresL.size(-1))
-                arc_loss = loss_fnc(
-                    arc_scoresL, batch.heads.view(-1)
-                )  # [batch*sent_len]
-
-                # TAGGER_LOSS
-                tagger_scoresB = tagger_scores.reshape(-1, tagger_scores.size(-1))
-                tagger_loss = loss_fnc(tagger_scoresB, batch.tags.view(-1))
-
-                # LABEL LOSS
-                # We will select the labels for the true heads, so we have to give a true head to
-                # the padding tokens (even if they will be ignore in the crossentropy since the true
-                # label for that head is set to -100) so we give them the root.
-                positive_heads = batch.heads.masked_fill(
-                    batch.content_mask.logical_not(), 0
-                )
-                # [batch, 1, 1, sent_len]
-                headsL = positive_heads.unsqueeze(1).unsqueeze(2)
-                # [batch, n_labels, 1, sent_len]
-                headsL = headsL.expand(-1, lab_scores.size(1), -1, -1)
-                # [batch, n_labels, sent_len]
-                lab_scoresL = torch.gather(lab_scores, 2, headsL).squeeze(2)
-                # [batch, sent_len, n_labels]
-                lab_scoresL = lab_scoresL.transpose(-1, -2)
-                # [batch*sent_len, n_labels]
-                lab_scoresL = lab_scoresL.reshape(-1, lab_scoresL.size(-1))
-                # [batch*sent_len]
-                labelsL = batch.labels.view(-1)
-                lab_loss = loss_fnc(lab_scoresL, labelsL)
-
-                loss = tagger_loss + arc_loss + lab_loss
-                gloss += loss.item()
+                gloss += self.parser_loss(
+                    tagger_scores, arc_scores, lab_scores, batch, loss_fnc
+                ).item()
 
                 accZ += batch.sent_lengths.sum().item()
                 # greedy arc accuracy (without parsing)
@@ -311,7 +322,11 @@ class BiAffineParser(nn.Module):
                 # greedy label accuracy (without parsing)
                 lab_pred = lab_scores.argmax(dim=1)
                 lab_pred = torch.gather(
-                    lab_pred, 1, positive_heads.unsqueeze(1)
+                    lab_pred,
+                    1,
+                    batch.heads.masked_fill(
+                        batch.content_mask.logical_not(), 0
+                    ).unsqueeze(1),
                 ).squeeze(1)
                 lab_accurracy = (
                     lab_pred.eq(batch.labels).logical_and(batch.content_mask).sum()
@@ -362,14 +377,13 @@ class BiAffineParser(nn.Module):
         for e in range(epochs):
             train_loss = 0.0
             best_arc_acc = 0.0
-            # FIXME: why order by length here?
+            overall_size = 0
             train_batches = train_set.make_batches(
                 batch_size,
                 shuffle_batches=True,
                 shuffle_data=True,
                 order_by_length=False,
             )
-            overall_size = 0
             self.train()
             for batch in train_batches:
                 overall_size += batch.sent_lengths.sum().item()
@@ -381,49 +395,15 @@ class BiAffineParser(nn.Module):
                     batch.encoded_words, batch.chars, batch.subwords, batch.sent_lengths
                 )
 
-                # TODO: unify the loss computation with that of eval
-                # ARC LOSS
-                # Before this line, `arc_scores[i, j]` is the confidence that i is the head of j
-                # [batch, sent_len, sent_len]
-                arc_scores = arc_scores.transpose(-1, -2)
-                # [batch*sent_len, sent_len]
-                arc_scores = arc_scores.reshape(-1, arc_scores.size(-1))
-                # [batch*sent_len]
-                arc_loss = loss_fnc(arc_scores, batch.heads.view(-1))
-
-                # TAGGER_LOSS
-                tagger_scores = tagger_scores.reshape(-1, tagger_scores.size(-1))
-                tagger_loss = loss_fnc(tagger_scores, batch.tags.view(-1))
-
-                # LABEL LOSS
-                # We will select the labels for the true heads, so we have to give a true head to
-                # the padding tokens (even if they will be ignore in the crossentropy since the true
-                # label for that head is set to -100) so we give them the root.
-                headsL = batch.heads.masked_fill(batch.content_mask.logical_not(), 0)
-                # [batch, 1, 1, sent_len]
-                headsL = headsL.unsqueeze(1).unsqueeze(2)
-                # [batch, n_labels, 1, sent_len]
-                headsL = headsL.expand(-1, lab_scores.size(1), -1, -1)
-                # [batch, n_labels, sent_len]
-                lab_scores = torch.gather(lab_scores, 2, headsL).squeeze(2)
-                # [batch, sent_len, n_labels]
-                lab_scores = lab_scores.transpose(-1, -2)
-                # [batch*sent_len, n_labels]
-                lab_scores = lab_scores.reshape(-1, lab_scores.size(-1))
-                # [batch*sent_len]
-                labels = batch.labels.view(-1)
-                lab_loss = loss_fnc(lab_scores, labels)
-
-                # TODO: see if other loss combination functions wouldn't help here, e.g.
-                # <https://arxiv.org/abs/1805.06334>
-                loss = tagger_loss + arc_loss + lab_loss
+                loss = self.parser_loss(
+                    tagger_scores, arc_scores, lab_scores, batch, loss_fnc
+                )
+                train_loss += loss.item()
 
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
                 scheduler.step()
-
-                train_loss += loss.item()
 
             dev_loss, dev_tag_acc, dev_arc_acc, dev_lab_acc = self.eval_model(
                 dev_set, batch_size
