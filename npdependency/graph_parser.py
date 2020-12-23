@@ -1,34 +1,28 @@
+import argparse
 import math
+import os.path
 import pathlib
+import shutil
 import sys
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Sequence,
-    TextIO,
-    Tuple,
-    Union,
-)
 import warnings
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from typing import Any, Callable, Dict, Iterable, List, Sequence, TextIO, Tuple, Union
+
+import numpy as np
+import torch
 import transformers
 import yaml
-import argparse
-
-import shutil
-
-import os.path
-import numpy as np
-
-import torch
 from torch import nn
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+
+from npdependency import conll2018_eval as evaluator
 from npdependency import deptree
-
-from npdependency.mst import chuliu_edmonds_one_root as chuliu_edmonds
-
+from npdependency.deptree import (
+    DependencyBatch,
+    DependencyDataset,
+    DepGraph,
+    gen_labels,
+    gen_tags,
+)
 from npdependency.lexers import (
     BertBaseLexer,
     BertLexerBatch,
@@ -40,14 +34,7 @@ from npdependency.lexers import (
     freeze_module,
     make_vocab,
 )
-from npdependency.deptree import (
-    DependencyBatch,
-    DependencyDataset,
-    DepGraph,
-    gen_labels,
-    gen_tags,
-)
-from npdependency import conll2018_eval as evaluator
+from npdependency.mst import chuliu_edmonds_one_root as chuliu_edmonds
 
 # Python 3.7 shim
 try:

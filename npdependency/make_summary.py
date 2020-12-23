@@ -1,12 +1,10 @@
 import pathlib
-
 from typing import Iterable, List, TextIO
 
 import click
 import click_pathlib
 
 from npdependency import conll2018_eval as evaluator
-
 
 CONLL_METRICS = [
     "Tokens",
