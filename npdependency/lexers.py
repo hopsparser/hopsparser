@@ -1,10 +1,10 @@
 from typing import (
     Iterable,
     List,
-    Literal,
     NamedTuple,
     Optional,
     Sequence,
+    TypeVar,
     Union,
 )
 import torch
@@ -21,9 +21,9 @@ from tempfile import gettempdir
 
 # Python 3.7 shim
 try:
-    from typing import Final
+    from typing import Final, Literal
 except ImportError:
-    from typing_extensions import Final  # type: ignore
+    from typing_extensions import Final, Literal  # type: ignore
 
 
 @torch.jit.script
@@ -386,12 +386,15 @@ def freeze_module(module, freezing: bool = True):
         module.train = type(module).train
 
 
+T = TypeVar("T", bound="BertLexerBatch")
+
+
 class BertLexerBatch(NamedTuple):
     word_indices: torch.Tensor
     bert_encoding: BatchEncoding
     subword_alignments: Sequence[Sequence[TokenSpan]]
 
-    def to(self, device: Union[str, torch.device]) -> "BertLexerBatch":
+    def to(self: T, device: Union[str, torch.device]) -> T:
         return type(self)(
             self.word_indices.to(device=device),
             self.bert_encoding.to(device=device),

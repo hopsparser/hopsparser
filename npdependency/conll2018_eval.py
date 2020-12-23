@@ -183,11 +183,7 @@ def _decode(text):
 
 
 def _encode(text):
-    return (
-        text
-        if sys.version_info[0] >= 3 or not isinstance(text, unicode)
-        else text.encode("utf-8")
-    )
+    return text
 
 
 # Internal representation classes

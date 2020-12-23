@@ -1,7 +1,20 @@
+import math
 import pathlib
 import sys
-from typing import Any, Dict, Iterable, Sequence, TextIO, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Sequence,
+    TextIO,
+    Tuple,
+    Union,
+)
+import warnings
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+import transformers
 import yaml
 import argparse
 
@@ -27,8 +40,20 @@ from npdependency.lexers import (
     freeze_module,
     make_vocab,
 )
-from npdependency.deptree import DependencyDataset, DepGraph, gen_labels, gen_tags
+from npdependency.deptree import (
+    DependencyBatch,
+    DependencyDataset,
+    DepGraph,
+    gen_labels,
+    gen_tags,
+)
 from npdependency import conll2018_eval as evaluator
+
+# Python 3.7 shim
+try:
+    from typing import Literal, TypedDict
+except ImportError:
+    from typing_extensions import Literal, TypedDict  # type: ignore
 
 
 class MLP(nn.Module):
@@ -72,6 +97,11 @@ class Tagger(nn.Module):
 
     def forward(self, input):
         return self.W(input)
+
+
+class LRSchedule(TypedDict):
+    shape: Literal["exponential", "linear", "constant"]
+    warmup_steps: int
 
 
 class BiAffineParser(nn.Module):
@@ -200,87 +230,115 @@ class BiAffineParser(nn.Module):
 
         return tag_scores, arc_scores, lab_scores
 
+    def parser_loss(
+        self,
+        tagger_scores: torch.Tensor,
+        arc_scores: torch.Tensor,
+        lab_scores: torch.Tensor,
+        batch: DependencyBatch,
+        marginal_loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
+    ) -> torch.Tensor:
+        # ARC LOSS
+        # [batch, sent_len, sent_len]
+        arc_scoresL = arc_scores.transpose(-1, -2)
+        # [batch*sent_len, sent_len]
+        arc_scoresL = arc_scoresL.reshape(-1, arc_scoresL.size(-1))
+        # [batch*sent_len]
+        arc_loss = marginal_loss(arc_scoresL, batch.heads.view(-1))
+
+        # TAGGER_LOSS
+        tagger_scoresB = tagger_scores.view(-1, tagger_scores.size(-1))
+        tagger_loss = marginal_loss(tagger_scoresB, batch.tags.view(-1))
+
+        # LABEL LOSS
+        # We will select the labels for the true heads, so we have to give a true head to
+        # the padding tokens (even if they will be ignore in the crossentropy since the true
+        # label for that head is set to -100) so we give them the root.
+        positive_heads = batch.heads.masked_fill(batch.content_mask.logical_not(), 0)
+        # [batch, 1, 1, sent_len]
+        headsL = positive_heads.unsqueeze(1).unsqueeze(2)
+        # [batch, n_labels, 1, sent_len]
+        headsL = headsL.expand(-1, lab_scores.size(1), -1, -1)
+        # [batch, n_labels, sent_len]
+        lab_scoresL = torch.gather(lab_scores, 2, headsL).squeeze(2)
+        # [batch, sent_len, n_labels]
+        lab_scoresL = lab_scoresL.transpose(-1, -2)
+        # [batch*sent_len, n_labels]
+        lab_scoresL = lab_scoresL.reshape(-1, lab_scoresL.size(-1))
+        # [batch*sent_len]
+        labelsL = batch.labels.view(-1)
+        lab_loss = marginal_loss(lab_scoresL, labelsL)
+
+        # TODO: see if other loss combination functions wouldn't help here, e.g.
+        # <https://arxiv.org/abs/1805.06334>
+        return tagger_loss + arc_loss + lab_loss
+
     def eval_model(self, dev_set: DependencyDataset, batch_size: int):
 
-        loss_fnc = nn.CrossEntropyLoss(reduction="sum")
+        loss_fnc = nn.CrossEntropyLoss(
+            reduction="sum", ignore_index=dev_set.LABEL_PADDING
+        )
 
-        # Note: the accurracy scoring is approximative and cannot be interpreted as an UAS/LAS score
-        # Note: fun project: tracke the correlation between them
+        # NOTE: the accuracy scoring is approximative and cannot be interpreted as an UAS/LAS score
+        # NOTE: fun project: track the correlation between them
 
         self.eval()
 
         dev_batches = dev_set.make_batches(
             batch_size, shuffle_batches=False, shuffle_data=False, order_by_length=True
         )
-        tag_acc, arc_acc, lab_acc, gloss, accZ = 0, 0, 0, 0, 0
+        tag_acc, arc_acc, lab_acc, gloss = 0, 0, 0, 0.0
         overall_size = 0
 
         with torch.no_grad():
             for batch in dev_batches:
-                encoded_words = batch.encoded_words.to(self.device)
-                # bc no masking at training
-                overall_size += encoded_words.size(0) * encoded_words.size(1)
-                heads, labels, tags = (
-                    batch.heads.to(self.device),
-                    batch.labels.to(self.device),
-                    batch.tags.to(self.device),
-                )
-                chars = [token.to(self.device) for token in batch.chars]
-                subwords = [token.to(self.device) for token in batch.subwords]
+                overall_size += batch.sent_lengths.sum().item()
+
+                batch = batch.to(self.device)
+
                 # preds
                 tagger_scores, arc_scores, lab_scores = self(
-                    encoded_words, chars, subwords, batch.sent_lengths
+                    batch.encoded_words, batch.chars, batch.subwords, batch.sent_lengths
                 )
 
-                # get global loss
-                # ARC LOSS
-                # [batch, sent_len, sent_len]
-                arc_scoresL = arc_scores.transpose(-1, -2)
-                # [batch*sent_len, sent_len]
-                arc_scoresL = arc_scoresL.reshape(-1, arc_scoresL.size(-1))
-                arc_loss = loss_fnc(arc_scoresL, heads.view(-1))  # [batch*sent_len]
+                gloss += self.parser_loss(
+                    tagger_scores, arc_scores, lab_scores, batch, loss_fnc
+                ).item()
 
-                # TAGGER_LOSS
-                tagger_scoresB = tagger_scores.reshape(-1, tagger_scores.size(-1))
-                tagger_loss = loss_fnc(tagger_scoresB, tags.view(-1))
-
-                # LABEL LOSS
-                # [batch, 1, 1, sent_len]
-                headsL = heads.unsqueeze(1).unsqueeze(2)
-                # [batch, n_labels, 1, sent_len]
-                headsL = headsL.expand(-1, lab_scores.size(1), -1, -1)
-                # [batch, n_labels, sent_len]
-                lab_scoresL = torch.gather(lab_scores, 2, headsL).squeeze(2)
-                # [batch, sent_len, n_labels]
-                lab_scoresL = lab_scoresL.transpose(-1, -2)
-                # [batch*sent_len, n_labels]
-                lab_scoresL = lab_scoresL.reshape(-1, lab_scoresL.size(-1))
-                # [batch*sent_len]
-                labelsL = labels.view(-1)
-                lab_loss = loss_fnc(lab_scoresL, labelsL)
-
-                loss = tagger_loss + arc_loss + lab_loss
-                gloss += loss.item()
-
-                mask = heads.ne(dev_set.PAD_IDX)
-                accZ += mask.sum().item()
                 # greedy arc accuracy (without parsing)
                 arc_pred = arc_scores.argmax(dim=-2)
-                arc_accurracy = arc_pred.eq(heads).logical_and(mask).sum()
-                arc_acc += arc_accurracy.item()
+                arc_accuracy = (
+                    arc_pred.eq(batch.heads).logical_and(batch.content_mask).sum()
+                )
+                arc_acc += arc_accuracy.item()
 
                 # tagger accuracy
                 tag_pred = tagger_scores.argmax(dim=2)
-                tag_accurracy = tag_pred.eq(tags).logical_and(mask).sum()
-                tag_acc += tag_accurracy.item()
+                tag_accuracy = (
+                    tag_pred.eq(batch.tags).logical_and(batch.content_mask).sum()
+                )
+                tag_acc += tag_accuracy.item()
 
                 # greedy label accuracy (without parsing)
                 lab_pred = lab_scores.argmax(dim=1)
-                lab_pred = torch.gather(lab_pred, 1, heads.unsqueeze(1)).squeeze(1)
-                lab_accurracy = lab_pred.eq(labels).logical_and(mask).sum()
-                lab_acc += lab_accurracy.item()
+                lab_pred = torch.gather(
+                    lab_pred,
+                    1,
+                    batch.heads.masked_fill(
+                        batch.content_mask.logical_not(), 0
+                    ).unsqueeze(1),
+                ).squeeze(1)
+                lab_accuracy = (
+                    lab_pred.eq(batch.labels).logical_and(batch.content_mask).sum()
+                )
+                lab_acc += lab_accuracy.item()
 
-        return gloss / overall_size, tag_acc / accZ, arc_acc / accZ, lab_acc / accZ
+        return (
+            gloss / overall_size,
+            tag_acc / overall_size,
+            arc_acc / overall_size,
+            lab_acc / overall_size,
+        )
 
     def train_model(
         self,
@@ -289,110 +347,81 @@ class BiAffineParser(nn.Module):
         epochs: int,
         batch_size: int,
         lr: float,
+        lr_schedule: LRSchedule,
         modelpath="test_model.pt",
     ):
 
-        print(f"Start training on {self.device}", flush=True)
-        loss_fnc = nn.CrossEntropyLoss(reduction="sum")
+        print(f"Start training on {self.device}")
+        loss_fnc = nn.CrossEntropyLoss(
+            reduction="sum", ignore_index=train_set.LABEL_PADDING
+        )
 
         # TODO: make these configurable?
         optimizer = torch.optim.Adam(
             self.parameters(), betas=(0.9, 0.9), lr=lr, eps=1e-09
         )
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+
+        if lr_schedule["shape"] == "exponential":
+            scheduler = torch.optim.lr_scheduler.LambdaLR(
+                optimizer,
+                (lambda n: 0.95 ** (n // (math.ceil(len(train_set) / batch_size)))),
+            )
+        elif lr_schedule["shape"] == "linear":
+            scheduler = transformers.get_linear_schedule_with_warmup(
+                optimizer,
+                lr_schedule["warmup_steps"],
+                epochs * math.ceil(len(train_set) / batch_size) + 1,
+            )
+        elif lr_schedule["shape"] == "constant":
+            scheduler = transformers.get_linear_constant_with_warmup(
+                optimizer, lr_schedule["warmup_steps"]
+            )
+        else:
+            raise ValueError(f"Unkown lr schedule shape {lr_schedule['shape']!r}")
 
         for e in range(epochs):
-            TRAIN_LOSS = 0.0
-            BEST_ARC_ACC = 0.0
-            # FIXME: why order by length here?
+            train_loss = 0.0
+            best_arc_acc = 0.0
+            overall_size = 0
             train_batches = train_set.make_batches(
                 batch_size,
                 shuffle_batches=True,
                 shuffle_data=True,
                 order_by_length=False,
             )
-            overall_size = 0
             self.train()
             for batch in train_batches:
-                encoded_words = batch.encoded_words.to(self.device)
-                # bc no masking at training
-                overall_size += encoded_words.size(0) * encoded_words.size(1)
-                heads, labels, tags = (
-                    batch.heads.to(self.device),
-                    batch.labels.to(self.device),
-                    batch.tags.to(self.device),
-                )
-                chars = [token.to(self.device) for token in batch.chars]
-                subwords = [token.to(self.device) for token in batch.subwords]
+                overall_size += batch.sent_lengths.sum().item()
+
+                batch = batch.to(self.device)
 
                 # FORWARD
                 tagger_scores, arc_scores, lab_scores = self(
-                    encoded_words, chars, subwords, batch.sent_lengths
+                    batch.encoded_words, batch.chars, batch.subwords, batch.sent_lengths
                 )
 
-                # ARC LOSS
-                # [batch, sent_len, sent_len]
-                arc_scores = arc_scores.transpose(-1, -2)
-                # [batch*sent_len, sent_len]
-                arc_scores = arc_scores.reshape(-1, arc_scores.size(-1))
-                # [batch*sent_len]
-                arc_loss = loss_fnc(arc_scores, heads.view(-1))
-
-                # TAGGER_LOSS
-                tagger_scores = tagger_scores.reshape(-1, tagger_scores.size(-1))
-                tagger_loss = loss_fnc(tagger_scores, tags.view(-1))
-
-                # LABEL LOSS
-                # [batch, 1, 1, sent_len]
-                heads = heads.unsqueeze(1).unsqueeze(2)
-                # [batch, n_labels, 1, sent_len]
-                heads = heads.expand(-1, lab_scores.size(1), -1, -1)
-                # [batch, n_labels, sent_len]
-                lab_scores = torch.gather(lab_scores, 2, heads).squeeze(2)
-                # [batch, sent_len, n_labels]
-                lab_scores = lab_scores.transpose(-1, -2)
-                # [batch*sent_len, n_labels]
-                lab_scores = lab_scores.reshape(-1, lab_scores.size(-1))
-                # [batch*sent_len]
-                labels = labels.view(-1)
-                lab_loss = loss_fnc(lab_scores, labels)
-
-                # TODO: see if other loss combination functions wouldn't help here, e.g.
-                # <https://arxiv.org/abs/1805.06334>
-                loss = tagger_loss + arc_loss + lab_loss
+                loss = self.parser_loss(
+                    tagger_scores, arc_scores, lab_scores, batch, loss_fnc
+                )
+                train_loss += loss.item()
 
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+                scheduler.step()
 
-                TRAIN_LOSS += loss.item()
-
-            DEV_LOSS, DEV_TAG_ACC, DEV_ARC_ACC, DEV_LAB_ACC = self.eval_model(
+            dev_loss, dev_tag_acc, dev_arc_acc, dev_lab_acc = self.eval_model(
                 dev_set, batch_size
             )
             print(
-                "Epoch ",
-                e,
-                "train mean loss",
-                TRAIN_LOSS / overall_size,
-                "valid mean loss",
-                DEV_LOSS,
-                "valid tag acc",
-                DEV_TAG_ACC,
-                "valid arc acc",
-                DEV_ARC_ACC,
-                "valid label acc",
-                DEV_LAB_ACC,
-                "Base LR",
-                scheduler.get_last_lr()[0],
-                flush=True,
+                f"Epoch {e} train mean loss {train_loss / overall_size}"
+                f" valid mean loss {dev_loss} valid tag acc {dev_tag_acc} valid arc acc {dev_arc_acc} valid label acc {dev_lab_acc}"
+                f" Base LR {scheduler.get_last_lr()[0]}"
             )
 
-            if DEV_ARC_ACC > BEST_ARC_ACC:
+            if dev_arc_acc > best_arc_acc:
                 self.save_params(modelpath)
-                BEST_ARC_ACC = DEV_ARC_ACC
-
-            scheduler.step()
+                best_arc_acc = dev_arc_acc
 
         self.load_params(modelpath)
         self.save_params(modelpath)
@@ -404,33 +433,28 @@ class BiAffineParser(nn.Module):
         batch_size: int,
         greedy: bool = False,
     ):
-
         self.eval()
         # keep natural order here
         test_batches = test_set.make_batches(
             batch_size, shuffle_batches=False, shuffle_data=False, order_by_length=False
         )
 
+        out_trees: List[DepGraph] = []
+
         with torch.no_grad():
             for batch in test_batches:
-                encoded_words = batch.encoded_words.to(self.device)
-                chars = [token.to(self.device) for token in batch.chars]
-                subwords = [token.to(self.device) for token in batch.subwords]
+                batch = batch.to(self.device)
 
                 # batch prediction
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = self(
-                    encoded_words,
-                    chars,
-                    subwords,
+                    batch.encoded_words,
+                    batch.chars,
+                    batch.subwords,
                     batch.sent_lengths,
                 )
-                tagger_scores_batch, arc_scores_batch, lab_scores_batch = (
-                    tagger_scores_batch.cpu(),
-                    arc_scores_batch.cpu(),
-                    lab_scores_batch.cpu(),
-                )
+                arc_scores_batch = arc_scores_batch.cpu()
 
-                for (tree, length, tagger_scores, arc_scores, lab_scores,) in zip(
+                for (tree, length, tagger_scores, arc_scores, lab_scores) in zip(
                     batch.trees,
                     batch.sent_lengths,
                     tagger_scores_batch,
@@ -462,19 +486,22 @@ class BiAffineParser(nn.Module):
                     mst_labels = selected.argmax(dim=0)
                     edges = [
                         deptree.Edge(head, test_set.itolab[lbl], dep)
-                        for (dep, head, lbl) in zip(
-                            list(range(length)), mst_heads, mst_labels
+                        for (dep, lbl, head) in zip(
+                            list(range(length)), mst_labels, mst_heads
                         )
                     ]
-                    dg = DepGraph(
-                        edges[1:],
-                        wordlist=tree.words[1:],
-                        pos_tags=pos_tags[1:],
-                        mwe_ranges=tree.mwe_ranges,
-                        metadata=tree.metadata,
+                    out_trees.append(
+                        DepGraph(
+                            edges[1:],
+                            wordlist=tree.words[1:],
+                            pos_tags=pos_tags[1:],
+                            mwe_ranges=tree.mwe_ranges,
+                            metadata=tree.metadata,
+                        )
                     )
-                    print(dg, file=ostream)
-                    print(file=ostream)
+
+        for tree in out_trees:
+            print(str(tree), file=ostream, end="\n\n")
 
     @classmethod
     def from_config(
@@ -668,6 +695,10 @@ def main():
 
     with open(config_file) as in_stream:
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
+    if "device" in hp:
+        warnings.warn(
+            "Setting a device directly in a configuration file is deprecated and will be removed in a future version. Use --device instead."
+        )
 
     if args.train_file and args.dev_file:
         # TRAIN MODE
@@ -767,11 +798,14 @@ def main():
         )
 
         parser.train_model(
-            trainset,
-            devset,
-            hp["epochs"],
-            hp["batch_size"],
-            hp["lr"],
+            train_set=trainset,
+            dev_set=devset,
+            epochs=hp["epochs"],
+            batch_size=hp["batch_size"],
+            lr=hp["lr"],
+            lr_schedule=hp.get(
+                "lr_schedule", {"shape": "exponential", "warmup_steps": 0}
+            ),
             modelpath=weights_file,
         )
         print("training done.", file=sys.stderr)

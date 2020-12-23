@@ -1,4 +1,5 @@
-# Non projective dependency parsing
+Non projective dependency parsing
+=================================
 
 This is a repository for non projective dependency parsing stuff.
 
@@ -13,8 +14,8 @@ French, but it might be trained for other languages without difficulties.
 
 ## Installation
 
-The parser is known to work with python >= 3.7. Install with pip, which should take care of all the
-dependencies and install the `graph_parser` console entry point
+The parser is meant to work with python >= 3.8. Install with pip, which should take care of all the
+dependencies and install t he `graph_parser` console entry point
 
 ```sh
 pip install git+https://github.com/bencrabbe/npdependency
@@ -29,6 +30,8 @@ cd npdependency
 pip install -e .
 ```
 
+In that case, you can run the smoketests with `tox` to ensure that everything works on your end.
+
 Alternatively (but not recommended), you can also clone this repo, install the dependencies listed
 in `setup.cfg` and call `python -m npdependency.graph_parser3` directly from the root of the repo.
 
@@ -42,27 +45,25 @@ graph_parser  --pred_file FILE   MODEL/params.yaml
 ```
 
 This results in a parsed file called `FILE.parsed`. The `MODEL/params.yaml` is the model
-hyperparameters file. An example model is stored in the `default` directory. The file
-`default/params.yaml` is an example of such parameter file. The `FILE` argument is supposed to be
-formatted in truncated [CONLL-U](https://universaldependencies.org/format.html) format. For
+hyperparameters file. The `FILE` argument is supposed to be the path to a file in the
+[CONLL-U](https://universaldependencies.org/format.html) format, possibly with missing columns. For
 instance:
 
 ```conllu
-1       Flaubert
-2       a
-3       écrit
-4       Madame
-5       Bovary
-6       .
+1	Flaubert
+2	a
+3	écrit
+4	Madame
+5	Bovary
+6	.
 ```
 
 That is we require word indexation and word forms only. Empty words are currently not supported.
-Multi-word tokens are not taken into account by the parsing models.
+Multi-word tokens are not taken into account by the parsing models but are preserved in the outputs.
 
-We advise to use the `flaubert` model which is stored in the flaubert directory. Depending on the
-model, the parser will be more or less fast and more or less accurate. We can however expect the
-parser to process several hundred sentences per second with a decent GPU. The parameter file
-provides an option for controlling the GPU actually used for performing computations.
+Depending on the model, the parser will be more or less fast and more or less accurate. We can
+however expect the parser to process several hundred sentences per second with a decent GPU. The GPU
+actually used for performing computations can be specified using the `--device` command line option.
 
 ## Pretrained models
 
@@ -77,11 +78,11 @@ We provide some pretrained models:
 | ud_fr_gsd_flaubert  | French   | GPU     | 95.06     | 93.77      | average | flaubert_base_cased + UD French GSD 2.6 + fasttext | [download model](https://sharedocs.huma-num.fr/wl/?id=sAARm9xFNdITZArRYn2qF9UUTj0KqBtu)                           |
 | ud_fr_gsd_camembert | French   | GPU     | 95.06     | 93.28      | average | camembert-base + UD French GSD 2.6 + fasttext      | [download model](https://sharedocs.huma-num.fr/wl/?id=DrKZLgdikOI5TZoVLfcykRLEmUUyLoBN)                           |
 
-The reader may notice a difference with the results published in
-[(Le et al 2020)](https://arxiv.org/abs/1912.05372). The difference comes from a better usage of
-fasttext and from the fact that this parser also predicts part of speech tags while the version
-described in [(Le et al 2020)](https://arxiv.org/abs/1912.05372) required predicted tags as part of
-its input. These changes make the parser easier to use in "real life" projects.
+The reader may notice a difference with the results published in [(Le et al
+2020)](https://arxiv.org/abs/1912.05372). The difference comes from a better usage of fasttext and
+from the fact that this parser also predicts part of speech tags while the version described in [(Le
+et al 2020)](https://arxiv.org/abs/1912.05372) required predicted tags as part of its input. These
+changes make the parser easier to use in "real life" projects.
 
 ## Training task
 
@@ -92,15 +93,19 @@ run out of memory.
 
 Training can be performed with the following steps:
 
-1. Create a directory MODEL for storing your new model
-2. `cd` to MODEL
-3. copy the `params.yaml` file from another model into MODEL
-4. Edit the `params.yaml` according to your needs
-5. Run the command:
+1. Create a directory OUT for storing your new model
+2. Copy a config YAML file from the [examples](examples) directory
+3. Edit the `params.yaml` according to your needs
+4. Run the command:
 
 ```sh
-graph_parser  --train_file TRAINFILE --dev_file DEVFILE  params.yaml
+graph_parser  --train_file TRAINFILE --dev_file DEVFILE --out_dir OUT params.yaml
 ```
 
 where TRAINFILE and DEVFILE are given in CONLL-U format (without empty words). After some time
-(minutes, hours ...) you are done and the model is ready to run (go back to the parsing section)
+(minutes, hours…) you are done and the model is ready to run (go back to the parsing section)
+
+## Licence
+
+This software is released under the MIT Licence, with some files released under compatible free
+licences, see [LICENCE.md](LICENCE.md) for the details.

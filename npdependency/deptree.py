@@ -1,3 +1,4 @@
+from typing_extensions import Final
 from npdependency.lexers import BertLexerBatch, BertLexerSentence
 import pathlib
 from random import shuffle
@@ -10,6 +11,7 @@ from typing import (
     Sequence,
     Set,
     TextIO,
+    TypeVar,
     Union,
 )
 
@@ -265,7 +267,35 @@ class DepGraph:
         return len(self.words)
 
 
+T = TypeVar("T", bound="DependencyBatch")
+
+
 class DependencyBatch(NamedTuple):
+    """Batched and padded sentences.
+
+    ## Attributes
+
+    - `trees` The sentences as `DepGraph`s for rich attribute access.
+    - `chars` Encoded chars as a sequence of `LongTensor`. `chars[i][j, k]` is the k-th character of
+      the i-th word of the j-th sentence in the batch.
+    - `subwords` Encoded FastText subwords as a sequence of `LongTensor`. As with `chars`,
+      `subwords[i][j, k]` is the k-th subword of the i-th word of the j-th sentence in the batch.
+    - `encoded_words` The words of the sentences, encoded and batched by a lexer and meant to be
+      consumed by it directly. The details stay opaque at this level, see the relevant lexer
+      instead.
+    - `tags` The gold POS tags (if any) as a `LongTensor` with shape `(batch_size,
+      max_sentence_length)`
+    - `heads` The gold heads (if any) as a `LongTensor` with shape `(batch_size,
+      max_sentence_length)`
+    - `labels` The gold dependency labels (if any) as a `LongTensor` with shape `(batch_size,
+      max_sentence_length)`
+    - `sent_length` The lengths of the sentences in the batch as `LongTensor` with shape
+      `(batch_size,)`
+    - `content_mask` A `BoolTensor` mask of shape `(batch_size, max_sentence_length)` such that
+      `content_mask[i, j]` is true iff the j-th word of the i-th sentence in the batch is neither
+      padding not the root (i.e. iff `1 <= j < sent_length[i]`).
+    """
+
     trees: Sequence[DepGraph]
     chars: Sequence[torch.Tensor]
     subwords: Sequence[torch.Tensor]
@@ -274,6 +304,23 @@ class DependencyBatch(NamedTuple):
     heads: torch.Tensor
     labels: torch.Tensor
     sent_lengths: torch.Tensor
+    content_mask: torch.Tensor
+
+    def to(self: T, device: Union[str, torch.device]) -> T:
+        encoded_words = self.encoded_words.to(device)
+        chars = [token.to(device) for token in self.chars]
+        subwords = [token.to(device) for token in self.subwords]
+        return type(self)(
+            trees=self.trees,
+            chars=chars,
+            subwords=subwords,
+            encoded_words=encoded_words,
+            tags=self.tags,
+            heads=self.heads,
+            labels=self.labels,
+            sent_lengths=self.sent_lengths,
+            content_mask=self.content_mask,
+        )
 
 
 class DependencyDataset:
@@ -282,9 +329,11 @@ class DependencyDataset:
     This is a sorted dataset.
     """
 
-    PAD_IDX = 0
-    PAD_TOKEN = "<pad>"
-    UNK_WORD = "<unk>"
+    PAD_IDX: Final[int] = 0
+    PAD_TOKEN: Final[str] = "<pad>"
+    UNK_WORD: Final[str] = "<unk>"
+    # Labels that are -100 are ignored in torch crossentropy
+    LABEL_PADDING: Final[int] = -100
 
     @staticmethod
     def read_conll(
@@ -333,6 +382,8 @@ class DependencyDataset:
         self.encode()
 
     def encode(self):
+        # NOTE: we mask the ROOT token features with the label padding that will be ignored by
+        # crossentropy, it's not very satisfying though, maybe hardcode it in (lab|tag)toi ?
         self.encoded_words, self.heads, self.labels, self.tags = [], [], [], []
 
         for tree in self.treelist:
@@ -343,21 +394,16 @@ class DependencyDataset:
                     for tag in tree.pos_tags
                 ]
             else:
-                deptag_idxes = [
-                    self.tagtoi[self.UNK_WORD] for _ in tree.words
-                ]
+                deptag_idxes = [self.tagtoi[self.UNK_WORD] for _ in tree.words]
+            deptag_idxes[0] = self.LABEL_PADDING
             self.tags.append(deptag_idxes)
             self.encoded_words.append(encoded_words)
-            self.heads.append(tree.oracle_governors())
-            # the get defaulting to 0 is a hack for labels not found in training set
-            self.labels.append(
-                [self.labtoi.get(lab, 0) for lab in tree.oracle_labels()]
-            )
-
-    def save_vocab(self, filename):
-        with open(filename, "w") as out:
-            print(" ".join(self.itolab), file=out)
-            print(" ".join(self.itotag), file=out)
+            heads = tree.oracle_governors()
+            heads[0] = self.LABEL_PADDING
+            self.heads.append(heads)
+            labels = [self.labtoi.get(lab, 0) for lab in tree.oracle_labels()]
+            labels[0] = self.LABEL_PADDING
+            self.labels.append(labels)
 
     def make_batches(
         self,
@@ -382,34 +428,47 @@ class DependencyDataset:
 
         for i in batch_order:
             batch_indices = order[i : i + batch_size]
-            trees = [self.treelist[j] for j in batch_indices]
+            trees = tuple(self.treelist[j] for j in batch_indices)
+
+            chars = tuple(self.char_dataset.batch_chars([t.words for t in trees]))
             encoded_words = self.lexer.pad_batch([self.encoded_words[j] for j in batch_indices])  # type: ignore
-            tags = self.pad([self.tags[j] for j in batch_indices])
-            heads = self.pad([self.heads[j] for j in batch_indices])
-            labels = self.pad([self.labels[j] for j in batch_indices])
-            chars = tuple(
-                self.char_dataset.batch_chars([t.words for t in trees])
+            heads = self.pad(
+                [self.heads[j] for j in batch_indices], padding_value=self.LABEL_PADDING
             )
-            subwords = tuple(
-                self.ft_dataset.batch_sentences([t.words for t in trees])
+            labels = self.pad(
+                [self.labels[j] for j in batch_indices],
+                padding_value=self.LABEL_PADDING,
             )
+            # NOTE: this is equivalent to and faster and clearer but less pure than
+            # `torch.arange(sent_lengths.max()).unsqueeze(0).lt(sent_lengths.unsqueeze(1).logical_and(torch.arange(sent_lengths.max()).gt(0))`
+            content_mask = labels.ne(self.LABEL_PADDING)
             sent_lengths = torch.tensor([len(t) for t in trees])
-            yield DependencyBatch(
-                trees=trees,
-                chars=chars,
-                subwords=subwords,
-                encoded_words=encoded_words,
-                tags=tags,
-                heads=heads,
-                labels=labels,
-                sent_lengths=sent_lengths,
+            subwords = tuple(self.ft_dataset.batch_sentences([t.words for t in trees]))
+            tags = self.pad(
+                [self.tags[j] for j in batch_indices], padding_value=self.LABEL_PADDING
             )
 
-    def pad(self, batch: List[List[int]]) -> torch.Tensor:
+            yield DependencyBatch(
+                chars=chars,
+                encoded_words=encoded_words,
+                heads=heads,
+                labels=labels,
+                content_mask=content_mask,
+                sent_lengths=sent_lengths,
+                subwords=subwords,
+                tags=tags,
+                trees=trees,
+            )
+
+    def pad(
+        self, batch: List[List[int]], padding_value: Optional[int] = None
+    ) -> torch.Tensor:
+        if padding_value is None:
+            padding_value = self.PAD_IDX
         tensorized_seqs = [torch.tensor(sent, dtype=torch.long) for sent in batch]
         return pad_sequence(
             tensorized_seqs,
-            padding_value=self.PAD_IDX,
+            padding_value=padding_value,
             batch_first=True,
         )
 
