@@ -1,11 +1,11 @@
 import multiprocessing
 import pathlib
+import subprocess
 from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple
 import click
 
 import click_pathlib
 
-from npdependency import graph_parser
 from npdependency import conll2018_eval as evaluator
 
 
@@ -25,8 +25,9 @@ def train_single_model(
     device: str,
     additional_args: Dict[str, str],
 ) -> TrainResults:
-    graph_parser.main(
+    subprocess.run(
         [
+            "graph_parser",
             "--train_file",
             str(train_file),
             "--dev_file",
@@ -40,6 +41,7 @@ def train_single_model(
             *(a for key, value in additional_args.items() for a in (f"--{key}", value)),
             str(config_path),
         ],
+        check=True
     )
 
     gold_devset = evaluator.load_conllu_file(dev_file)
@@ -158,5 +160,4 @@ def main(
 
 
 if __name__ == "__main__":
-    multiprocessing.set_start_method("spawn")
     main()
