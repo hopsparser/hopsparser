@@ -315,9 +315,9 @@ class DependencyBatch(NamedTuple):
             chars=chars,
             subwords=subwords,
             encoded_words=encoded_words,
-            tags=self.tags,
-            heads=self.heads,
-            labels=self.labels,
+            tags=self.tags.to(device),
+            heads=self.heads.to(device),
+            labels=self.labels.to(device),
             sent_lengths=self.sent_lengths,
             content_mask=self.content_mask,
         )
