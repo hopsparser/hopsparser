@@ -66,7 +66,10 @@ def worker(device_queue, name, kwargs) -> Tuple[str, TrainResults]:
     device = device_queue.get()
     kwargs["device"] = device
     print(f"Start training {name} on {device}")
-    res = train_single_model(**kwargs)
+    try:
+        res = train_single_model(**kwargs)
+    except Exception as e:
+        raise Exception(e.message)
     device_queue.put(device)
     print(f"Run {name} finished with results {res}")
     return (name, res)
@@ -81,7 +84,10 @@ def run_multi(
         device_queue.put(d)
 
     with multiprocessing.Pool(len(devices)) as pool:
-        res = pool.starmap(worker, ((device_queue, *r) for r in runs))
+        try:
+            res = pool.starmap(worker, ((device_queue, *r) for r in runs))
+        except Exception as e:
+            raise e
 
     return res
 
