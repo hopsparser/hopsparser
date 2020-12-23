@@ -18,9 +18,10 @@ python scripts/train_models.py {configs_dir} {treebanks_dir} --fasttext {fasttex
 ```
 
 For each `{config_name}.yaml}` file in `{configs_dir}` and each `{treebank_name}` directory in
-`{treebanks_dir}`, this will create a `{out_dir}/{treebank_name}-{config_name}` directory containing
-the trained model and the parsed train and test set. It will also create a summary of the
-performances of the various runs un `{out_dir}/summary.tsv`.
+`{treebanks_dir}` (containing files named `(train|dev|test).conllu`), this will create a
+`{out_dir}/{treebank_name}-{config_name}` directory containing the trained model and the parsed
+train and test set. It will also create a summary of the performances of the various runs un
+`{out_dir}/summary.tsv`.
 
 The `--device` flag is used to specify the devices available to train on as comma-separated list.
 The script runs in a low tech task queue which distributes the train runs among these devices: every

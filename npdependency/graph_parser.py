@@ -492,6 +492,7 @@ class BiAffineParser(nn.Module):
     def from_config(
         cls, config_path: Union[str, pathlib.Path], overrides: Dict[str, Any]
     ) -> "BiAffineParser":
+        print(f"Initializing a parser from {config_path}")
         config_path = pathlib.Path(config_path)
         with open(config_path) as in_stream:
             hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
