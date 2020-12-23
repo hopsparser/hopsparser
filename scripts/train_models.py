@@ -61,15 +61,13 @@ def train_single_model(
 # It would be nice to be able to have this as a closure, but unfortunately it doesn't work since
 # closures are not picklable and multiprocessing can only deal with picklable workers
 def worker(device_queue, name, kwargs) -> Tuple[str, TrainResults]:
-    # We use no more workers than devices so the queue should never be empty when spawning a
-    # worker and we don't need to block here
-    device = device_queue.get()
+    # We use no more workers than devices so the queue should never be empty when launching the
+    # worker fun so we want to fail early here if the Queue is empty. It does not feel right but it
+    # works.
+    device = device_queue.get(block=False)
     kwargs["device"] = device
     print(f"Start training {name} on {device}")
-    try:
-        res = train_single_model(**kwargs)
-    except Exception as e:
-        raise Exception(e.message)
+    res = train_single_model(**kwargs)
     device_queue.put(device)
     print(f"Run {name} finished with results {res}")
     return (name, res)
@@ -78,17 +76,16 @@ def worker(device_queue, name, kwargs) -> Tuple[str, TrainResults]:
 def run_multi(
     runs: Iterable[Tuple[str, Dict[str, Any]]], devices: List[str]
 ) -> List[Tuple[str, TrainResults]]:
-    manager = multiprocessing.Manager()
-    device_queue = manager.Queue()
-    for d in devices:
-        device_queue.put(d)
+    with multiprocessing.Manager() as manager:
+        device_queue = manager.Queue()
+        for d in devices:
+            device_queue.put(d)
 
-    with multiprocessing.Pool(len(devices)) as pool:
-        try:
-            res = pool.starmap(worker, ((device_queue, *r) for r in runs))
-        except Exception as e:
-            raise e
-
+        with multiprocessing.Pool(len(devices)) as pool:
+            res_future = pool.starmap_async(
+                worker, ((device_queue, *r) for r in runs),
+            )
+            res = res_future.get()
     return res
 
 
