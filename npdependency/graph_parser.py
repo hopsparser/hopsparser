@@ -585,7 +585,7 @@ def loadlist(filename):
     return strlist
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Graph based Attention based dependency parser/tagger"
     )
@@ -624,7 +624,7 @@ def main():
         help="If a model already exists, restart training from scratch instead of continuing.",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.device is not None:
         overrides = {"device": args.device}
     else:
