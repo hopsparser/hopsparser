@@ -483,7 +483,7 @@ class BiAffineParser(nn.Module):
                     )
                     mst_labels = selected.argmax(dim=0)
                     edges = [
-                        deptree.Edge(head, test_set.itolab[lbl], dep)
+                        deptree.Edge(head.item(), test_set.itolab[lbl], dep)
                         for (dep, lbl, head) in zip(
                             list(range(length)), mst_labels, mst_heads
                         )
