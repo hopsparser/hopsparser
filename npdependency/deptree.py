@@ -319,7 +319,7 @@ class DependencyBatch(NamedTuple):
             heads=self.heads.to(device),
             labels=self.labels.to(device),
             sent_lengths=self.sent_lengths,
-            content_mask=self.content_mask,
+            content_mask=self.content_mask.to(device),
         )
 
 
