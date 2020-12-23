@@ -469,17 +469,15 @@ class BiAffineParser(nn.Module):
                         if greedy
                         else chuliu_edmonds(probs[:length, :length])
                     )
-                    mst_heads = np.pad(mst_heads, (0, batch_width - length))
+                    mst_heads = torch.from_numpy(
+                        np.pad(mst_heads, (0, batch_width - length))
+                    ).to(self.device)
 
                     # Predict tags
                     tag_idxes = tagger_scores.argmax(dim=1)
                     pos_tags = [test_set.itotag[idx] for idx in tag_idxes]
                     # Predict labels
-                    select = (
-                        torch.from_numpy(mst_heads)
-                        .unsqueeze(0)
-                        .expand(lab_scores.size(0), -1)
-                    )
+                    select = mst_heads.unsqueeze(0).expand(lab_scores.size(0), -1)
                     selected = torch.gather(lab_scores, 1, select.unsqueeze(1)).squeeze(
                         1
                     )
