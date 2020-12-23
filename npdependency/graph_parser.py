@@ -574,48 +574,6 @@ class BiAffineParser(nn.Module):
         return parser
 
 
-class GridSearch:
-    """ This generates all the possible experiments specified by a yaml config file """
-
-    def __init__(self, yamlparams):
-
-        self.HP = yamlparams
-
-    def generate_setup(self):
-
-        setuplist = []  # init
-        K = list(self.HP.keys())
-        for key in K:
-            value = self.HP[key]
-            if type(value) is list:
-                if setuplist:
-                    setuplist = [elt + [V] for elt in setuplist for V in value]
-                else:
-                    setuplist = [[V] for V in value]
-            else:
-                for elt in setuplist:
-                    elt.append(value)
-        print(f"#{len(setuplist)} runs to be performed")
-
-        for setup in setuplist:
-            yield dict(zip(K, setup))
-
-    @staticmethod
-    def generate_run_name(base_filename, dict_setup):
-        return (
-            base_filename
-            + "+"
-            + "+".join(
-                [
-                    k + ":" + str(v)
-                    for (k, v) in dict_setup.items()
-                    if k != "output_path"
-                ]
-            )
-            + ".conll"
-        )
-
-
 def savelist(strlist, filename):
     with open(filename, "w") as ostream:
         ostream.write("\n".join(strlist))
