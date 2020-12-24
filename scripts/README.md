@@ -24,7 +24,7 @@ train and test set. It will also create a summary of the performances of the var
 `{out_dir}/summary.tsv`.
 
 The `--device` flag is used to specify the devices available to train on as comma-separated list.
-The script runs in a low tech task queue which distributes the train runs among these devices: every
+The script runs in a rudimentary task queue which distributes the train runs among these devices: every
 run waits until a device is available, then grab it, trains on it and releases it once it is done. 
 
 To make several runs happen concurrently on the same device, just specify it several times e.g.
