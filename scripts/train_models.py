@@ -158,7 +158,7 @@ def main(
     summary_file = out_dir / "summary.tsv"
     if not summary_file.exists():
         summary_file.write_text("run\tdev UPOS\tdev LAS\ttest UPOS\ttest LAS\n")
-    with open(summary_file, "wa") as out_stream:
+    with open(summary_file, "a") as out_stream:
         for name, scores in res:
             out_stream.write(
                 f"{name}\t{100*scores.dev_upos:.2f}\t{100*scores.dev_las:.2f}\t{100*scores.test_upos:.2f}\t{100*scores.test_las:.2f}\n"
