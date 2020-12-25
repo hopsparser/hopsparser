@@ -132,9 +132,13 @@ def main(
     if fasttext is not None:
         additional_args["fasttext"] = str(fasttext)
     runs: List[Tuple[str, Dict[str, Any]]] = []
-    for c in configs:
-        for t in treebanks:
+    for t in treebanks:
+        for c in configs:
             run_name = f"{t.name}-{c.stem}"
+            run_out_dir = out_dir / run_name
+            if run_out_dir.exists():
+                print(f"{run_out_dir}, skipping this run.")
+                continue
             runs.append(
                 (
                     run_name,
@@ -151,8 +155,10 @@ def main(
 
     res = run_multi(runs, devices)
 
-    with open(out_dir / "summary.tsv", "w") as out_stream:
-        out_stream.write("run\tdev UPOS\tdev LAS\ttest UPOS\ttest LAS\n")
+    summary_file = out_dir / "summary.tsv"
+    if not summary_file.exists():
+        summary_file.write_text("run\tdev UPOS\tdev LAS\ttest UPOS\ttest LAS\n")
+    with open(summary_file, "wa") as out_stream:
         for name, scores in res:
             out_stream.write(
                 f"{name}\t{100*scores.dev_upos:.2f}\t{100*scores.dev_las:.2f}\t{100*scores.test_upos:.2f}\t{100*scores.test_las:.2f}\n"
