@@ -127,7 +127,7 @@ def main(
 ):
     out_dir.mkdir(parents=True, exist_ok=True)
     treebanks = [train.parent for train in treebanks_dir.glob("**/train.conllu")]
-    configs = configs_dir.glob("*.yaml")
+    configs = list(configs_dir.glob("*.yaml"))
     additional_args = dict()
     if fasttext is not None:
         additional_args["fasttext"] = str(fasttext)
