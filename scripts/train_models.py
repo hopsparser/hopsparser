@@ -41,7 +41,7 @@ def train_single_model(
             *(a for key, value in additional_args.items() for a in (f"--{key}", value)),
             str(config_path),
         ],
-        check=True
+        check=True,
     )
 
     gold_devset = evaluator.load_conllu_file(dev_file)
@@ -85,7 +85,8 @@ def run_multi(
 
         with multiprocessing.Pool(len(devices)) as pool:
             res_future = pool.starmap_async(
-                worker, ((device_queue, *r) for r in runs),
+                worker,
+                ((device_queue, *r) for r in runs),
             )
             res = res_future.get()
     return res
@@ -101,11 +102,6 @@ def run_multi(
     type=click_pathlib.Path(resolve_path=True, exists=True, file_okay=False),
 )
 @click.option(
-    "--out-dir",
-    default=".",
-    type=click_pathlib.Path(resolve_path=True, exists=False, file_okay=False),
-)
-@click.option(
     "--devices",
     "devices",
     default="cpu",
@@ -118,12 +114,19 @@ def run_multi(
     type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
     help="The path to a pretrained FastText model",
 )
+@click.option(
+    "--out-dir",
+    default=".",
+    type=click_pathlib.Path(resolve_path=True, exists=False, file_okay=False),
+)
+@click.option("--prefix", default="", help="A custom prefix to prepend to run names.")
 def main(
     configs_dir: pathlib.Path,
-    out_dir: pathlib.Path,
-    treebanks_dir: pathlib.Path,
     devices: List[str],
     fasttext: Optional[pathlib.Path],
+    out_dir: pathlib.Path,
+    prefix: str,
+    treebanks_dir: pathlib.Path,
 ):
     out_dir.mkdir(parents=True, exist_ok=True)
     treebanks = [train.parent for train in treebanks_dir.glob("**/train.conllu")]
@@ -134,7 +137,7 @@ def main(
     runs: List[Tuple[str, Dict[str, Any]]] = []
     for t in treebanks:
         for c in configs:
-            run_name = f"{t.name}-{c.stem}"
+            run_name = f"{prefix}-{t.name}-{c.stem}"
             run_out_dir = out_dir / run_name
             if run_out_dir.exists():
                 print(f"{run_out_dir}, skipping this run.")
