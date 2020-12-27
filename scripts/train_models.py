@@ -92,6 +92,8 @@ def run_multi(
     return res
 
 
+# TODO: add multitrials mode, options to report stats and random seed tuning (keeping the best out
+# of n models…)
 @click.command()
 @click.argument(
     "configs_dir",
@@ -103,7 +105,6 @@ def run_multi(
 )
 @click.option(
     "--devices",
-    "devices",
     default="cpu",
     callback=(lambda _ctx, _opt, val: val.split(",")),
     help="A comma-separated list of devices to run on.",
@@ -120,12 +121,18 @@ def run_multi(
     type=click_pathlib.Path(resolve_path=True, exists=False, file_okay=False),
 )
 @click.option("--prefix", default="", help="A custom prefix to prepend to run names.")
+@click.option(
+    "--rand-seeds",
+    callback=(lambda _ctx, _opt, val: [int(s) for s in val.split(",")]),
+    help="A comma-separated list of random seeds to try",
+)
 def main(
     configs_dir: pathlib.Path,
     devices: List[str],
     fasttext: Optional[pathlib.Path],
     out_dir: pathlib.Path,
     prefix: str,
+    rand_seeds: Optional[List[str]],
     treebanks_dir: pathlib.Path,
 ):
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -137,24 +144,47 @@ def main(
     runs: List[Tuple[str, Dict[str, Any]]] = []
     for t in treebanks:
         for c in configs:
-            run_name = f"{prefix}-{t.name}-{c.stem}"
-            run_out_dir = out_dir / run_name
-            if run_out_dir.exists():
-                print(f"{run_out_dir}, skipping this run.")
-                continue
-            runs.append(
-                (
-                    run_name,
-                    {
-                        "train_file": t / "train.conllu",
-                        "dev_file": t / "dev.conllu",
-                        "pred_file": t / "test.conllu",
-                        "out_dir": out_dir / run_name,
-                        "config_path": c,
-                        "additional_args": additional_args,
-                    },
+            common_params = {
+                "train_file": t / "train.conllu",
+                "dev_file": t / "dev.conllu",
+                "pred_file": t / "test.conllu",
+                "config_path": c,
+            }
+            run_base_name = f"{prefix}{t.name}-{c.stem}"
+            run_out_root_dir = out_dir / run_base_name
+            if rand_seeds is None:
+                if run_out_root_dir.exists():
+                    print(f"{run_out_root_dir}, skipping this run.")
+                    continue
+                runs.append(
+                    (
+                        run_base_name,
+                        {
+                            **common_params,
+                            "additional_args": additional_args,
+                            "out_dir": run_out_root_dir,
+                        },
+                    )
                 )
-            )
+            else:
+                for s in rand_seeds:
+                    run_out_dir = run_out_root_dir / str(s)
+                    if run_out_dir.exists():
+                        print(f"{run_out_dir}, skipping this run.")
+                        continue
+                    runs.append(
+                        (
+                            f"run_base_name-{s}",
+                            {
+                                **common_params,
+                                "additional_args": {
+                                    **additional_args,
+                                    "rand_seed": str(s),
+                                },
+                                "out_dir": run_out_dir,
+                            },
+                        ),
+                    )
 
     res = run_multi(runs, devices)
 
