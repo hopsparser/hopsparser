@@ -2,6 +2,7 @@ import argparse
 import math
 import os.path
 import pathlib
+import random
 import shutil
 import sys
 import warnings
@@ -603,10 +604,10 @@ def main(argv=None):
         "--pred_file", metavar="PRED_FILE", type=str, help="the conll file to parse"
     )
     parser.add_argument(
-        "--out_dir",
-        metavar="OUT_DIR",
+        "--device",
+        metavar="DEVICE",
         type=str,
-        help="the path of the output directory (defaults to the config dir)",
+        help="the (torch) device to use for the parser. Supersedes configuration if given",
     )
     parser.add_argument(
         "--fasttext",
@@ -614,18 +615,28 @@ def main(argv=None):
         help="The path to either an existing FastText model or a raw text file to train one. If this option is absent, a model will be trained from the parsing train set.",
     )
     parser.add_argument(
-        "--device",
-        metavar="DEVICE",
+        "--out_dir",
+        metavar="OUT_DIR",
         type=str,
-        help="the (torch) device to use for the parser. Supersedes configuration if given",
+        help="the path of the output directory (defaults to the config dir)",
     )
     parser.add_argument(
         "--overwrite",
         action="store_true",
         help="If a model already exists, restart training from scratch instead of continuing.",
     )
+    parser.add_argument(
+        "--rand_seed",
+        metavar="SEED",
+        type=int,
+        help="Force the random seed fo Python and Pytorch (see <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)",
+    )
 
     args = parser.parse_args(argv)
+    if args.rand_seed is not None:
+        random.seed(args.rand_seed)
+        torch.manual_seed(args.rand_seed)
+
     if args.device is not None:
         overrides = {"device": args.device}
     else:
