@@ -123,7 +123,7 @@ def run_multi(
 @click.option("--prefix", default="", help="A custom prefix to prepend to run names.")
 @click.option(
     "--rand-seeds",
-    callback=(lambda _ctx, _opt, val: [int(s) for s in val.split(",")]),
+    callback=(lambda _ctx, _opt, val: None if val is None else [int(s) for s in val.split(",")]),
     help="A comma-separated list of random seeds to try",
 )
 def main(
@@ -196,6 +196,7 @@ def main(
             out_stream.write(
                 f"{name}\t{100*scores.dev_upos:.2f}\t{100*scores.dev_las:.2f}\t{100*scores.test_upos:.2f}\t{100*scores.test_las:.2f}\n"
             )
+    # TODO: stats aggregated across random seeds computed here
 
 
 if __name__ == "__main__":
