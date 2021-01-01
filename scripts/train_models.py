@@ -1,9 +1,11 @@
+import itertools
 import multiprocessing
+import os.path
 import pathlib
 import subprocess
-from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple
-import click
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple, Union
 
+import click
 import click_pathlib
 
 from npdependency import conll2018_eval as evaluator
@@ -38,7 +40,12 @@ def train_single_model(
             str(out_dir),
             "--device",
             device,
-            *(a for key, value in additional_args.items() for a in (f"--{key}", value)),
+            *(
+                a
+                for key, value in additional_args.items()
+                if value
+                for a in (f"--{key}", value)
+            ),
             str(config_path),
         ],
         check=True,
@@ -92,6 +99,20 @@ def run_multi(
     return res
 
 
+def parse_args_callback(
+    _ctx: click.Context,
+    _opt: Union[click.Argument, click.Option],
+    val: Optional[List[str]],
+) -> Optional[List[Tuple[str, List[str]]]]:
+    if val is None:
+        return None
+    res: List[Tuple[str, List[str]]] = []
+    for v in val:
+        name, values = v.split("=", maxsplit=1)
+        res.append((name, values.split(",")))
+    return res
+
+
 # TODO: add multitrials mode, options to report stats and random seed tuning (keeping the best out
 # of n models…)
 @click.command()
@@ -104,16 +125,21 @@ def run_multi(
     type=click_pathlib.Path(resolve_path=True, exists=True, file_okay=False),
 )
 @click.option(
+    "--args",
+    multiple=True,
+    callback=parse_args_callback,
+    help=(
+        "An additional list of values for an argument, given as `name=value,value2,…`."
+        " Leave a trailing comma to also run the default value of the argument"
+        " Can be provided several times for different arguments."
+        " Path options should have different file names."
+    ),
+)
+@click.option(
     "--devices",
     default="cpu",
     callback=(lambda _ctx, _opt, val: val.split(",")),
     help="A comma-separated list of devices to run on.",
-)
-@click.option(
-    "--fasttext-path",
-    "fasttext",
-    type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
-    help="The path to a pretrained FastText model",
 )
 @click.option(
     "--out-dir",
@@ -123,24 +149,42 @@ def run_multi(
 @click.option("--prefix", default="", help="A custom prefix to prepend to run names.")
 @click.option(
     "--rand-seeds",
-    callback=(lambda _ctx, _opt, val: None if val is None else [int(s) for s in val.split(",")]),
-    help="A comma-separated list of random seeds to try",
+    callback=(
+        lambda _ctx, _opt, val: None
+        if val is None
+        else [int(v) for v in val.split(",")]
+    ),
+    help=(
+        "A comma-separated list of random seeds to try and run stats on."
+        " Only the seed with the best result will be kept for every running config."
+    ),
 )
 def main(
+    args: Optional[List[Tuple[str, List[str]]]],
     configs_dir: pathlib.Path,
     devices: List[str],
-    fasttext: Optional[pathlib.Path],
     out_dir: pathlib.Path,
     prefix: str,
-    rand_seeds: Optional[List[str]],
+    rand_seeds: Optional[List[int]],
     treebanks_dir: pathlib.Path,
 ):
     out_dir.mkdir(parents=True, exist_ok=True)
     treebanks = [train.parent for train in treebanks_dir.glob("**/train.conllu")]
     configs = list(configs_dir.glob("*.yaml"))
-    additional_args = dict()
-    if fasttext is not None:
-        additional_args["fasttext"] = str(fasttext)
+    if rand_seeds is not None:
+        args = [
+            ("rand_seed", [str(s) for s in rand_seeds]),
+            *(args if args is not None else []),
+        ]
+    additional_args_combinations: List[Dict[str, str]]
+    if args is not None:
+        args_names, all_args_values = map(list, zip(*args))
+        additional_args_combinations = [
+            dict(zip(args_names, args_values))
+            for args_values in itertools.product(*all_args_values)
+        ]
+    else:
+        additional_args_combinations = [{}]
     runs: List[Tuple[str, Dict[str, Any]]] = []
     for t in treebanks:
         for c in configs:
@@ -152,39 +196,30 @@ def main(
             }
             run_base_name = f"{prefix}{t.name}-{c.stem}"
             run_out_root_dir = out_dir / run_base_name
-            if rand_seeds is None:
-                if run_out_root_dir.exists():
-                    print(f"{run_out_root_dir}, skipping this run.")
+            for additional_args in additional_args_combinations:
+                if not additional_args:
+                    run_out_dir = run_out_root_dir
+                    run_name = run_base_name
+                else:
+                    args_combination_str = "+".join(
+                        f"{n}={os.path.basename(v)}" if v else f"no{n}"
+                        for n, v in additional_args.items()
+                    )
+                    run_out_dir = run_out_root_dir / args_combination_str
+                    run_name = f"{run_base_name}+{args_combination_str}"
+                if run_out_dir.exists():
+                    print(f"{run_out_dir} already exists, skipping this run.")
                     continue
                 runs.append(
                     (
-                        run_base_name,
+                        run_name,
                         {
                             **common_params,
                             "additional_args": additional_args,
-                            "out_dir": run_out_root_dir,
+                            "out_dir": run_out_dir,
                         },
-                    )
+                    ),
                 )
-            else:
-                for s in rand_seeds:
-                    run_out_dir = run_out_root_dir / str(s)
-                    if run_out_dir.exists():
-                        print(f"{run_out_dir}, skipping this run.")
-                        continue
-                    runs.append(
-                        (
-                            f"run_base_name-{s}",
-                            {
-                                **common_params,
-                                "additional_args": {
-                                    **additional_args,
-                                    "rand_seed": str(s),
-                                },
-                                "out_dir": run_out_dir,
-                            },
-                        ),
-                    )
 
     res = run_multi(runs, devices)
 
