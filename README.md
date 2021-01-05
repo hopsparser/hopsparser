@@ -67,16 +67,7 @@ actually used for performing computations can be specified using the `--device` 
 
 ## Pretrained models
 
-We provide some pretrained models:
-
-| Model name          | Language | device  | LAS (dev) | LAS (test) | speed   | Comment                                            | Download link                                                                                                     |
-| ------------------- | -------- | ------- | --------- | ---------- | ------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| ftb_default         | French   | GPU/CPU |           |            | fast    | French treebank + fasttext                         | pretrained model coming soon                                                                                      |
-| ftb_flaubert        | French   | GPU     |           |            | average | FlaubertBase+French treebank + fasttext            | pretrained model coming soon                                                                                      |
-| ftb_camembert       | French   | GPU     |           |            | average | camembert+French treebank + fasttext               | pretrained model coming soon                                                                                      |
-| ud_fr_gsd_default   | French   | GPU/CPU | 91.98     | 88.96      | fast    | UD French GSD 2.6 + fasttext                       | [download model](https://github.com/bencrabbe/npdependency/releases/download/v0.2.0dev0/ud_fr_gsd_default.tar.gz) |
-| ud_fr_gsd_flaubert  | French   | GPU     | 95.06     | 93.77      | average | flaubert_base_cased + UD French GSD 2.6 + fasttext | [download model](https://sharedocs.huma-num.fr/wl/?id=sAARm9xFNdITZArRYn2qF9UUTj0KqBtu)                           |
-| ud_fr_gsd_camembert | French   | GPU     | 95.06     | 93.28      | average | camembert-base + UD French GSD 2.6 + fasttext      | [download model](https://sharedocs.huma-num.fr/wl/?id=DrKZLgdikOI5TZoVLfcykRLEmUUyLoBN)                           |
+We provide some pretrained models, see the list in [models.md](models.md).
 
 The reader may notice a difference with the results published in [(Le et al
 2020)](https://arxiv.org/abs/1912.05372). The difference comes from a better usage of fasttext and
