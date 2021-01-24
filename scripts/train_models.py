@@ -29,7 +29,7 @@ class TrainResults(NamedTuple):
     test_las: float
 
     @staticmethod
-    def aggregate(results: Sequence["TrainResults"]) -> Dict[Dict[str, float]]:
+    def aggregate(results: Sequence["TrainResults"]) -> Dict[str, Dict[str, float]]:
         return {
             k: series_aggregate([getattr(r, k) for r in results])
             for k in ("dev_upos", "dev_las", "test_upos", "test_las")
