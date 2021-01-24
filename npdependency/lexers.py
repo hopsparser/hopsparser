@@ -453,7 +453,7 @@ class BertBaseLexer(nn.Module):
         unk_word: str,
         embedding_size: int,
         word_dropout: float,
-        bert_layers: Sequence[int],
+        bert_layers: Optional[Sequence[int]],
         bert_modelfile: str,
         bert_subwords_reduction: Literal["first", "mean"],
         bert_weighted: bool,
@@ -486,6 +486,21 @@ class BertBaseLexer(nn.Module):
         self.word_dropout = word_dropout
         self._dpout = 0.0
 
+        # 🤗 has no unified API for the number of layers
+        num_layers = next(
+            n
+            for param_name in ("num_layers", "n_layers", "num_hidden_layers")
+            for n in [getattr(self.bert.config, param_name, None)]
+            if n is not None
+        )
+        if bert_layers is None:
+            bert_layers = list(range(num_layers))
+        elif not all(
+            -num_layers <= layer_idx < num_layers for layer_idx in bert_layers
+        ):
+            raise ValueError(
+                f"Wrong BERT layer selections for a model with {num_layers} layers: {bert_layers}"
+            )
         self.bert_layers = bert_layers
         # TODO: check if the value is allowed?
         self.bert_subwords_reduction = bert_subwords_reduction

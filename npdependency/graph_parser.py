@@ -524,12 +524,15 @@ class BiAffineParser(nn.Module):
                 unk_word=DependencyDataset.UNK_WORD,
             )
         else:
+            bert_layers = hp.get("bert_layers", [4, 5, 6, 7])
+            if bert_layers == "*":
+                bert_layers = None
             lexer = BertBaseLexer(
                 itos=ordered_vocab,
                 embedding_size=hp["word_embedding_size"],
                 word_dropout=hp["word_dropout"],
                 bert_modelfile=hp["lexer"],
-                bert_layers=hp.get("bert_layers", [4, 5, 6, 7]),
+                bert_layers=bert_layers,
                 bert_subwords_reduction=hp.get("bert_subwords_reduction", "first"),
                 bert_weighted=hp.get("bert_weighted", False),
                 words_padding_idx=DependencyDataset.PAD_IDX,
