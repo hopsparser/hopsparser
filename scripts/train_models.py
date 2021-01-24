@@ -38,7 +38,7 @@ class TrainResults(NamedTuple):
 
 def series_aggregate(series: Sequence[float]) -> Dict[str, float]:
     res: Dict[str, float] = dict()
-    res["mean"] = statistics.mean(series)
+    res["mean"] = statistics.fmean(series)
     res["stdev"] = statistics.stdev(series, res["mean"])
     res["max"] = max(series)
     return res
