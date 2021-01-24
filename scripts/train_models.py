@@ -2,8 +2,19 @@ import itertools
 import multiprocessing
 import os.path
 import pathlib
+import statistics
 import subprocess
-from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import click
 import click_pathlib
@@ -16,6 +27,25 @@ class TrainResults(NamedTuple):
     dev_las: float
     test_upos: float
     test_las: float
+
+    @staticmethod
+    def aggregate(results: Sequence["TrainResults"]) -> Dict[Dict[str, float]]:
+        return {
+            k: series_aggregate([getattr(r, k) for r in results])
+            for k in ("dev_upos", "dev_las", "test_upos", "test_las")
+        }
+
+
+def series_aggregate(series: Sequence[float]) -> Dict[str, float]:
+    res: Dict[str, float] = dict()
+    res["mean"] = statistics.mean(series)
+    res["stdev"] = statistics.stdev(series, res["mean"])
+    res["max"] = max(series)
+    return res
+
+
+def format_aggregate(aggregate: Dict[str, float]) -> str:
+    return f"{100*aggregate['max']:.2f} ({100*aggregate['mean']:.2f}±{100*aggregate['stdev']:.2f})"
 
 
 def train_single_model(
@@ -101,7 +131,7 @@ def run_multi(
 
 def parse_args_callback(
     _ctx: click.Context,
-    _opt: Union[click.Argument, click.Option],
+    _opt: Union[click.Option, click.Parameter],
     val: Optional[List[str]],
 ) -> Optional[List[Tuple[str, List[str]]]]:
     if val is None:
@@ -186,6 +216,7 @@ def main(
     else:
         additional_args_combinations = [{}]
     runs: List[Tuple[str, Dict[str, Any]]] = []
+    runs_meta: Dict[str, Dict[str, Any]] = dict()
     for t in treebanks:
         for c in configs:
             common_params = {
@@ -210,16 +241,13 @@ def main(
                 if run_out_dir.exists():
                     print(f"{run_out_dir} already exists, skipping this run.")
                     continue
-                runs.append(
-                    (
-                        run_name,
-                        {
-                            **common_params,
-                            "additional_args": additional_args,
-                            "out_dir": run_out_dir,
-                        },
-                    ),
-                )
+                run_params = {
+                    **common_params,
+                    "additional_args": additional_args,
+                    "out_dir": run_out_dir,
+                }
+                runs.append((run_name, run_params))
+                runs_meta[run_name] = run_params
 
     res = run_multi(runs, devices)
 
@@ -231,7 +259,42 @@ def main(
             out_stream.write(
                 f"{name}\t{100*scores.dev_upos:.2f}\t{100*scores.dev_las:.2f}\t{100*scores.test_upos:.2f}\t{100*scores.test_las:.2f}\n"
             )
-    # TODO: stats aggregated across random seeds computed here
+
+    if rand_seeds is not None:
+        res_dict = dict(res)
+        res_per_params: Dict[Tuple[Tuple[str, str], ...], List[str]] = dict()
+        for run_name, run_params in runs_meta.items():
+            non_seed_params = tuple(
+                sorted((k, v) for k, v in run_params if k != "rand_seed")
+            )
+            res_per_params.setdefault(non_seed_params, []).append(run_name)
+        seed_summary_file = out_dir / "summary_seeds.tsv"
+        if not seed_summary_file.exists():
+            seed_summary_file.write_text(
+                "run\tdev UPOS\tdev LAS\ttest UPOS\ttest LAS\n"
+            )
+        with open(seed_summary_file, "a") as out_stream:
+            for params, run_names in res_per_params.items():
+                params_str = ",".join(f"{k}:{v}" for k, v in params)
+                results = [res_dict[n] for n in run_names]
+                aggregate = TrainResults.aggregate(results)
+                out_stream.write(
+                    "\t".join(
+                        [
+                            params_str,
+                            *(
+                                format_aggregate(aggregate[v])
+                                for v in (
+                                    "dev_upos",
+                                    "dev_las",
+                                    "test_upos",
+                                    "test_las",
+                                )
+                            ),
+                        ]
+                    )
+                    + "\n"
+                )
 
 
 if __name__ == "__main__":
