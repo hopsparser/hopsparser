@@ -292,7 +292,6 @@ class BiAffineParser(nn.Module):
 
         with torch.no_grad():
             for batch in dev_batches:
-                # Root tokens don't
                 overall_size += int(batch.content_mask.sum().item())
 
                 batch = batch.to(self.device)
