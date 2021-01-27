@@ -88,4 +88,4 @@ running them on CPUs is still possible, albeit slow.
 | -------------------------------- | ---------- | --------- | ----------- | ---------- | ---------------------------------------- |
 | UD_Old_French-SRCMF-flaubert+fro | 97.21      | 90.14     | 97.40       | 90.56      | [link][UD_Old_French-SRCMF-flaubert+fro] |
 
-[UD_Old_French-SRCMF-flaubert+fro]: https://sharedocs.huma-num.fr/wl/?id=8suODzwFzPuCKpRtFwKdgsDJsItfvICb
+[UD_Old_French-SRCMF-flaubert+fro]: https://sharedocs.huma-num.fr/wl/?id=U3LQ1dGJmzJfIchpTMGyzU7TDmALQy9E
