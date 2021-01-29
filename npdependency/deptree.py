@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import pathlib
 from random import shuffle
 from typing import (
@@ -36,42 +37,62 @@ class Edge(NamedTuple):
     dep: int
 
 
+@dataclass
+class ConlluNode:
+    identifier: int
+    form: str
+    lemma: str
+    upostag: str
+    xpostag: str
+    feats: str
+    head: int
+    deprel: str
+    deps: str
+    misc: str
+
+    def to_conll(self) -> str:
+        return f"{self.identifier}\t{self.form}\t{self.lemma}\t{self.upostag}\t{self.xpostag}\t{self.feats}\t{self.head}\t{self.deprel}\t{self.deps}\t{self.misc}"
+
+    @classmethod
+    def from_conll_row(cls, cols: Sequence[str]) -> "ConlluNode":
+        return cls(
+            identifier=int(cols[0]),
+            form=cols[1],
+            lemma=cols[2],
+            upostag=cols[3],
+            xpostag=cols[4],
+            feats=cols[5],
+            head=int(cols[6]),
+            deprel=cols[7],
+            deps=cols[8],
+            misc=cols[9],
+        )
+
+
 class DepGraph:
 
     ROOT_TOKEN = "<root>"
 
     def __init__(
         self,
-        edges: Iterable[Edge],
-        wordlist: Optional[Iterable[str]] = None,
-        pos_tags: Optional[Iterable[str]] = None,
-        with_root: bool = False,
+        nodes: Sequence[ConlluNode],
         mwe_ranges: Optional[Iterable[MWERange]] = None,
         metadata: Optional[Iterable[str]] = None,
     ):
-
-        self.gov2dep: Dict[int, List[Edge]] = {}
-        self.has_gov: Set[int] = set()  # set of nodes with a governor
-
-        for e in edges:
-            self.add_arc(e)
-
-        if with_root:
-            self.add_root()
-
-        self.words = [self.ROOT_TOKEN, *(wordlist if wordlist is not None else [])]
-        self.pos_tags = [
-            self.ROOT_TOKEN,
-            *(pos_tags if pos_tags is not None else []),
-        ]
+        self.nodes = nodes
         self.mwe_ranges = [] if mwe_ranges is None else mwe_ranges
         self.metadata = [] if metadata is None else metadata
+        self.gov2dep: Dict[int, List[Edge]] = {}
+        for n in self.nodes:
+            self.gov2dep.setdefault(n.head, []).append(Edge(n.head, n.deprel, n.identifier))
 
-    def fastcopy(self) -> "DepGraph":
-        """
-        copy edges only not word nor tags nor mwe_ranges
-        """
-        return DepGraph(self.get_all_edges())
+    @property
+    def words(self) -> List[str]:
+        return [self.ROOT_TOKEN, *(n.form for n in self.nodes)]
+
+    @property
+    def pos_tags(self) -> List[str]:
+        return [self.ROOT_TOKEN, *(n.upostag for n in self.nodes)]
 
     def get_all_edges(self) -> List[Edge]:
         """
@@ -84,20 +105,6 @@ class DepGraph:
         Returns the list of dependency labels found on the arcs
         """
         return [edge.label for edge in self.get_all_edges()]
-
-    def get_arc(self, gov: int, dep: int) -> Optional[Edge]:
-        """
-        Returns the arc between gov and dep if it exists or None otherwise
-        Args:
-            gov (int): node idx
-            dep (int): node idx
-        Returns:
-            A triple (gov,label,dep) or None.
-        """
-        for edge in self.gov2dep.get(gov, []):
-            if edge.dep == dep:
-                return edge
-        return None
 
     def oracle_governors(self) -> List[int]:
         """
@@ -119,38 +126,6 @@ class DepGraph:
         labels[0] = "_"
         return [labels[idx] for idx in range(N)]
 
-    def add_root(self):
-        if not self.gov2dep:  # single word sentence
-            self.add_arc(Edge(0, "root", 1))
-        elif 0 not in self.gov2dep:
-            roots = set(self.gov2dep) - self.has_gov
-            if len(roots) > 1:
-                raise ValueError("Malformed tree: multiple roots")
-            elif len(roots) == 0:
-                raise ValueError("Malformed tree: no root")
-            self.add_arc(Edge(0, "root", roots.pop()))
-
-    def add_arc(self, edge: Edge):
-        """
-        Adds an arc to the dep graph
-        """
-        self.gov2dep.setdefault(edge.gov, []).append(edge)
-        self.has_gov.add(edge.dep)
-
-    def is_cyclic_add(self, gov: int, dep: int) -> bool:
-        """
-        Checks if the addition of an arc from gov to dep would create
-        a cycle in the dep tree
-        """
-        return gov in self.span(dep)
-
-    def is_dag_add(self, gov: int, dep: int) -> bool:
-        """
-        Checks if the addition of an arc from gov to dep would create
-        a Dag
-        """
-        return dep in self.has_gov
-
     def span(self, gov: int) -> Set[int]:
         """
         Returns the list of nodes in the yield of this node
@@ -167,33 +142,6 @@ class DepGraph:
             agenda.extend([node for node in succ if node not in closure])
             closure.update(succ)
         return closure
-
-    def _gap_degree(self, node: int) -> int:
-        """
-        Returns the gap degree of a node
-        Args :
-            node (int): a dep tree node
-        """
-        nspan = list(self.span(node))
-        nspan.sort()
-        gd = 0
-        for idx in range(len(nspan)):
-            if idx > 0:
-                if nspan[idx] - nspan[idx - 1] > 1:
-                    gd += 1
-        return gd
-
-    def gap_degree(self) -> int:
-        """
-        Returns the gap degree of a tree (suboptimal)
-        """
-        return max(self._gap_degree(node) for node in self.gov2dep)
-
-    def is_projective(self) -> bool:
-        """
-        Returns true if this tree is projective
-        """
-        return self.gap_degree() == 0
 
     @classmethod
     def read_tree(cls, istream: TextIO) -> Optional["DepGraph"]:
@@ -213,13 +161,11 @@ class DepGraph:
             line = istream.readline()
         if not conll:
             return None
-        words = []
         mwe_ranges = []
-        postags = []
-        edges = []
+        nodes = []
         for dataline in conll:
             if len(dataline) < 10:  # pads the dataline
-                dataline.extend(["-"] * (10 - len(dataline)))
+                dataline.extend(["_"] * (10 - len(dataline)))
                 dataline[6] = "0"
 
             if "-" in dataline[0]:
@@ -227,17 +173,9 @@ class DepGraph:
                 mwe_ranges.append(MWERange(int(mwe_start), int(mwe_end), dataline[1]))
                 continue
             else:
-                words.append(dataline[1])
-                if dataline[3] not in ["-", "_"]:
-                    postags.append(dataline[3])
-                if dataline[6] != "0":  # do not add root immediately
-                    # shift indexes !
-                    edges.append(Edge(int(dataline[6]), dataline[7], int(dataline[0])))
+                nodes.append(ConlluNode.from_conll_row(dataline))
         return cls(
-            edges,
-            words,
-            pos_tags=postags,
-            with_root=True,
+            nodes = nodes,
             mwe_ranges=mwe_ranges,
             metadata=metadata,
         )
