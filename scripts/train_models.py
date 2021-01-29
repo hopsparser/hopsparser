@@ -207,7 +207,7 @@ def main(
             *(args if args is not None else []),
         ]
     additional_args_combinations: List[Dict[str, str]]
-    if args is not None:
+    if args:
         args_names, all_args_values = map(list, zip(*args))
         additional_args_combinations = [
             dict(zip(args_names, args_values))
