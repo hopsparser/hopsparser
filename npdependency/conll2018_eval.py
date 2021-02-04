@@ -102,9 +102,9 @@ from __future__ import annotations
 import argparse
 import io
 import sys
-from typing import Dict, Optional
 import unicodedata
 import unittest
+from typing import Dict, Optional
 
 # CoNLL-U column names
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)

@@ -1,34 +1,29 @@
+import argparse
 import math
+import os.path
 import pathlib
+import random
+import shutil
 import sys
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Sequence,
-    TextIO,
-    Tuple,
-    Union,
-)
 import warnings
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from typing import Any, Callable, Dict, Iterable, List, Sequence, TextIO, Tuple, Union
+
+import numpy as np
+import torch
 import transformers
 import yaml
-import argparse
-
-import shutil
-
-import os.path
-import numpy as np
-
-import torch
 from torch import nn
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+
+from npdependency import conll2018_eval as evaluator
 from npdependency import deptree
-
-from npdependency.mst import chuliu_edmonds_one_root as chuliu_edmonds
-
+from npdependency.deptree import (
+    DependencyBatch,
+    DependencyDataset,
+    DepGraph,
+    gen_labels,
+    gen_tags,
+)
 from npdependency.lexers import (
     BertBaseLexer,
     BertLexerBatch,
@@ -40,14 +35,7 @@ from npdependency.lexers import (
     freeze_module,
     make_vocab,
 )
-from npdependency.deptree import (
-    DependencyBatch,
-    DependencyDataset,
-    DepGraph,
-    gen_labels,
-    gen_tags,
-)
-from npdependency import conll2018_eval as evaluator
+from npdependency.mst import chuliu_edmonds_one_root as chuliu_edmonds
 
 # Python 3.7 shim
 try:
@@ -505,6 +493,7 @@ class BiAffineParser(nn.Module):
     def from_config(
         cls, config_path: Union[str, pathlib.Path], overrides: Dict[str, Any]
     ) -> "BiAffineParser":
+        print(f"Initializing a parser from {config_path}")
         config_path = pathlib.Path(config_path)
         with open(config_path) as in_stream:
             hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
@@ -587,48 +576,6 @@ class BiAffineParser(nn.Module):
         return parser
 
 
-class GridSearch:
-    """ This generates all the possible experiments specified by a yaml config file """
-
-    def __init__(self, yamlparams):
-
-        self.HP = yamlparams
-
-    def generate_setup(self):
-
-        setuplist = []  # init
-        K = list(self.HP.keys())
-        for key in K:
-            value = self.HP[key]
-            if type(value) is list:
-                if setuplist:
-                    setuplist = [elt + [V] for elt in setuplist for V in value]
-                else:
-                    setuplist = [[V] for V in value]
-            else:
-                for elt in setuplist:
-                    elt.append(value)
-        print(f"#{len(setuplist)} runs to be performed")
-
-        for setup in setuplist:
-            yield dict(zip(K, setup))
-
-    @staticmethod
-    def generate_run_name(base_filename, dict_setup):
-        return (
-            base_filename
-            + "+"
-            + "+".join(
-                [
-                    k + ":" + str(v)
-                    for (k, v) in dict_setup.items()
-                    if k != "output_path"
-                ]
-            )
-            + ".conll"
-        )
-
-
 def savelist(strlist, filename):
     with open(filename, "w") as ostream:
         ostream.write("\n".join(strlist))
@@ -640,7 +587,7 @@ def loadlist(filename):
     return strlist
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Graph based Attention based dependency parser/tagger"
     )
@@ -657,10 +604,10 @@ def main():
         "--pred_file", metavar="PRED_FILE", type=str, help="the conll file to parse"
     )
     parser.add_argument(
-        "--out_dir",
-        metavar="OUT_DIR",
+        "--device",
+        metavar="DEVICE",
         type=str,
-        help="the path of the output directory (defaults to the config dir)",
+        help="the (torch) device to use for the parser. Supersedes configuration if given",
     )
     parser.add_argument(
         "--fasttext",
@@ -668,18 +615,28 @@ def main():
         help="The path to either an existing FastText model or a raw text file to train one. If this option is absent, a model will be trained from the parsing train set.",
     )
     parser.add_argument(
-        "--device",
-        metavar="DEVICE",
+        "--out_dir",
+        metavar="OUT_DIR",
         type=str,
-        help="the (torch) device to use for the parser. Supersedes configuration if given",
+        help="the path of the output directory (defaults to the config dir)",
     )
     parser.add_argument(
         "--overwrite",
         action="store_true",
         help="If a model already exists, restart training from scratch instead of continuing.",
     )
+    parser.add_argument(
+        "--rand_seed",
+        metavar="SEED",
+        type=int,
+        help="Force the random seed fo Python and Pytorch (see <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)",
+    )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.rand_seed is not None:
+        random.seed(args.rand_seed)
+        torch.manual_seed(args.rand_seed)
+
     if args.device is not None:
         overrides = {"device": args.device}
     else:

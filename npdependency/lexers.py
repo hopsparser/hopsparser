@@ -1,23 +1,16 @@
-from typing import (
-    Iterable,
-    List,
-    NamedTuple,
-    Optional,
-    Sequence,
-    TypeVar,
-    Union,
-)
+import os.path
+from collections import Counter
+from tempfile import gettempdir
+from typing import Iterable, List, NamedTuple, Optional, Sequence, TypeVar, Union
+
+import fasttext
 import torch
 import torch.jit
 import transformers
-import fasttext
-import os.path
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoModel, AutoTokenizer
 from transformers.tokenization_utils_base import BatchEncoding, TokenSpan
-from collections import Counter
-from tempfile import gettempdir
 
 # Python 3.7 shim
 try:
