@@ -359,8 +359,8 @@ class DependencyDataset:
         lexer: lexers.Lexer,
         char_dataset: lexers.CharDataSet,
         ft_dataset: lexers.FastTextDataSet,
-        use_labels: Optional[List[str]] = None,
-        use_tags: Optional[List[str]] = None,
+        use_labels: Optional[Sequence[str]] = None,
+        use_tags: Optional[Sequence[str]] = None,
     ):
         self.lexer = lexer
         self.char_dataset = char_dataset

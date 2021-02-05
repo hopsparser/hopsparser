@@ -6,7 +6,18 @@ import random
 import shutil
 import sys
 import warnings
-from typing import Any, Callable, Dict, Iterable, List, Sequence, TextIO, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    TextIO,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 import torch
@@ -587,6 +598,34 @@ def loadlist(filename):
     return strlist
 
 
+def parse(
+    config_file: Union[str, pathlib.Path],
+    pred_file: Union[str, pathlib.Path],
+    out_file: Union[str, pathlib.Path],
+    overrides: Optional[Dict[str, str]] = None,
+):
+    if overrides is None:
+        overrides = dict()
+    parser = BiAffineParser.from_config(config_file, overrides)
+    with open(config_file) as in_stream:
+        hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
+        hp.update(overrides)
+    parser.eval()
+    testtrees = DependencyDataset.read_conll(pred_file)
+    # FIXME: the special tokens should be saved somewhere instead of hardcoded
+    ft_dataset = FastTextDataSet(parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN])
+    testset = DependencyDataset(
+        testtrees,
+        parser.lexer,
+        parser.charset,
+        ft_dataset,
+        use_labels=parser.labels,
+        use_tags=parser.tagset,
+    )
+    with open(out_file, "w") as ostream:
+        parser.predict_batch(testset, ostream, hp["batch_size"], greedy=False)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Graph based Attention based dependency parser/tagger"
@@ -791,21 +830,6 @@ def main(argv=None):
 
     if args.pred_file:
         # TEST MODE
-        parser = BiAffineParser.from_config(config_file, overrides)
-        parser.eval()
-        testtrees = DependencyDataset.read_conll(args.pred_file)
-        # FIXME: the special tokens should be saved somewhere instead of hardcoded
-        ft_dataset = FastTextDataSet(
-            parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN]
-        )
-        testset = DependencyDataset(
-            testtrees,
-            parser.lexer,
-            parser.charset,
-            ft_dataset,
-            use_labels=parser.labels,
-            use_tags=parser.tagset,
-        )
         if args.out_dir is not None:
             parsed_testset_path = os.path.join(
                 args.out_dir, f"{os.path.basename(args.pred_file)}.parsed"
@@ -815,8 +839,7 @@ def main(argv=None):
                 os.path.dirname(args.pred_file),
                 f"{os.path.basename(args.pred_file)}.parsed",
             )
-        with open(parsed_testset_path, "w") as ostream:
-            parser.predict_batch(testset, ostream, hp["batch_size"], greedy=False)
+        parse(config_file, args.pred_file, parsed_testset_path, overrides=overrides)
         print("parsing done.", file=sys.stderr)
 
 
