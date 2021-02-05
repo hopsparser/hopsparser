@@ -10,13 +10,14 @@ from typing import (
     Any,
     Callable,
     Dict,
+    IO,
     Iterable,
     List,
     Optional,
     Sequence,
-    TextIO,
     Tuple,
     Union,
+    cast,
 )
 
 import numpy as np
@@ -429,7 +430,7 @@ class BiAffineParser(nn.Module):
     def predict_batch(
         self,
         test_set: DependencyDataset,
-        ostream: TextIO,
+        ostream: IO[str],
         batch_size: int,
         greedy: bool = False,
     ):
@@ -601,8 +602,8 @@ def loadlist(filename):
 
 def parse(
     config_file: Union[str, pathlib.Path],
-    in_file: Union[str, pathlib.Path, TextIO],
-    out_file: Union[str, pathlib.Path, TextIO],
+    in_file: Union[str, pathlib.Path, IO[str]],
+    out_file: Union[str, pathlib.Path, IO[str]],
     overrides: Optional[Dict[str, str]] = None,
 ):
     if overrides is None:
@@ -624,7 +625,9 @@ def parse(
         use_tags=parser.tagset,
     )
     with smart_open(out_file, "w") as ostream:
-        parser.predict_batch(testset, ostream, hp["batch_size"], greedy=False)
+        parser.predict_batch(
+            testset, cast(IO[str], ostream), hp["batch_size"], greedy=False
+        )
 
 
 def main(argv=None):

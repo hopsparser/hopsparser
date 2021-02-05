@@ -1,11 +1,13 @@
 import contextlib
 import pathlib
 import sys
-from typing import cast, IO, Union
+from typing import Generator, cast, IO, Union
 
 
 @contextlib.contextmanager
-def smart_open(f: Union[pathlib.Path, str, IO], mode: str = "r", *args, **kwargs):
+def smart_open(
+    f: Union[pathlib.Path, str, IO], mode: str = "r", *args, **kwargs
+) -> Generator[IO, None, None]:
     """Open files, paths and i/o streams transparently."""
     fh: IO
     if f == "-":

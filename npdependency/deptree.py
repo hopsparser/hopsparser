@@ -2,13 +2,13 @@ import pathlib
 from random import shuffle
 from typing import (
     Dict,
+    IO,
     Iterable,
     List,
     NamedTuple,
     Optional,
     Sequence,
     Set,
-    TextIO,
     TypeVar,
     Union,
 )
@@ -197,7 +197,7 @@ class DepGraph:
         return self.gap_degree() == 0
 
     @classmethod
-    def read_tree(cls, istream: TextIO) -> Optional["DepGraph"]:
+    def read_tree(cls, istream: IO[str]) -> Optional["DepGraph"]:
         """
         Reads a conll tree from input stream
         """
@@ -220,7 +220,7 @@ class DepGraph:
         edges = []
         for dataline in conll:
             if len(dataline) < 10:  # pads the dataline
-                dataline.extend(["-"] * (10 - len(dataline)))
+                dataline.extend(["_"] * (10 - len(dataline)))
                 dataline[6] = "0"
 
             if "-" in dataline[0]:
@@ -231,9 +231,7 @@ class DepGraph:
                 words.append(dataline[1])
                 if dataline[3] not in ["-", "_"]:
                     postags.append(dataline[3])
-                if dataline[6] != "0":  # do not add root immediately
-                    # shift indexes !
-                    edges.append(Edge(int(dataline[6]), dataline[7], int(dataline[0])))
+                edges.append(Edge(int(dataline[6]), dataline[7], int(dataline[0])))
         return cls(
             edges,
             words,
@@ -338,7 +336,8 @@ class DependencyDataset:
 
     @staticmethod
     def read_conll(
-        filename: Union[str, pathlib.Path], max_tree_length: Optional[int] = None
+        filename: Union[str, pathlib.Path, IO[str]],
+        max_tree_length: Optional[int] = None,
     ) -> List[DepGraph]:
         print(f"Reading treebank from {filename}")
         with smart_open(filename) as istream:
