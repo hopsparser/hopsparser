@@ -19,6 +19,7 @@ from typing_extensions import Final
 
 from npdependency import lexers
 from npdependency.lexers import BertLexerBatch, BertLexerSentence
+from npdependency.utils import smart_open
 
 
 class MWERange(NamedTuple):
@@ -340,7 +341,7 @@ class DependencyDataset:
         filename: Union[str, pathlib.Path], max_tree_length: Optional[int] = None
     ) -> List[DepGraph]:
         print(f"Reading treebank from {filename}")
-        with open(filename) as istream:
+        with smart_open(filename) as istream:
             treelist = []
             tree = DepGraph.read_tree(istream)
             while tree:

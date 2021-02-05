@@ -26,6 +26,7 @@ import yaml
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
+from npdependency.utils import smart_open
 from npdependency import conll2018_eval as evaluator
 from npdependency import deptree
 from npdependency.deptree import (
@@ -600,8 +601,8 @@ def loadlist(filename):
 
 def parse(
     config_file: Union[str, pathlib.Path],
-    pred_file: Union[str, pathlib.Path],
-    out_file: Union[str, pathlib.Path],
+    in_file: Union[str, pathlib.Path, TextIO],
+    out_file: Union[str, pathlib.Path, TextIO],
     overrides: Optional[Dict[str, str]] = None,
 ):
     if overrides is None:
@@ -611,7 +612,7 @@ def parse(
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
         hp.update(overrides)
     parser.eval()
-    testtrees = DependencyDataset.read_conll(pred_file)
+    testtrees = DependencyDataset.read_conll(in_file)
     # FIXME: the special tokens should be saved somewhere instead of hardcoded
     ft_dataset = FastTextDataSet(parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN])
     testset = DependencyDataset(
@@ -622,7 +623,7 @@ def parse(
         use_labels=parser.labels,
         use_tags=parser.tagset,
     )
-    with open(out_file, "w") as ostream:
+    with smart_open(out_file, "w") as ostream:
         parser.predict_batch(testset, ostream, hp["batch_size"], greedy=False)
 
 
