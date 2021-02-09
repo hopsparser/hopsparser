@@ -6,7 +6,19 @@ import random
 import shutil
 import sys
 import warnings
-from typing import Any, Callable, Dict, Iterable, List, Sequence, TextIO, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    IO,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    cast,
+)
 
 import numpy as np
 import torch
@@ -15,6 +27,7 @@ import yaml
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
+from npdependency.utils import smart_open
 from npdependency import conll2018_eval as evaluator
 from npdependency import deptree
 from npdependency.deptree import (
@@ -417,7 +430,7 @@ class BiAffineParser(nn.Module):
     def predict_batch(
         self,
         test_set: DependencyDataset,
-        ostream: TextIO,
+        ostream: IO[str],
         batch_size: int,
         greedy: bool = False,
     ):
@@ -585,6 +598,36 @@ def loadlist(filename):
     with open(filename) as istream:
         strlist = [line.strip() for line in istream]
     return strlist
+
+
+def parse(
+    config_file: Union[str, pathlib.Path],
+    in_file: Union[str, pathlib.Path, IO[str]],
+    out_file: Union[str, pathlib.Path, IO[str]],
+    overrides: Optional[Dict[str, str]] = None,
+):
+    if overrides is None:
+        overrides = dict()
+    parser = BiAffineParser.from_config(config_file, overrides)
+    with open(config_file) as in_stream:
+        hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
+        hp.update(overrides)
+    parser.eval()
+    testtrees = DependencyDataset.read_conll(in_file)
+    # FIXME: the special tokens should be saved somewhere instead of hardcoded
+    ft_dataset = FastTextDataSet(parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN])
+    testset = DependencyDataset(
+        testtrees,
+        parser.lexer,
+        parser.charset,
+        ft_dataset,
+        use_labels=parser.labels,
+        use_tags=parser.tagset,
+    )
+    with smart_open(out_file, "w") as ostream:
+        parser.predict_batch(
+            testset, cast(IO[str], ostream), hp["batch_size"], greedy=False
+        )
 
 
 def main(argv=None):
@@ -791,21 +834,6 @@ def main(argv=None):
 
     if args.pred_file:
         # TEST MODE
-        parser = BiAffineParser.from_config(config_file, overrides)
-        parser.eval()
-        testtrees = DependencyDataset.read_conll(args.pred_file)
-        # FIXME: the special tokens should be saved somewhere instead of hardcoded
-        ft_dataset = FastTextDataSet(
-            parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN]
-        )
-        testset = DependencyDataset(
-            testtrees,
-            parser.lexer,
-            parser.charset,
-            ft_dataset,
-            use_labels=parser.labels,
-            use_tags=parser.tagset,
-        )
         if args.out_dir is not None:
             parsed_testset_path = os.path.join(
                 args.out_dir, f"{os.path.basename(args.pred_file)}.parsed"
@@ -815,8 +843,7 @@ def main(argv=None):
                 os.path.dirname(args.pred_file),
                 f"{os.path.basename(args.pred_file)}.parsed",
             )
-        with open(parsed_testset_path, "w") as ostream:
-            parser.predict_batch(testset, ostream, hp["batch_size"], greedy=False)
+        parse(config_file, args.pred_file, parsed_testset_path, overrides=overrides)
         print("parsing done.", file=sys.stderr)
 
 

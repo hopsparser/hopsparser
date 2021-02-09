@@ -38,14 +38,17 @@ in `setup.cfg` and call `python -m npdependency.graph_parser3` directly from the
 ## Parsing task
 
 The parsing task (or prediction task) assumes you have an already trained model in the directory
-MODEL. You can parse a file FILE in truncated CONLL-U format with the command:
+MODEL. You can parse a file INPUT_FILE in truncated CONLL-U format with the command:
 
 ```sh
-graph_parser  --pred_file FILE   MODEL/params.yaml
+hopsparser parse MODEL/params.yaml INPUT_FILE OUTPUT_FILE
 ```
 
-This results in a parsed file called `FILE.parsed`. The `MODEL/params.yaml` is the model
-hyperparameters file. The `FILE` argument is supposed to be the path to a file in the
+This results in a parsed file called `OUTPUT_FILE`. The `MODEL/params.yaml` is the model
+hyperparameters file. Both INPUT_FILE and OUTPUT_FILE can be set to `-` to use the standard i/o
+streams, which can be convenient if you want to use the parser in a pipe.
+
+The `INPUT_FILE` argument is supposed to be the path to a file in the
 [CONLL-U](https://universaldependencies.org/format.html) format, possibly with missing columns. For
 instance:
 
@@ -60,6 +63,9 @@ instance:
 
 That is we require word indexation and word forms only. Empty words are currently not supported.
 Multi-word tokens are not taken into account by the parsing models but are preserved in the outputs.
+
+Alternatively, you may add the `--raw` flag to the command above, in which case the parser expects a
+pre-tokenized raw text file with one sentence per line and individual tokens separated by blanks.
 
 Depending on the model, the parser will be more or less fast and more or less accurate. We can
 however expect the parser to process several hundred sentences per second with a decent GPU. The GPU
