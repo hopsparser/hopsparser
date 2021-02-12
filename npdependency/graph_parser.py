@@ -274,7 +274,9 @@ class BiAffineParser(nn.Module):
         # <https://arxiv.org/abs/1805.06334>
         return tagger_loss + arc_loss + lab_loss
 
-    def eval_model(self, dev_set: DependencyDataset, batch_size: int):
+    def eval_model(self, dev_set: DependencyDataset, batch_size: Optional[int] = None):
+        if batch_size is None:
+            batch_size = self.default_batch_size
 
         loss_fnc = nn.CrossEntropyLoss(
             reduction="sum", ignore_index=dev_set.LABEL_PADDING
@@ -346,12 +348,13 @@ class BiAffineParser(nn.Module):
         train_set: DependencyDataset,
         dev_set: DependencyDataset,
         epochs: int,
-        batch_size: int,
         lr: float,
         lr_schedule: LRSchedule,
-        modelpath="test_model.pt",
+        modelpath: Union[str, pathlib.Path],
+        batch_size: Optional[int] = None,
     ):
-
+        if batch_size is None:
+            batch_size = self.default_batch_size
         print(f"Start training on {self.device}")
         loss_fnc = nn.CrossEntropyLoss(
             reduction="sum", ignore_index=train_set.LABEL_PADDING
@@ -412,7 +415,7 @@ class BiAffineParser(nn.Module):
                 scheduler.step()
 
             dev_loss, dev_tag_acc, dev_arc_acc, dev_lab_acc = self.eval_model(
-                dev_set, batch_size
+                dev_set, batch_size=batch_size
             )
             print(
                 f"Epoch {e} train mean loss {train_loss / overall_size}"
