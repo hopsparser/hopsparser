@@ -612,7 +612,6 @@ def parse(
     if overrides is None:
         overrides = dict()
     parser = BiAffineParser.from_config(config_file, overrides)
-    parser.eval()
     testtrees = DependencyDataset.read_conll(in_file)
     # FIXME: the special tokens should be saved somewhere instead of hardcoded
     ft_dataset = FastTextDataSet(parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN])
