@@ -28,8 +28,8 @@ class ParseRequest(pydantic.BaseModel):
     input: Literal["conllu", "horizontal"] = "conllu"
     model: str = default_model
     output: Literal["conllu"] = "conllu"
-    parser: str = ""
-    tagger: str = ""
+    parser: Optional[str] = None
+    tagger: Optional[str] = None
     tokenizer: Optional[str] = None
 
 
@@ -80,4 +80,4 @@ async def process(req: ParseRequest):
     )
     parsed = io.StringIO()
     parser.predict_batch(treebank, parsed, greedy=False)
-    return {"model": model_name, "acknowledgements": "", "result": parsed.getvalue()}
+    return {"model": model_name, "acknowledgements": [""], "result": parsed.getvalue()}
