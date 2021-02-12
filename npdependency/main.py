@@ -89,9 +89,10 @@ def parse(
 def serve(
     config_path: pathlib.Path,
     device: str,
+    port: int,
 ):
     subprocess.run(
-        ["uvicorn", "npdependency.server:app"],
+        ["uvicorn", "npdependency.server:app", "--port", str(port)],
         env={
             "models": f'{{"default":"{config_path}"}}',
             "device": device,
