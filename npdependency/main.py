@@ -1,4 +1,6 @@
+import os
 import pathlib
+import subprocess
 import sys
 import tempfile
 from typing import IO, TextIO, Union
@@ -30,7 +32,7 @@ def cli():
     default="-",
 )
 @click.option(
-    "--device", default="cpu", help="The device to use for parsing. (cpu, gpu:0, …)."
+    "--device", default="cpu", help="The device to use for parsing. (cpu, gpu:0, …).", show_default=True
 )
 @click.option(
     "--raw",
@@ -70,6 +72,31 @@ def parse(
 
     graph_parser.parse(
         config_path, input_file, output_file, overrides={"device": device}
+    )
+
+
+@cli.command(help="Start a parsing server")
+@click.argument(
+    "config_path",
+    type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
+)
+@click.option(
+    "--device", default="cpu", help="The device to use for parsing. (cpu, gpu:0, …).", show_default=True
+)
+@click.option(
+    "--port", type=int, default=8000, help="The port to use for the API endpoint.", show_default=True,
+)
+def serve(
+    config_path: pathlib.Path,
+    device: str,
+):
+    subprocess.run(
+        ["uvicorn", "npdependency.server:app"],
+        env={
+            "models": f'{{"default":"{config_path}"}}',
+            "device": device,
+            **os.environ,
+        },
     )
 
 

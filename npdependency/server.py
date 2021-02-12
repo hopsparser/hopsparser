@@ -37,7 +37,7 @@ app = fastapi.FastAPI()
 
 
 @app.get("/models")
-def get_model():
+async def get_model():
     return {
         "models": {m: ["tagger", "parser"] for m in models.keys()},
         "default_model": default_model,
@@ -45,7 +45,7 @@ def get_model():
 
 
 @app.post("/process")
-def process(req: ParseRequest):
+async def process(req: ParseRequest):
     model_name = req.model if req.model is not None else next(iter(models.keys()))
     parser = models.get(model_name)
     if parser is None:
