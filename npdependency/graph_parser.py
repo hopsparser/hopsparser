@@ -111,25 +111,35 @@ class BiAffineParser(nn.Module):
 
     def __init__(
         self,
-        lexer: Union[DefaultLexer, BertBaseLexer],
+        biased_biaffine: bool,
         charset: CharDataSet,
         char_rnn: CharRNN,
-        ft_lexer: FastTextTorch,
-        tagset: Sequence[str],
+        default_batch_size: int,
+        device: Union[str, torch.device],
         encoder_dropout: float,  # lstm dropout
+        ft_lexer: FastTextTorch,
+        labels: Sequence[str],
+        lexer: Union[DefaultLexer, BertBaseLexer],
         mlp_input: int,
         mlp_tag_hidden: int,
         mlp_arc_hidden: int,
         mlp_lab_hidden: int,
         mlp_dropout: float,
-        labels: Sequence[str],
-        biased_biaffine: bool,
-        device: Union[str, torch.device],
+        tagset: Sequence[str],
     ):
 
         super(BiAffineParser, self).__init__()
+        self.charset = charset
+        self.default_batch_size = default_batch_size
         self.device = torch.device(device)
+        self.tagset = tagset
+        self.labels = labels
+        self.mlp_arc_hidden = mlp_arc_hidden
+        self.mlp_input = mlp_input
+        self.mlp_lab_hidden = mlp_lab_hidden
+
         self.lexer = lexer.to(self.device)
+
         self.dep_rnn = nn.LSTM(
             self.lexer.embedding_size
             + char_rnn.embedding_size
@@ -141,13 +151,10 @@ class BiAffineParser(nn.Module):
             bidirectional=True,
         ).to(self.device)
 
-        self.tagset = tagset
-        self.labels = labels
         # POS tagger & char RNN
         self.pos_tagger = MLP(mlp_input * 2, mlp_tag_hidden, len(self.tagset)).to(
             self.device
         )
-        self.charset = charset
         self.char_rnn = char_rnn.to(self.device)
         self.ft_lexer = ft_lexer.to(self.device)
 
@@ -171,13 +178,6 @@ class BiAffineParser(nn.Module):
         self.lab_biaffine = BiAffine(
             mlp_input, len(self.labels), bias=biased_biaffine
         ).to(self.device)
-
-        # hyperparams for saving...
-        self.mlp_input, self.mlp_arc_hidden, self.mlp_lab_hidden = (
-            mlp_input,
-            mlp_arc_hidden,
-            mlp_lab_hidden,
-        )
 
     def save_params(self, path):
         torch.save(self.state_dict(), path)
@@ -274,7 +274,9 @@ class BiAffineParser(nn.Module):
         # <https://arxiv.org/abs/1805.06334>
         return tagger_loss + arc_loss + lab_loss
 
-    def eval_model(self, dev_set: DependencyDataset, batch_size: int):
+    def eval_model(self, dev_set: DependencyDataset, batch_size: Optional[int] = None):
+        if batch_size is None:
+            batch_size = self.default_batch_size
 
         loss_fnc = nn.CrossEntropyLoss(
             reduction="sum", ignore_index=dev_set.LABEL_PADDING
@@ -346,12 +348,13 @@ class BiAffineParser(nn.Module):
         train_set: DependencyDataset,
         dev_set: DependencyDataset,
         epochs: int,
-        batch_size: int,
         lr: float,
         lr_schedule: LRSchedule,
-        modelpath="test_model.pt",
+        modelpath: Union[str, pathlib.Path],
+        batch_size: Optional[int] = None,
     ):
-
+        if batch_size is None:
+            batch_size = self.default_batch_size
         print(f"Start training on {self.device}")
         loss_fnc = nn.CrossEntropyLoss(
             reduction="sum", ignore_index=train_set.LABEL_PADDING
@@ -412,7 +415,7 @@ class BiAffineParser(nn.Module):
                 scheduler.step()
 
             dev_loss, dev_tag_acc, dev_arc_acc, dev_lab_acc = self.eval_model(
-                dev_set, batch_size
+                dev_set, batch_size=batch_size
             )
             print(
                 f"Epoch {e} train mean loss {train_loss / overall_size}"
@@ -431,9 +434,11 @@ class BiAffineParser(nn.Module):
         self,
         test_set: DependencyDataset,
         ostream: IO[str],
-        batch_size: int,
+        batch_size: Optional[int] = None,
         greedy: bool = False,
     ):
+        if batch_size is None:
+            batch_size = self.default_batch_size
         self.eval()
         # keep natural order here
         test_batches = test_set.make_batches(
@@ -530,15 +535,15 @@ class BiAffineParser(nn.Module):
             if bert_layers == "*":
                 bert_layers = None
             lexer = BertBaseLexer(
-                itos=ordered_vocab,
-                embedding_size=hp["word_embedding_size"],
-                word_dropout=hp["word_dropout"],
                 bert_modelfile=hp["lexer"],
                 bert_layers=bert_layers,
                 bert_subwords_reduction=hp.get("bert_subwords_reduction", "first"),
                 bert_weighted=hp.get("bert_weighted", False),
-                words_padding_idx=DependencyDataset.PAD_IDX,
+                embedding_size=hp["word_embedding_size"],
+                itos=ordered_vocab,
                 unk_word=DependencyDataset.UNK_WORD,
+                words_padding_idx=DependencyDataset.PAD_IDX,
+                word_dropout=hp["word_dropout"],
             )
 
         # char rnn processor
@@ -556,20 +561,21 @@ class BiAffineParser(nn.Module):
         itolab = loadlist(config_dir / "labcodes.lst")
         itotag = loadlist(config_dir / "tagcodes.lst")
         parser = cls(
-            lexer=lexer,
-            charset=ordered_charset,
+            biased_biaffine=hp.get("biased_biaffine", True),
+            device=hp["device"],
             char_rnn=char_rnn,
-            ft_lexer=ft_lexer,
-            tagset=itotag,
-            labels=itolab,
+            charset=ordered_charset,
+            default_batch_size=hp.get("batch_size", 1),
             encoder_dropout=hp["encoder_dropout"],
+            ft_lexer=ft_lexer,
+            labels=itolab,
+            lexer=lexer,
             mlp_input=hp["mlp_input"],
             mlp_tag_hidden=hp["mlp_tag_hidden"],
             mlp_arc_hidden=hp["mlp_arc_hidden"],
             mlp_lab_hidden=hp["mlp_lab_hidden"],
             mlp_dropout=hp["mlp_dropout"],
-            biased_biaffine=hp.get("biased_biaffine", True),
-            device=hp["device"],
+            tagset=itotag,
         )
         weights_file = config_dir / "model.pt"
         if weights_file.exists():
@@ -609,10 +615,6 @@ def parse(
     if overrides is None:
         overrides = dict()
     parser = BiAffineParser.from_config(config_file, overrides)
-    with open(config_file) as in_stream:
-        hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
-        hp.update(overrides)
-    parser.eval()
     testtrees = DependencyDataset.read_conll(in_file)
     # FIXME: the special tokens should be saved somewhere instead of hardcoded
     ft_dataset = FastTextDataSet(parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN])
@@ -625,9 +627,7 @@ def parse(
         use_tags=parser.tagset,
     )
     with smart_open(out_file, "w") as ostream:
-        parser.predict_batch(
-            testset, cast(IO[str], ostream), hp["batch_size"], greedy=False
-        )
+        parser.predict_batch(testset, cast(IO[str], ostream), greedy=False)
 
 
 def main(argv=None):
@@ -823,7 +823,7 @@ def main(argv=None):
                 f"{os.path.basename(args.dev_file)}.parsed",
             )
         with open(parsed_devset_path, "w") as ostream:
-            parser.predict_batch(devset, ostream, hp["batch_size"], greedy=False)
+            parser.predict_batch(devset, ostream, greedy=False)
         gold_devset = evaluator.load_conllu_file(args.dev_file)
         syst_devset = evaluator.load_conllu_file(parsed_devset_path)
         dev_metrics = evaluator.evaluate(gold_devset, syst_devset)

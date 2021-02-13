@@ -71,6 +71,10 @@ Depending on the model, the parser will be more or less fast and more or less ac
 however expect the parser to process several hundred sentences per second with a decent GPU. The GPU
 actually used for performing computations can be specified using the `--device` command line option.
 
+## Running in server mode
+
+See [the server mode documentation](docs/server.md).
+
 ## Pretrained models
 
 We provide some pretrained models, see the list in [models.md](models.md).
