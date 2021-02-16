@@ -68,12 +68,6 @@ class DepGraph:
         self.mwe_ranges = [] if mwe_ranges is None else mwe_ranges
         self.metadata = [] if metadata is None else metadata
 
-    def fastcopy(self) -> "DepGraph":
-        """
-        copy edges only not word nor tags nor mwe_ranges
-        """
-        return DepGraph(self.get_all_edges())
-
     def get_all_edges(self) -> List[Edge]:
         """
         Returns the list of edges found in this graph
@@ -85,20 +79,6 @@ class DepGraph:
         Returns the list of dependency labels found on the arcs
         """
         return [edge.label for edge in self.get_all_edges()]
-
-    def get_arc(self, gov: int, dep: int) -> Optional[Edge]:
-        """
-        Returns the arc between gov and dep if it exists or None otherwise
-        Args:
-            gov (int): node idx
-            dep (int): node idx
-        Returns:
-            A triple (gov,label,dep) or None.
-        """
-        for edge in self.gov2dep.get(gov, []):
-            if edge.dep == dep:
-                return edge
-        return None
 
     def oracle_governors(self) -> List[int]:
         """
@@ -138,20 +118,6 @@ class DepGraph:
         self.gov2dep.setdefault(edge.gov, []).append(edge)
         self.has_gov.add(edge.dep)
 
-    def is_cyclic_add(self, gov: int, dep: int) -> bool:
-        """
-        Checks if the addition of an arc from gov to dep would create
-        a cycle in the dep tree
-        """
-        return gov in self.span(dep)
-
-    def is_dag_add(self, gov: int, dep: int) -> bool:
-        """
-        Checks if the addition of an arc from gov to dep would create
-        a Dag
-        """
-        return dep in self.has_gov
-
     def span(self, gov: int) -> Set[int]:
         """
         Returns the list of nodes in the yield of this node
@@ -168,33 +134,6 @@ class DepGraph:
             agenda.extend([node for node in succ if node not in closure])
             closure.update(succ)
         return closure
-
-    def _gap_degree(self, node: int) -> int:
-        """
-        Returns the gap degree of a node
-        Args :
-            node (int): a dep tree node
-        """
-        nspan = list(self.span(node))
-        nspan.sort()
-        gd = 0
-        for idx in range(len(nspan)):
-            if idx > 0:
-                if nspan[idx] - nspan[idx - 1] > 1:
-                    gd += 1
-        return gd
-
-    def gap_degree(self) -> int:
-        """
-        Returns the gap degree of a tree (suboptimal)
-        """
-        return max(self._gap_degree(node) for node in self.gov2dep)
-
-    def is_projective(self) -> bool:
-        """
-        Returns true if this tree is projective
-        """
-        return self.gap_degree() == 0
 
     @classmethod
     def read_tree(cls, istream: IO[str]) -> Optional["DepGraph"]:
@@ -266,7 +205,7 @@ class DepGraph:
         return len(self.words)
 
 
-T = TypeVar("T", bound="DependencyBatch")
+DependencyBatchType = TypeVar("DependencyBatchType", bound="DependencyBatch")
 
 
 class DependencyBatch(NamedTuple):
@@ -305,7 +244,9 @@ class DependencyBatch(NamedTuple):
     sent_lengths: torch.Tensor
     content_mask: torch.Tensor
 
-    def to(self: T, device: Union[str, torch.device]) -> T:
+    def to(
+        self: DependencyBatchType, device: Union[str, torch.device]
+    ) -> DependencyBatchType:
         encoded_words = self.encoded_words.to(device)
         chars = [token.to(device) for token in self.chars]
         subwords = [token.to(device) for token in self.subwords]
