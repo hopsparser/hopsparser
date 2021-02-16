@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import pathlib
 from random import shuffle
 from typing import (
@@ -35,6 +36,20 @@ class Edge(NamedTuple):
     gov: int
     label: str
     dep: int
+
+
+@dataclass(eq=False)
+class DepNode:
+    identifier: int
+    form: str
+    lemma: str
+    upos: str
+    xpos: str
+    feats: str
+    head: int
+    deprel: str
+    deps: str
+    misc: str
 
 
 class DepGraph:
@@ -117,23 +132,6 @@ class DepGraph:
         """
         self.gov2dep.setdefault(edge.gov, []).append(edge)
         self.has_gov.add(edge.dep)
-
-    def span(self, gov: int) -> Set[int]:
-        """
-        Returns the list of nodes in the yield of this node
-        the set of j such that (i -*> j).
-        """
-        agenda = [gov]
-        closure = set([gov])
-        while agenda:
-            node = agenda.pop()
-            if node in self.gov2dep:
-                succ = [edge.dep for edge in self.gov2dep[node]]
-            else:
-                succ = []
-            agenda.extend([node for node in succ if node not in closure])
-            closure.update(succ)
-        return closure
 
     @classmethod
     def read_tree(cls, istream: IO[str]) -> Optional["DepGraph"]:
