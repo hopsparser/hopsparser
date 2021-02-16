@@ -58,8 +58,8 @@ class DepGraph:
     def __init__(
         self,
         edges: Iterable[Edge],
-        wordlist: Optional[Iterable[str]] = None,
-        pos_tags: Optional[Iterable[str]] = None,
+        wordlist: Iterable[str],
+        pos_tags: Iterable[str],
         with_root: bool = False,
         mwe_ranges: Optional[Iterable[MWERange]] = None,
         metadata: Optional[Iterable[str]] = None,
@@ -74,11 +74,8 @@ class DepGraph:
         if with_root:
             self.add_root()
 
-        self.words = [self.ROOT_TOKEN, *(wordlist if wordlist is not None else [])]
-        self.pos_tags = [
-            self.ROOT_TOKEN,
-            *(pos_tags if pos_tags is not None else []),
-        ]
+        self.words = [self.ROOT_TOKEN, *wordlist]
+        self.pos_tags = [self.ROOT_TOKEN, *pos_tags]
         self.mwe_ranges = [] if mwe_ranges is None else mwe_ranges
         self.metadata = [] if metadata is None else metadata
 
@@ -172,8 +169,7 @@ class DepGraph:
                 misc=cols[9],
             )
             words.append(node.form)
-            if node.upos != "_":
-                postags.append(node.upos)
+            postags.append(node.upos)
             edges.append(Edge(node.head, node.deprel, node.identifier))
         return cls(
             edges,
