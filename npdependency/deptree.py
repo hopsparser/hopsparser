@@ -10,7 +10,6 @@ from typing import (
     Optional,
     Sequence,
     Set,
-    TypeVar,
     Union,
 )
 
@@ -134,41 +133,48 @@ class DepGraph:
         self.has_gov.add(edge.dep)
 
     @classmethod
-    def read_tree(cls, istream: IO[str]) -> Optional["DepGraph"]:
+    def from_conllu(cls, istream: Iterable[str]) -> "DepGraph":
         """
         Reads a conll tree from input stream
         """
         conll = []
         metadata = []
-        line = istream.readline()
-        while line and line.isspace():
-            line = istream.readline()
-        while line and line.startswith("#"):
-            metadata.append(line.strip())
-            line = istream.readline()
-        while line and not line.isspace():
+        for line in istream:
+            if line.startswith("#"):
+                metadata.append(line.strip())
+                continue
             conll.append(line.strip().split("\t"))
-            line = istream.readline()
-        if not conll:
-            return None
         words = []
         mwe_ranges = []
         postags = []
         edges = []
-        for dataline in conll:
-            if len(dataline) < 10:  # pads the dataline
-                dataline.extend(["_"] * (10 - len(dataline)))
-                dataline[6] = "0"
-
-            if "-" in dataline[0]:
-                mwe_start, mwe_end = dataline[0].split("-")
-                mwe_ranges.append(MWERange(int(mwe_start), int(mwe_end), dataline[1]))
+        for cols in conll:
+            if "-" in cols[0]:
+                mwe_start, mwe_end = cols[0].split("-")
+                mwe_ranges.append(MWERange(int(mwe_start), int(mwe_end), cols[1]))
                 continue
-            else:
-                words.append(dataline[1])
-                if dataline[3] not in ["-", "_"]:
-                    postags.append(dataline[3])
-                edges.append(Edge(int(dataline[6]), dataline[7], int(dataline[0])))
+            if len(cols) < 2:
+                raise ValueError("Too few columns to build a DepNode")
+            elif len(cols) < 10:
+                cols = [*cols, *("_" for _ in range(10 - len(cols)))]
+            if cols[6] == "_":
+                cols[6] = "0"
+            node = DepNode(
+                identifier=int(cols[0]),
+                form=cols[1],
+                lemma=cols[2],
+                upos=cols[3],
+                xpos=cols[4],
+                feats=cols[5],
+                head=int(cols[6]),
+                deprel=cols[7],
+                deps=cols[8],
+                misc=cols[9],
+            )
+            words.append(node.form)
+            if node.upos != "_":
+                postags.append(node.upos)
+            edges.append(Edge(node.head, node.deprel, node.identifier))
         return cls(
             edges,
             words,
@@ -201,9 +207,6 @@ class DepGraph:
 
     def __len__(self):
         return len(self.words)
-
-
-DependencyBatchType = TypeVar("DependencyBatchType", bound="DependencyBatch")
 
 
 class DependencyBatch(NamedTuple):
@@ -242,9 +245,7 @@ class DependencyBatch(NamedTuple):
     sent_lengths: torch.Tensor
     content_mask: torch.Tensor
 
-    def to(
-        self: DependencyBatchType, device: Union[str, torch.device]
-    ) -> DependencyBatchType:
+    def to(self, device: Union[str, torch.device]) -> "DependencyBatch":
         encoded_words = self.encoded_words.to(device)
         chars = [token.to(device) for token in self.chars]
         subwords = [token.to(device) for token in self.subwords]
@@ -280,17 +281,24 @@ class DependencyDataset:
     ) -> List[DepGraph]:
         print(f"Reading treebank from {filename}")
         with smart_open(filename) as istream:
-            treelist = []
-            tree = DepGraph.read_tree(istream)
-            while tree:
-                if max_tree_length is None or len(tree.words) <= max_tree_length:
-                    treelist.append(tree)
+            trees = []
+            current_tree_lines: List[str] = []
+            for line in (*istream, ""):
+                if not line or line.isspace():
+                    if current_tree_lines:
+                        if (
+                            max_tree_length is None
+                            or len(current_tree_lines) <= max_tree_length
+                        ):
+                            trees.append(DepGraph.from_conllu(current_tree_lines))
+                            current_tree_lines = []
+                        else:
+                            print(
+                                f"Dropped tree with length {len(current_tree_lines)} > {max_tree_length}",
+                            )
                 else:
-                    print(
-                        f"Dropped tree with length {len(tree.words)} > {max_tree_length}",
-                    )
-                tree = DepGraph.read_tree(istream)
-        return treelist
+                    current_tree_lines.append(line)
+        return trees
 
     def __init__(
         self,
