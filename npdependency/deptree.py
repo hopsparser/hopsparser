@@ -58,9 +58,8 @@ class DepGraph:
     def __init__(
         self,
         edges: Iterable[Edge],
-        wordlist: Iterable[str],
+        words: Iterable[str],
         pos_tags: Iterable[str],
-        with_root: bool = False,
         mwe_ranges: Optional[Iterable[MWERange]] = None,
         metadata: Optional[Iterable[str]] = None,
     ):
@@ -71,13 +70,12 @@ class DepGraph:
         for e in edges:
             self.add_arc(e)
 
-        if with_root:
-            self.add_root()
+        self.add_root()
 
-        self.words = [self.ROOT_TOKEN, *wordlist]
+        self.words = [self.ROOT_TOKEN, *words]
         self.pos_tags = [self.ROOT_TOKEN, *pos_tags]
-        self.mwe_ranges = [] if mwe_ranges is None else mwe_ranges
-        self.metadata = [] if metadata is None else metadata
+        self.mwe_ranges = [] if mwe_ranges is None else list(mwe_ranges)
+        self.metadata = [] if metadata is None else list(metadata)
 
     def get_all_edges(self) -> List[Edge]:
         """
@@ -129,6 +127,24 @@ class DepGraph:
         self.gov2dep.setdefault(edge.gov, []).append(edge)
         self.has_gov.add(edge.dep)
 
+    def replace(self, edges: Optional[Iterable[Edge]], pos_tags: Optional[Iterable[str]]) -> "Depgraph":
+        """Return a new `DepGraph`, identical to `self` except for its dependencies and pos tags (if specified).
+        
+        If neither `edges` nor `pos_tags` is provided, this returns a shallow copy of `self`.
+        """
+        if edges is None:
+            # No need to deepcopy here, since `Edges` are immutable, a shallow copy is enough
+            edges = self.get_all_edges()
+        if pos_tags is None:
+            pos_tags = self.pos_tags[1:]
+        return type(self)(
+            edges=edges,
+            words=self.words[:],
+            pos_tags=pos_tags,
+            metadata=self.metadata[:],
+            mwe_ranges=self.mwe_ranges[:],
+        )
+
     @classmethod
     def from_conllu(cls, istream: Iterable[str]) -> "DepGraph":
         """
@@ -172,8 +188,8 @@ class DepGraph:
             postags.append(node.upos)
             edges.append(Edge(node.head, node.deprel, node.identifier))
         return cls(
-            edges,
-            words,
+            edges=edges,
+            words=words,
             pos_tags=postags,
             with_root=True,
             mwe_ranges=mwe_ranges,

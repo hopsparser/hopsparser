@@ -495,12 +495,9 @@ class BiAffineParser(nn.Module):
                         )
                     ]
                     out_trees.append(
-                        DepGraph(
-                            edges[1:],
-                            wordlist=tree.words[1:],
+                        tree.replace(
+                            edges=edges[1:],
                             pos_tags=pos_tags[1:],
-                            mwe_ranges=tree.mwe_ranges,
-                            metadata=tree.metadata,
                         )
                     )
 
