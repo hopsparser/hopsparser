@@ -55,41 +55,20 @@ class DepGraph:
 
     def __init__(
         self,
-        edges: Iterable[Edge],
-        words: Iterable[str],
-        pos_tags: Iterable[str],
+        nodes: Iterable[DepNode],
         mwe_ranges: Optional[Iterable[MWERange]] = None,
         metadata: Optional[Iterable[str]] = None,
     ):
 
-        govs = dict()
-        labels = dict()
+        self.nodes = list(nodes)
 
-        for e in edges:
-            govs[e.dep] = e.gov
-            labels[e.dep] = e.label
+        govs = {n.identifier: n.head for n in self.nodes}
 
         if 0 not in govs.values():
             raise ValueError("Malformed tree: no root")
 
         if len(set(govs.values()).difference(govs.keys())) > 1:
             raise ValueError("Malformed tree: non-connex")
-
-        self.nodes = [
-            DepNode(
-                identifier=i,
-                form=word,
-                lemma="_",
-                upos=tag,
-                xpos="_",
-                feats="_",
-                head=govs[i],
-                deprel=labels[i],
-                deps="_",
-                misc="_",
-            )
-            for i, (word, tag) in enumerate(zip(words, pos_tags), start=1)
-        ]
 
         self.words = [self.ROOT_TOKEN, *(n.form for n in self.nodes)]
         self.pos_tags = [self.ROOT_TOKEN, *(n.upos for n in self.nodes)]
@@ -104,12 +83,6 @@ class DepGraph:
         Returns the list of edges found in this graph
         """
         return [Edge(n.head, n.deprel, n.identifier) for n in self.nodes]
-
-    def get_all_labels(self) -> List[str]:
-        """
-        Returns the list of dependency labels found on the arcs
-        """
-        return [edge.label for edge in self.get_all_edges()]
 
     def oracle_governors(self) -> List[int]:
         """
@@ -163,9 +136,7 @@ class DepGraph:
             for node in self.get_nodes()
         ]
         return type(self)(
-            edges=[Edge(n.head, n.deprel, n.identifier) for n in new_nodes],
-            words=self.words[1:],
-            pos_tags=[n.upos for n in new_nodes],
+            nodes=new_nodes,
             metadata=self.metadata[:],
             mwe_ranges=self.mwe_ranges[:],
         )
@@ -182,10 +153,9 @@ class DepGraph:
                 metadata.append(line.strip())
                 continue
             conll.append(line.strip().split("\t"))
-        words = []
+
         mwe_ranges = []
-        postags = []
-        edges = []
+        nodes = []
         for cols in conll:
             if "-" in cols[0]:
                 mwe_start, mwe_end = cols[0].split("-")
@@ -209,13 +179,9 @@ class DepGraph:
                 deps=cols[8],
                 misc=cols[9],
             )
-            words.append(node.form)
-            postags.append(node.upos)
-            edges.append(Edge(node.head, node.deprel, node.identifier))
+            nodes.append(node)
         return cls(
-            edges=edges,
-            words=words,
-            pos_tags=postags,
+            nodes=nodes,
             mwe_ranges=mwe_ranges,
             metadata=metadata,
         )
