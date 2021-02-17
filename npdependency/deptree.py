@@ -73,34 +73,38 @@ class DepGraph:
 
         self.mwe_ranges = [] if mwe_ranges is None else list(mwe_ranges)
         self.metadata = [] if metadata is None else list(metadata)
-    
+
     @property
     def words(self) -> List[str]:
+        """
+        A list where each element list[i] is the form of
+        the position of the governor of the word at position i.
+        """
         return [self.ROOT_TOKEN, *(n.form for n in self.nodes)]
 
     @property
     def pos_tags(self) -> List[str]:
+        """
+        A list where each element list[i] is the upos of
+        the position of the governor of the word at position i.
+        """
         return [self.ROOT_TOKEN, *(n.upos for n in self.nodes)]
 
-    def get_all_edges(self) -> List[Edge]:
+    @property
+    def heads(self) -> List[int]:
         """
-        Returns the list of edges found in this graph
-        """
-        return [Edge(n.head, n.deprel, n.identifier) for n in self.nodes]
-
-    def oracle_governors(self) -> List[int]:
-        """
-        Returns a list where each element list[i] is the index of
+        A list where each element list[i] is the index of
         the position of the governor of the word at position i.
         """
         return [0, *(n.head for n in self.nodes)]
 
-    def oracle_labels(self) -> List[str]:
+    @property
+    def deprels(self) -> List[str]:
         """
-        Returns a list where each element list[i] is the label of
+        A list where each element list[i] is the label of
         the position of the governor of the word at position i.
         """
-        return ["_", *(n.deprel for n in self.nodes)]
+        return [self.ROOT_TOKEN, *(n.deprel for n in self.nodes)]
 
     def replace(
         self, edges: Optional[Iterable[Edge]], pos_tags: Optional[Iterable[str]]
@@ -110,11 +114,11 @@ class DepGraph:
         If neither `edges` nor `pos_tags` is provided, this returns a shallow copy of `self`.
         """
         if edges is None:
-            # No need to deepcopy here, since `Edges` are immutable, a shallow copy is enough
-            edges = self.get_all_edges()
-
-        govs = {e.dep: e.gov for e in edges}
-        labels = {e.dep: e.label for e in edges}
+            govs = {n.identifier: n.head for n in self.nodes}
+            labels = {n.identifier: n.deprel for n in self.nodes}
+        else:
+            govs = {e.dep: e.gov for e in edges}
+            labels = {e.dep: e.label for e in edges}
         if pos_tags is None:
             pos_tags = self.pos_tags[1:]
         pos = {i: tag for i, tag in enumerate(pos_tags, start=1)}
@@ -325,20 +329,17 @@ class DependencyDataset:
 
         for tree in self.treelist:
             encoded_words = self.lexer.tokenize(tree.words)
-            if tree.pos_tags:
-                deptag_idxes = [
-                    self.tagtoi.get(tag, self.tagtoi[self.UNK_WORD])
-                    for tag in tree.pos_tags
-                ]
-            else:
-                deptag_idxes = [self.tagtoi[self.UNK_WORD] for _ in tree.words]
+            deptag_idxes = [
+                self.tagtoi.get(tag, self.tagtoi[self.UNK_WORD])
+                for tag in tree.pos_tags
+            ]
             deptag_idxes[0] = self.LABEL_PADDING
             self.tags.append(deptag_idxes)
             self.encoded_words.append(encoded_words)
-            heads = tree.oracle_governors()
+            heads = tree.heads
             heads[0] = self.LABEL_PADDING
             self.heads.append(heads)
-            labels = [self.labtoi.get(lab, 0) for lab in tree.oracle_labels()]
+            labels = [self.labtoi.get(lab, 0) for lab in tree.deprels]
             labels[0] = self.LABEL_PADDING
             self.labels.append(labels)
 
@@ -432,7 +433,5 @@ def gen_tags(treelist: Iterable[DepGraph]) -> List[str]:
 
 
 def gen_labels(treelist: Iterable[DepGraph]) -> List[str]:
-    labels = set(
-        [lbl for tree in treelist for (_gov, lbl, _dep) in tree.get_all_edges()]
-    )
+    labels = set([lbl for tree in treelist for lbl in tree.deprels])
     return [DependencyDataset.PAD_TOKEN, *sorted(labels)]
