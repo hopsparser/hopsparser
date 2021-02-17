@@ -2,14 +2,12 @@ from dataclasses import dataclass
 import pathlib
 from random import shuffle
 from typing import (
-    Dict,
     IO,
     Iterable,
     List,
     NamedTuple,
     Optional,
     Sequence,
-    Set,
     Union,
 )
 
@@ -64,24 +62,48 @@ class DepGraph:
         metadata: Optional[Iterable[str]] = None,
     ):
 
-        self.gov2dep: Dict[int, List[Edge]] = {}
-        self.has_gov: Set[int] = set()  # set of nodes with a governor
+        govs = dict()
+        labels = dict()
 
         for e in edges:
-            self.add_arc(e)
+            govs[e.dep] = e.gov
+            labels[e.dep] = e.label
 
-        self.add_root()
+        if 0 not in govs.values():
+            raise ValueError("Malformed tree: no root")
 
-        self.words = [self.ROOT_TOKEN, *words]
-        self.pos_tags = [self.ROOT_TOKEN, *pos_tags]
+        if len(set(govs.values()).difference(govs.keys())) > 1:
+            raise ValueError("Malformed tree: non-connex")
+
+        self.nodes = [
+            DepNode(
+                identifier=i,
+                form=word,
+                lemma="_",
+                upos=tag,
+                xpos="_",
+                feats="_",
+                head=govs[i],
+                deprel=labels[i],
+                deps="_",
+                misc="_",
+            )
+            for i, (word, tag) in enumerate(zip(words, pos_tags), start=1)
+        ]
+
+        self.words = [self.ROOT_TOKEN, *(n.form for n in self.nodes)]
+        self.pos_tags = [self.ROOT_TOKEN, *(n.upos for n in self.nodes)]
         self.mwe_ranges = [] if mwe_ranges is None else list(mwe_ranges)
         self.metadata = [] if metadata is None else list(metadata)
+
+    def get_nodes(self) -> List[DepNode]:
+        return self.nodes
 
     def get_all_edges(self) -> List[Edge]:
         """
         Returns the list of edges found in this graph
         """
-        return [edge for siblinghood in self.gov2dep.values() for edge in siblinghood]
+        return [Edge(n.head, n.deprel, n.identifier) for n in self.nodes]
 
     def get_all_labels(self) -> List[str]:
         """
@@ -109,38 +131,41 @@ class DepGraph:
         labels[0] = "_"
         return [labels[idx] for idx in range(N)]
 
-    def add_root(self):
-        if not self.gov2dep:  # single word sentence
-            self.add_arc(Edge(0, "root", 1))
-        elif 0 not in self.gov2dep:
-            roots = set(self.gov2dep) - self.has_gov
-            if len(roots) > 1:
-                raise ValueError("Malformed tree: multiple roots")
-            elif len(roots) == 0:
-                raise ValueError("Malformed tree: no root")
-            self.add_arc(Edge(0, "root", roots.pop()))
-
-    def add_arc(self, edge: Edge):
-        """
-        Adds an arc to the dep graph
-        """
-        self.gov2dep.setdefault(edge.gov, []).append(edge)
-        self.has_gov.add(edge.dep)
-
-    def replace(self, edges: Optional[Iterable[Edge]], pos_tags: Optional[Iterable[str]]) -> "Depgraph":
+    def replace(
+        self, edges: Optional[Iterable[Edge]], pos_tags: Optional[Iterable[str]]
+    ) -> "DepGraph":
         """Return a new `DepGraph`, identical to `self` except for its dependencies and pos tags (if specified).
-        
+
         If neither `edges` nor `pos_tags` is provided, this returns a shallow copy of `self`.
         """
         if edges is None:
             # No need to deepcopy here, since `Edges` are immutable, a shallow copy is enough
             edges = self.get_all_edges()
+
+        govs = {e.dep: e.gov for e in edges}
+        labels = {e.dep: e.label for e in edges}
         if pos_tags is None:
             pos_tags = self.pos_tags[1:]
+        pos = {i: tag for i, tag in enumerate(pos_tags, start=1)}
+        new_nodes = [
+            DepNode(
+                identifier=node.identifier,
+                form=node.form,
+                lemma=node.lemma,
+                upos=pos[node.identifier],
+                xpos=node.xpos,
+                feats=node.feats,
+                head=govs[node.identifier],
+                deprel=labels[node.identifier],
+                deps=node.deps,
+                misc=node.misc,
+            )
+            for node in self.get_nodes()
+        ]
         return type(self)(
-            edges=edges,
-            words=self.words[:],
-            pos_tags=pos_tags,
+            edges=[Edge(n.head, n.deprel, n.identifier) for n in new_nodes],
+            words=self.words[1:],
+            pos_tags=[n.upos for n in new_nodes],
             metadata=self.metadata[:],
             mwe_ranges=self.mwe_ranges[:],
         )
@@ -191,7 +216,6 @@ class DepGraph:
             edges=edges,
             words=words,
             pos_tags=postags,
-            with_root=True,
             mwe_ranges=mwe_ranges,
             metadata=metadata,
         )
