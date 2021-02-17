@@ -66,17 +66,21 @@ class DepGraph:
         self.nodes = list(nodes)
 
         govs = {n.identifier: n.head for n in self.nodes}
-
         if 0 not in govs.values():
             raise ValueError("Malformed tree: no root")
-
         if len(set(govs.values()).difference(govs.keys())) > 1:
             raise ValueError("Malformed tree: non-connex")
 
-        self.words = [self.ROOT_TOKEN, *(n.form for n in self.nodes)]
-        self.pos_tags = [self.ROOT_TOKEN, *(n.upos for n in self.nodes)]
         self.mwe_ranges = [] if mwe_ranges is None else list(mwe_ranges)
         self.metadata = [] if metadata is None else list(metadata)
+    
+    @property
+    def words(self) -> List[str]:
+        return [self.ROOT_TOKEN, *(n.form for n in self.nodes)]
+
+    @property
+    def pos_tags(self) -> List[str]:
+        return [self.ROOT_TOKEN, *(n.upos for n in self.nodes)]
 
     def get_all_edges(self) -> List[Edge]:
         """
@@ -317,8 +321,6 @@ class DependencyDataset:
         self.encode()
 
     def encode(self):
-        # NOTE: we mask the ROOT token features with the label padding that will be ignored by
-        # crossentropy, it's not very satisfying though, maybe hardcode it in (lab|tag)toi ?
         self.encoded_words, self.heads, self.labels, self.tags = [], [], [], []
 
         for tree in self.treelist:
