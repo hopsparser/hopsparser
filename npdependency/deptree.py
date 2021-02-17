@@ -266,7 +266,8 @@ class DependencyDataset:
     PAD_IDX: Final[int] = 0
     PAD_TOKEN: Final[str] = "<pad>"
     UNK_WORD: Final[str] = "<unk>"
-    # Labels that are -100 are ignored in torch crossentropy
+    # Labels that are -100 are ignored in torch crossentropy (we still set it explicitely in
+    # `graph_parser`)
     LABEL_PADDING: Final[int] = -100
 
     @staticmethod
@@ -278,6 +279,8 @@ class DependencyDataset:
         with smart_open(filename) as istream:
             trees = []
             current_tree_lines: List[str] = []
+            # Add a dummy empty line to flush the last tree even if the CoNLL-U mandatory empty last
+            # line is absent
             for line in (*istream, ""):
                 if not line or line.isspace():
                     if current_tree_lines:
