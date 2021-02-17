@@ -1,15 +1,13 @@
+from dataclasses import dataclass
 import pathlib
 from random import shuffle
 from typing import (
-    Dict,
     IO,
     Iterable,
     List,
     NamedTuple,
     Optional,
     Sequence,
-    Set,
-    TypeVar,
     Union,
 )
 
@@ -37,236 +35,173 @@ class Edge(NamedTuple):
     dep: int
 
 
+@dataclass(eq=False)
+class DepNode:
+    identifier: int
+    form: str
+    lemma: str
+    upos: str
+    xpos: str
+    feats: str
+    head: int
+    deprel: str
+    deps: str
+    misc: str
+
+    def to_conll(self) -> str:
+        return f"{self.identifier}\t{self.form}\t{self.lemma}\t{self.upos}\t{self.xpos}\t{self.feats}\t{self.head}\t{self.deprel}\t{self.deps}\t{self.misc}"
+
+
 class DepGraph:
 
     ROOT_TOKEN = "<root>"
 
     def __init__(
         self,
-        edges: Iterable[Edge],
-        wordlist: Optional[Iterable[str]] = None,
-        pos_tags: Optional[Iterable[str]] = None,
-        with_root: bool = False,
+        nodes: Iterable[DepNode],
         mwe_ranges: Optional[Iterable[MWERange]] = None,
         metadata: Optional[Iterable[str]] = None,
     ):
 
-        self.gov2dep: Dict[int, List[Edge]] = {}
-        self.has_gov: Set[int] = set()  # set of nodes with a governor
+        self.nodes = list(nodes)
 
-        for e in edges:
-            self.add_arc(e)
+        govs = {n.identifier: n.head for n in self.nodes}
+        if 0 not in govs.values():
+            raise ValueError("Malformed tree: no root")
+        if len(set(govs.values()).difference(govs.keys())) > 1:
+            raise ValueError("Malformed tree: non-connex")
 
-        if with_root:
-            self.add_root()
+        self.mwe_ranges = [] if mwe_ranges is None else list(mwe_ranges)
+        self.metadata = [] if metadata is None else list(metadata)
 
-        self.words = [self.ROOT_TOKEN, *(wordlist if wordlist is not None else [])]
-        self.pos_tags = [
-            self.ROOT_TOKEN,
-            *(pos_tags if pos_tags is not None else []),
+    @property
+    def words(self) -> List[str]:
+        """
+        A list where each element list[i] is the form of
+        the position of the governor of the word at position i.
+        """
+        return [self.ROOT_TOKEN, *(n.form for n in self.nodes)]
+
+    @property
+    def pos_tags(self) -> List[str]:
+        """
+        A list where each element list[i] is the upos of
+        the position of the governor of the word at position i.
+        """
+        return [self.ROOT_TOKEN, *(n.upos for n in self.nodes)]
+
+    @property
+    def heads(self) -> List[int]:
+        """
+        A list where each element list[i] is the index of
+        the position of the governor of the word at position i.
+        """
+        return [0, *(n.head for n in self.nodes)]
+
+    @property
+    def deprels(self) -> List[str]:
+        """
+        A list where each element list[i] is the label of
+        the position of the governor of the word at position i.
+        """
+        return [self.ROOT_TOKEN, *(n.deprel for n in self.nodes)]
+
+    def replace(
+        self, edges: Optional[Iterable[Edge]], pos_tags: Optional[Iterable[str]]
+    ) -> "DepGraph":
+        """Return a new `DepGraph`, identical to `self` except for its dependencies and pos tags (if specified).
+
+        If neither `edges` nor `pos_tags` is provided, this returns a shallow copy of `self`.
+        """
+        if edges is None:
+            govs = {n.identifier: n.head for n in self.nodes}
+            labels = {n.identifier: n.deprel for n in self.nodes}
+        else:
+            govs = {e.dep: e.gov for e in edges}
+            labels = {e.dep: e.label for e in edges}
+        if pos_tags is None:
+            pos_tags = self.pos_tags[1:]
+        pos = {i: tag for i, tag in enumerate(pos_tags, start=1)}
+        new_nodes = [
+            DepNode(
+                identifier=node.identifier,
+                form=node.form,
+                lemma=node.lemma,
+                upos=pos[node.identifier],
+                xpos=node.xpos,
+                feats=node.feats,
+                head=govs[node.identifier],
+                deprel=labels[node.identifier],
+                deps=node.deps,
+                misc=node.misc,
+            )
+            for node in self.nodes
         ]
-        self.mwe_ranges = [] if mwe_ranges is None else mwe_ranges
-        self.metadata = [] if metadata is None else metadata
-
-    def fastcopy(self) -> "DepGraph":
-        """
-        copy edges only not word nor tags nor mwe_ranges
-        """
-        return DepGraph(self.get_all_edges())
-
-    def get_all_edges(self) -> List[Edge]:
-        """
-        Returns the list of edges found in this graph
-        """
-        return [edge for siblinghood in self.gov2dep.values() for edge in siblinghood]
-
-    def get_all_labels(self) -> List[str]:
-        """
-        Returns the list of dependency labels found on the arcs
-        """
-        return [edge.label for edge in self.get_all_edges()]
-
-    def get_arc(self, gov: int, dep: int) -> Optional[Edge]:
-        """
-        Returns the arc between gov and dep if it exists or None otherwise
-        Args:
-            gov (int): node idx
-            dep (int): node idx
-        Returns:
-            A triple (gov,label,dep) or None.
-        """
-        for edge in self.gov2dep.get(gov, []):
-            if edge.dep == dep:
-                return edge
-        return None
-
-    def oracle_governors(self) -> List[int]:
-        """
-        Returns a list where each element list[i] is the index of
-        the position of the governor of the word at position i.
-        """
-        N = len(self)
-        govs = {edge.dep: edge.gov for edge in self.get_all_edges()}
-        govs[0] = 0
-        return [govs[idx] for idx in range(N)]
-
-    def oracle_labels(self) -> List[str]:
-        """
-        Returns a list where each element list[i] is the label of
-        the position of the governor of the word at position i.
-        """
-        N = len(self)
-        labels = {edge.dep: edge.label for edge in self.get_all_edges()}
-        labels[0] = "_"
-        return [labels[idx] for idx in range(N)]
-
-    def add_root(self):
-        if not self.gov2dep:  # single word sentence
-            self.add_arc(Edge(0, "root", 1))
-        elif 0 not in self.gov2dep:
-            roots = set(self.gov2dep) - self.has_gov
-            if len(roots) > 1:
-                raise ValueError("Malformed tree: multiple roots")
-            elif len(roots) == 0:
-                raise ValueError("Malformed tree: no root")
-            self.add_arc(Edge(0, "root", roots.pop()))
-
-    def add_arc(self, edge: Edge):
-        """
-        Adds an arc to the dep graph
-        """
-        self.gov2dep.setdefault(edge.gov, []).append(edge)
-        self.has_gov.add(edge.dep)
-
-    def is_cyclic_add(self, gov: int, dep: int) -> bool:
-        """
-        Checks if the addition of an arc from gov to dep would create
-        a cycle in the dep tree
-        """
-        return gov in self.span(dep)
-
-    def is_dag_add(self, gov: int, dep: int) -> bool:
-        """
-        Checks if the addition of an arc from gov to dep would create
-        a Dag
-        """
-        return dep in self.has_gov
-
-    def span(self, gov: int) -> Set[int]:
-        """
-        Returns the list of nodes in the yield of this node
-        the set of j such that (i -*> j).
-        """
-        agenda = [gov]
-        closure = set([gov])
-        while agenda:
-            node = agenda.pop()
-            if node in self.gov2dep:
-                succ = [edge.dep for edge in self.gov2dep[node]]
-            else:
-                succ = []
-            agenda.extend([node for node in succ if node not in closure])
-            closure.update(succ)
-        return closure
-
-    def _gap_degree(self, node: int) -> int:
-        """
-        Returns the gap degree of a node
-        Args :
-            node (int): a dep tree node
-        """
-        nspan = list(self.span(node))
-        nspan.sort()
-        gd = 0
-        for idx in range(len(nspan)):
-            if idx > 0:
-                if nspan[idx] - nspan[idx - 1] > 1:
-                    gd += 1
-        return gd
-
-    def gap_degree(self) -> int:
-        """
-        Returns the gap degree of a tree (suboptimal)
-        """
-        return max(self._gap_degree(node) for node in self.gov2dep)
-
-    def is_projective(self) -> bool:
-        """
-        Returns true if this tree is projective
-        """
-        return self.gap_degree() == 0
+        return type(self)(
+            nodes=new_nodes,
+            metadata=self.metadata[:],
+            mwe_ranges=self.mwe_ranges[:],
+        )
 
     @classmethod
-    def read_tree(cls, istream: IO[str]) -> Optional["DepGraph"]:
+    def from_conllu(cls, istream: Iterable[str]) -> "DepGraph":
         """
         Reads a conll tree from input stream
         """
         conll = []
         metadata = []
-        line = istream.readline()
-        while line and line.isspace():
-            line = istream.readline()
-        while line and line.startswith("#"):
-            metadata.append(line.strip())
-            line = istream.readline()
-        while line and not line.isspace():
-            conll.append(line.strip().split("\t"))
-            line = istream.readline()
-        if not conll:
-            return None
-        words = []
-        mwe_ranges = []
-        postags = []
-        edges = []
-        for dataline in conll:
-            if len(dataline) < 10:  # pads the dataline
-                dataline.extend(["_"] * (10 - len(dataline)))
-                dataline[6] = "0"
-
-            if "-" in dataline[0]:
-                mwe_start, mwe_end = dataline[0].split("-")
-                mwe_ranges.append(MWERange(int(mwe_start), int(mwe_end), dataline[1]))
+        for line in istream:
+            if line.startswith("#"):
+                metadata.append(line.strip())
                 continue
-            else:
-                words.append(dataline[1])
-                if dataline[3] not in ["-", "_"]:
-                    postags.append(dataline[3])
-                edges.append(Edge(int(dataline[6]), dataline[7], int(dataline[0])))
+            conll.append(line.strip().split("\t"))
+
+        mwe_ranges = []
+        nodes = []
+        for cols in conll:
+            if "-" in cols[0]:
+                mwe_start, mwe_end = cols[0].split("-")
+                mwe_ranges.append(MWERange(int(mwe_start), int(mwe_end), cols[1]))
+                continue
+            if len(cols) < 2:
+                raise ValueError("Too few columns to build a DepNode")
+            elif len(cols) < 10:
+                cols = [*cols, *("_" for _ in range(10 - len(cols)))]
+            if cols[6] == "_":
+                cols[6] = "0"
+            node = DepNode(
+                identifier=int(cols[0]),
+                form=cols[1],
+                lemma=cols[2],
+                upos=cols[3],
+                xpos=cols[4],
+                feats=cols[5],
+                head=int(cols[6]),
+                deprel=cols[7],
+                deps=cols[8],
+                misc=cols[9],
+            )
+            nodes.append(node)
         return cls(
-            edges,
-            words,
-            pos_tags=postags,
-            with_root=True,
+            nodes=nodes,
             mwe_ranges=mwe_ranges,
             metadata=metadata,
         )
 
     def __str__(self):
         """
-        Conll string for the dep tree
+        CoNLL-U string for the dep tree
         """
         lines = self.metadata
-        revdeps = {edge.dep: (edge.label, edge.gov) for edge in self.get_all_edges()}
-        for node_idx, form in enumerate(self.words[1:], start=1):
-            dataline = ["_"] * 10
-            dataline[0] = str(node_idx)
-            dataline[1] = form
-            if self.pos_tags:
-                dataline[3] = self.pos_tags[node_idx]
-            deprel, head = revdeps.get(node_idx, ("root", 0))
-            dataline[6] = str(head)
-            dataline[7] = deprel
-            mwe_list = [mwe for mwe in self.mwe_ranges if mwe.start == node_idx]
+        for n in self.nodes:
+            mwe_list = [mwe for mwe in self.mwe_ranges if mwe.start == n.identifier]
             for mwe in mwe_list:
                 lines.append(mwe.to_conll())
-            lines.append("\t".join(dataline))
+            lines.append(n.to_conll())
         return "\n".join(lines)
 
     def __len__(self):
         return len(self.words)
-
-
-T = TypeVar("T", bound="DependencyBatch")
 
 
 class DependencyBatch(NamedTuple):
@@ -305,7 +240,7 @@ class DependencyBatch(NamedTuple):
     sent_lengths: torch.Tensor
     content_mask: torch.Tensor
 
-    def to(self: T, device: Union[str, torch.device]) -> T:
+    def to(self, device: Union[str, torch.device]) -> "DependencyBatch":
         encoded_words = self.encoded_words.to(device)
         chars = [token.to(device) for token in self.chars]
         subwords = [token.to(device) for token in self.subwords]
@@ -331,7 +266,8 @@ class DependencyDataset:
     PAD_IDX: Final[int] = 0
     PAD_TOKEN: Final[str] = "<pad>"
     UNK_WORD: Final[str] = "<unk>"
-    # Labels that are -100 are ignored in torch crossentropy
+    # Labels that are -100 are ignored in torch crossentropy (we still set it explicitely in
+    # `graph_parser`)
     LABEL_PADDING: Final[int] = -100
 
     @staticmethod
@@ -341,17 +277,26 @@ class DependencyDataset:
     ) -> List[DepGraph]:
         print(f"Reading treebank from {filename}")
         with smart_open(filename) as istream:
-            treelist = []
-            tree = DepGraph.read_tree(istream)
-            while tree:
-                if max_tree_length is None or len(tree.words) <= max_tree_length:
-                    treelist.append(tree)
+            trees = []
+            current_tree_lines: List[str] = []
+            # Add a dummy empty line to flush the last tree even if the CoNLL-U mandatory empty last
+            # line is absent
+            for line in (*istream, ""):
+                if not line or line.isspace():
+                    if current_tree_lines:
+                        if (
+                            max_tree_length is None
+                            or len(current_tree_lines) <= max_tree_length
+                        ):
+                            trees.append(DepGraph.from_conllu(current_tree_lines))
+                            current_tree_lines = []
+                        else:
+                            print(
+                                f"Dropped tree with length {len(current_tree_lines)} > {max_tree_length}",
+                            )
                 else:
-                    print(
-                        f"Dropped tree with length {len(tree.words)} > {max_tree_length}",
-                    )
-                tree = DepGraph.read_tree(istream)
-        return treelist
+                    current_tree_lines.append(line)
+        return trees
 
     def __init__(
         self,
@@ -383,26 +328,21 @@ class DependencyDataset:
         self.encode()
 
     def encode(self):
-        # NOTE: we mask the ROOT token features with the label padding that will be ignored by
-        # crossentropy, it's not very satisfying though, maybe hardcode it in (lab|tag)toi ?
         self.encoded_words, self.heads, self.labels, self.tags = [], [], [], []
 
         for tree in self.treelist:
             encoded_words = self.lexer.tokenize(tree.words)
-            if tree.pos_tags:
-                deptag_idxes = [
-                    self.tagtoi.get(tag, self.tagtoi[self.UNK_WORD])
-                    for tag in tree.pos_tags
-                ]
-            else:
-                deptag_idxes = [self.tagtoi[self.UNK_WORD] for _ in tree.words]
+            deptag_idxes = [
+                self.tagtoi.get(tag, self.tagtoi[self.UNK_WORD])
+                for tag in tree.pos_tags
+            ]
             deptag_idxes[0] = self.LABEL_PADDING
             self.tags.append(deptag_idxes)
             self.encoded_words.append(encoded_words)
-            heads = tree.oracle_governors()
+            heads = tree.heads
             heads[0] = self.LABEL_PADDING
             self.heads.append(heads)
-            labels = [self.labtoi.get(lab, 0) for lab in tree.oracle_labels()]
+            labels = [self.labtoi.get(lab, 0) for lab in tree.deprels]
             labels[0] = self.LABEL_PADDING
             self.labels.append(labels)
 
@@ -496,7 +436,5 @@ def gen_tags(treelist: Iterable[DepGraph]) -> List[str]:
 
 
 def gen_labels(treelist: Iterable[DepGraph]) -> List[str]:
-    labels = set(
-        [lbl for tree in treelist for (_gov, lbl, _dep) in tree.get_all_edges()]
-    )
+    labels = set([lbl for tree in treelist for lbl in tree.deprels])
     return [DependencyDataset.PAD_TOKEN, *sorted(labels)]
