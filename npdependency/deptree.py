@@ -48,6 +48,9 @@ class DepNode:
     deps: str
     misc: str
 
+    def to_conll(self) -> str:
+        return f"{self.identifier}\t{self.form}\t{self.lemma}\t{self.upos}\t{self.xpos}\t{self.feats}\t{self.head}\t{self.deprel}\t{self.deps}\t{self.misc}"
+
 
 class DepGraph:
 
@@ -75,9 +78,6 @@ class DepGraph:
         self.mwe_ranges = [] if mwe_ranges is None else list(mwe_ranges)
         self.metadata = [] if metadata is None else list(metadata)
 
-    def get_nodes(self) -> List[DepNode]:
-        return self.nodes
-
     def get_all_edges(self) -> List[Edge]:
         """
         Returns the list of edges found in this graph
@@ -89,20 +89,14 @@ class DepGraph:
         Returns a list where each element list[i] is the index of
         the position of the governor of the word at position i.
         """
-        N = len(self)
-        govs = {edge.dep: edge.gov for edge in self.get_all_edges()}
-        govs[0] = 0
-        return [govs[idx] for idx in range(N)]
+        return [0, *(n.head for n in self.nodes)]
 
     def oracle_labels(self) -> List[str]:
         """
         Returns a list where each element list[i] is the label of
         the position of the governor of the word at position i.
         """
-        N = len(self)
-        labels = {edge.dep: edge.label for edge in self.get_all_edges()}
-        labels[0] = "_"
-        return [labels[idx] for idx in range(N)]
+        return ["_", *(n.deprel for n in self.nodes)]
 
     def replace(
         self, edges: Optional[Iterable[Edge]], pos_tags: Optional[Iterable[str]]
@@ -133,7 +127,7 @@ class DepGraph:
                 deps=node.deps,
                 misc=node.misc,
             )
-            for node in self.get_nodes()
+            for node in self.nodes
         ]
         return type(self)(
             nodes=new_nodes,
@@ -188,23 +182,14 @@ class DepGraph:
 
     def __str__(self):
         """
-        Conll string for the dep tree
+        CoNLL-U string for the dep tree
         """
         lines = self.metadata
-        revdeps = {edge.dep: (edge.label, edge.gov) for edge in self.get_all_edges()}
-        for node_idx, form in enumerate(self.words[1:], start=1):
-            dataline = ["_"] * 10
-            dataline[0] = str(node_idx)
-            dataline[1] = form
-            if self.pos_tags:
-                dataline[3] = self.pos_tags[node_idx]
-            deprel, head = revdeps.get(node_idx, ("root", 0))
-            dataline[6] = str(head)
-            dataline[7] = deprel
-            mwe_list = [mwe for mwe in self.mwe_ranges if mwe.start == node_idx]
+        for n in self.nodes:
+            mwe_list = [mwe for mwe in self.mwe_ranges if mwe.start == n.identifier]
             for mwe in mwe_list:
                 lines.append(mwe.to_conll())
-            lines.append("\t".join(dataline))
+            lines.append(n.to_conll())
         return "\n".join(lines)
 
     def __len__(self):
