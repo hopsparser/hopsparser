@@ -253,7 +253,7 @@ class BiAffineParser(nn.Module):
 
         # LABEL LOSS
         # We will select the labels for the true heads, so we have to give a true head to
-        # the padding tokens (even if they will be ignore in the crossentropy since the true
+        # the padding tokens (even if they will be ignored in the crossentropy since the true
         # label for that head is set to -100) so we give them the root.
         positive_heads = batch.heads.masked_fill(batch.content_mask.logical_not(), 0)
         # [batch, 1, 1, sent_len]

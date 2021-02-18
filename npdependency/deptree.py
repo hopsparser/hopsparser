@@ -332,12 +332,12 @@ class DependencyDataset:
 
         for tree in self.treelist:
             encoded_words = self.lexer.tokenize(tree.words)
-            deptag_idxes = [
+            tag_idxes = [
                 self.tagtoi.get(tag, self.tagtoi[self.UNK_WORD])
                 for tag in tree.pos_tags
             ]
-            deptag_idxes[0] = self.LABEL_PADDING
-            self.tags.append(deptag_idxes)
+            tag_idxes[0] = self.LABEL_PADDING
+            self.tags.append(tag_idxes)
             self.encoded_words.append(encoded_words)
             heads = tree.heads
             heads[0] = self.LABEL_PADDING
