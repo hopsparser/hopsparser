@@ -505,7 +505,7 @@ class BiAffineParser(nn.Module):
             print(str(tree), file=ostream, end="\n\n")
 
     @classmethod
-    def from_config(
+    def load(
         cls, config_path: Union[str, pathlib.Path], overrides: Dict[str, Any]
     ) -> "BiAffineParser":
         config_path = pathlib.Path(config_path)
@@ -615,7 +615,7 @@ def parse(
 ):
     if overrides is None:
         overrides = dict()
-    parser = BiAffineParser.from_config(config_file, overrides)
+    parser = BiAffineParser.load(config_file, overrides)
     testtrees = DependencyDataset.read_conll(in_file)
     # FIXME: the special tokens should be saved somewhere instead of hardcoded
     ft_dataset = FastTextDataSet(parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN])
@@ -777,7 +777,7 @@ def main(argv=None):
             itotag = gen_tags(traintrees)
             savelist(itotag, os.path.join(model_dir, "tagcodes.lst"))
 
-        parser = BiAffineParser.from_config(config_file, overrides)
+        parser = BiAffineParser.load(config_file, overrides)
 
         ft_dataset = FastTextDataSet(
             parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN]

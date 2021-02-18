@@ -16,7 +16,7 @@ settings = Settings()
 
 
 models = {
-    model_name: graph_parser.BiAffineParser.from_config(
+    model_name: graph_parser.BiAffineParser.load(
         config_path, overrides={"device": settings.device}
     )
     for model_name, config_path in settings.models.items()
