@@ -182,7 +182,7 @@ class BiAffineParser(nn.Module):
     def save_params(self, path):
         torch.save(self.state_dict(), path)
 
-    def load_params(self, path: str):
+    def load_params(self, path: Union[str, pathlib.Path, IO]):
         state_dict = torch.load(path, map_location=self.device)
         # Legacy models do not have BERT layer weights, so we inject them here they always use only
         # 4 layers so we don't have to guess the size of the weight vector
@@ -509,17 +509,20 @@ class BiAffineParser(nn.Module):
         cls, config_path: Union[str, pathlib.Path], overrides: Dict[str, Any]
     ) -> "BiAffineParser":
         config_path = pathlib.Path(config_path)
-        if not config_path.exists():
+        if config_path.is_dir():
+            config_dir = config_path
             config_path = config_path / "config.yaml"
             if not config_path.exists():
                 raise ValueError(f"No config in {config_path.parent}")
+        else:
+            config_dir = config_path.parent
         print(f"Initializing a parser from {config_path}")
+
         with open(config_path) as in_stream:
             hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
         hp.update(overrides)
         hp.setdefault("device", "cpu")
 
-        config_dir = config_path.parent
         ordered_vocab = loadlist(config_dir / "vocab.lst")
 
         lexer: Union[DefaultLexer, BertBaseLexer]
@@ -599,7 +602,7 @@ class BiAffineParser(nn.Module):
                 freeze_module(lexer.bert)
             except AttributeError:
                 print(
-                    "Warning: a non-BERT lexer has no BERT to freeze, ignoring `freeze_bert` hypereparameter"
+                    "Warning: a non-BERT lexer has no BERT to freeze, ignoring `freeze_bert` hyperparameter"
                 )
         return parser
 
@@ -699,7 +702,9 @@ def main(argv=None):
     if args.train_file and args.out_dir:
         model_dir = os.path.join(args.out_dir, "model")
         os.makedirs(model_dir, exist_ok=True)
-        config_file = shutil.copy(args.config_file, model_dir)
+        config_file = shutil.copy(
+            args.config_file, os.path.join(model_dir, "config.yaml")
+        )
     else:
         model_dir = os.path.dirname(config_file)
 

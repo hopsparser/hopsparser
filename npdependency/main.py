@@ -20,7 +20,7 @@ def cli():
 @cli.command(help="Parse a raw or tokenized file")
 @click.argument(
     "config_path",
-    type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
+    type=click_pathlib.Path(resolve_path=True, exists=True),
 )
 @click.argument(
     "input_path",
@@ -78,7 +78,7 @@ def parse(
 @cli.command(help="Start a parsing server")
 @click.argument(
     "config_path",
-    type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
+    type=click_pathlib.Path(resolve_path=True, exists=True),
 )
 @click.option(
     "--device", default="cpu", help="The device to use for parsing. (cpu, gpu:0, …).", show_default=True
