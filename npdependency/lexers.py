@@ -9,7 +9,6 @@ import torch.jit
 import transformers
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence
-from transformers import AutoModel, AutoTokenizer
 from transformers.tokenization_utils_base import BatchEncoding, TokenSpan
 
 # Python 3.7 shim
@@ -447,7 +446,7 @@ class BertBaseLexer(nn.Module):
         embedding_size: int,
         word_dropout: float,
         bert_layers: Optional[Sequence[int]],
-        bert_modelfile: str,
+        bert_model: str,
         bert_subwords_reduction: Literal["first", "mean"],
         bert_weighted: bool,
         words_padding_idx: int,
@@ -458,14 +457,21 @@ class BertBaseLexer(nn.Module):
         self.stoi = {token: idx for idx, token in enumerate(self.itos)}
         self.unk_word_idx = self.stoi[unk_word]
 
-        self.bert = AutoModel.from_pretrained(bert_modelfile, output_hidden_states=True)
-        self.bert_tokenizer = AutoTokenizer.from_pretrained(
-            bert_modelfile, use_fast=True
+        try:
+            self.bert = transformers.AutoModel.from_pretrained(
+                bert_model, output_hidden_states=True
+            )
+        except OSError:
+            config = transformers.AutoConfig.from_pretrained(bert_model)
+            self.bert = transformers.AutoModel.from_config(config)
+
+        self.bert_tokenizer = transformers.AutoTokenizer.from_pretrained(
+            bert_model, use_fast=True
         )
         # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
         if isinstance(self.bert_tokenizer, transformers.GPT2TokenizerFast):
-            self.bert_tokenizer = AutoTokenizer.from_pretrained(
-                bert_modelfile, use_fast=True, add_prefix_space=True
+            self.bert_tokenizer = transformers.AutoTokenizer.from_pretrained(
+                bert_model, use_fast=True, add_prefix_space=True
             )
 
         self.embedding_size = embedding_size + self.bert.config.hidden_size

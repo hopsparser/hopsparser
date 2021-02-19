@@ -532,11 +532,16 @@ class BiAffineParser(nn.Module):
                 unk_word=DependencyDataset.UNK_WORD,
             )
         else:
+            bert_config_path = config_dir / "bert_config"
+            if bert_config_path.exists():
+                bert_model = str(bert_config_path)
+            else:
+                bert_model = hp["lexer"]
             bert_layers = hp.get("bert_layers", [4, 5, 6, 7])
             if bert_layers == "*":
                 bert_layers = None
             lexer = BertBaseLexer(
-                bert_modelfile=hp["lexer"],
+                bert_model=bert_model,
                 bert_layers=bert_layers,
                 bert_subwords_reduction=hp.get("bert_subwords_reduction", "first"),
                 bert_weighted=hp.get("bert_weighted", False),
@@ -546,6 +551,9 @@ class BiAffineParser(nn.Module):
                 words_padding_idx=DependencyDataset.PAD_IDX,
                 word_dropout=hp["word_dropout"],
             )
+            if not bert_config_path.exists():
+                lexer.bert.config.save_pretrained(bert_config_path)
+                lexer.bert_tokenizer.save_pretrained(bert_config_path)
 
         # char rnn processor
         ordered_charset = CharDataSet(
