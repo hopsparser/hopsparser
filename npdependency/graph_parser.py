@@ -557,6 +557,9 @@ class BiAffineParser(nn.Module):
             if not bert_config_path.exists():
                 lexer.bert.config.save_pretrained(bert_config_path)
                 lexer.bert_tokenizer.save_pretrained(bert_config_path)
+                # Saving local paths in config is of little use and leaks information
+                if os.path.exists(hp["lexer"]):
+                    hp["lexer"] = "."
 
         # char rnn processor
         ordered_charset = CharDataSet(
@@ -594,6 +597,10 @@ class BiAffineParser(nn.Module):
             parser.load_params(str(weights_file))
         else:
             parser.save_params(str(weights_file))
+            # We were actually initializing — rather than loading — the model, let's save the
+            # config with our changes
+            with open(config_path, "w") as out_stream:
+                yaml.dump(hp, out_stream)
 
         if hp.get("freeze_fasttext", False):
             freeze_module(ft_lexer)
