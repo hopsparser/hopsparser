@@ -9,6 +9,7 @@ import tempfile
 import warnings
 from typing import (
     Any,
+    BinaryIO,
     Callable,
     Dict,
     IO,
@@ -180,10 +181,10 @@ class BiAffineParser(nn.Module):
             mlp_input, len(self.labels), bias=biased_biaffine
         ).to(self.device)
 
-    def save_params(self, path: Union[str, pathlib.Path, IO]):
+    def save_params(self, path: Union[str, pathlib.Path, BinaryIO]):
         torch.save(self.state_dict(), path)
 
-    def load_params(self, path: Union[str, pathlib.Path, IO]):
+    def load_params(self, path: Union[str, pathlib.Path, BinaryIO]):
         state_dict = torch.load(path, map_location=self.device)
         # Legacy models do not have BERT layer weights, so we inject them here they always use only
         # 4 layers so we don't have to guess the size of the weight vector
@@ -354,6 +355,7 @@ class BiAffineParser(nn.Module):
         model_path: Union[str, pathlib.Path],
         batch_size: Optional[int] = None,
     ):
+        model_path = pathlib.Path(model_path)
         if batch_size is None:
             batch_size = self.default_batch_size
         print(f"Start training on {self.device}")
@@ -520,7 +522,7 @@ class BiAffineParser(nn.Module):
         shutil.copy(config_path, model_config_path)
         fasttext_model_path = model_path / "fasttext_model.bin"
         if fasttext is None:
-            print(f"Generating a FastText model from the treebank")
+            print("Generating a FastText model from the treebank")
             FastTextTorch.train_model_from_sents(
                 [tree.words[1:] for tree in treebank], fasttext_model_path
             )
