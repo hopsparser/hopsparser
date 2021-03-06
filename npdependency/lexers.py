@@ -1,5 +1,6 @@
 import os.path
 from collections import Counter
+import pathlib
 from tempfile import gettempdir
 from typing import Iterable, List, NamedTuple, Optional, Sequence, TypeVar, Union
 
@@ -248,12 +249,12 @@ class FastTextTorch(nn.Module):
         return self.embeddings(xinput).mean(dim=1)
 
     @classmethod
-    def loadmodel(cls, modelfile: str) -> "FastTextTorch":
-        return cls(fasttext.load_model(modelfile))
+    def loadmodel(cls, modelfile: Union[str, pathlib.Path]) -> "FastTextTorch":
+        return cls(fasttext.load_model(str(modelfile)))
 
     @classmethod
     def train_model_from_sents(
-        cls, source_sents: Iterable[List[str]], target_file: str
+        cls, source_sents: Iterable[List[str]], target_file: Union[str, pathlib.Path]
     ) -> "FastTextTorch":
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
@@ -270,12 +271,12 @@ class FastTextTorch(nn.Module):
             model = fasttext.train_unsupervised(
                 source_file, model="skipgram", neg=10, minCount=5, epoch=10
             )
-            model.save_model(target_file)
+            model.save_model(str(target_file))
         return cls(model)
 
     @classmethod
     def train_model_from_raw(
-        cls, raw_text_path: str, target_file: str
+        cls, raw_text_path: Union[str, pathlib.Path], target_file: Union[str, pathlib.Path]
     ) -> "FastTextTorch":
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")

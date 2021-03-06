@@ -5,6 +5,7 @@ import pathlib
 import random
 import shutil
 import sys
+import tempfile
 import warnings
 from typing import (
     Any,
@@ -179,7 +180,7 @@ class BiAffineParser(nn.Module):
             mlp_input, len(self.labels), bias=biased_biaffine
         ).to(self.device)
 
-    def save_params(self, path):
+    def save_params(self, path: Union[str, pathlib.Path, IO]):
         torch.save(self.state_dict(), path)
 
     def load_params(self, path: Union[str, pathlib.Path, IO]):
@@ -350,7 +351,7 @@ class BiAffineParser(nn.Module):
         epochs: int,
         lr: float,
         lr_schedule: LRSchedule,
-        modelpath: Union[str, pathlib.Path],
+        model_path: Union[str, pathlib.Path],
         batch_size: Optional[int] = None,
     ):
         if batch_size is None:
@@ -424,11 +425,11 @@ class BiAffineParser(nn.Module):
             )
 
             if dev_arc_acc > best_arc_acc:
-                self.save_params(modelpath)
+                self.save_params(model_path / "model.pt")
                 best_arc_acc = dev_arc_acc
 
-        self.load_params(modelpath)
-        self.save_params(modelpath)
+        self.load_params(model_path / "model.pt")
+        self.save_params(model_path / "model.pt")
 
     def predict_batch(
         self,
@@ -505,16 +506,76 @@ class BiAffineParser(nn.Module):
             print(str(tree), file=ostream, end="\n\n")
 
     @classmethod
+    def initialize(
+        cls,
+        config_path: pathlib.Path,
+        model_path: pathlib.Path,
+        overrides: Dict[str, Any],
+        treebank: List[DepGraph],
+        fasttext: Optional[pathlib.Path] = None,
+    ) -> "BiAffineParser":
+        model_path.mkdir(parents=True, exist_ok=False)
+        # TODO: remove this once we have a proper full save method?
+        model_config_path = model_path / "config.yml"
+        shutil.copy(config_path, model_config_path)
+        fasttext_model_path = model_path / "fasttext_model.bin"
+        if fasttext is None:
+            print(f"Generating a FastText model from the treebank")
+            FastTextTorch.train_model_from_sents(
+                [tree.words[1:] for tree in treebank], fasttext_model_path
+            )
+        elif fasttext.exists():
+            try:
+                # ugly, but we have no better way of checking if a file is a valid model
+                FastTextTorch.loadmodel(fasttext)
+                print(f"Using the FastText model at {fasttext}")
+                shutil.copy(fasttext, fasttext_model_path)
+            except ValueError:
+                # FastText couldn't load it, so it should be raw text
+                print(f"Generating a FastText model from {fasttext}")
+                FastTextTorch.train_model_from_raw(fasttext, fasttext_model_path)
+        else:
+            raise ValueError(f"{fasttext} not found")
+
+        # NOTE: these include the [ROOT] token, which will thus automatically have a dedicated
+        # word embeddings in layers based on this vocab
+        ordered_vocab = make_vocab(
+            [word for tree in treebank for word in tree.words],
+            0,
+            unk_word=DependencyDataset.UNK_WORD,
+            pad_token=DependencyDataset.PAD_TOKEN,
+        )
+        savelist(ordered_vocab, model_path / "vocab.lst")
+
+        # FIXME: A better save that can restore special tokens is probably a good idea
+        ordered_charset = CharDataSet.from_words(
+            ordered_vocab,
+            special_tokens=[DepGraph.ROOT_TOKEN],
+        )
+        savelist(ordered_charset.i2c, model_path / "charcodes.lst")
+
+        itolab = gen_labels(treebank)
+        savelist(itolab, model_path / "labcodes.lst")
+
+        itotag = gen_tags(treebank)
+        savelist(itotag, model_path / "tagcodes.lst")
+
+        return cls.load(model_config_path, overrides)
+
+    @classmethod
     def load(
         cls, config_path: Union[str, pathlib.Path], overrides: Dict[str, Any]
     ) -> "BiAffineParser":
         config_path = pathlib.Path(config_path)
         if config_path.is_dir():
             config_dir = config_path
-            config_path = config_path / "config.yaml"
+            config_path = config_path / "config.yml"
             if not config_path.exists():
                 raise ValueError(f"No config in {config_path.parent}")
         else:
+            warnings.warn(
+                "Loading a model from a yml file is deprecated and will be removed in a future version."
+            )
             config_dir = config_path.parent
         print(f"Initializing a parser from {config_path}")
 
@@ -608,8 +669,8 @@ class BiAffineParser(nn.Module):
             try:
                 freeze_module(lexer.bert)
             except AttributeError:
-                print(
-                    "Warning: a non-BERT lexer has no BERT to freeze, ignoring `freeze_bert` hyperparameter"
+                warnings.warn(
+                    "A non-BERT lexer has no BERT to freeze, ignoring `freeze_bert` hyperparameter"
                 )
         return parser
 
@@ -626,14 +687,14 @@ def loadlist(filename):
 
 
 def parse(
-    config_file: Union[str, pathlib.Path],
+    model_path: Union[str, pathlib.Path],
     in_file: Union[str, pathlib.Path, IO[str]],
     out_file: Union[str, pathlib.Path, IO[str]],
     overrides: Optional[Dict[str, str]] = None,
 ):
     if overrides is None:
         overrides = dict()
-    parser = BiAffineParser.load(config_file, overrides)
+    parser = BiAffineParser.load(model_path, overrides)
     testtrees = DependencyDataset.read_conll(in_file)
     # FIXME: the special tokens should be saved somewhere instead of hardcoded
     ft_dataset = FastTextDataSet(parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN])
@@ -705,15 +766,16 @@ def main(argv=None):
         overrides = dict()
 
     # TODO: warn about unused parameters in config
-    config_file = os.path.abspath(args.config_file)
     if args.train_file and args.out_dir:
-        model_dir = os.path.join(args.out_dir, "model")
-        os.makedirs(model_dir, exist_ok=True)
-        config_file = shutil.copy(
-            args.config_file, os.path.join(model_dir, "config.yaml")
-        )
+        model_dir = pathlib.Path(args.out_dir) / "model"
+        config_file = pathlib.Path(args.config_file)
     else:
-        model_dir = os.path.dirname(config_file)
+        model_dir = pathlib.Path(args.config_file).parent
+        # We need to give the temp file a name to avoid garbage collection before the method exits
+        # this is not very clean but this code path will be deprecated soon anyway.
+        _temp_config_file = tempfile.NamedTemporaryFile()
+        shutil.copy(args.config_file, _temp_config_file.name)
+        config_file = pathlib.Path(_temp_config_file.name)
 
     with open(config_file) as in_stream:
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
@@ -724,80 +786,31 @@ def main(argv=None):
 
     if args.train_file and args.dev_file:
         # TRAIN MODE
-        weights_file = os.path.join(model_dir, "model.pt")
-        if os.path.exists(weights_file):
-            print(f"Found existing trained model in {model_dir}", file=sys.stderr)
-            overwrite = args.overwrite
-            if args.overwrite:
-                print("Erasing it since --overwrite was asked", file=sys.stderr)
-                # Ensure the parser won't load existing weights
-                os.remove(weights_file)
-                overwrite = True
-            else:
-                print("Continuing training", file=sys.stderr)
-                overwrite = False
-        else:
-            overwrite = True
         traintrees = DependencyDataset.read_conll(args.train_file, max_tree_length=150)
         devtrees = DependencyDataset.read_conll(args.dev_file)
-
-        if overwrite:
-            fasttext_model_path = os.path.join(model_dir, "fasttext_model.bin")
-            if args.fasttext is None:
-                if os.path.exists(fasttext_model_path) and not args.out_dir:
-                    print(f"Using the FastText model at {fasttext_model_path}")
-                else:
-                    if os.path.exists(fasttext_model_path):
-                        print(
-                            f"Erasing the FastText model at {fasttext_model_path} since --overwrite was asked",
-                            file=sys.stderr,
-                        )
-                        os.remove(fasttext_model_path)
-                    print(f"Generating a FastText model from {args.train_file}")
-                    FastTextTorch.train_model_from_sents(
-                        [tree.words[1:] for tree in traintrees], fasttext_model_path
-                    )
-            elif os.path.exists(args.fasttext):
-                if os.path.exists(fasttext_model_path):
-                    os.remove(fasttext_model_path)
-                try:
-                    # ugly, but we have no better way of checking if a file is a valid model
-                    FastTextTorch.loadmodel(args.fasttext)
-                    print(f"Using the FastText model at {args.fasttext}")
-                    shutil.copy(args.fasttext, fasttext_model_path)
-                except ValueError:
-                    # FastText couldn't load it, so it should be raw text
-                    print(f"Generating a FastText model from {args.fasttext}")
-                    FastTextTorch.train_model_from_raw(
-                        args.fasttext, fasttext_model_path
-                    )
+        if os.path.exists(model_dir):
+            print(f"Found existing trained model in {model_dir}", file=sys.stderr)
+            if args.overwrite:
+                print("Erasing it since --overwrite was asked", file=sys.stderr)
+                shutil.rmtree(model_dir)
+                parser = BiAffineParser.initialize(
+                    config_path=args.config_file,
+                    model_path=model_dir,
+                    overrides=overrides,
+                    treebank=traintrees,
+                    fasttext=args.fasttext,
+                )
             else:
-                raise ValueError(f"{args.fasttext} not found")
-
-            # NOTE: these include the [ROOT] token, which will thus automatically have a dedicated
-            # word embeddings in layers based on this vocab
-            ordered_vocab = make_vocab(
-                [word for tree in traintrees for word in tree.words],
-                0,
-                unk_word=DependencyDataset.UNK_WORD,
-                pad_token=DependencyDataset.PAD_TOKEN,
+                print("Continuing training", file=sys.stderr)
+                parser = BiAffineParser.load(model_dir, overrides)
+        else:
+            parser = BiAffineParser.initialize(
+                config_path=config_file,
+                model_path=model_dir,
+                overrides=overrides,
+                treebank=traintrees,
+                fasttext=args.fasttext,
             )
-            savelist(ordered_vocab, os.path.join(model_dir, "vocab.lst"))
-
-            # FIXME: A better save that can restore special tokens is probably a good idea
-            ordered_charset = CharDataSet.from_words(
-                ordered_vocab,
-                special_tokens=[DepGraph.ROOT_TOKEN],
-            )
-            savelist(ordered_charset.i2c, os.path.join(model_dir, "charcodes.lst"))
-
-            itolab = gen_labels(traintrees)
-            savelist(itolab, os.path.join(model_dir, "labcodes.lst"))
-
-            itotag = gen_tags(traintrees)
-            savelist(itotag, os.path.join(model_dir, "tagcodes.lst"))
-
-        parser = BiAffineParser.load(config_file, overrides)
 
         ft_dataset = FastTextDataSet(
             parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN]
@@ -828,11 +841,11 @@ def main(argv=None):
             lr_schedule=hp.get(
                 "lr_schedule", {"shape": "exponential", "warmup_steps": 0}
             ),
-            modelpath=weights_file,
+            model_path=model_dir,
         )
         print("training done.", file=sys.stderr)
         # Load final params
-        parser.load_params(weights_file)
+        parser.load_params(model_dir / "model.pt")
         parser.eval()
         if args.out_dir is not None:
             parsed_devset_path = os.path.join(
@@ -864,7 +877,7 @@ def main(argv=None):
                 os.path.dirname(args.pred_file),
                 f"{os.path.basename(args.pred_file)}.parsed",
             )
-        parse(config_file, args.pred_file, parsed_testset_path, overrides=overrides)
+        parse(model_dir, args.pred_file, parsed_testset_path, overrides=overrides)
         print("parsing done.", file=sys.stderr)
 
 
