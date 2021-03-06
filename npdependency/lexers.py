@@ -210,7 +210,7 @@ class FastTextTorch(nn.Module):
     It follows the same interface as the CharRNN
     """
 
-    def __init__(self, fasttextmodel: fasttext.FastText):
+    def __init__(self, fasttextmodel: fasttext.FastText._FastText):
         super(FastTextTorch, self).__init__()
         self.fasttextmodel = fasttextmodel
         weights = torch.from_numpy(fasttextmodel.get_input_matrix())
@@ -249,7 +249,7 @@ class FastTextTorch(nn.Module):
         return self.embeddings(xinput).mean(dim=1)
 
     @classmethod
-    def loadmodel(cls, modelfile: Union[str, pathlib.Path]) -> "FastTextTorch":
+    def load(cls, modelfile: Union[str, pathlib.Path]) -> "FastTextTorch":
         return cls(fasttext.load_model(str(modelfile)))
 
     @classmethod
@@ -307,7 +307,7 @@ class DefaultLexer(nn.Module):
         self.embedding = nn.Embedding(
             len(itos), embedding_size, padding_idx=words_padding_idx
         )
-        self.embedding_size = embedding_size  # thats the interface property
+        self.embedding_size = embedding_size
         self.itos = itos
         self.stoi = {token: idx for idx, token in enumerate(self.itos)}
         self.unk_word_idx = self.stoi[unk_word]
@@ -332,13 +332,7 @@ class DefaultLexer(nn.Module):
         return self.embedding(word_sequences)
 
     def tokenize(self, tok_sequence: Sequence[str]) -> List[int]:
-        """
-        This maps word tokens to integer indexes.
-        Args:
-           tok_sequence: a sequence of strings
-        Returns:
-           a list of integers
-        """
+        """Map word tokens to integer indices."""
         word_idxes = [self.stoi.get(token, self.unk_word_idx) for token in tok_sequence]
         return word_idxes
 

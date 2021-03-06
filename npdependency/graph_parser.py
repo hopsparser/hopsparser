@@ -529,7 +529,7 @@ class BiAffineParser(nn.Module):
         elif fasttext.exists():
             try:
                 # ugly, but we have no better way of checking if a file is a valid model
-                FastTextTorch.loadmodel(fasttext)
+                FastTextTorch.load(fasttext)
                 print(f"Using the FastText model at {fasttext}")
                 shutil.copy(fasttext, fasttext_model_path)
             except ValueError:
@@ -566,22 +566,23 @@ class BiAffineParser(nn.Module):
 
     @classmethod
     def load(
-        cls, config_path: Union[str, pathlib.Path], overrides: Dict[str, Any]
+        cls, model_path: Union[str, pathlib.Path], overrides: Dict[str, Any]
     ) -> "BiAffineParser":
-        config_path = pathlib.Path(config_path)
-        if config_path.is_dir():
-            config_dir = config_path
-            config_path = config_path / "config.yml"
-            if not config_path.exists():
-                raise ValueError(f"No config in {config_path.parent}")
+        # TODO: move the initialization code to initialize (even if that duplicates code?)
+        model_path = pathlib.Path(model_path)
+        if model_path.is_dir():
+            config_dir = model_path
+            model_path = model_path / "config.yml"
+            if not model_path.exists():
+                raise ValueError(f"No config in {model_path.parent}")
         else:
             warnings.warn(
                 "Loading a model from a yml file is deprecated and will be removed in a future version."
             )
-            config_dir = config_path.parent
-        print(f"Initializing a parser from {config_path}")
+            config_dir = model_path.parent
+        print(f"Initializing a parser from {model_path}")
 
-        with open(config_path) as in_stream:
+        with open(model_path) as in_stream:
             hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
         hp.update(overrides)
         hp.setdefault("device", "cpu")
@@ -634,7 +635,7 @@ class BiAffineParser(nn.Module):
         )
 
         # fasttext lexer
-        ft_lexer = FastTextTorch.loadmodel(str(config_dir / "fasttext_model.bin"))
+        ft_lexer = FastTextTorch.load(str(config_dir / "fasttext_model.bin"))
 
         itolab = loadlist(config_dir / "labcodes.lst")
         itotag = loadlist(config_dir / "tagcodes.lst")
@@ -662,7 +663,7 @@ class BiAffineParser(nn.Module):
             parser.save_params(str(weights_file))
             # We were actually initializing — rather than loading — the model, let's save the
             # config with our changes
-            with open(config_path, "w") as out_stream:
+            with open(model_path, "w") as out_stream:
                 yaml.dump(hp, out_stream)
 
         if hp.get("freeze_fasttext", False):
@@ -790,22 +791,16 @@ def main(argv=None):
         # TRAIN MODE
         traintrees = DependencyDataset.read_conll(args.train_file, max_tree_length=150)
         devtrees = DependencyDataset.read_conll(args.dev_file)
-        if os.path.exists(model_dir):
-            print(f"Found existing trained model in {model_dir}", file=sys.stderr)
-            if args.overwrite:
-                print("Erasing it since --overwrite was asked", file=sys.stderr)
-                shutil.rmtree(model_dir)
-                parser = BiAffineParser.initialize(
-                    config_path=args.config_file,
-                    model_path=model_dir,
-                    overrides=overrides,
-                    treebank=traintrees,
-                    fasttext=args.fasttext,
-                )
-            else:
-                print("Continuing training", file=sys.stderr)
-                parser = BiAffineParser.load(model_dir, overrides)
+        if os.path.exists(model_dir) and not args.overwrite:
+            print(f"Continuing training from {model_dir}", file=sys.stderr)
+            parser = BiAffineParser.load(model_dir, overrides)
         else:
+            if args.overwrite:
+                print(
+                    f"Erasing existing trained model in {model_dir} since --overwrite was asked",
+                    file=sys.stderr,
+                )
+                shutil.rmtree(model_dir)
             parser = BiAffineParser.initialize(
                 config_path=config_file,
                 model_path=model_dir,
