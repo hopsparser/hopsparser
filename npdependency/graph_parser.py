@@ -45,8 +45,7 @@ from npdependency.lexers import (
     CharDataSet,
     CharRNN,
     DefaultLexer,
-    FastTextDataSet,
-    FastTextTorch,
+    FastTextLexer,
     freeze_module,
     make_vocab,
 )
@@ -119,7 +118,7 @@ class BiAffineParser(nn.Module):
         default_batch_size: int,
         device: Union[str, torch.device],
         encoder_dropout: float,  # lstm dropout
-        ft_lexer: FastTextTorch,
+        ft_lexer: FastTextLexer,
         labels: Sequence[str],
         lexer: Union[DefaultLexer, BertBaseLexer],
         mlp_input: int,
@@ -523,19 +522,19 @@ class BiAffineParser(nn.Module):
         fasttext_model_path = model_path / "fasttext_model.bin"
         if fasttext is None:
             print("Generating a FastText model from the treebank")
-            FastTextTorch.train_model_from_sents(
+            FastTextLexer.train_model_from_sents(
                 [tree.words[1:] for tree in treebank], fasttext_model_path
             )
         elif fasttext.exists():
             try:
                 # ugly, but we have no better way of checking if a file is a valid model
-                FastTextTorch.load(fasttext)
+                FastTextLexer.load(fasttext)
                 print(f"Using the FastText model at {fasttext}")
                 shutil.copy(fasttext, fasttext_model_path)
             except ValueError:
                 # FastText couldn't load it, so it should be raw text
                 print(f"Generating a FastText model from {fasttext}")
-                FastTextTorch.train_model_from_raw(fasttext, fasttext_model_path)
+                FastTextLexer.train_model_from_raw(fasttext, fasttext_model_path)
         else:
             raise ValueError(f"{fasttext} not found")
 
@@ -562,7 +561,7 @@ class BiAffineParser(nn.Module):
         itotag = gen_tags(treebank)
         savelist(itotag, model_path / "tagcodes.lst")
 
-        return cls.load(model_config_path, overrides)
+        return cls.load(model_path, overrides)
 
     @classmethod
     def load(
@@ -635,7 +634,9 @@ class BiAffineParser(nn.Module):
         )
 
         # fasttext lexer
-        ft_lexer = FastTextTorch.load(str(config_dir / "fasttext_model.bin"))
+        ft_lexer = FastTextLexer.load(
+            str(config_dir / "fasttext_model.bin"), special_tokens=[DepGraph.ROOT_TOKEN]
+        )
 
         itolab = loadlist(config_dir / "labcodes.lst")
         itotag = loadlist(config_dir / "tagcodes.lst")
@@ -700,12 +701,11 @@ def parse(
     parser = BiAffineParser.load(model_path, overrides)
     testtrees = DependencyDataset.read_conll(in_file)
     # FIXME: the special tokens should be saved somewhere instead of hardcoded
-    ft_dataset = FastTextDataSet(parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN])
     testset = DependencyDataset(
         testtrees,
         parser.lexer,
         parser.charset,
-        ft_dataset,
+        parser.ft_lexer,
         use_labels=parser.labels,
         use_tags=parser.tagset,
     )
@@ -809,14 +809,11 @@ def main(argv=None):
                 fasttext=args.fasttext,
             )
 
-        ft_dataset = FastTextDataSet(
-            parser.ft_lexer, special_tokens=[DepGraph.ROOT_TOKEN]
-        )
         trainset = DependencyDataset(
             traintrees,
             parser.lexer,
             parser.charset,
-            ft_dataset,
+            parser.ft_lexer,
             use_labels=parser.labels,
             use_tags=parser.tagset,
         )
@@ -824,7 +821,7 @@ def main(argv=None):
             devtrees,
             parser.lexer,
             parser.charset,
-            ft_dataset,
+            parser.ft_lexer,
             use_labels=parser.labels,
             use_tags=parser.tagset,
         )

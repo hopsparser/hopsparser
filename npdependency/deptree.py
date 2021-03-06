@@ -303,13 +303,13 @@ class DependencyDataset:
         treelist: List[DepGraph],
         lexer: lexers.Lexer,
         char_dataset: lexers.CharDataSet,
-        ft_dataset: lexers.FastTextDataSet,
+        ft_lexer: lexers.FastTextLexer,
         use_labels: Optional[Sequence[str]] = None,
         use_tags: Optional[Sequence[str]] = None,
     ):
         self.lexer = lexer
         self.char_dataset = char_dataset
-        self.ft_dataset = ft_dataset
+        self.ft_lexer = ft_lexer
         self.treelist = treelist
         if use_labels:
             self.itolab = use_labels
@@ -384,7 +384,7 @@ class DependencyDataset:
             # `torch.arange(sent_lengths.max()).unsqueeze(0).lt(sent_lengths.unsqueeze(1).logical_and(torch.arange(sent_lengths.max()).gt(0))`
             content_mask = labels.ne(self.LABEL_PADDING)
             sent_lengths = torch.tensor([len(t) for t in trees])
-            subwords = tuple(self.ft_dataset.batch_sentences([t.words for t in trees]))
+            subwords = tuple(self.ft_lexer.batch_sentences([t.words for t in trees]))
             tags = self.pad(
                 [self.tags[j] for j in batch_indices], padding_value=self.LABEL_PADDING
             )

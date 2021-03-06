@@ -2,7 +2,16 @@ import os.path
 from collections import Counter
 import pathlib
 from tempfile import gettempdir
-from typing import Iterable, List, NamedTuple, Optional, Sequence, TypeVar, Union
+from typing import (
+    FrozenSet,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    TypeVar,
+    Union,
+)
 
 import fasttext
 import torch
@@ -150,21 +159,61 @@ class CharRNN(nn.Module):
         return result
 
 
-class FastTextDataSet:
+class FastTextLexer(nn.Module):
     """
-    Namespace for simulating a fasttext encoded dataset.
+    This is subword model using FastText as backend.
+    It follows the same interface as the CharRNN
     By convention, the padding vector is the last element of the embedding matrix
     """
 
     def __init__(
         self,
-        fasttextmodel: "FastTextTorch",
+        fasttextmodel: fasttext.FastText._FastText,
         special_tokens: Optional[Iterable[str]] = None,
     ):
+        super().__init__()
         self.fasttextmodel = fasttextmodel
-        self.special_tokens = set([] if special_tokens is None else special_tokens)
-        self.special_tokens_idx: Final[int] = self.fasttextmodel.vocab_size
-        self.pad_idx: Final[int] = self.fasttextmodel.vocab_size + 1
+        weights = torch.from_numpy(fasttextmodel.get_input_matrix())
+        # Note: `vocab_size` is the size of the actual fasttext vocabulary. In pratice, the
+        # embeddings here have two more tokens in their vocabulary: one for padding (embedding fixed
+        # at 0, since the padding embedding never receive gradient in `nn.Embedding`) and one for
+        # the special (root) tokens, with values sampled accross the vocabulary
+        self.vocab_size: Final[int] = weights.shape[0]
+        self.embedding_size: Final[int] = weights.shape[1]
+        # NOTE: I haven't thought too hard about this, maybe it's a bad idea
+        root_embedding = weights[
+            torch.randint(high=self.vocab_size, size=(self.embedding_size,)),
+            torch.arange(self.embedding_size),
+        ].unsqueeze(0)
+        weights = torch.cat(
+            (weights, torch.zeros((1, self.embedding_size)), root_embedding), dim=0
+        ).to(torch.float)
+        weights.requires_grad = True
+        self.embeddings = nn.Embedding.from_pretrained(
+            weights, padding_idx=self.vocab_size + 1
+        )
+        self.special_tokens: Final[FrozenSet] = frozenset(
+            [] if special_tokens is None else special_tokens
+        )
+        self.special_tokens_idx: Final[int] = self.vocab_size
+        self.pad_idx: Final[int] = self.embeddings.padding_idx
+
+    def subwords_idxes(self, token: str) -> torch.Tensor:
+        """
+        Returns a list of ft subwords indexes for the token
+        :param tok_sequence:
+        :return:
+        """
+        return torch.from_numpy(self.fasttextmodel.get_subwords(token)[1])
+
+    def forward(self, xinput: torch.Tensor) -> torch.Tensor:
+        """
+        :param xinput: a batch of subwords
+        :return: the fasttext embeddings for this batch
+        """
+        # Note: the padding embedding is 0 and should not be modified during training (as per the
+        # `torch.nn.Embedding` doc) so the mean here does not include padding tokens
+        return self.embeddings(xinput).mean(dim=1)
 
     def word2subcodes(self, token: str) -> torch.Tensor:
         """
@@ -174,7 +223,7 @@ class FastTextDataSet:
             return torch.tensor([self.pad_idx], dtype=torch.long)
         elif token in self.special_tokens:
             return torch.tensor([self.special_tokens_idx], dtype=torch.long)
-        return self.fasttextmodel.subwords_idxes(token)
+        return self.subwords_idxes(token)
 
     def batch_tokens(self, token_sequence):
         """
@@ -203,59 +252,15 @@ class FastTextDataSet:
         for idx in range(max_sent_len):
             yield self.batch_tokens([sentence[idx] for sentence in batched_sents])
 
-
-class FastTextTorch(nn.Module):
-    """
-    This is subword model using FastText as backend.
-    It follows the same interface as the CharRNN
-    """
-
-    def __init__(self, fasttextmodel: fasttext.FastText._FastText):
-        super(FastTextTorch, self).__init__()
-        self.fasttextmodel = fasttextmodel
-        weights = torch.from_numpy(fasttextmodel.get_input_matrix())
-        # Note: `vocab_size` is the size of the actual fasttext vocabulary. In pratice, the
-        # embeddings here have two more tokens in their vocabulary: one for padding (embedding fixed
-        # at 0, since the padding embedding never receive gradient in `nn.Embedding`) and one for
-        # the special (root) tokens, with values sampled accross the vocabulary
-        self.vocab_size, self.embedding_size = weights.shape
-        root_embedding = weights[
-            torch.randint(high=self.vocab_size, size=(self.embedding_size,)),
-            torch.arange(self.embedding_size),
-        ].unsqueeze(0)
-        weights = torch.cat(
-            (weights, torch.zeros((1, self.embedding_size)), root_embedding), dim=0
-        ).to(torch.float)
-        weights.requires_grad = True
-        self.embeddings = nn.Embedding.from_pretrained(
-            weights, padding_idx=self.vocab_size + 1
-        )
-
-    def subwords_idxes(self, token: str) -> torch.Tensor:
-        """
-        Returns a list of ft subwords indexes for the token
-        :param tok_sequence:
-        :return:
-        """
-        return torch.from_numpy(self.fasttextmodel.get_subwords(token)[1])
-
-    def forward(self, xinput: torch.Tensor) -> torch.Tensor:
-        """
-        :param xinput: a batch of subwords
-        :return: the fasttext embeddings for this batch
-        """
-        # Note: the padding embedding is 0 and should not be modified during training (as per the
-        # `torch.nn.Embedding` doc) so the mean here does not include padding tokens
-        return self.embeddings(xinput).mean(dim=1)
-
+    # FIXME: this doesn't actually create the model, it just loads the wrapped fasttext ugh
     @classmethod
-    def load(cls, modelfile: Union[str, pathlib.Path]) -> "FastTextTorch":
-        return cls(fasttext.load_model(str(modelfile)))
+    def load(cls, modelfile: Union[str, pathlib.Path], **kwargs) -> "FastTextLexer":
+        return cls(fasttext.load_model(str(modelfile)), **kwargs)
 
     @classmethod
     def train_model_from_sents(
         cls, source_sents: Iterable[List[str]], target_file: Union[str, pathlib.Path]
-    ) -> "FastTextTorch":
+    ) -> "FastTextLexer":
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
         else:
@@ -276,8 +281,10 @@ class FastTextTorch(nn.Module):
 
     @classmethod
     def train_model_from_raw(
-        cls, raw_text_path: Union[str, pathlib.Path], target_file: Union[str, pathlib.Path]
-    ) -> "FastTextTorch":
+        cls,
+        raw_text_path: Union[str, pathlib.Path],
+        target_file: Union[str, pathlib.Path],
+    ) -> "FastTextLexer":
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
         else:
