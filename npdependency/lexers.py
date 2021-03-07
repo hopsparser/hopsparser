@@ -325,16 +325,15 @@ class DefaultLexer(nn.Module):
             )
         return self.embedding(word_sequences)
 
-    def encode(self, tok_sequence: Sequence[str]) -> List[int]:
+    def encode(self, tok_sequence: Sequence[str]) -> torch.Tensor:
         """Map word tokens to integer indices."""
         word_idxes = [self.stoi.get(token, self.unk_word_idx) for token in tok_sequence]
-        return word_idxes
+        return torch.tensor(word_idxes)
 
-    def make_batch(self, batch: Sequence[Sequence[int]]) -> torch.Tensor:
+    def make_batch(self, batch: Sequence[torch.Tensor]) -> torch.Tensor:
         """Pad a batch of sentences."""
-        tensorized_sents = [torch.tensor(sent, dtype=torch.long) for sent in batch]
         return pad_sequence(
-            tensorized_sents,
+            batch,
             padding_value=self.embedding.padding_idx,
             batch_first=True,
         )
