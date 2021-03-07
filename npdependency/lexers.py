@@ -325,7 +325,7 @@ class DefaultLexer(nn.Module):
             )
         return self.embedding(word_sequences)
 
-    def tokenize(self, tok_sequence: Sequence[str]) -> List[int]:
+    def encode(self, tok_sequence: Sequence[str]) -> List[int]:
         """Map word tokens to integer indices."""
         word_idxes = [self.stoi.get(token, self.unk_word_idx) for token in tok_sequence]
         return word_idxes
@@ -586,7 +586,7 @@ class BertBaseLexer(nn.Module):
             alignments,
         )
 
-    def tokenize(self, tok_sequence: Sequence[str]) -> BertLexerSentence:
+    def encode(self, tok_sequence: Sequence[str]) -> BertLexerSentence:
         """
         This maps word tokens to integer indexes.
         Args:

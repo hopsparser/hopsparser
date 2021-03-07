@@ -334,7 +334,7 @@ class DependencyDataset:
         self.encoded_words, self.heads, self.labels, self.tags = [], [], [], []
 
         for tree in self.treelist:
-            encoded_words = self.lexer.tokenize(tree.words)
+            encoded_words = self.lexer.encode(tree.words)
             tag_idxes = [
                 self.tagtoi.get(tag, self.tagtoi[self.UNK_WORD])
                 for tag in tree.pos_tags
