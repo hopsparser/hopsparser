@@ -330,7 +330,7 @@ class DefaultLexer(nn.Module):
         word_idxes = [self.stoi.get(token, self.unk_word_idx) for token in tok_sequence]
         return word_idxes
 
-    def pad_batch(self, batch: Sequence[Sequence[int]]) -> torch.Tensor:
+    def make_batch(self, batch: Sequence[Sequence[int]]) -> torch.Tensor:
         """Pad a batch of sentences."""
         tensorized_sents = [torch.tensor(sent, dtype=torch.long) for sent in batch]
         return pad_sequence(
@@ -567,7 +567,7 @@ class BertBaseLexer(nn.Module):
 
         return torch.cat((word_embeddings, bert_embeddings), dim=2)
 
-    def pad_batch(
+    def make_batch(
         self,
         batch: Sequence[BertLexerSentence],
         padding_value: int = 0,

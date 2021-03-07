@@ -375,7 +375,7 @@ class DependencyDataset:
             trees = tuple(self.treelist[j] for j in batch_indices)
 
             chars = tuple(self.chars_lexer.batch_chars([t.words for t in trees]))
-            encoded_words = self.lexer.pad_batch([self.encoded_words[j] for j in batch_indices])  # type: ignore
+            encoded_words = self.lexer.make_batch([self.encoded_words[j] for j in batch_indices])  # type: ignore
             heads = self.pad(
                 [self.heads[j] for j in batch_indices], padding_value=self.LABEL_PADDING
             )
