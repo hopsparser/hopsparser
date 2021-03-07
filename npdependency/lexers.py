@@ -570,7 +570,6 @@ class BertBaseLexer(nn.Module):
     def make_batch(
         self,
         batch: Sequence[BertLexerSentence],
-        padding_value: int = 0,
     ) -> BertLexerBatch:
         """Pad a batch of sentences."""
         words_batch, bert_batch, alignments = [], [], []
@@ -581,7 +580,9 @@ class BertBaseLexer(nn.Module):
         bert_encoding = self.bert_tokenizer.pad(bert_batch)
         bert_encoding.convert_to_tensors("pt")
         return BertLexerBatch(
-            pad_sequence(words_batch, batch_first=True, padding_value=padding_value),
+            pad_sequence(
+                words_batch, batch_first=True, padding_value=self.embedding.padding_idx
+            ),
             bert_encoding,
             alignments,
         )
