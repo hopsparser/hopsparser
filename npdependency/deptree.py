@@ -302,14 +302,14 @@ class DependencyDataset:
         self,
         treelist: List[DepGraph],
         lexer: lexers.Lexer,
-        char_dataset: lexers.CharDataSet,
-        ft_dataset: lexers.FastTextDataSet,
+        chars_lexer: lexers.CharRNNLexer,
+        ft_lexer: lexers.FastTextLexer,
         use_labels: Optional[Sequence[str]] = None,
         use_tags: Optional[Sequence[str]] = None,
     ):
         self.lexer = lexer
-        self.char_dataset = char_dataset
-        self.ft_dataset = ft_dataset
+        self.chars_lexer = chars_lexer
+        self.ft_lexer = ft_lexer
         self.treelist = treelist
         if use_labels:
             self.itolab = use_labels
@@ -327,17 +327,20 @@ class DependencyDataset:
         self.tags: List[List[int]] = []
         self.encode()
 
+    # FIXME: this is inconsistent: we encode the words but not the chars or the ft subwords it would
+    # be better to do it here, replace encoded_words by an encoded_trees that contain the encodeings
+    # for all the lexers?
     def encode(self):
         self.encoded_words, self.heads, self.labels, self.tags = [], [], [], []
 
         for tree in self.treelist:
             encoded_words = self.lexer.tokenize(tree.words)
-            deptag_idxes = [
+            tag_idxes = [
                 self.tagtoi.get(tag, self.tagtoi[self.UNK_WORD])
                 for tag in tree.pos_tags
             ]
-            deptag_idxes[0] = self.LABEL_PADDING
-            self.tags.append(deptag_idxes)
+            tag_idxes[0] = self.LABEL_PADDING
+            self.tags.append(tag_idxes)
             self.encoded_words.append(encoded_words)
             heads = tree.heads
             heads[0] = self.LABEL_PADDING
@@ -371,7 +374,7 @@ class DependencyDataset:
             batch_indices = order[i : i + batch_size]
             trees = tuple(self.treelist[j] for j in batch_indices)
 
-            chars = tuple(self.char_dataset.batch_chars([t.words for t in trees]))
+            chars = tuple(self.chars_lexer.batch_chars([t.words for t in trees]))
             encoded_words = self.lexer.pad_batch([self.encoded_words[j] for j in batch_indices])  # type: ignore
             heads = self.pad(
                 [self.heads[j] for j in batch_indices], padding_value=self.LABEL_PADDING
@@ -384,7 +387,7 @@ class DependencyDataset:
             # `torch.arange(sent_lengths.max()).unsqueeze(0).lt(sent_lengths.unsqueeze(1).logical_and(torch.arange(sent_lengths.max()).gt(0))`
             content_mask = labels.ne(self.LABEL_PADDING)
             sent_lengths = torch.tensor([len(t) for t in trees])
-            subwords = tuple(self.ft_dataset.batch_sentences([t.words for t in trees]))
+            subwords = tuple(self.ft_lexer.batch_sentences([t.words for t in trees]))
             tags = self.pad(
                 [self.tags[j] for j in batch_indices], padding_value=self.LABEL_PADDING
             )
