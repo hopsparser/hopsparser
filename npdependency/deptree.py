@@ -302,13 +302,13 @@ class DependencyDataset:
         self,
         treelist: List[DepGraph],
         lexer: lexers.Lexer,
-        char_dataset: lexers.CharDataSet,
+        chars_lexer: lexers.CharRNNLexer,
         ft_lexer: lexers.FastTextLexer,
         use_labels: Optional[Sequence[str]] = None,
         use_tags: Optional[Sequence[str]] = None,
     ):
         self.lexer = lexer
-        self.char_dataset = char_dataset
+        self.chars_lexer = chars_lexer
         self.ft_lexer = ft_lexer
         self.treelist = treelist
         if use_labels:
@@ -327,6 +327,9 @@ class DependencyDataset:
         self.tags: List[List[int]] = []
         self.encode()
 
+    # FIXME: this is inconsistent: we encode the words but not the chars or the ft subwords it would
+    # be better to do it here, replace encoded_words by an encoded_trees that contain the encodeings
+    # for all the lexers?
     def encode(self):
         self.encoded_words, self.heads, self.labels, self.tags = [], [], [], []
 
@@ -371,7 +374,7 @@ class DependencyDataset:
             batch_indices = order[i : i + batch_size]
             trees = tuple(self.treelist[j] for j in batch_indices)
 
-            chars = tuple(self.char_dataset.batch_chars([t.words for t in trees]))
+            chars = tuple(self.chars_lexer.batch_chars([t.words for t in trees]))
             encoded_words = self.lexer.pad_batch([self.encoded_words[j] for j in batch_indices])  # type: ignore
             heads = self.pad(
                 [self.heads[j] for j in batch_indices], padding_value=self.LABEL_PADDING

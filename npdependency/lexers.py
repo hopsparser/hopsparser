@@ -3,12 +3,12 @@ from collections import Counter
 import pathlib
 from tempfile import gettempdir
 from typing import (
-    FrozenSet,
     Iterable,
     List,
     NamedTuple,
     Optional,
     Sequence,
+    Set,
     TypeVar,
     Union,
 )
@@ -50,9 +50,8 @@ def make_vocab(
     return itos
 
 
-class CharDataSet:
-    """
-    Namespace for simulating a char dataset.
+class CharRNNLexer(nn.Module):
+    """A lexer encoding words by running a bi-RNN on their characters
 
     ## Padding and special tokens
 
@@ -66,14 +65,45 @@ class CharDataSet:
     SPECIAL_TOKENS_IDX: Final[int] = 1
 
     def __init__(
-        self, charlist: Iterable[str], special_tokens: Optional[Iterable[str]] = None
+        self,
+        char_embedding_size: int,
+        charset: Sequence[str],
+        embedding_size: int,
+        special_tokens: Optional[Iterable[str]] = None,
     ):
-        self.i2c = ["<pad>", "<special>", *charlist]
-        self.c2idx = {c: idx for idx, c in enumerate(charlist)}
+        super().__init__()
+
+        # FIXME: use the class attributes to insert the pad and special token at the right position
+        # instead of harcoding them like this
+        self.i2c = ["<pad>", "<special>", *charset]
+        self.c2idx = {c: idx for idx, c in enumerate(charset)}
         self.special_tokens = set([] if special_tokens is None else special_tokens)
 
-    def __len__(self):
-        return len(self.i2c)
+        self.char_embedding_size: Final[int] = char_embedding_size
+        self.embedding_size: Final[int] = embedding_size
+        self.char_embedding = nn.Embedding(
+            len(self.i2c), self.char_embedding_size, padding_idx=type(self).PAD_IDX
+        )
+        self.char_bilstm = nn.LSTM(
+            self.char_embedding_size,
+            self.embedding_size // 2,
+            1,
+            batch_first=True,
+            bidirectional=True,
+        )
+
+    def forward(self, xinput: torch.Tensor) -> torch.Tensor:
+        """
+        Predicts the word embedding from the token characters.
+        :param xinput: is a tensor of char indexes encoding a batch of tokens [batch,token_len,char_seq_idx]
+        :return: a word embedding tensor
+        """
+        embeddings = self.char_embedding(xinput)
+        # ! FIXME: this does not take the padding into account
+        outputs, (_, cembedding) = self.char_bilstm(embeddings)
+        # TODO: why use the cell state and not the output state here?
+        result = cembedding.view(-1, self.embedding_size)
+        return result
 
     def word2charcodes(self, token: str) -> List[int]:
         """
@@ -116,49 +146,8 @@ class CharDataSet:
                 [sentence[idx] for sentence in batched_sents]
             )
 
-    @classmethod
-    def from_words(
-        cls,
-        wordlist: Iterable[str],
-        special_tokens: Optional[Iterable[str]] = None,
-    ) -> "CharDataSet":
-        # FIXME: minor issue, but this way, if the special tokens appear in the word list, their
-        # character will be in the charset (and that might not be a good idea)
-        charset = set((c for word in wordlist for c in word))
-        return cls(sorted(charset), special_tokens=special_tokens)
 
-
-class CharRNN(nn.Module):
-    def __init__(self, charset_size, char_embedding_size, embedding_size):
-
-        super(CharRNN, self).__init__()
-
-        self.embedding_size = embedding_size
-        self.char_embedding = nn.Embedding(
-            charset_size, char_embedding_size, padding_idx=CharDataSet.PAD_IDX
-        )
-        self.char_bilstm = nn.LSTM(
-            char_embedding_size,
-            self.embedding_size // 2,
-            1,
-            batch_first=True,
-            bidirectional=True,
-        )
-
-    def forward(self, xinput: torch.Tensor) -> torch.Tensor:
-        """
-        Predicts the word embedding from the token characters.
-        :param xinput: is a tensor of char indexes encoding a batch of tokens [batch,token_len,char_seq_idx]
-        :return: a word embedding tensor
-        """
-        embeddings = self.char_embedding(xinput)
-        # ! FIXME: this does not take the padding into account
-        outputs, (_, cembedding) = self.char_bilstm(embeddings)
-        # TODO: why use the cell state and not the output state here?
-        result = cembedding.view(-1, self.embedding_size)
-        return result
-
-
+# TODO: convert to the unified lexer API
 class FastTextLexer(nn.Module):
     """
     This is subword model using FastText as backend.
@@ -192,9 +181,7 @@ class FastTextLexer(nn.Module):
         self.embeddings = nn.Embedding.from_pretrained(
             weights, padding_idx=self.vocab_size + 1
         )
-        self.special_tokens: Final[FrozenSet] = frozenset(
-            [] if special_tokens is None else special_tokens
-        )
+        self.special_tokens: Set = set([] if special_tokens is None else special_tokens)
         self.special_tokens_idx: Final[int] = self.vocab_size
         self.pad_idx: Final[int] = self.embeddings.padding_idx
 
@@ -558,6 +545,7 @@ class BertBaseLexer(nn.Module):
             )
         )
         bert_embeddings[:, 0, ...] = bert_subword_embeddings.mean(dim=1)
+        # FIXME: this loop is embarassingly parallel, there must be a way to parallelize it
         for sent_n, alignment in enumerate(inpt.subword_alignments):
             # The word indices start at 1 because word 0 is the root token, for which we have no
             # bert embedding so we use the average of all subword embeddings

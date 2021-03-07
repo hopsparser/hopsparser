@@ -42,8 +42,7 @@ from npdependency.deptree import (
 from npdependency.lexers import (
     BertBaseLexer,
     BertLexerBatch,
-    CharDataSet,
-    CharRNN,
+    CharRNNLexer,
     DefaultLexer,
     FastTextLexer,
     freeze_module,
@@ -113,8 +112,7 @@ class BiAffineParser(nn.Module):
     def __init__(
         self,
         biased_biaffine: bool,
-        charset: CharDataSet,
-        char_rnn: CharRNN,
+        chars_lexer: CharRNNLexer,
         default_batch_size: int,
         device: Union[str, torch.device],
         encoder_dropout: float,  # lstm dropout
@@ -130,7 +128,6 @@ class BiAffineParser(nn.Module):
     ):
 
         super(BiAffineParser, self).__init__()
-        self.charset = charset
         self.default_batch_size = default_batch_size
         self.device = torch.device(device)
         self.tagset = tagset
@@ -143,7 +140,7 @@ class BiAffineParser(nn.Module):
 
         self.dep_rnn = nn.LSTM(
             self.lexer.embedding_size
-            + char_rnn.embedding_size
+            + chars_lexer.embedding_size
             + ft_lexer.embedding_size,
             mlp_input,
             3,
@@ -156,7 +153,7 @@ class BiAffineParser(nn.Module):
         self.pos_tagger = MLP(mlp_input * 2, mlp_tag_hidden, len(self.tagset)).to(
             self.device
         )
-        self.char_rnn = char_rnn.to(self.device)
+        self.char_rnn = chars_lexer.to(self.device)
         self.ft_lexer = ft_lexer.to(self.device)
 
         # Arc MLPs
@@ -548,12 +545,11 @@ class BiAffineParser(nn.Module):
         )
         savelist(ordered_vocab, model_path / "vocab.lst")
 
-        # FIXME: A better save that can restore special tokens is probably a good idea
-        ordered_charset = CharDataSet.from_words(
-            ordered_vocab,
-            special_tokens=[DepGraph.ROOT_TOKEN],
+        # FIXME: This should be done by the lexer class
+        savelist(
+            sorted(set((c for word in ordered_vocab for c in word))),
+            model_path / "charcodes.lst",
         )
-        savelist(ordered_charset.i2c, model_path / "charcodes.lst")
 
         itolab = gen_labels(treebank)
         savelist(itolab, model_path / "labcodes.lst")
@@ -576,7 +572,7 @@ class BiAffineParser(nn.Module):
                 raise ValueError(f"No config in {model_path.parent}")
         else:
             warnings.warn(
-                "Loading a model from a yml file is deprecated and will be removed in a future version."
+                "Loading a model from a YAML file is deprecated and will be removed in a future version."
             )
             config_dir = model_path.parent
         print(f"Initializing a parser from {model_path}")
@@ -586,8 +582,10 @@ class BiAffineParser(nn.Module):
         hp.update(overrides)
         hp.setdefault("device", "cpu")
 
+        # FIXME: put that in the word lexer class
         ordered_vocab = loadlist(config_dir / "vocab.lst")
 
+        # TODO: separate the BERT and word lexers
         lexer: Union[DefaultLexer, BertBaseLexer]
         if hp["lexer"] == "default":
             lexer = DefaultLexer(
@@ -624,16 +622,13 @@ class BiAffineParser(nn.Module):
                 if os.path.exists(hp["lexer"]):
                     hp["lexer"] = "."
 
-        # char rnn processor
-        ordered_charset = CharDataSet(
-            loadlist(config_dir / "charcodes.lst"),
+        chars_lexer = CharRNNLexer(
+            charset=loadlist(config_dir / "charcodes.lst"),
             special_tokens=[DepGraph.ROOT_TOKEN],
-        )
-        char_rnn = CharRNN(
-            len(ordered_charset), hp["char_embedding_size"], hp["charlstm_output_size"]
+            char_embedding_size=hp["char_embedding_size"],
+            embedding_size=hp["charlstm_output_size"],
         )
 
-        # fasttext lexer
         ft_lexer = FastTextLexer.load(
             str(config_dir / "fasttext_model.bin"), special_tokens=[DepGraph.ROOT_TOKEN]
         )
@@ -643,8 +638,7 @@ class BiAffineParser(nn.Module):
         parser = cls(
             biased_biaffine=hp.get("biased_biaffine", True),
             device=hp["device"],
-            char_rnn=char_rnn,
-            charset=ordered_charset,
+            chars_lexer=chars_lexer,
             default_batch_size=hp.get("batch_size", 1),
             encoder_dropout=hp["encoder_dropout"],
             ft_lexer=ft_lexer,
@@ -700,11 +694,10 @@ def parse(
         overrides = dict()
     parser = BiAffineParser.load(model_path, overrides)
     testtrees = DependencyDataset.read_conll(in_file)
-    # FIXME: the special tokens should be saved somewhere instead of hardcoded
     testset = DependencyDataset(
         testtrees,
         parser.lexer,
-        parser.charset,
+        parser.char_rnn,
         parser.ft_lexer,
         use_labels=parser.labels,
         use_tags=parser.tagset,
@@ -812,7 +805,7 @@ def main(argv=None):
         trainset = DependencyDataset(
             traintrees,
             parser.lexer,
-            parser.charset,
+            parser.char_rnn,
             parser.ft_lexer,
             use_labels=parser.labels,
             use_tags=parser.tagset,
@@ -820,7 +813,7 @@ def main(argv=None):
         devset = DependencyDataset(
             devtrees,
             parser.lexer,
-            parser.charset,
+            parser.char_rnn,
             parser.ft_lexer,
             use_labels=parser.labels,
             use_tags=parser.tagset,
