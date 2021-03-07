@@ -514,7 +514,7 @@ class BiAffineParser(nn.Module):
     ) -> "BiAffineParser":
         model_path.mkdir(parents=True, exist_ok=False)
         # TODO: remove this once we have a proper full save method?
-        model_config_path = model_path / "config.yml"
+        model_config_path = model_path / "config.yaml"
         shutil.copy(config_path, model_config_path)
         fasttext_model_path = model_path / "fasttext_model.bin"
         if fasttext is None:
@@ -567,7 +567,7 @@ class BiAffineParser(nn.Module):
         model_path = pathlib.Path(model_path)
         if model_path.is_dir():
             config_dir = model_path
-            model_path = model_path / "config.yml"
+            model_path = model_path / "config.yaml"
             if not model_path.exists():
                 raise ValueError(f"No config in {model_path.parent}")
         else:
