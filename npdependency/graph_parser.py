@@ -765,6 +765,7 @@ def main(argv=None):
     if args.train_file and args.out_dir:
         model_dir = pathlib.Path(args.out_dir) / "model"
         config_file = pathlib.Path(args.config_file)
+        trained_config_file = model_dir / "config.yaml"
     else:
         model_dir = pathlib.Path(args.config_file).parent
         # We need to give the temp file a name to avoid garbage collection before the method exits
@@ -772,6 +773,7 @@ def main(argv=None):
         _temp_config_file = tempfile.NamedTemporaryFile()
         shutil.copy(args.config_file, _temp_config_file.name)
         config_file = pathlib.Path(_temp_config_file.name)
+        trained_config_file = pathlib.Path(args.config_file)
 
     with open(config_file) as in_stream:
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
@@ -789,6 +791,9 @@ def main(argv=None):
             parser = BiAffineParser.load(model_dir, overrides)
         else:
             if args.overwrite:
+                if not args.out_dir:
+                    print("ERROR: overwriting is only supported with --out_dir", file=sys.stderr)
+                    return 1
                 print(
                     f"Erasing existing trained model in {model_dir} since --overwrite was asked",
                     file=sys.stderr,
@@ -866,8 +871,8 @@ def main(argv=None):
                 os.path.dirname(args.pred_file),
                 f"{os.path.basename(args.pred_file)}.parsed",
             )
-        parse(model_dir, args.pred_file, parsed_testset_path, overrides=overrides)
-        print("parsing done.", file=sys.stderr)
+        parse(trained_config_file, args.pred_file, parsed_testset_path, overrides=overrides)
+        print("Parsing done.", file=sys.stderr)
 
 
 if __name__ == "__main__":
