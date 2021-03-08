@@ -289,11 +289,11 @@ class DependencyDataset:
                             or len(current_tree_lines) <= max_tree_length
                         ):
                             trees.append(DepGraph.from_conllu(current_tree_lines))
-                            current_tree_lines = []
                         else:
                             print(
                                 f"Dropped tree with length {len(current_tree_lines)} > {max_tree_length}",
                             )
+                        current_tree_lines = []
                 else:
                     current_tree_lines.append(line)
         return trees
