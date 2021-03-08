@@ -196,12 +196,12 @@ class BiAffineParser(nn.Module):
     def forward(
         self,
         xwords: Union[torch.Tensor, BertLexerBatch],
-        xchars: Iterable[torch.Tensor],
+        xchars: torch.Tensor,
         xft: Iterable[torch.Tensor],
         sent_lengths: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Computes char embeddings
-        char_embed = torch.stack([self.char_rnn(sent) for sent in xchars], dim=0)
+        char_embed = self.char_rnn(xchars)
         # Computes fasttext embeddings
         ft_embed = torch.stack([self.ft_lexer(sent) for sent in xft], dim=0)
         # Computes word embeddings

@@ -231,7 +231,7 @@ class DependencyBatch(NamedTuple):
     """
 
     trees: Sequence[DepGraph]
-    chars: Sequence[torch.Tensor]
+    chars: torch.Tensor
     subwords: Sequence[torch.Tensor]
     encoded_words: Union[torch.Tensor, BertLexerBatch]
     tags: torch.Tensor
@@ -242,7 +242,7 @@ class DependencyBatch(NamedTuple):
 
     def to(self, device: Union[str, torch.device]) -> "DependencyBatch":
         encoded_words = self.encoded_words.to(device)
-        chars = [token.to(device) for token in self.chars]
+        chars = self.chars.to(device)
         subwords = [token.to(device) for token in self.subwords]
         return type(self)(
             trees=self.trees,

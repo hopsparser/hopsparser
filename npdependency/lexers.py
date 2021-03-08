@@ -29,6 +29,9 @@ except ImportError:
     from typing_extensions import Final, Literal  # type: ignore
 
 
+T = TypeVar("T")
+
+
 @torch.jit.script
 def integer_dropout(t: torch.Tensor, fill_value: int, p: float) -> torch.Tensor:
     mask = torch.empty_like(t, dtype=torch.bool).bernoulli_(p)
@@ -96,14 +99,18 @@ class CharRNNLexer(nn.Module):
     def forward(self, xinput: torch.Tensor) -> torch.Tensor:
         """
         Predicts the word embedding from the token characters.
-        :param xinput: is a tensor of char indexes encoding a batch of tokens [batch,token_len,char_seq_idx]
+        :param xinput: is a tensor of char indexes encoding a batch of tokens *×token_len
         :return: a word embedding tensor
         """
-        embeddings = self.char_embedding(xinput)
+        # FIXME: there is probably a better way to do this since this results in tokens that are
+        # full padding We need the of course (the will be cat to other padding embeddings in
+        # graph_parser), running the RNN on them is frustrating
+        flattened_inputs = xinput.view(-1, xinput.shape[-1])
+        embeddings = self.char_embedding(flattened_inputs)
         # ! FIXME: this does not take the padding into account
-        outputs, (_, cembedding) = self.char_bilstm(embeddings)
+        _, (_, cembedding) = self.char_bilstm(embeddings)
         # TODO: why use the cell state and not the output state here?
-        result = cembedding.view(-1, self.embedding_size)
+        result = cembedding.view(*xinput.shape[:-1], self.embedding_size)
         return result
 
     def word2charcodes(self, token: str) -> torch.Tensor:
@@ -130,7 +137,7 @@ class CharRNNLexer(nn.Module):
             subword_indices, padding_value=self.PAD_IDX, batch_first=True
         )
 
-    def make_batch(self, batch: Sequence[torch.Tensor]) -> Sequence[torch.Tensor]:
+    def make_batch(self, batch: Sequence[torch.Tensor]) -> torch.Tensor:
         """Pad a batch of sentences."""
         # We need to pad manually because `pad_sequence` only accepts tensors that have all the same
         # dimensions except for one and we differ both in the sentence lengths dimension and in the
@@ -146,7 +153,7 @@ class CharRNNLexer(nn.Module):
         )
         for i, sent in enumerate(batch):
             res[i, : sent.shape[0], : sent.shape[1]]
-        return cast(Sequence[torch.Tensor], res)
+        return res
 
 
 class FastTextLexer(nn.Module):
@@ -365,9 +372,6 @@ def freeze_module(module, freezing: bool = True):
     else:
         module.requires_grad_(True)
         module.train = type(module).train
-
-
-T = TypeVar("T", bound="BertLexerBatch")
 
 
 class BertLexerBatch(NamedTuple):
