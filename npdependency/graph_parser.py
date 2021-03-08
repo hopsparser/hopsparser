@@ -195,24 +195,24 @@ class BiAffineParser(nn.Module):
 
     def forward(
         self,
-        xwords: Union[torch.Tensor, BertLexerBatch],
-        xchars: torch.Tensor,
-        xft: Iterable[torch.Tensor],
+        words: Union[torch.Tensor, BertLexerBatch],
+        chars: torch.Tensor,
+        ft_subwords: torch.Tensor,
         sent_lengths: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Computes char embeddings
-        char_embed = self.char_rnn(xchars)
+        char_embed = self.char_rnn(chars)
         # Computes fasttext embeddings
-        ft_embed = self.ft_lexer(xft)
+        ft_embed = self.ft_lexer(ft_subwords)
         # Computes word embeddings
-        lex_emb = self.lexer(xwords)
+        lex_emb = self.lexer(words)
 
         # Encodes input for tagging and parsing
-        xinput = torch.cat((lex_emb, char_embed, ft_embed), dim=2)
-        packed_xinput = pack_padded_sequence(
-            xinput, sent_lengths, batch_first=True, enforce_sorted=False
+        inpt = torch.cat((lex_emb, char_embed, ft_embed), dim=-1)
+        packed_inpt = pack_padded_sequence(
+            inpt, sent_lengths, batch_first=True, enforce_sorted=False
         )
-        packed_dep_embeddings, _ = self.dep_rnn(packed_xinput)
+        packed_dep_embeddings, _ = self.dep_rnn(packed_inpt)
         dep_embeddings, _ = pad_packed_sequence(packed_dep_embeddings, batch_first=True)
 
         # Tagging

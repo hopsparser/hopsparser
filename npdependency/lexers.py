@@ -96,21 +96,21 @@ class CharRNNLexer(nn.Module):
             bidirectional=True,
         )
 
-    def forward(self, xinput: torch.Tensor) -> torch.Tensor:
+    def forward(self, inpt: torch.Tensor) -> torch.Tensor:
         """
         Predicts the word embedding from the token characters.
-        :param xinput: is a tensor of char indexes encoding a batch of tokens *×token_len
+        :param inpt: is a tensor of char indexes encoding a batch of tokens *×token_len
         :return: a word embedding tensor
         """
         # FIXME: there is probably a better way to do this since this results in tokens that are
         # full padding We need the of course (the will be cat to other padding embeddings in
         # graph_parser), running the RNN on them is frustrating
-        flattened_inputs = xinput.view(-1, xinput.shape[-1])
+        flattened_inputs = inpt.view(-1, inpt.shape[-1])
         embeddings = self.char_embedding(flattened_inputs)
         # ! FIXME: this does not take the padding into account
         _, (_, cembedding) = self.char_bilstm(embeddings)
         # TODO: why use the cell state and not the output state here?
-        result = cembedding.view(*xinput.shape[:-1], self.embedding_size)
+        result = cembedding.view(*inpt.shape[:-1], self.embedding_size)
         return result
 
     def word2charcodes(self, token: str) -> torch.Tensor:
@@ -201,14 +201,14 @@ class FastTextLexer(nn.Module):
         """
         return torch.from_numpy(self.fasttextmodel.get_subwords(token)[1])
 
-    def forward(self, xinput: torch.Tensor) -> torch.Tensor:
+    def forward(self, inpt: torch.Tensor) -> torch.Tensor:
         """
-        :param xinput: a batch of subwords *×num_subwords
+        :param inpt: a batch of subwords *×num_subwords
         :return: the fasttext embeddings for this batch
         """
         # Note: the padding embedding is 0 and should not be modified during training (as per the
         # `torch.nn.Embedding` doc) so the mean here does not include padding subwords
-        return self.embeddings(xinput).mean(dim=-2)
+        return self.embeddings(inpt).mean(dim=-2)
 
     def word2subcodes(self, token: str) -> torch.Tensor:
         """
