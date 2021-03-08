@@ -146,10 +146,7 @@ class CharRNNLexer(nn.Module):
         )
         for i, sent in enumerate(batch):
             res[i, : sent.shape[0], : sent.shape[1]]
-        # TODO: we transpose for now because that's what graph_parser currently expects, we'll
-        # change it later
-        # shape: longest_sentence_length×len(batch)×num_chars_in_longest_word
-        return cast(Sequence[torch.Tensor], res.transpose(0, 1))
+        return cast(Sequence[torch.Tensor], res)
 
 
 class FastTextLexer(nn.Module):
@@ -240,10 +237,7 @@ class FastTextLexer(nn.Module):
         )
         for i, sent in enumerate(batch):
             res[i, : sent.shape[0], : sent.shape[1]]
-        # TODO: we transpose for now because that's what graph_parser currently expects, we'll
-        # change it later
-        # shape: longest_sentence_length×len(batch)×num_chars_in_longest_word
-        return cast(Sequence[torch.Tensor], res.transpose(0, 1))
+        return cast(Sequence[torch.Tensor], res)
 
     @classmethod
     def load(cls, modelfile: Union[str, pathlib.Path], **kwargs) -> "FastTextLexer":

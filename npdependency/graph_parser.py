@@ -201,9 +201,9 @@ class BiAffineParser(nn.Module):
         sent_lengths: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Computes char embeddings
-        char_embed = torch.stack([self.char_rnn(column) for column in xchars], dim=1)
+        char_embed = torch.stack([self.char_rnn(sent) for sent in xchars], dim=0)
         # Computes fasttext embeddings
-        ft_embed = torch.stack([self.ft_lexer(column) for column in xft], dim=1)
+        ft_embed = torch.stack([self.ft_lexer(sent) for sent in xft], dim=0)
         # Computes word embeddings
         lex_emb = self.lexer(xwords)
 

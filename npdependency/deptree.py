@@ -329,9 +329,7 @@ class DependencyDataset:
         self.tags: List[List[int]] = []
         self.encode()
 
-    # FIXME: this is inconsistent: we encode the words but not the chars or the ft subwords it would
-    # be better to do it here, replace encoded_words by an encoded_trees that contain the encodeings
-    # for all the lexers?
+    # TODO: use an `encoded_tree` object instead of hardcoding the lexers here
     def encode(self):
         self.encoded_words = []
         self.encoded_ft = []
@@ -341,8 +339,7 @@ class DependencyDataset:
         self.tags = []
 
         for tree in self.treelist:
-            encoded_words = self.lexer.encode(tree.words)
-            self.encoded_words.append(encoded_words)
+            self.encoded_words.append(self.lexer.encode(tree.words))
             self.encoded_ft.append(self.ft_lexer.encode(tree.words))
             self.encoded_chars.append(self.chars_lexer.encode(tree.words))
             tag_idxes = [
