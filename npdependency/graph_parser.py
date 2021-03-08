@@ -799,7 +799,7 @@ def main(argv=None):
                 model_path=model_dir,
                 overrides=overrides,
                 treebank=traintrees,
-                fasttext=args.fasttext,
+                fasttext=pathlib.Path(args.fasttext),
             )
 
         trainset = DependencyDataset(
