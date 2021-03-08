@@ -41,12 +41,12 @@ The parsing task (or prediction task) assumes you have an already trained model 
 MODEL. You can parse a file INPUT_FILE in truncated CONLL-U format with the command:
 
 ```sh
-hopsparser parse MODEL/params.yaml INPUT_FILE OUTPUT_FILE
+hopsparser parse MODEL INPUT_FILE OUTPUT_FILE
 ```
 
-This results in a parsed file called `OUTPUT_FILE`. The `MODEL/params.yaml` is the model
-hyperparameters file. Both INPUT_FILE and OUTPUT_FILE can be set to `-` to use the standard i/o
-streams, which can be convenient if you want to use the parser in a pipe.
+This results in a parsed file called `OUTPUT_FILE`. Both INPUT_FILE and OUTPUT_FILE can be set to
+`-` to use the standard i/o streams, which can be convenient if you want to use the parser in a
+pipe.
 
 The `INPUT_FILE` argument is supposed to be the path to a file in the
 [CONLL-U](https://universaldependencies.org/format.html) format, possibly with missing columns. For
