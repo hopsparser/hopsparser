@@ -203,12 +203,12 @@ class FastTextLexer(nn.Module):
 
     def forward(self, xinput: torch.Tensor) -> torch.Tensor:
         """
-        :param xinput: a batch of subwords
+        :param xinput: a batch of subwords *×num_subwords
         :return: the fasttext embeddings for this batch
         """
         # Note: the padding embedding is 0 and should not be modified during training (as per the
-        # `torch.nn.Embedding` doc) so the mean here does not include padding tokens
-        return self.embeddings(xinput).mean(dim=1)
+        # `torch.nn.Embedding` doc) so the mean here does not include padding subwords
+        return self.embeddings(xinput).mean(dim=-2)
 
     def word2subcodes(self, token: str) -> torch.Tensor:
         """
@@ -228,7 +228,7 @@ class FastTextLexer(nn.Module):
             subword_indices, padding_value=self.pad_idx, batch_first=True
         )
 
-    def make_batch(self, batch: Sequence[torch.Tensor]) -> Sequence[torch.Tensor]:
+    def make_batch(self, batch: Sequence[torch.Tensor]) -> torch.Tensor:
         """Pad a batch of sentences."""
         # We need to pad manually because `pad_sequence` only accepts tensors that have all the same
         # dimensions except for one and we differ both in the sentence lengths dimension and in the
@@ -244,7 +244,7 @@ class FastTextLexer(nn.Module):
         )
         for i, sent in enumerate(batch):
             res[i, : sent.shape[0], : sent.shape[1]]
-        return cast(Sequence[torch.Tensor], res)
+        return res
 
     @classmethod
     def load(cls, modelfile: Union[str, pathlib.Path], **kwargs) -> "FastTextLexer":

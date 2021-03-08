@@ -203,7 +203,7 @@ class BiAffineParser(nn.Module):
         # Computes char embeddings
         char_embed = self.char_rnn(xchars)
         # Computes fasttext embeddings
-        ft_embed = torch.stack([self.ft_lexer(sent) for sent in xft], dim=0)
+        ft_embed = self.ft_lexer(xft)
         # Computes word embeddings
         lex_emb = self.lexer(xwords)
 
