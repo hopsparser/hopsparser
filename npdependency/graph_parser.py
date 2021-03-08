@@ -799,7 +799,9 @@ def main(argv=None):
                 model_path=model_dir,
                 overrides=overrides,
                 treebank=traintrees,
-                fasttext=pathlib.Path(args.fasttext),
+                fasttext=(
+                    pathlib.Path(args.fasttext) if args.fasttext is not None else None
+                ),
             )
 
         trainset = DependencyDataset(
