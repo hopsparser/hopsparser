@@ -321,7 +321,8 @@ class DependencyDataset:
             self.tagtoi = {tag: idx for idx, tag in enumerate(self.itotag)}
         else:
             self.init_tags(self.treelist)
-        self.encoded_words: List[Union[List[int], BertLexerSentence]] = []
+        self.encoded_words: List[Union[torch.Tensor, BertLexerSentence]] = []
+        self.encoded_ft: List[torch.Tensor] = []
         self.heads: List[List[int]] = []
         self.labels: List[List[int]] = []
         self.tags: List[List[int]] = []
@@ -331,17 +332,18 @@ class DependencyDataset:
     # be better to do it here, replace encoded_words by an encoded_trees that contain the encodeings
     # for all the lexers?
     def encode(self):
-        self.encoded_words, self.heads, self.labels, self.tags = [], [], [], []
+        self.encoded_words, self.encoded_ft, self.heads, self.labels, self.tags = [], [], [], [], []
 
         for tree in self.treelist:
             encoded_words = self.lexer.encode(tree.words)
+            self.encoded_words.append(encoded_words)
+            self.encoded_ft.append(self.ft_lexer.encode(tree.words))
             tag_idxes = [
                 self.tagtoi.get(tag, self.tagtoi[self.UNK_WORD])
                 for tag in tree.pos_tags
             ]
             tag_idxes[0] = self.LABEL_PADDING
             self.tags.append(tag_idxes)
-            self.encoded_words.append(encoded_words)
             heads = tree.heads
             heads[0] = self.LABEL_PADDING
             self.heads.append(heads)
@@ -387,7 +389,7 @@ class DependencyDataset:
             # `torch.arange(sent_lengths.max()).unsqueeze(0).lt(sent_lengths.unsqueeze(1).logical_and(torch.arange(sent_lengths.max()).gt(0))`
             content_mask = labels.ne(self.LABEL_PADDING)
             sent_lengths = torch.tensor([len(t) for t in trees])
-            subwords = tuple(self.ft_lexer.batch_sentences([t.words for t in trees]))
+            subwords = self.ft_lexer.make_batch([self.encoded_ft[j] for j in batch_indices])
             tags = self.pad(
                 [self.tags[j] for j in batch_indices], padding_value=self.LABEL_PADDING
             )
