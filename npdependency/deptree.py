@@ -382,7 +382,7 @@ class DependencyDataset:
 
             encoded_words = self.lexer.make_batch([self.encoded_words[j] for j in batch_indices])  # type: ignore
             chars = self.chars_lexer.make_batch(
-                [self.encoded_ft[j] for j in batch_indices]
+                [self.encoded_chars[j] for j in batch_indices]
             )
             subwords = self.ft_lexer.make_batch(
                 [self.encoded_ft[j] for j in batch_indices]
