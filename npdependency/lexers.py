@@ -179,10 +179,10 @@ class FastTextLexer(nn.Module):
         ).to(torch.float)
         weights.requires_grad = True
         self.embeddings = nn.Embedding.from_pretrained(
-            weights, padding_idx=self.vocab_size + 1
+            weights, padding_idx=self.vocab_size
         )
         self.special_tokens: Set = set([] if special_tokens is None else special_tokens)
-        self.special_tokens_idx: Final[int] = self.vocab_size + 2
+        self.special_tokens_idx: Final[int] = self.vocab_size + 1
         self.pad_idx: Final[int] = self.embeddings.padding_idx
 
     def subwords_idxes(self, token: str) -> torch.Tensor:
