@@ -702,6 +702,7 @@ def parse(
         use_labels=parser.labels,
         use_tags=parser.tagset,
     )
+    print("Parsing", file=sys.stderr)
     with smart_open(out_file, "w") as ostream:
         parser.predict_batch(testset, cast(IO[str], ostream), greedy=False)
 
