@@ -323,6 +323,7 @@ class DependencyDataset:
             self.init_tags(self.treelist)
         self.encoded_words: List[Union[torch.Tensor, BertLexerSentence]] = []
         self.encoded_ft: List[torch.Tensor] = []
+        self.encoded_chars: List[torch.Tensor] = []
         self.heads: List[List[int]] = []
         self.labels: List[List[int]] = []
         self.tags: List[List[int]] = []
@@ -332,12 +333,18 @@ class DependencyDataset:
     # be better to do it here, replace encoded_words by an encoded_trees that contain the encodeings
     # for all the lexers?
     def encode(self):
-        self.encoded_words, self.encoded_ft, self.heads, self.labels, self.tags = [], [], [], [], []
+        self.encoded_words = []
+        self.encoded_ft = []
+        self.encoded_chars = []
+        self.heads = []
+        self.labels = []
+        self.tags = []
 
         for tree in self.treelist:
             encoded_words = self.lexer.encode(tree.words)
             self.encoded_words.append(encoded_words)
             self.encoded_ft.append(self.ft_lexer.encode(tree.words))
+            self.encoded_chars.append(self.chars_lexer.encode(tree.words))
             tag_idxes = [
                 self.tagtoi.get(tag, self.tagtoi[self.UNK_WORD])
                 for tag in tree.pos_tags
@@ -376,8 +383,17 @@ class DependencyDataset:
             batch_indices = order[i : i + batch_size]
             trees = tuple(self.treelist[j] for j in batch_indices)
 
-            chars = tuple(self.chars_lexer.batch_chars([t.words for t in trees]))
             encoded_words = self.lexer.make_batch([self.encoded_words[j] for j in batch_indices])  # type: ignore
+            chars = self.chars_lexer.make_batch(
+                [self.encoded_ft[j] for j in batch_indices]
+            )
+            subwords = self.ft_lexer.make_batch(
+                [self.encoded_ft[j] for j in batch_indices]
+            )
+
+            tags = self.pad(
+                [self.tags[j] for j in batch_indices], padding_value=self.LABEL_PADDING
+            )
             heads = self.pad(
                 [self.heads[j] for j in batch_indices], padding_value=self.LABEL_PADDING
             )
@@ -385,14 +401,11 @@ class DependencyDataset:
                 [self.labels[j] for j in batch_indices],
                 padding_value=self.LABEL_PADDING,
             )
+
+            sent_lengths = torch.tensor([len(t) for t in trees])
             # NOTE: this is equivalent to and faster and clearer but less pure than
             # `torch.arange(sent_lengths.max()).unsqueeze(0).lt(sent_lengths.unsqueeze(1).logical_and(torch.arange(sent_lengths.max()).gt(0))`
             content_mask = labels.ne(self.LABEL_PADDING)
-            sent_lengths = torch.tensor([len(t) for t in trees])
-            subwords = self.ft_lexer.make_batch([self.encoded_ft[j] for j in batch_indices])
-            tags = self.pad(
-                [self.tags[j] for j in batch_indices], padding_value=self.LABEL_PADDING
-            )
 
             yield DependencyBatch(
                 chars=chars,

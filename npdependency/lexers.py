@@ -106,49 +106,52 @@ class CharRNNLexer(nn.Module):
         result = cembedding.view(-1, self.embedding_size)
         return result
 
-    def word2charcodes(self, token: str) -> List[int]:
-        """
-        Turns a string into a list of char codes.
+    def word2charcodes(self, token: str) -> torch.Tensor:
+        """Turn a string into a list of char codes.
+
+        ## Notes
+
+        Unknown chars are simply skipped. If a word only consists of unknow chars, the charcode
+        corresponding to padding is used. This is not ideal but it's easy. In the future it
+        **might** be marginally interesting to use UNK codes instead and apply dropout.
         """
         if token in self.special_tokens:
-            return [self.SPECIAL_TOKENS_IDX]
+            res = [self.SPECIAL_TOKENS_IDX]
         res = [self.c2idx[c] for c in token if c in self.c2idx]
         if not res:
-            return [self.PAD_IDX]
-        return res
+            res = [self.PAD_IDX]
+        return torch.tensor(res, dtype=torch.long)
 
-    def batchedtokens2codes(self, toklist: List[str]) -> torch.Tensor:
-        """
-        Codes a list of tokens as a batch of lists of charcodes and pads them if needed
-        """
-        charcodes = [
-            torch.tensor(self.word2charcodes(token), dtype=torch.long)
-            for token in toklist
-        ]
-        return pad_sequence(charcodes, padding_value=self.PAD_IDX, batch_first=True)
+    def encode(self, tokens_sequence: Sequence[str]) -> torch.Tensor:
+        """Map word tokens to integer indices."""
+        subword_indices = [self.word2charcodes(token) for token in tokens_sequence]
+        # shape: sentence_length×num_chars_in_longest_word
+        return pad_sequence(
+            subword_indices, padding_value=self.PAD_IDX, batch_first=True
+        )
 
-    def batch_chars(self, sent_batch: List[List[str]]) -> Iterable[torch.Tensor]:
-        """
-        Batches a list of sentences such that each sentence is padded with the same word length.
-        :yields: the character encodings for each word position in this batch of sentences
-                 (yields the columns of the batch)
-        """
-        sent_lengths = [len(s) for s in sent_batch]
-        max_sent_len = max(sent_lengths)
+    def make_batch(self, batch: Sequence[torch.Tensor]) -> Sequence[torch.Tensor]:
+        """Pad a batch of sentences."""
+        # We need to pad manually because `pad_sequence` only accepts tensors that have all the same
+        # dimensions except for one and we differ both in the sentence lengths dimension and in the
+        # word length dimension
+        res = torch.full(
+            (
+                len(batch),
+                max(t.shape[0] for t in batch),
+                max(t.shape[1] for t in batch),
+            ),
+            fill_value=self.PAD_IDX,
+            dtype=torch.long,
+        )
+        for i, sent in enumerate(batch):
+            res[i, : sent.shape[0], : sent.shape[1]]
+        # TODO: we transpose for now because that's what graph_parser currently expects, we'll
+        # change it later
+        # shape: longest_sentence_length×len(batch)×num_chars_in_longest_word
+        return cast(Sequence[torch.Tensor], res.transpose(0, 1))
 
-        # We use empty strings for padding, so they will be correctly filled with the padding value
-        # when we tensorize
-        batched_sents = [["" for _ in range(max_sent_len)] for _ in sent_batch]
-        for batch_sent, l, sent in zip(batched_sents, sent_lengths, sent_batch):
-            batch_sent[:l] = sent
 
-        for idx in range(max_sent_len):
-            yield self.batchedtokens2codes(
-                [sentence[idx] for sentence in batched_sents]
-            )
-
-
-# TODO: convert to the unified lexer API
 class FastTextLexer(nn.Module):
     """
     This is subword model using FastText as backend.
@@ -242,7 +245,6 @@ class FastTextLexer(nn.Module):
         # shape: longest_sentence_length×len(batch)×num_chars_in_longest_word
         return cast(Sequence[torch.Tensor], res.transpose(0, 1))
 
-    # FIXME: this doesn't actually create the model, it just loads the wrapped fasttext ugh
     @classmethod
     def load(cls, modelfile: Union[str, pathlib.Path], **kwargs) -> "FastTextLexer":
         return cls(fasttext.load_model(str(modelfile)), **kwargs)
