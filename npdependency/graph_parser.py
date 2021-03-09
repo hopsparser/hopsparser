@@ -692,9 +692,8 @@ def parse(
     if overrides is None:
         overrides = dict()
     parser = BiAffineParser.load(model_path, overrides)
-    testtrees = DepGraph.read_conll(in_file)
     testset = DependencyDataset(
-        testtrees,
+        DepGraph.read_conll(in_file),
         parser.lexer,
         parser.char_rnn,
         parser.ft_lexer,
@@ -784,8 +783,7 @@ def main(argv=None):
 
     if args.train_file and args.dev_file:
         # TRAIN MODE
-        traintrees = DependencyDataset.read_conll(args.train_file, max_tree_length=150)
-        devtrees = DependencyDataset.read_conll(args.dev_file)
+        traintrees = DepGraph.read_conll(args.train_file, max_tree_length=150)
         if os.path.exists(model_dir) and not args.overwrite:
             print(f"Continuing training from {model_dir}", file=sys.stderr)
             parser = BiAffineParser.load(model_dir, overrides)
@@ -818,7 +816,7 @@ def main(argv=None):
             use_tags=parser.tagset,
         )
         devset = DependencyDataset(
-            devtrees,
+            DepGraph.read_conll(args.dev_file),
             parser.lexer,
             parser.char_rnn,
             parser.ft_lexer,
