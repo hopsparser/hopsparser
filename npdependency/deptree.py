@@ -313,23 +313,20 @@ class DependencyDataset:
         lexer: lexers.Lexer,
         chars_lexer: lexers.CharRNNLexer,
         ft_lexer: lexers.FastTextLexer,
-        use_labels: Optional[Sequence[str]] = None,
-        use_tags: Optional[Sequence[str]] = None,
+        use_labels: Sequence[str],
+        use_tags: Sequence[str],
     ):
         self.lexer = lexer
         self.chars_lexer = chars_lexer
         self.ft_lexer = ft_lexer
         self.treelist = treelist
-        if use_labels:
-            self.itolab = use_labels
-            self.labtoi = {label: idx for idx, label in enumerate(self.itolab)}
-        else:
-            self.init_labels(self.treelist)
-        if use_tags:
-            self.itotag = use_tags
-            self.tagtoi = {tag: idx for idx, tag in enumerate(self.itotag)}
-        else:
-            self.init_tags(self.treelist)
+
+        self.itolab = use_labels
+        self.labtoi = {label: idx for idx, label in enumerate(self.itolab)}
+
+        self.itotag = use_tags
+        self.tagtoi = {tag: idx for idx, tag in enumerate(self.itotag)}
+
         self.encoded_trees: List[EncodedTree] = []
         self.encode()
 
@@ -438,14 +435,6 @@ class DependencyDataset:
             padding_value=padding_value,
             batch_first=True,
         )
-
-    def init_labels(self, treelist: Iterable[DepGraph]):
-        self.itolab = gen_labels(treelist)
-        self.labtoi = {label: idx for idx, label in enumerate(self.itolab)}
-
-    def init_tags(self, treelist: Iterable[DepGraph]):
-        self.itotag = gen_tags(treelist)
-        self.tagtoi = {tag: idx for idx, tag in enumerate(self.itotag)}
 
     def __len__(self):
         return len(self.treelist)
