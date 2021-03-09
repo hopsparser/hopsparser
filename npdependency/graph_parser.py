@@ -13,7 +13,6 @@ from typing import (
     Callable,
     Dict,
     IO,
-    Iterable,
     List,
     Optional,
     Sequence,
@@ -693,7 +692,7 @@ def parse(
     if overrides is None:
         overrides = dict()
     parser = BiAffineParser.load(model_path, overrides)
-    testtrees = DependencyDataset.read_conll(in_file)
+    testtrees = DepGraph.read_conll(in_file)
     testset = DependencyDataset(
         testtrees,
         parser.lexer,

@@ -9,9 +9,9 @@ from typing import (
     Optional,
     Sequence,
     Set,
+    Type,
     TypeVar,
     Union,
-    cast,
 )
 
 import fasttext
@@ -27,9 +27,6 @@ try:
     from typing import Final, Literal
 except ImportError:
     from typing_extensions import Final, Literal  # type: ignore
-
-
-T = TypeVar("T")
 
 
 @torch.jit.script
@@ -156,6 +153,9 @@ class CharRNNLexer(nn.Module):
         return res
 
 
+_T_FastTextLexer = TypeVar("_T_FastTextLexer", bound="FastTextLexer")
+
+
 class FastTextLexer(nn.Module):
     """
     This is subword model using FastText as backend.
@@ -247,13 +247,17 @@ class FastTextLexer(nn.Module):
         return res
 
     @classmethod
-    def load(cls, modelfile: Union[str, pathlib.Path], **kwargs) -> "FastTextLexer":
+    def load(
+        cls: Type[_T_FastTextLexer], modelfile: Union[str, pathlib.Path], **kwargs
+    ) -> _T_FastTextLexer:
         return cls(fasttext.load_model(str(modelfile)), **kwargs)
 
     @classmethod
     def train_model_from_sents(
-        cls, source_sents: Iterable[List[str]], target_file: Union[str, pathlib.Path]
-    ) -> "FastTextLexer":
+        cls: Type[_T_FastTextLexer],
+        source_sents: Iterable[List[str]],
+        target_file: Union[str, pathlib.Path],
+    ) -> _T_FastTextLexer:
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
         else:
@@ -274,10 +278,10 @@ class FastTextLexer(nn.Module):
 
     @classmethod
     def train_model_from_raw(
-        cls,
+        cls: Type[_T_FastTextLexer],
         raw_text_path: Union[str, pathlib.Path],
         target_file: Union[str, pathlib.Path],
-    ) -> "FastTextLexer":
+    ) -> _T_FastTextLexer:
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
         else:
@@ -374,12 +378,17 @@ def freeze_module(module, freezing: bool = True):
         module.train = type(module).train
 
 
+_T_BertLexerBatch = TypeVar("_T_BertLexerBatch", bound="BertLexerBatch")
+
+
 class BertLexerBatch(NamedTuple):
     word_indices: torch.Tensor
     bert_encoding: BatchEncoding
     subword_alignments: Sequence[Sequence[TokenSpan]]
 
-    def to(self: T, device: Union[str, torch.device]) -> T:
+    def to(
+        self: _T_BertLexerBatch, device: Union[str, torch.device]
+    ) -> _T_BertLexerBatch:
         return type(self)(
             self.word_indices.to(device=device),
             self.bert_encoding.to(device=device),

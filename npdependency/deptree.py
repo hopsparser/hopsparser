@@ -8,6 +8,8 @@ from typing import (
     NamedTuple,
     Optional,
     Sequence,
+    Type,
+    TypeVar,
     Union,
 )
 
@@ -50,6 +52,9 @@ class DepNode:
 
     def to_conll(self) -> str:
         return f"{self.identifier}\t{self.form}\t{self.lemma}\t{self.upos}\t{self.xpos}\t{self.feats}\t{self.head}\t{self.deprel}\t{self.deps}\t{self.misc}"
+
+
+_T_DEPGRAPH = TypeVar("_T_DEPGRAPH", bound="DepGraph")
 
 
 class DepGraph:
@@ -144,7 +149,7 @@ class DepGraph:
         )
 
     @classmethod
-    def from_conllu(cls, istream: Iterable[str]) -> "DepGraph":
+    def from_conllu(cls: Type[_T_DEPGRAPH], istream: Iterable[str]) -> _T_DEPGRAPH:
         """
         Reads a conll tree from input stream
         """
@@ -202,6 +207,35 @@ class DepGraph:
 
     def __len__(self):
         return len(self.words)
+
+    @classmethod
+    def read_conll(
+        cls: Type[_T_DEPGRAPH],
+        filename: Union[str, pathlib.Path, IO[str]],
+        max_tree_length: Optional[int] = None,
+    ) -> List[_T_DEPGRAPH]:
+        print(f"Reading treebank from {filename}")
+        with smart_open(filename) as istream:
+            trees = []
+            current_tree_lines: List[str] = []
+            # Add a dummy empty line to flush the last tree even if the CoNLL-U mandatory empty last
+            # line is absent
+            for line in (*istream, ""):
+                if not line or line.isspace():
+                    if current_tree_lines:
+                        if (
+                            max_tree_length is None
+                            or len(current_tree_lines) <= max_tree_length
+                        ):
+                            trees.append(cls.from_conllu(current_tree_lines))
+                        else:
+                            print(
+                                f"Dropped tree with length {len(current_tree_lines)} > {max_tree_length}",
+                            )
+                        current_tree_lines = []
+                else:
+                    current_tree_lines.append(line)
+        return trees
 
 
 class EncodedTree(NamedTuple):
@@ -278,34 +312,6 @@ class DependencyDataset:
     # Labels that are -100 are ignored in torch crossentropy (we still set it explicitely in
     # `graph_parser`)
     LABEL_PADDING: Final[int] = -100
-
-    @staticmethod
-    def read_conll(
-        filename: Union[str, pathlib.Path, IO[str]],
-        max_tree_length: Optional[int] = None,
-    ) -> List[DepGraph]:
-        print(f"Reading treebank from {filename}")
-        with smart_open(filename) as istream:
-            trees = []
-            current_tree_lines: List[str] = []
-            # Add a dummy empty line to flush the last tree even if the CoNLL-U mandatory empty last
-            # line is absent
-            for line in (*istream, ""):
-                if not line or line.isspace():
-                    if current_tree_lines:
-                        if (
-                            max_tree_length is None
-                            or len(current_tree_lines) <= max_tree_length
-                        ):
-                            trees.append(DepGraph.from_conllu(current_tree_lines))
-                        else:
-                            print(
-                                f"Dropped tree with length {len(current_tree_lines)} > {max_tree_length}",
-                            )
-                        current_tree_lines = []
-                else:
-                    current_tree_lines.append(line)
-        return trees
 
     def __init__(
         self,
