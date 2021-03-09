@@ -4,7 +4,7 @@ import fastapi
 import pydantic
 
 from npdependency import __version__
-from npdependency import deptree, graph_parser, lexers
+from npdependency import deptree, graph_parser
 
 
 class Settings(pydantic.BaseSettings):
@@ -96,15 +96,11 @@ async def process(req: ParseRequest) -> ParseResponse:
                 )
             )
         treebank_inpt = io.StringIO("\n\n".join(tree_strs))
-    trees = deptree.DependencyDataset.read_conll(treebank_inpt)
-    ft_dataset = lexers.FastTextDataSet(
-        parser.ft_lexer, special_tokens=[deptree.DepGraph.ROOT_TOKEN]
-    )
     treebank = deptree.DependencyDataset(
-        trees,
+        deptree.DepGraph.read_conll(treebank_inpt),
         parser.lexer,
-        parser.charset,
-        ft_dataset,
+        parser.char_rnn,
+        parser.ft_lexer,
         use_labels=parser.labels,
         use_tags=parser.tagset,
     )
