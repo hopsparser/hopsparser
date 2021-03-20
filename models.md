@@ -12,9 +12,9 @@ running them on CPUs is still possible, albeit slow.
 
 | Model name                  | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download                            |
 | --------------------------- | ---------- | --------- | ----------- | ---------- | ----------------------------------- |
-| UD_French-FTB-2.7-camembert | 98.42      | 88.23     | 98.55       | 88.38      | [link][UD_French-FTB-2.7-camembert] |
-| UD_French-FTB-2.7-flaubert  | 98.51      | 88.26     | 98.58       | 88.55      | [link][UD_French-FTB-2.7-flaubert]  |
-| UD_French-FTB-2.7-nobert    | 97.81      | 84.69     | 97.85       | 83.93      | [link][UD_French-FTB-2.7-nobert]    |
+| UD_French-FTB-2.7-camembert | 98.46      |88.25      |98.56      |88.44      | [link][UD_French-FTB-2.7-camembert] |
+| UD_French-FTB-2.7-flaubert  | 98.51      |88.27      |98.61      |88.46      | [link][UD_French-FTB-2.7-flaubert]  |
+| UD_French-FTB-2.7-nobert    | 97.86      |84.28      |97.89      |83.91      | [link][UD_French-FTB-2.7-nobert]    |
 
 [UD_French-FTB-2.7-camembert]: https://sharedocs.huma-num.fr/wl/?id=qu7IhWYrISIcQDrHUzcf774JkCXfyBI1
 
@@ -26,9 +26,9 @@ running them on CPUs is still possible, albeit slow.
 
 | Model name          | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download                    |
 | ------------------- | ---------- | --------- | ----------- | ---------- | --------------------------- |
-| ftb_spmrl-camembert | 98.83      | 89.02     | 98.69       | 89.31      | [link][ftb_spmrl-camembert] |
-| ftb_spmrl-flaubert  | 98.87      | 89.47     | 98.78       | 89.64      | [link][ftb_spmrl-flaubert]  |
-| ftb_spmrl-nobert    | 98.2       | 85.2      | 98.13       | 84.49      | [link][ftb_spmrl-nobert]    |
+| ftb_spmrl-camembert | 98.88      |89.05      |98.74      |89.35      | [link][ftb_spmrl-camembert] |
+| ftb_spmrl-flaubert  | 98.84      |89.22      |98.71      |89.51      | [link][ftb_spmrl-flaubert]  |
+| ftb_spmrl-nobert    | 98.25      |85.37      |98.13      |84.57      | [link][ftb_spmrl-nobert]    |
 
 [ftb_spmrl-camembert]: https://sharedocs.huma-num.fr/wl/?id=CkLcU78r5JZ6hDZ5OBuyUJM9ffh6ksgn
 
@@ -40,9 +40,9 @@ running them on CPUs is still possible, albeit slow.
 
 | Model name                  | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download                            |
 | --------------------------- | ---------- | --------- | ----------- | ---------- | ----------------------------------- |
-| UD_French-GSD-2.7-camembert | 98.57      | 95.55     | 98.48       | 94.04      | [link][UD_French-GSD-2.7-camembert] |
-| UD_French-GSD-2.7-flaubert  | 98.57      | 95.49     | 98.53       | 94.24      | [link][UD_French-GSD-2.7-flaubert]  |
-| UD_French-GSD-2.7-nobert    | 97.77      | 91.67     | 97.5        | 88.93      | [link][UD_French-GSD-2.7-nobert]    |
+| UD_French-GSD-2.7-camembert | 98.52      |95.53      |98.22      |94.06      | [link][UD_French-GSD-2.7-camembert] |
+| UD_French-GSD-2.7-flaubert  | 98.51      |88.27      |98.61      |88.46      | [link][UD_French-GSD-2.7-flaubert]  |
+| UD_French-GSD-2.7-nobert    | 97.79      |91.75      |97.28      |88.95      | [link][UD_French-GSD-2.7-nobert]    |
 
 [UD_French-GSD-2.7-camembert]: https://sharedocs.huma-num.fr/wl/?id=3Ax0VXpnsmUuzqTHPnunBnUVW6AgS1rC
 
@@ -54,9 +54,9 @@ running them on CPUs is still possible, albeit slow.
 
 | Model name                      | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download                                |
 | ------------------------------- | ---------- | --------- | ----------- | ---------- | --------------------------------------- |
-| UD_French-Sequoia-2.7-camembert | 99.01      | 93.6      | 99.23       | 93.85      | [link][UD_French-Sequoia-2.7-camembert] |
-| UD_French-Sequoia-2.7-flaubert  | 99.18      | 94.13     | 99.33       | 94.71      | [link][UD_French-Sequoia-2.7-flaubert]  |
-| UD_French-Sequoia-2.7-nobert    | 96.89      | 85.26     | 97.32       | 85.29      | [link][UD_French-Sequoia-2.7-nobert]    |
+| UD_French-Sequoia-2.7-camembert | 99.02      |93.26      |99.07      |93.36      | [link][UD_French-Sequoia-2.7-camembert] |
+| UD_French-Sequoia-2.7-flaubert  | 99.16      |94.15      |99.33      |94.31      | [link][UD_French-Sequoia-2.7-flaubert]  |
+| UD_French-Sequoia-2.7-nobert    | 96.97      |85.41      |97.26      |85.63      | [link][UD_French-Sequoia-2.7-nobert]    |
 
 [UD_French-Sequoia-2.7-camembert]: https://sharedocs.huma-num.fr/wl/?id=GW5ue77TNS99lQAZJ8fb5ujtj1rEmBfj
 
@@ -68,9 +68,9 @@ running them on CPUs is still possible, albeit slow.
 
 | Model name                     | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download                               |
 | ------------------------------ | ---------- | --------- | ----------- | ---------- | -------------------------------------- |
-| UD_French-Spoken-2.7-camembert | 96.49      | 80.82     | 96.35       | 78.63      | [link][UD_French-Spoken-2.7-camembert] |
-| UD_French-Spoken-2.7-flaubert  | 97.05      | 79.84     | 96.67       | 78.72      | [link][UD_French-Spoken-2.7-flaubert]  |
-| UD_French-Spoken-2.7-nobert    | 93.72      | 72.71     | 92.75       | 71.02      | [link][UD_French-Spoken-2.7-nobert]    |
+| UD_French-Spoken-2.7-camembert | 96.97      |80.38      |96.83      |79.72      | [link][UD_French-Spoken-2.7-camembert] |
+| UD_French-Spoken-2.7-flaubert  | 97.06      |80.68      |96.69      |79.15      | [link][UD_French-Spoken-2.7-flaubert]  |
+| UD_French-Spoken-2.7-nobert    | 93.94      |72.61      |93.42      |71.66      | [link][UD_French-Spoken-2.7-nobert]    |
 
 [UD_French-Spoken-2.7-camembert]: https://sharedocs.huma-num.fr/wl/?id=MiCoXaMelAQEzxZGzzKTrSGmCIGfNwFd
 
