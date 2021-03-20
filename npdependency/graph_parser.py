@@ -199,6 +199,16 @@ class BiAffineParser(nn.Module):
         ft_subwords: torch.Tensor,
         sent_lengths: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Predict POS, heads and deprel scores.
+
+        ## Outputs
+
+        `tag_scores, arc_scores, lab_scores` with shapes
+
+        - `tag_score`: $`batch_size×max_sent_length×num_pos_tags`$
+        - `arc_scores`: $`batch_size×max_sent_length×max_sent_length`$
+        - `label_scores`: $`batch_size×num_deprels×max_sent_length×max_sent_length`$
+        """
         # Computes char embeddings
         char_embed = self.char_rnn(chars)
         # Computes fasttext embeddings
