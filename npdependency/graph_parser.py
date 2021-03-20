@@ -279,14 +279,13 @@ class BiAffineParser(nn.Module):
             reduction="sum", ignore_index=dev_set.LABEL_PADDING
         )
 
-        # NOTE: the accuracy scoring is approximative and cannot be interpreted as an UAS/LAS score
-        # NOTE: fun project: track the correlation between them
-
         self.eval()
 
         dev_batches = dev_set.make_batches(
             batch_size, shuffle_batches=False, shuffle_data=False, order_by_length=True
         )
+        # NOTE: the accuracy scoring is approximative and cannot be interpreted as an UAS/LAS score
+        # NOTE: fun project: track the correlation between them
         tag_acc, arc_acc, lab_acc, gloss = 0, 0, 0, 0.0
         overall_size = 0
 
