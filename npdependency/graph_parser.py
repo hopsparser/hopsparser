@@ -574,24 +574,24 @@ class BiAffineParser(nn.Module):
         # TODO: move the initialization code to initialize (even if that duplicates code?)
         model_path = pathlib.Path(model_path)
         if model_path.is_dir():
-            config_dir = model_path
-            model_path = model_path / "config.yaml"
-            if not model_path.exists():
-                raise ValueError(f"No config in {model_path.parent}")
+            config_path = model_path / "config.yaml"
+            if not config_path.exists():
+                raise ValueError(f"No config in {model_path}")
         else:
             warnings.warn(
                 "Loading a model from a YAML file is deprecated and will be removed in a future version."
             )
-            config_dir = model_path.parent
+            config_path = model_path
+            model_path = model_path.parent
         print(f"Initializing a parser from {model_path}")
 
-        with open(model_path) as in_stream:
+        with open(config_path) as in_stream:
             hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
         hp.update(overrides)
         hp.setdefault("device", "cpu")
 
         # FIXME: put that in the word lexer class
-        ordered_vocab = loadlist(config_dir / "vocab.lst")
+        ordered_vocab = loadlist(model_path / "vocab.lst")
 
         # TODO: separate the BERT and word lexers
         lexer: Union[DefaultLexer, BertBaseLexer]
@@ -604,7 +604,7 @@ class BiAffineParser(nn.Module):
                 unk_word=DependencyDataset.UNK_WORD,
             )
         else:
-            bert_config_path = config_dir / "bert_config"
+            bert_config_path = model_path / "bert_config"
             if bert_config_path.exists():
                 bert_model = str(bert_config_path)
             else:
@@ -631,18 +631,18 @@ class BiAffineParser(nn.Module):
                     hp["lexer"] = "."
 
         chars_lexer = CharRNNLexer(
-            charset=loadlist(config_dir / "charcodes.lst"),
+            charset=loadlist(model_path / "charcodes.lst"),
             special_tokens=[DepGraph.ROOT_TOKEN],
             char_embedding_size=hp["char_embedding_size"],
             embedding_size=hp["charlstm_output_size"],
         )
 
         ft_lexer = FastTextLexer.load(
-            str(config_dir / "fasttext_model.bin"), special_tokens=[DepGraph.ROOT_TOKEN]
+            str(model_path / "fasttext_model.bin"), special_tokens=[DepGraph.ROOT_TOKEN]
         )
 
-        itolab = loadlist(config_dir / "labcodes.lst")
-        itotag = loadlist(config_dir / "tagcodes.lst")
+        itolab = loadlist(model_path / "labcodes.lst")
+        itotag = loadlist(model_path / "tagcodes.lst")
         parser = cls(
             biased_biaffine=hp.get("biased_biaffine", True),
             device=hp["device"],
@@ -659,14 +659,14 @@ class BiAffineParser(nn.Module):
             mlp_dropout=hp["mlp_dropout"],
             tagset=itotag,
         )
-        weights_file = config_dir / "model.pt"
+        weights_file = model_path / "model.pt"
         if weights_file.exists():
             parser.load_params(str(weights_file))
         else:
             parser.save_params(str(weights_file))
             # We were actually initializing — rather than loading — the model, let's save the
             # config with our changes
-            with open(model_path, "w") as out_stream:
+            with open(config_path, "w") as out_stream:
                 yaml.dump(hp, out_stream)
 
         if hp.get("freeze_fasttext", False):

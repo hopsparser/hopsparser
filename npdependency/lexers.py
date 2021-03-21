@@ -269,7 +269,7 @@ class FastTextLexer(nn.Module):
                 )
 
             print("Training fasttext model...")
-            # TODO: make the hyperparameters here configurable
+            # TODO: make the hyperparameters here configurable?
             model = fasttext.train_unsupervised(
                 source_file, model="skipgram", neg=10, minCount=5, epoch=10
             )
@@ -286,7 +286,7 @@ class FastTextLexer(nn.Module):
             raise ValueError(f"{target_file} already exists!")
         else:
             print("Training fasttext model...")
-            # TODO: make the hyperparameters here configurable
+            # TODO: make the hyperparameters here configurable?
             model = fasttext.train_unsupervised(
                 raw_text_path, model="skipgram", neg=10, minCount=5, epoch=10
             )
