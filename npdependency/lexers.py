@@ -62,8 +62,8 @@ class CharRNNLexer(nn.Module):
     These are **not** configurable in order to allow a simpler handling of the internal vocabulary
     """
 
-    PAD_IDX: Final[int] = 0
-    SPECIAL_TOKENS_IDX: Final[int] = 1
+    pad_idx: Final[int] = 0
+    special_tokens_idx: Final[int] = 1
 
     def __init__(
         self,
@@ -83,7 +83,7 @@ class CharRNNLexer(nn.Module):
         self.char_embedding_size: Final[int] = char_embedding_size
         self.embedding_size: Final[int] = embedding_size
         self.char_embedding = nn.Embedding(
-            len(self.i2c), self.char_embedding_size, padding_idx=type(self).PAD_IDX
+            len(self.i2c), self.char_embedding_size, padding_idx=type(self).pad_idx
         )
         self.char_bilstm = nn.LSTM(
             self.char_embedding_size,
@@ -120,10 +120,10 @@ class CharRNNLexer(nn.Module):
         **might** be marginally interesting to use UNK codes instead and apply dropout.
         """
         if token in self.special_tokens:
-            res = [self.SPECIAL_TOKENS_IDX]
+            res = [self.special_tokens_idx]
         res = [self.c2idx[c] for c in token if c in self.c2idx]
         if not res:
-            res = [self.PAD_IDX]
+            res = [self.pad_idx]
         return torch.tensor(res, dtype=torch.long)
 
     def encode(self, tokens_sequence: Sequence[str]) -> torch.Tensor:
@@ -131,7 +131,7 @@ class CharRNNLexer(nn.Module):
         subword_indices = [self.word2charcodes(token) for token in tokens_sequence]
         # shape: sentence_length×num_chars_in_longest_word
         return pad_sequence(
-            subword_indices, padding_value=self.PAD_IDX, batch_first=True
+            subword_indices, padding_value=self.pad_idx, batch_first=True
         )
 
     def make_batch(self, batch: Sequence[torch.Tensor]) -> torch.Tensor:
@@ -145,7 +145,7 @@ class CharRNNLexer(nn.Module):
                 max(t.shape[0] for t in batch),
                 max(t.shape[1] for t in batch),
             ),
-            fill_value=self.PAD_IDX,
+            fill_value=self.pad_idx,
             dtype=torch.long,
         )
         for i, sent in enumerate(batch):
@@ -560,6 +560,8 @@ class BertBaseLexer(nn.Module):
         bert_embeddings[:, 0, ...] = bert_subword_embeddings.mean(dim=1)
         # FIXME: this loop is embarassingly parallel, there must be a way to parallelize it
         for sent_n, alignment in enumerate(inpt.subword_alignments):
+            # TODO: If we revise the alignment format, this could probably be made faster using
+            # <https://pytorch-scatter.readthedocs.io/en/latest/functions/scatter.html>
             # The word indices start at 1 because word 0 is the root token, for which we have no
             # bert embedding so we use the average of all subword embeddings
             for word_n, span in enumerate(alignment, start=1):
