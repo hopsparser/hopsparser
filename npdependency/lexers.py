@@ -54,20 +54,19 @@ def make_vocab(
 
 _T_LEXER_SENT = TypeVar("_T_LEXER_SENT")
 _T_LEXER_BATCH = TypeVar("_T_LEXER_BATCH")
-_T_LEXER_OUTPUT = TypeVar("_T_LEXER_OUTPUT", covariant=True)
 
 
-class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH, _T_LEXER_OUTPUT]):
+class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH]):
     @abstractmethod
     def encode(self, tokens_sequence: Sequence[str]) -> _T_LEXER_SENT:
         raise NotImplementedError
 
     @abstractmethod
-    def __call__(self, inpt: _T_LEXER_BATCH) -> _T_LEXER_OUTPUT:
+    def make_batch(self, batch: Sequence[_T_LEXER_SENT]) -> _T_LEXER_BATCH:
         raise NotImplementedError
 
     @abstractmethod
-    def make_batch(self, batch: Sequence[_T_LEXER_SENT]) -> _T_LEXER_BATCH:
+    def __call__(self, inpt: _T_LEXER_BATCH) -> torch.Tensor:
         raise NotImplementedError
 
 
