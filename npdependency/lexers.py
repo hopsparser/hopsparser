@@ -1,8 +1,10 @@
+from abc import abstractmethod
 import os.path
 from collections import Counter
 import pathlib
 from tempfile import gettempdir
 from typing import (
+    Protocol,
     Iterable,
     List,
     NamedTuple,
@@ -49,6 +51,25 @@ def make_vocab(
 
     itos = [pad_token, *sorted(vocab)]
     return itos
+
+
+_T_LEXER_SENT = TypeVar("_T_LEXER_SENT")
+_T_LEXER_BATCH = TypeVar("_T_LEXER_BATCH")
+_T_LEXER_OUTPUT = TypeVar("_T_LEXER_OUTPUT", covariant=True)
+
+
+class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH, _T_LEXER_OUTPUT]):
+    @abstractmethod
+    def encode(self, tokens_sequence: Sequence[str]) -> _T_LEXER_SENT:
+        raise NotImplementedError
+
+    @abstractmethod
+    def __call__(self, inpt: _T_LEXER_BATCH) -> _T_LEXER_OUTPUT:
+        raise NotImplementedError
+
+    @abstractmethod
+    def make_batch(self, batch: Sequence[_T_LEXER_SENT]) -> _T_LEXER_BATCH:
+        raise NotImplementedError
 
 
 class CharRNNLexer(nn.Module):
@@ -294,6 +315,9 @@ class FastTextLexer(nn.Module):
         return cls(model)
 
 
+_T_DefaultLexer = TypeVar("_T_DefaultLexer", bound="DefaultLexer")
+
+
 class DefaultLexer(nn.Module):
     """
     This is the basic lexer wrapping an embedding layer.
@@ -307,7 +331,7 @@ class DefaultLexer(nn.Module):
         words_padding_idx: int,
         unk_word: str,
     ):
-        super(DefaultLexer, self).__init__()
+        super().__init__()
         self.embedding = nn.Embedding(
             len(itos), embedding_size, padding_idx=words_padding_idx
         )
@@ -318,7 +342,7 @@ class DefaultLexer(nn.Module):
         self.word_dropout = word_dropout
         self._dpout = 0.0
 
-    def train(self, mode: bool = True) -> "DefaultLexer":
+    def train(self: _T_DefaultLexer, mode: bool = True) -> _T_DefaultLexer:
         if mode:
             self._dpout = self.word_dropout
         else:
@@ -351,7 +375,7 @@ class DefaultLexer(nn.Module):
         )
 
 
-def freeze_module(module, freezing: bool = True):
+def freeze_module(module: nn.Module, freezing: bool = True):
     """Make a `torch.nn.Module` either finetunable 🔥 or frozen ❄.
 
     **WARNINGS**
@@ -371,11 +395,11 @@ def freeze_module(module, freezing: bool = True):
 
     if freezing:
         module.eval()
-        module.train = no_train
+        module.train = no_train  # type: ignore[assignment]
         module.requires_grad_(False)
     else:
         module.requires_grad_(True)
-        module.train = type(module).train
+        module.train = type(module).train  # type: ignore[assignment]
 
 
 _T_BertLexerBatch = TypeVar("_T_BertLexerBatch", bound="BertLexerBatch")
@@ -454,7 +478,7 @@ class BertBaseLexer(nn.Module):
         words_padding_idx: int,
     ):
 
-        super(BertBaseLexer, self).__init__()
+        super().__init__()
         self.itos = itos
         self.stoi = {token: idx for idx, token in enumerate(self.itos)}
         self.unk_word_idx = self.stoi[unk_word]
@@ -643,6 +667,3 @@ class BertBaseLexer(nn.Module):
             )
 
         return BertLexerSentence(word_idxes, bert_encoding, alignments)
-
-
-Lexer = Union[DefaultLexer, BertBaseLexer]

@@ -27,6 +27,7 @@ import transformers
 import yaml
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from npdependency import lexers
 
 from npdependency.utils import smart_open
 from npdependency import conll2018_eval as evaluator
@@ -672,9 +673,9 @@ class BiAffineParser(nn.Module):
         if hp.get("freeze_fasttext", False):
             freeze_module(ft_lexer)
         if hp.get("freeze_bert", False):
-            try:
+            if isinstance(lexer, lexers.BertBaseLexer):
                 freeze_module(lexer.bert)
-            except AttributeError:
+            else:
                 warnings.warn(
                     "A non-BERT lexer has no BERT to freeze, ignoring `freeze_bert` hyperparameter"
                 )
