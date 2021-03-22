@@ -4,7 +4,6 @@ from collections import Counter
 import pathlib
 from tempfile import gettempdir
 from typing import (
-    Protocol,
     Iterable,
     List,
     NamedTuple,
@@ -26,9 +25,9 @@ from transformers.tokenization_utils_base import BatchEncoding, TokenSpan
 
 # Python 3.7 shim
 try:
-    from typing import Final, Literal
+    from typing import Final, Literal, Protocol
 except ImportError:
-    from typing_extensions import Final, Literal  # type: ignore
+    from typing_extensions import Final, Literal, Protocol  # type: ignore[misc]
 
 
 @torch.jit.script
