@@ -477,7 +477,7 @@ class BiAffineParser(nn.Module):
                 ):
                     # Predict heads
                     probs = arc_scores.numpy().T
-                    batch_width, _ = probs.shape
+                    batch_width = probs.shape[0]
                     mst_heads = (
                         np.argmax(probs[:length, :length], axis=1)
                         if greedy

@@ -392,13 +392,12 @@ class DependencyDataset:
         for i in batch_order:
             batch_indices = order[i : i + batch_size]
             trees = tuple(self.treelist[j] for j in batch_indices)
+            encoded_trees = [self.encoded_trees[j] for j in batch_indices]
 
-            encoded_words = self.lexer.make_batch([self.encoded_trees[j].words for j in batch_indices])  # type: ignore
-            chars = self.chars_lexer.make_batch(
-                [self.encoded_trees[j].chars for j in batch_indices]
-            )
+            words = self.lexer.make_batch([tree.words for tree in encoded_trees])
+            chars = self.chars_lexer.make_batch([tree.chars for tree in encoded_trees])
             subwords = self.ft_lexer.make_batch(
-                [self.encoded_trees[j].subwords for j in batch_indices]
+                [tree.subwords for tree in encoded_trees]
             )
 
             tags = self.pad(
@@ -421,7 +420,7 @@ class DependencyDataset:
 
             yield DependencyBatch(
                 chars=chars,
-                encoded_words=encoded_words,
+                encoded_words=words,
                 heads=heads,
                 labels=labels,
                 content_mask=content_mask,
