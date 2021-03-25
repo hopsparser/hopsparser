@@ -1,8 +1,19 @@
+from typing import List, Tuple, cast
 import numpy as np
 
 
-def tarjan(tree):
-    """"""
+def tarjan(tree: np.ndarray) -> List[np.ndarray]:
+    """Use Tarjan's SCC algorithm to find cycles in a tree
+
+    ## Input
+
+    - `tree`: A 1d integer array such that `tree[i]` is the head of the `i`-th node
+
+    ## Output
+
+    - `cycles`: A list of 1d bool arrays such that `cycles[i][j]` is true iff the `j`-th node of
+      `tree` is in the `i`-th cycle
+    """
     indices = -np.ones_like(tree)
     lowlinks = -np.ones_like(tree)
     onstack = np.zeros_like(tree, dtype=bool)
@@ -45,12 +56,23 @@ def tarjan(tree):
     return cycles
 
 
-def chuliu_edmonds(scores):
-    """"""
+def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
+    """Use the Chu‑Liu/Edmonds algorithm to find a maximum spanning arborescence from the weight
+    matrix of a rooted weighted directed graph
+
+    ## Input
+
+    - `scores`: A 2d numeric array such that `scores[i][j]` is the weight of the `$i→j$` edge in the
+      graph and the 0-th node is the root.
+
+    ## Output
+
+    - `tree`: A 1d integer array such that `tree[i]` is the head of the `i`-th node
+    """
     np.fill_diagonal(scores, -float("inf"))  # prevent self-loops
     scores[0] = -float("inf")
     scores[0, 0] = 0
-    tree = np.argmax(scores, axis=1)
+    tree = cast(np.ndarray, np.argmax(scores, axis=1))
     cycles = tarjan(tree)
     if not cycles:
         return tree
@@ -133,8 +155,19 @@ def chuliu_edmonds(scores):
 
 
 # ===============================================================
-def chuliu_edmonds_one_root(scores):
-    """"""
+def chuliu_edmonds_one_root(scores: np.ndarray) -> np.ndarray:
+    """Repeatedly Use the Chu‑Liu/Edmonds algorithm to find a maximum spanning dependency tree from
+    the weight matrix of a rooted weighted directed graph
+
+    ## Input
+
+    - `scores`: A 2d numeric array such that `scores[i][j]` is the weight of the `$i→j$` edge in the
+      graph and the 0-th node is the root.
+
+    ## Output
+
+    - `tree`: A 1d integer array such that `tree[i]` is the head of the `i`-th node
+    """
 
     scores = scores.astype(np.float64)
     tree = chuliu_edmonds(scores)
@@ -143,7 +176,9 @@ def chuliu_edmonds_one_root(scores):
         return tree
 
     # -------------------------------------------------------------
-    def set_root(scores, root):
+    def set_root(scores: np.ndarray, root: int) -> Tuple[np.ndarray, np.ndarray]:
+        """Force the `root`-th node to be the only node under the root by overwriting the weights of
+        the other children of the root."""
         root_score = scores[root, 0]
         scores = np.array(scores)
         scores[1:, 0] = -float("inf")
@@ -151,8 +186,7 @@ def chuliu_edmonds_one_root(scores):
         scores[root, 0] = 0
         return scores, root_score
 
-    # -------------------------------------------------------------
-
+    # We find the maximum spanning dependency tree by try every possible root
     best_score, best_tree = -np.inf, None  # This is what's causing it to crash
     for root in roots_to_try:
         _scores, root_score = set_root(scores, root)
@@ -166,11 +200,6 @@ def chuliu_edmonds_one_root(scores):
         if tree_score > best_score:
             best_score = tree_score
             best_tree = _tree
-    try:
-        assert best_tree is not None
-    except:
-        with open("debug.log", "w") as f:
-            f.write("{}: {}, {}\n".format(tree, scores, roots_to_try))
-            f.write("{}: {}, {}, {}\n".format(_tree, _scores, tree_probs, tree_score))
-        raise
+
+    assert best_tree is not None
     return best_tree
