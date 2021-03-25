@@ -247,6 +247,9 @@ class EncodedTree(NamedTuple):
     tags: torch.Tensor
 
 
+_T_DependencyBatch = TypeVar("_T_DependencyBatch", bound="DependencyBatch")
+
+
 class DependencyBatch(NamedTuple):
     """Batched and padded sentences.
 
@@ -283,7 +286,9 @@ class DependencyBatch(NamedTuple):
     sent_lengths: torch.Tensor
     content_mask: torch.Tensor
 
-    def to(self, device: Union[str, torch.device]) -> "DependencyBatch":
+    def to(
+        self: _T_DependencyBatch, device: Union[str, torch.device]
+    ) -> _T_DependencyBatch:
         encoded_words = self.encoded_words.to(device)
         chars = self.chars.to(device)
         subwords = self.subwords.to(device)
@@ -336,7 +341,6 @@ class DependencyDataset:
         self.encoded_trees: List[EncodedTree] = []
         self.encode()
 
-    # TODO: use an `encoded_tree` object instead of hardcoding the lexers here
     def encode(self):
         self.encoded_trees = []
 
@@ -400,16 +404,19 @@ class DependencyDataset:
                 [tree.subwords for tree in encoded_trees]
             )
 
-            tags = self.pad(
-                [self.encoded_trees[j].tags for j in batch_indices],
+            tags = pad_sequence(
+                [tree.tags for tree in encoded_trees],
+                batch_first=True,
                 padding_value=self.LABEL_PADDING,
             )
-            heads = self.pad(
-                [self.encoded_trees[j].heads for j in batch_indices],
+            heads = pad_sequence(
+                [tree.heads for tree in encoded_trees],
+                batch_first=True,
                 padding_value=self.LABEL_PADDING,
             )
-            labels = self.pad(
-                [self.encoded_trees[j].labels for j in batch_indices],
+            labels = pad_sequence(
+                [tree.labels for tree in encoded_trees],
+                batch_first=True,
                 padding_value=self.LABEL_PADDING,
             )
 
@@ -429,17 +436,6 @@ class DependencyDataset:
                 tags=tags,
                 trees=trees,
             )
-
-    def pad(
-        self, batch: List[torch.Tensor], padding_value: Optional[int] = None
-    ) -> torch.Tensor:
-        if padding_value is None:
-            padding_value = self.PAD_IDX
-        return pad_sequence(
-            batch,
-            padding_value=padding_value,
-            batch_first=True,
-        )
 
     def __len__(self):
         return len(self.treelist)
