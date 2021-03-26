@@ -5,7 +5,7 @@ import pathlib
 import subprocess
 import sys
 import tempfile
-from typing import Generator, IO, Literal, Optional, TextIO, Union
+from typing import Generator, IO, Optional, TextIO, Union
 
 import click
 import click_pathlib
@@ -13,6 +13,12 @@ import click_pathlib
 from npdependency import graph_parser
 from npdependency.utils import smart_open
 from npdependency import conll2018_eval as evaluator
+
+# Python 3.7 shim
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal  # type: ignore[misc]
 
 
 @contextlib.contextmanager
