@@ -3,6 +3,7 @@ import multiprocessing
 import os.path
 import pathlib
 import subprocess
+import sys
 from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple, Union
 
 import click
@@ -75,10 +76,10 @@ def worker(device_queue, name, kwargs) -> Tuple[str, TrainResults]:
     # works.
     device = device_queue.get(block=False)
     kwargs["device"] = device
-    print(f"Start training {name} on {device}")
+    print(f"Start training {name} on {device}", file=sys.stderr)
     res = train_single_model(**kwargs)
     device_queue.put(device)
-    print(f"Run {name} finished with results {res}")
+    print(f"Run {name} finished with results {res}", file=sys.stderr)
     return (name, res)
 
 
@@ -101,7 +102,7 @@ def run_multi(
 
 def parse_args_callback(
     _ctx: click.Context,
-    _opt: Union[click.Argument, click.Option],
+    _opt: Union[click.Parameter, click.Option],
     val: Optional[List[str]],
 ) -> Optional[List[Tuple[str, List[str]]]]:
     if val is None:

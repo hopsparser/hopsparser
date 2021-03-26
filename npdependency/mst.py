@@ -95,7 +95,6 @@ def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
         noncycle = np.logical_not(cycle)
         # indices of noncycle in original tree; (n) in t
         noncycle_locs = np.where(noncycle)[0]
-        # print(cycle_locs, noncycle_locs)
 
         # scores of cycle's potential heads; (c x n) - (c) + () -> (n x c) in R
         metanode_head_scores = (
@@ -124,35 +123,29 @@ def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
         # MST with contraction; (n+1) in n+1
         contracted_tree = chuliu_edmonds(subscores)
         # head of the cycle; () in n
-        # print(contracted_tree)
         cycle_head = contracted_tree[-1]
         # fixed tree: (n) in n+1
         contracted_tree = contracted_tree[:-1]
         # initialize new tree; (t) in 0
         new_tree = -np.ones_like(tree)
-        # print(0, new_tree)
         # fixed tree with no heads coming from the cycle: (n) in [0,1]
         contracted_subtree = contracted_tree < len(contracted_tree)
         # add the nodes to the new tree (t)[(n)[(n) in [0,1]] in t] in t = (n)[(n)[(n) in [0,1]] in n] in t
         new_tree[noncycle_locs[contracted_subtree]] = noncycle_locs[
             contracted_tree[contracted_subtree]
         ]
-        # print(1, new_tree)
         # fixed tree with heads coming from the cycle: (n) in [0,1]
         contracted_subtree = np.logical_not(contracted_subtree)
         # add the nodes to the tree (t)[(n)[(n) in [0,1]] in t] in t = (c)[(n)[(n) in [0,1]] in c] in t
         new_tree[noncycle_locs[contracted_subtree]] = cycle_locs[
             metanode_deps[contracted_subtree]
         ]
-        # print(2, new_tree)
         # add the old cycle to the tree; (t)[(c) in t] in t = (t)[(c) in t] in t
         new_tree[cycle_locs] = tree[cycle_locs]
-        # print(3, new_tree)
         # root of the cycle; (n)[() in n] in c = () in c
         cycle_root = metanode_heads[cycle_head]
         # add the root of the cycle to the new tree; (t)[(c)[() in c] in t] = (c)[() in c]
         new_tree[cycle_locs[cycle_root]] = noncycle_locs[cycle_head]
-        # print(4, new_tree)
         return new_tree
 
 
