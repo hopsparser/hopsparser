@@ -18,12 +18,13 @@ def tarjan(tree: np.ndarray) -> List[np.ndarray]:
     lowlinks = -np.ones_like(tree)
     onstack = np.zeros_like(tree, dtype=bool)
     stack = list()
+    # I think this is in a list to be able to mutate it in the closure, even though `nonlocal` exists
     _index = [0]
     cycles = []
 
     def strong_connect(i):
         _index[0] += 1
-        index = _index[-1]
+        index = _index[-1]  # `_index` is of length 1 so this is also `_index[0]`???
         indices[i] = lowlinks[i] = index - 1
         stack.append(i)
         onstack[i] = True
@@ -56,6 +57,7 @@ def tarjan(tree: np.ndarray) -> List[np.ndarray]:
     return cycles
 
 
+# TODO: split out a `contraction` function to make this more readable
 def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
     """Use the Chu‑Liu/Edmonds algorithm to find a maximum spanning arborescence from the weight
     matrix of a rooted weighted directed graph
