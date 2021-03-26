@@ -15,7 +15,7 @@ French, but it might be trained for other languages without difficulties.
 ## Installation
 
 The parser is meant to work with python >= 3.8. Install with pip, which should take care of all the
-dependencies and install t he `graph_parser` console entry point
+dependencies and install the console entry points
 
 ```sh
 pip install git+https://github.com/bencrabbe/npdependency
@@ -33,7 +33,7 @@ pip install -e .
 In that case, you can run the smoketests with `tox` to ensure that everything works on your end.
 
 Alternatively (but not recommended), you can also clone this repo, install the dependencies listed
-in `setup.cfg` and call `python -m npdependency.graph_parser3` directly from the root of the repo.
+in `setup.cfg` and call `python -m npdependency.graph_parser` directly from the root of the repo.
 
 ## Parsing task
 
@@ -85,7 +85,7 @@ from the fact that this parser also predicts part of speech tags while the versi
 et al 2020)](https://arxiv.org/abs/1912.05372) required predicted tags as part of its input. These
 changes make the parser easier to use in "real life" projects.
 
-## Training task
+## Training
 
 Instead of using a pretrained model, one can train his own model. Training a model with BERT
 definitely requires a GPU. Unless you have a GPU with a very large amount of onboard memory, I
