@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import os.path
 from collections import Counter
 import pathlib
@@ -9,6 +10,7 @@ from typing import (
     Optional,
     Sequence,
     Set,
+    Type,
     TypeVar,
     Union,
 )
@@ -23,9 +25,9 @@ from transformers.tokenization_utils_base import BatchEncoding, TokenSpan
 
 # Python 3.7 shim
 try:
-    from typing import Final, Literal
+    from typing import Final, Literal, Protocol
 except ImportError:
-    from typing_extensions import Final, Literal  # type: ignore
+    from typing_extensions import Final, Literal, Protocol  # type: ignore[misc]
 
 
 @torch.jit.script
@@ -50,6 +52,24 @@ def make_vocab(
     return itos
 
 
+_T_LEXER_SENT = TypeVar("_T_LEXER_SENT")
+_T_LEXER_BATCH = TypeVar("_T_LEXER_BATCH")
+
+
+class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH]):
+    @abstractmethod
+    def encode(self, tokens_sequence: Sequence[str]) -> _T_LEXER_SENT:
+        raise NotImplementedError
+
+    @abstractmethod
+    def make_batch(self, batch: Sequence[_T_LEXER_SENT]) -> _T_LEXER_BATCH:
+        raise NotImplementedError
+
+    @abstractmethod
+    def __call__(self, inpt: _T_LEXER_BATCH) -> torch.Tensor:
+        raise NotImplementedError
+
+
 class CharRNNLexer(nn.Module):
     """A lexer encoding words by running a bi-RNN on their characters
 
@@ -61,8 +81,8 @@ class CharRNNLexer(nn.Module):
     These are **not** configurable in order to allow a simpler handling of the internal vocabulary
     """
 
-    PAD_IDX: Final[int] = 0
-    SPECIAL_TOKENS_IDX: Final[int] = 1
+    pad_idx: Final[int] = 0
+    special_tokens_idx: Final[int] = 1
 
     def __init__(
         self,
@@ -82,7 +102,7 @@ class CharRNNLexer(nn.Module):
         self.char_embedding_size: Final[int] = char_embedding_size
         self.embedding_size: Final[int] = embedding_size
         self.char_embedding = nn.Embedding(
-            len(self.i2c), self.char_embedding_size, padding_idx=type(self).PAD_IDX
+            len(self.i2c), self.char_embedding_size, padding_idx=type(self).pad_idx
         )
         self.char_bilstm = nn.LSTM(
             self.char_embedding_size,
@@ -92,62 +112,69 @@ class CharRNNLexer(nn.Module):
             bidirectional=True,
         )
 
-    def forward(self, xinput: torch.Tensor) -> torch.Tensor:
+    def forward(self, inpt: torch.Tensor) -> torch.Tensor:
         """
         Predicts the word embedding from the token characters.
-        :param xinput: is a tensor of char indexes encoding a batch of tokens [batch,token_len,char_seq_idx]
+        :param inpt: is a tensor of char indexes encoding a batch of tokens *×token_len
         :return: a word embedding tensor
         """
-        embeddings = self.char_embedding(xinput)
+        # FIXME: there is probably a better way to do this since this results in tokens that are
+        # full padding We need the of course (the will be cat to other padding embeddings in
+        # graph_parser), running the RNN on them is frustrating
+        flattened_inputs = inpt.view(-1, inpt.shape[-1])
+        embeddings = self.char_embedding(flattened_inputs)
         # ! FIXME: this does not take the padding into account
-        outputs, (_, cembedding) = self.char_bilstm(embeddings)
+        _, (_, cembedding) = self.char_bilstm(embeddings)
         # TODO: why use the cell state and not the output state here?
-        result = cembedding.view(-1, self.embedding_size)
+        result = cembedding.view(*inpt.shape[:-1], self.embedding_size)
         return result
 
-    def word2charcodes(self, token: str) -> List[int]:
-        """
-        Turns a string into a list of char codes.
+    def word2charcodes(self, token: str) -> torch.Tensor:
+        """Turn a string into a list of char codes.
+
+        ## Notes
+
+        Unknown chars are simply skipped. If a word only consists of unknow chars, the charcode
+        corresponding to padding is used. This is not ideal but it's easy. In the future it
+        **might** be marginally interesting to use UNK codes instead and apply dropout.
         """
         if token in self.special_tokens:
-            return [self.SPECIAL_TOKENS_IDX]
+            res = [self.special_tokens_idx]
         res = [self.c2idx[c] for c in token if c in self.c2idx]
         if not res:
-            return [self.PAD_IDX]
+            res = [self.pad_idx]
+        return torch.tensor(res, dtype=torch.long)
+
+    def encode(self, tokens_sequence: Sequence[str]) -> torch.Tensor:
+        """Map word tokens to integer indices."""
+        subword_indices = [self.word2charcodes(token) for token in tokens_sequence]
+        # shape: sentence_length×num_chars_in_longest_word
+        return pad_sequence(
+            subword_indices, padding_value=self.pad_idx, batch_first=True
+        )
+
+    def make_batch(self, batch: Sequence[torch.Tensor]) -> torch.Tensor:
+        """Pad a batch of sentences."""
+        # We need to pad manually because `pad_sequence` only accepts tensors that have all the same
+        # dimensions except for one and we differ both in the sentence lengths dimension and in the
+        # word length dimension
+        res = torch.full(
+            (
+                len(batch),
+                max(t.shape[0] for t in batch),
+                max(t.shape[1] for t in batch),
+            ),
+            fill_value=self.pad_idx,
+            dtype=torch.long,
+        )
+        for i, sent in enumerate(batch):
+            res[i, : sent.shape[0], : sent.shape[1]]
         return res
 
-    def batchedtokens2codes(self, toklist: List[str]) -> torch.Tensor:
-        """
-        Codes a list of tokens as a batch of lists of charcodes and pads them if needed
-        """
-        charcodes = [
-            torch.tensor(self.word2charcodes(token), dtype=torch.long)
-            for token in toklist
-        ]
-        return pad_sequence(charcodes, padding_value=self.PAD_IDX, batch_first=True)
 
-    def batch_chars(self, sent_batch: List[List[str]]) -> Iterable[torch.Tensor]:
-        """
-        Batches a list of sentences such that each sentence is padded with the same word length.
-        :yields: the character encodings for each word position in this batch of sentences
-                 (yields the columns of the batch)
-        """
-        sent_lengths = [len(s) for s in sent_batch]
-        max_sent_len = max(sent_lengths)
-
-        # We use empty strings for padding, so they will be correctly filled with the padding value
-        # when we tensorize
-        batched_sents = [["" for _ in range(max_sent_len)] for _ in sent_batch]
-        for batch_sent, l, sent in zip(batched_sents, sent_lengths, sent_batch):
-            batch_sent[:l] = sent
-
-        for idx in range(max_sent_len):
-            yield self.batchedtokens2codes(
-                [sentence[idx] for sentence in batched_sents]
-            )
+_T_FastTextLexer = TypeVar("_T_FastTextLexer", bound="FastTextLexer")
 
 
-# TODO: convert to the unified lexer API
 class FastTextLexer(nn.Module):
     """
     This is subword model using FastText as backend.
@@ -193,14 +220,14 @@ class FastTextLexer(nn.Module):
         """
         return torch.from_numpy(self.fasttextmodel.get_subwords(token)[1])
 
-    def forward(self, xinput: torch.Tensor) -> torch.Tensor:
+    def forward(self, inpt: torch.Tensor) -> torch.Tensor:
         """
-        :param xinput: a batch of subwords
+        :param inpt: a batch of subwords *×num_subwords
         :return: the fasttext embeddings for this batch
         """
         # Note: the padding embedding is 0 and should not be modified during training (as per the
-        # `torch.nn.Embedding` doc) so the mean here does not include padding tokens
-        return self.embeddings(xinput).mean(dim=1)
+        # `torch.nn.Embedding` doc) so the mean here does not include padding subwords
+        return self.embeddings(inpt).mean(dim=-2)
 
     def word2subcodes(self, token: str) -> torch.Tensor:
         """
@@ -212,42 +239,44 @@ class FastTextLexer(nn.Module):
             return torch.tensor([self.special_tokens_idx], dtype=torch.long)
         return self.subwords_idxes(token)
 
-    def batch_tokens(self, token_sequence):
-        """
-        Batches a list of tokens as a padded matrix of subword codes.
-        :param token_sequence : a sequence of strings
-        :return: a list of of list of codes (matrix with padding)
-        """
-        subcodes = [self.word2subcodes(token) for token in token_sequence]
-        return pad_sequence(subcodes, padding_value=self.pad_idx, batch_first=True)
+    def encode(self, tokens_sequence: Sequence[str]) -> torch.Tensor:
+        """Map word tokens to integer indices."""
+        subword_indices = [self.word2subcodes(token) for token in tokens_sequence]
+        # shape: sentence_length×num_chars_in_longest_word
+        return pad_sequence(
+            subword_indices, padding_value=self.pad_idx, batch_first=True
+        )
 
-    def batch_sentences(self, sent_batch: List[List[str]]) -> Iterable[torch.Tensor]:
-        """
-        Batches a list of sentences such that each sentence is padded with the same word length.
-        :yields: the subword encodings for each word position in this batch of sentences
-                 (yields the columns of the batch)
-        """
-        sent_lengths = [len(sent) for sent in sent_batch]
-        max_sent_len = max(sent_lengths)
+    def make_batch(self, batch: Sequence[torch.Tensor]) -> torch.Tensor:
+        """Pad a batch of sentences."""
+        # We need to pad manually because `pad_sequence` only accepts tensors that have all the same
+        # dimensions except for one and we differ both in the sentence lengths dimension and in the
+        # word length dimension
+        res = torch.full(
+            (
+                len(batch),
+                max(t.shape[0] for t in batch),
+                max(t.shape[1] for t in batch),
+            ),
+            fill_value=self.pad_idx,
+            dtype=torch.long,
+        )
+        for i, sent in enumerate(batch):
+            res[i, : sent.shape[0], : sent.shape[1]]
+        return res
 
-        # The empty string here serves as padding, which, contrarily to CharsDataSet is a bit ugly,
-        # since we intercept it instead of passing it to FastText
-        batched_sents = [["" for _ in range(max_sent_len)] for _ in sent_batch]
-        for batch_sent, l, sent in zip(batched_sents, sent_lengths, sent_batch):
-            batch_sent[:l] = sent
-
-        for idx in range(max_sent_len):
-            yield self.batch_tokens([sentence[idx] for sentence in batched_sents])
-
-    # FIXME: this doesn't actually create the model, it just loads the wrapped fasttext ugh
     @classmethod
-    def load(cls, modelfile: Union[str, pathlib.Path], **kwargs) -> "FastTextLexer":
+    def load(
+        cls: Type[_T_FastTextLexer], modelfile: Union[str, pathlib.Path], **kwargs
+    ) -> _T_FastTextLexer:
         return cls(fasttext.load_model(str(modelfile)), **kwargs)
 
     @classmethod
     def train_model_from_sents(
-        cls, source_sents: Iterable[List[str]], target_file: Union[str, pathlib.Path]
-    ) -> "FastTextLexer":
+        cls: Type[_T_FastTextLexer],
+        source_sents: Iterable[List[str]],
+        target_file: Union[str, pathlib.Path],
+    ) -> _T_FastTextLexer:
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
         else:
@@ -259,7 +288,7 @@ class FastTextLexer(nn.Module):
                 )
 
             print("Training fasttext model...")
-            # TODO: make the hyperparameters here configurable
+            # TODO: make the hyperparameters here configurable?
             model = fasttext.train_unsupervised(
                 source_file, model="skipgram", neg=10, minCount=5, epoch=10
             )
@@ -268,20 +297,23 @@ class FastTextLexer(nn.Module):
 
     @classmethod
     def train_model_from_raw(
-        cls,
+        cls: Type[_T_FastTextLexer],
         raw_text_path: Union[str, pathlib.Path],
         target_file: Union[str, pathlib.Path],
-    ) -> "FastTextLexer":
+    ) -> _T_FastTextLexer:
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
         else:
             print("Training fasttext model...")
-            # TODO: make the hyperparameters here configurable
+            # TODO: make the hyperparameters here configurable?
             model = fasttext.train_unsupervised(
                 raw_text_path, model="skipgram", neg=10, minCount=5, epoch=10
             )
             model.save_model(target_file)
         return cls(model)
+
+
+_T_DefaultLexer = TypeVar("_T_DefaultLexer", bound="DefaultLexer")
 
 
 class DefaultLexer(nn.Module):
@@ -297,7 +329,7 @@ class DefaultLexer(nn.Module):
         words_padding_idx: int,
         unk_word: str,
     ):
-        super(DefaultLexer, self).__init__()
+        super().__init__()
         self.embedding = nn.Embedding(
             len(itos), embedding_size, padding_idx=words_padding_idx
         )
@@ -308,7 +340,7 @@ class DefaultLexer(nn.Module):
         self.word_dropout = word_dropout
         self._dpout = 0.0
 
-    def train(self, mode: bool = True) -> "DefaultLexer":
+    def train(self: _T_DefaultLexer, mode: bool = True) -> _T_DefaultLexer:
         if mode:
             self._dpout = self.word_dropout
         else:
@@ -325,22 +357,23 @@ class DefaultLexer(nn.Module):
             )
         return self.embedding(word_sequences)
 
-    def tokenize(self, tok_sequence: Sequence[str]) -> List[int]:
+    def encode(self, tokens_sequence: Sequence[str]) -> torch.Tensor:
         """Map word tokens to integer indices."""
-        word_idxes = [self.stoi.get(token, self.unk_word_idx) for token in tok_sequence]
-        return word_idxes
+        word_idxes = [
+            self.stoi.get(token, self.unk_word_idx) for token in tokens_sequence
+        ]
+        return torch.tensor(word_idxes)
 
-    def pad_batch(self, batch: Sequence[Sequence[int]]) -> torch.Tensor:
+    def make_batch(self, batch: Sequence[torch.Tensor]) -> torch.Tensor:
         """Pad a batch of sentences."""
-        tensorized_sents = [torch.tensor(sent, dtype=torch.long) for sent in batch]
         return pad_sequence(
-            tensorized_sents,
+            batch,
             padding_value=self.embedding.padding_idx,
             batch_first=True,
         )
 
 
-def freeze_module(module, freezing: bool = True):
+def freeze_module(module: nn.Module, freezing: bool = True):
     """Make a `torch.nn.Module` either finetunable 🔥 or frozen ❄.
 
     **WARNINGS**
@@ -360,14 +393,14 @@ def freeze_module(module, freezing: bool = True):
 
     if freezing:
         module.eval()
-        module.train = no_train
+        module.train = no_train  # type: ignore[assignment]
         module.requires_grad_(False)
     else:
         module.requires_grad_(True)
-        module.train = type(module).train
+        module.train = type(module).train  # type: ignore[assignment]
 
 
-T = TypeVar("T", bound="BertLexerBatch")
+_T_BertLexerBatch = TypeVar("_T_BertLexerBatch", bound="BertLexerBatch")
 
 
 class BertLexerBatch(NamedTuple):
@@ -375,7 +408,9 @@ class BertLexerBatch(NamedTuple):
     bert_encoding: BatchEncoding
     subword_alignments: Sequence[Sequence[TokenSpan]]
 
-    def to(self: T, device: Union[str, torch.device]) -> T:
+    def to(
+        self: _T_BertLexerBatch, device: Union[str, torch.device]
+    ) -> _T_BertLexerBatch:
         return type(self)(
             self.word_indices.to(device=device),
             self.bert_encoding.to(device=device),
@@ -441,7 +476,7 @@ class BertBaseLexer(nn.Module):
         words_padding_idx: int,
     ):
 
-        super(BertBaseLexer, self).__init__()
+        super().__init__()
         self.itos = itos
         self.stoi = {token: idx for idx, token in enumerate(self.itos)}
         self.unk_word_idx = self.stoi[unk_word]
@@ -547,6 +582,8 @@ class BertBaseLexer(nn.Module):
         bert_embeddings[:, 0, ...] = bert_subword_embeddings.mean(dim=1)
         # FIXME: this loop is embarassingly parallel, there must be a way to parallelize it
         for sent_n, alignment in enumerate(inpt.subword_alignments):
+            # TODO: If we revise the alignment format, this could probably be made faster using
+            # <https://pytorch-scatter.readthedocs.io/en/latest/functions/scatter.html>
             # The word indices start at 1 because word 0 is the root token, for which we have no
             # bert embedding so we use the average of all subword embeddings
             for word_n, span in enumerate(alignment, start=1):
@@ -567,10 +604,9 @@ class BertBaseLexer(nn.Module):
 
         return torch.cat((word_embeddings, bert_embeddings), dim=2)
 
-    def pad_batch(
+    def make_batch(
         self,
         batch: Sequence[BertLexerSentence],
-        padding_value: int = 0,
     ) -> BertLexerBatch:
         """Pad a batch of sentences."""
         words_batch, bert_batch, alignments = [], [], []
@@ -581,21 +617,25 @@ class BertBaseLexer(nn.Module):
         bert_encoding = self.bert_tokenizer.pad(bert_batch)
         bert_encoding.convert_to_tensors("pt")
         return BertLexerBatch(
-            pad_sequence(words_batch, batch_first=True, padding_value=padding_value),
+            pad_sequence(
+                words_batch, batch_first=True, padding_value=self.embedding.padding_idx
+            ),
             bert_encoding,
             alignments,
         )
 
-    def tokenize(self, tok_sequence: Sequence[str]) -> BertLexerSentence:
+    def encode(self, tokens_sequence: Sequence[str]) -> BertLexerSentence:
         """
         This maps word tokens to integer indexes.
         Args:
            tok_sequence: a sequence of strings
         """
-        word_idxes = [self.stoi.get(token, self.unk_word_idx) for token in tok_sequence]
+        word_idxes = [
+            self.stoi.get(token, self.unk_word_idx) for token in tokens_sequence
+        ]
 
         # We deal with the root token separately since the BERT model has no reason to know of it
-        unrooted_tok_sequence = tok_sequence[1:]
+        unrooted_tok_sequence = tokens_sequence[1:]
         # NOTE: for now the 🤗 tokenizer interface is not unified between fast and non-fast
         # tokenizers AND not all tokenizers support the fast mode, so we have to do this little
         # awkward dance. Eventually we should be able to remove the non-fast branch here.
@@ -625,6 +665,3 @@ class BertBaseLexer(nn.Module):
             )
 
         return BertLexerSentence(word_idxes, bert_encoding, alignments)
-
-
-Lexer = Union[DefaultLexer, BertBaseLexer]

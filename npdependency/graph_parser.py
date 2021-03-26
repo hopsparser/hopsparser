@@ -13,7 +13,6 @@ from typing import (
     Callable,
     Dict,
     IO,
-    Iterable,
     List,
     Optional,
     Sequence,
@@ -28,6 +27,7 @@ import transformers
 import yaml
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from npdependency import lexers
 
 from npdependency.utils import smart_open
 from npdependency import conll2018_eval as evaluator
@@ -195,9 +195,9 @@ class BiAffineParser(nn.Module):
 
     def forward(
         self,
-        xwords: Union[torch.Tensor, BertLexerBatch],
-        xchars: Iterable[torch.Tensor],
-        xft: Iterable[torch.Tensor],
+        words: Union[torch.Tensor, BertLexerBatch],
+        chars: torch.Tensor,
+        ft_subwords: torch.Tensor,
         sent_lengths: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Predict POS, heads and deprel scores.
@@ -211,18 +211,18 @@ class BiAffineParser(nn.Module):
         - `label_scores`: $`batch_size×num_deprels×max_sent_length×max_sent_length`$
         """
         # Computes char embeddings
-        char_embed = torch.stack([self.char_rnn(column) for column in xchars], dim=1)
+        char_embed = self.char_rnn(chars)
         # Computes fasttext embeddings
-        ft_embed = torch.stack([self.ft_lexer(column) for column in xft], dim=1)
+        ft_embed = self.ft_lexer(ft_subwords)
         # Computes word embeddings
-        lex_emb = self.lexer(xwords)
+        lex_emb = self.lexer(words)
 
         # Encodes input for tagging and parsing
-        xinput = torch.cat((lex_emb, char_embed, ft_embed), dim=2)
-        packed_xinput = pack_padded_sequence(
-            xinput, sent_lengths, batch_first=True, enforce_sorted=False
+        inpt = torch.cat((lex_emb, char_embed, ft_embed), dim=-1)
+        packed_inpt = pack_padded_sequence(
+            inpt, sent_lengths, batch_first=True, enforce_sorted=False
         )
-        packed_dep_embeddings, _ = self.dep_rnn(packed_xinput)
+        packed_dep_embeddings, _ = self.dep_rnn(packed_inpt)
         dep_embeddings, _ = pad_packed_sequence(packed_dep_embeddings, batch_first=True)
 
         # Tagging
@@ -290,14 +290,13 @@ class BiAffineParser(nn.Module):
             reduction="sum", ignore_index=dev_set.LABEL_PADDING
         )
 
-        # NOTE: the accuracy scoring is approximative and cannot be interpreted as an UAS/LAS score
-        # NOTE: fun project: track the correlation between them
-
         self.eval()
 
         dev_batches = dev_set.make_batches(
             batch_size, shuffle_batches=False, shuffle_data=False, order_by_length=True
         )
+        # NOTE: the accuracy scoring is approximative and cannot be interpreted as an UAS/LAS score
+        # NOTE: fun project: track the correlation between them
         tag_acc, arc_acc, lab_acc, gloss = 0, 0, 0, 0.0
         overall_size = 0
 
@@ -478,7 +477,7 @@ class BiAffineParser(nn.Module):
                 ):
                     # Predict heads
                     probs = arc_scores.numpy().T
-                    batch_width, _ = probs.shape
+                    batch_width = probs.shape[0]
                     mst_heads = (
                         np.argmax(probs[:length, :length], axis=1)
                         if greedy
@@ -576,24 +575,24 @@ class BiAffineParser(nn.Module):
         # TODO: move the initialization code to initialize (even if that duplicates code?)
         model_path = pathlib.Path(model_path)
         if model_path.is_dir():
-            config_dir = model_path
-            model_path = model_path / "config.yaml"
-            if not model_path.exists():
-                raise ValueError(f"No config in {model_path.parent}")
+            config_path = model_path / "config.yaml"
+            if not config_path.exists():
+                raise ValueError(f"No config in {model_path}")
         else:
             warnings.warn(
                 "Loading a model from a YAML file is deprecated and will be removed in a future version."
             )
-            config_dir = model_path.parent
+            config_path = model_path
+            model_path = model_path.parent
         print(f"Initializing a parser from {model_path}")
 
-        with open(model_path) as in_stream:
+        with open(config_path) as in_stream:
             hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
         hp.update(overrides)
         hp.setdefault("device", "cpu")
 
         # FIXME: put that in the word lexer class
-        ordered_vocab = loadlist(config_dir / "vocab.lst")
+        ordered_vocab = loadlist(model_path / "vocab.lst")
 
         # TODO: separate the BERT and word lexers
         lexer: Union[DefaultLexer, BertBaseLexer]
@@ -606,7 +605,7 @@ class BiAffineParser(nn.Module):
                 unk_word=DependencyDataset.UNK_WORD,
             )
         else:
-            bert_config_path = config_dir / "bert_config"
+            bert_config_path = model_path / "bert_config"
             if bert_config_path.exists():
                 bert_model = str(bert_config_path)
             else:
@@ -633,18 +632,18 @@ class BiAffineParser(nn.Module):
                     hp["lexer"] = "."
 
         chars_lexer = CharRNNLexer(
-            charset=loadlist(config_dir / "charcodes.lst"),
+            charset=loadlist(model_path / "charcodes.lst"),
             special_tokens=[DepGraph.ROOT_TOKEN],
             char_embedding_size=hp["char_embedding_size"],
             embedding_size=hp["charlstm_output_size"],
         )
 
         ft_lexer = FastTextLexer.load(
-            str(config_dir / "fasttext_model.bin"), special_tokens=[DepGraph.ROOT_TOKEN]
+            str(model_path / "fasttext_model.bin"), special_tokens=[DepGraph.ROOT_TOKEN]
         )
 
-        itolab = loadlist(config_dir / "labcodes.lst")
-        itotag = loadlist(config_dir / "tagcodes.lst")
+        itolab = loadlist(model_path / "labcodes.lst")
+        itotag = loadlist(model_path / "tagcodes.lst")
         parser = cls(
             biased_biaffine=hp.get("biased_biaffine", True),
             device=hp["device"],
@@ -661,22 +660,22 @@ class BiAffineParser(nn.Module):
             mlp_dropout=hp["mlp_dropout"],
             tagset=itotag,
         )
-        weights_file = config_dir / "model.pt"
+        weights_file = model_path / "model.pt"
         if weights_file.exists():
             parser.load_params(str(weights_file))
         else:
             parser.save_params(str(weights_file))
             # We were actually initializing — rather than loading — the model, let's save the
             # config with our changes
-            with open(model_path, "w") as out_stream:
+            with open(config_path, "w") as out_stream:
                 yaml.dump(hp, out_stream)
 
         if hp.get("freeze_fasttext", False):
             freeze_module(ft_lexer)
         if hp.get("freeze_bert", False):
-            try:
+            if isinstance(lexer, lexers.BertBaseLexer):
                 freeze_module(lexer.bert)
-            except AttributeError:
+            else:
                 warnings.warn(
                     "A non-BERT lexer has no BERT to freeze, ignoring `freeze_bert` hyperparameter"
                 )
@@ -703,15 +702,15 @@ def parse(
     if overrides is None:
         overrides = dict()
     parser = BiAffineParser.load(model_path, overrides)
-    testtrees = DependencyDataset.read_conll(in_file)
     testset = DependencyDataset(
-        testtrees,
+        DepGraph.read_conll(in_file),
         parser.lexer,
         parser.char_rnn,
         parser.ft_lexer,
         use_labels=parser.labels,
         use_tags=parser.tagset,
     )
+    print("Parsing", file=sys.stderr)
     with smart_open(out_file, "w") as ostream:
         parser.predict_batch(testset, cast(IO[str], ostream), greedy=False)
 
@@ -794,8 +793,7 @@ def main(argv=None):
 
     if args.train_file and args.dev_file:
         # TRAIN MODE
-        traintrees = DependencyDataset.read_conll(args.train_file, max_tree_length=150)
-        devtrees = DependencyDataset.read_conll(args.dev_file)
+        traintrees = DepGraph.read_conll(args.train_file, max_tree_length=150)
         if os.path.exists(model_dir) and not args.overwrite:
             print(f"Continuing training from {model_dir}", file=sys.stderr)
             parser = BiAffineParser.load(model_dir, overrides)
@@ -828,7 +826,7 @@ def main(argv=None):
             use_tags=parser.tagset,
         )
         devset = DependencyDataset(
-            devtrees,
+            DepGraph.read_conll(args.dev_file),
             parser.lexer,
             parser.char_rnn,
             parser.ft_lexer,
