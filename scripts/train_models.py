@@ -229,7 +229,7 @@ def main(
     res = run_multi(runs, devices)
 
     runs_dict = dict(runs)
-    report_file = summary_file = out_dir / "full_report.json"
+    report_file = out_dir / "full_report.json"
     if report_file.exists():
         with open(report_file) as in_stream:
             report_dict = json.load(in_stream)
@@ -239,16 +239,16 @@ def main(
         run = runs_dict[name]
         report_dict[name] = {
             "additional_args": run["additional_args"],
-            "config": run["config_path"],
-            "out_dir": run["out_dir"],
+            "config": str(run["config_path"]),
+            "out_dir": str(run["out_dir"]),
             "results": scores._asdict(),
             "treebank": run["train_file"].parent.name,
         }
     with open(report_file, "w") as out_stream:
         json.dump(report_dict, out_stream)
 
+    summary_file = out_dir / "summary.tsv"
     if rand_seeds is None:
-        summary_file = out_dir / "summary.tsv"
         with open(summary_file, "w") as out_stream:
             summary_file.write_text("run\tdev UPOS\tdev LAS\ttest UPOS\ttest LAS\n")
             for name, report in report_dict.items():
@@ -261,22 +261,25 @@ def main(
             run_name: {
                 **{
                     k: v
-                    for k, v in run_report
-                    if v not in ("additional_args", "results")
+                    for k, v in run_report.items()
+                    if k not in ("additional_args", "results")
                 },
                 **run_report["additional_args"],
                 **run_report["results"],
             }
             for run_name, run_report in report_dict.items()
         }
-        df = pd.DataFrame(df_dict)
-        grouped = df.groupby(["config", "treebank", *args_names], as_index=False)
+        df = pd.DataFrame.from_dict(df_dict, orient="index")
+        df.to_csv(out_dir / "full_report.csv")
+        grouped = df.groupby(
+            ["config", "treebank", *(a for a in args_names if a != "rand_seed")],
+        )
         grouped[["dev_upos", "dev_las", "test_upos", "test_las"]].describe().to_csv(
             summary_file
         )
         best_dir = out_dir / "best"
         for run_name, report in df.loc[grouped["dev_las"].idxmax()].iterrows():
-            shutil.copy(report.out_dir, best_dir / run_name)
+            shutil.copytree(report["out_dir"], best_dir / run_name, dirs_exist_ok=True)
 
 
 if __name__ == "__main__":
