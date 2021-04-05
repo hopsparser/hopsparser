@@ -22,6 +22,11 @@ For each `{config_name}.yaml}` file in `{configs_dir}` and each `{treebank_name}
 train and test set. It will also create a summary of the performances of the various runs in
 `{out_dir}/summary.tsv`.
 
+You can also specify a number of rand seeds with `--rand-seeds seed1,seed2,…`, in which case the
+summary will report descriptive statistics (mean, standard deviation…) for every configuration,
+treebank and additional args combination and ``{out_dir}/best` will contain the results of the best
+runs.
+
 The `--device` flag is used to specify the devices available to train on as comma-separated list.
 The script runs in a rudimentary task queue which distributes the train runs among these devices: every
 run waits until a device is available, then grab it, trains on it and releases it once it is done.
@@ -30,3 +35,13 @@ To make several runs happen concurrently on the same device, just specify it sev
 `--devices "cuda:1,cuda:1"` will maintain two training process on the GPU with index 1. `"cpu"` is
 of course an acceptable device that you can also specify several times and mix with GPU devices, so
 this doesn't require access to GPUs.
+
+For reference, we train our models using
+
+```console
+python scripts/train_models.py {repo_root}/examples/ {resource_dir}/treebanks --devices "cuda:0,cuda:1,cuda:0,cuda:1" --rand_seeds "0,1,2,3,4,5,6,7,8" --out-dir {output_dir}/newmodels --args "fasttext={resource_dir}/fasttext_model.bin"
+```
+
+For our contemporary French models, the whole procedure takes around 36h/seed on our machine.
+
+Note that when running with the same output dir, the existing runs will be preserved (and not re-runned) and aggregated in the summaries, so it's easy to add more runs after the fact.
