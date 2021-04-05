@@ -3,7 +3,6 @@ Utility scripts
 
 This contains utility scripts that are not part of the parser but make its usage easier.
 
-
 ## `train_models.py`: training a treebank×configs matrix
 
 `train_models.py` is an utility to train and evaluate models using several configs on several
@@ -11,7 +10,7 @@ treebanks. We use it internally to train the models we provide and it is not muc
 we need it to be for that purpose (but PR to improve that are welcome). It also has very little
 error management so if any train run fails it will just hang until you SIGINT or SIGKILL it.
 
-After installing npdependency, it can be run with
+After installing `npdependency[traintools]`, it can be run with
 
 ```console
 python scripts/train_models.py {configs_dir} {treebanks_dir} --args "fasttext={fasttext_model}" --devices "{device1},{device2},{…}" --out-dir {out_dir}
