@@ -117,8 +117,6 @@ def parse_args_callback(
     return res
 
 
-# TODO: add multitrials mode, options to report stats and random seed tuning (keeping the best out
-# of n models…)
 @click.command()
 @click.argument(
     "configs_dir",
