@@ -24,7 +24,7 @@ train and test set. It will also create a summary of the performances of the var
 
 You can also specify a number of rand seeds with `--rand-seeds seed1,seed2,…`, in which case the
 summary will report descriptive statistics (mean, standard deviation…) for every configuration,
-treebank and additional args combination and ``{out_dir}/best` will contain the results of the best
+treebank and additional args combination and `{out_dir}/best` will contain the results of the best
 runs.
 
 The `--device` flag is used to specify the devices available to train on as comma-separated list.
