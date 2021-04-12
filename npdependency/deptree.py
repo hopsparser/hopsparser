@@ -401,7 +401,6 @@ class DependencyDataset:
         batch_size: int,
         shuffle_batches: bool = False,
         shuffle_data: bool = True,
-        order_by_length: bool = False,
     ) -> Iterable[DependencyBatch]:
         if not self.encoded_trees:
             self.encode()
@@ -409,11 +408,6 @@ class DependencyDataset:
         order = list(range(N))
         if shuffle_data:
             shuffle(order)
-
-        # shuffling then ordering is relevant : it change the way ties are resolved and thus batch
-        # construction
-        if order_by_length:
-            order.sort(key=lambda i: len(self.treelist[i]))
 
         batch_order = list(range(0, N, batch_size))
         if shuffle_batches:

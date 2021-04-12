@@ -294,7 +294,7 @@ class BiAffineParser(nn.Module):
         self.eval()
 
         dev_batches = dev_set.make_batches(
-            batch_size, shuffle_batches=False, shuffle_data=False, order_by_length=True
+            batch_size, shuffle_batches=False, shuffle_data=False
         )
         # NOTE: the accuracy scoring is approximative and cannot be interpreted as an UAS/LAS score
         # NOTE: fun project: track the correlation between them
@@ -400,7 +400,6 @@ class BiAffineParser(nn.Module):
                 batch_size,
                 shuffle_batches=True,
                 shuffle_data=True,
-                order_by_length=False,
             )
             self.train()
             for batch in train_batches:
@@ -708,7 +707,6 @@ def parse(
         parser.default_batch_size,
         shuffle_batches=False,
         shuffle_data=False,
-        order_by_length=False,
     )
     with smart_open(out_file, "w") as ostream:
         parser.batched_predict(
@@ -872,7 +870,6 @@ def main(argv=None):
                     parser.default_batch_size,
                     shuffle_batches=False,
                     shuffle_data=False,
-                    order_by_length=False,
                 ),
                 ostream,
                 devset.itotag,
