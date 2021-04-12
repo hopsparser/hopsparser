@@ -21,6 +21,14 @@ except ImportError:
     from typing_extensions import Literal  # type: ignore[misc]
 
 
+device_opt = click.option(
+    "--device",
+    default="cpu",
+    help="The device to use for the parsing model. (cpu, gpu:0, …).",
+    show_default=True,
+)
+
+
 @contextlib.contextmanager
 def dir_manager(
     path: Optional[Union[pathlib.Path, str]] = None
@@ -55,12 +63,7 @@ def cli():
     type=click.Path(resolve_path=True, dir_okay=False, writable=True, allow_dash=True),
     default="-",
 )
-@click.option(
-    "--device",
-    default="cpu",
-    help="The device to use for parsing. (cpu, gpu:0, …).",
-    show_default=True,
-)
+@device_opt
 @click.option(
     "--raw",
     is_flag=True,
@@ -111,12 +114,7 @@ def parse(
     "treebank_path",
     type=click.Path(resolve_path=True, exists=True, dir_okay=False, allow_dash=True),
 )
-@click.option(
-    "--device",
-    default="cpu",
-    help="The device to use for parsing. (cpu, gpu:0, …).",
-    show_default=True,
-)
+@device_opt
 @click.option(
     "--intermediary-dir",
     type=click_pathlib.Path(resolve_path=True, file_okay=False),

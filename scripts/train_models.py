@@ -1,13 +1,16 @@
 import itertools
+import json
 import multiprocessing
 import os.path
 import pathlib
+import shutil
 import subprocess
 import sys
 from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple, Union
 
 import click
 import click_pathlib
+import pandas as pd
 
 from npdependency import conll2018_eval as evaluator
 
@@ -114,8 +117,6 @@ def parse_args_callback(
     return res
 
 
-# TODO: add multitrials mode, options to report stats and random seed tuning (keeping the best out
-# of n models…)
 @click.command()
 @click.argument(
     "configs_dir",
@@ -153,7 +154,7 @@ def parse_args_callback(
     callback=(
         lambda _ctx, _opt, val: None
         if val is None
-        else [int(v) for v in val.split(",")]
+        else [int(v) for v in val.split(",") if v]
     ),
     help=(
         "A comma-separated list of random seeds to try and run stats on."
@@ -185,6 +186,7 @@ def main(
             for args_values in itertools.product(*all_args_values)
         ]
     else:
+        args_names = []
         additional_args_combinations = [{}]
     runs: List[Tuple[str, Dict[str, Any]]] = []
     for t in treebanks:
@@ -224,15 +226,58 @@ def main(
 
     res = run_multi(runs, devices)
 
+    runs_dict = dict(runs)
+    report_file = out_dir / "full_report.json"
+    if report_file.exists():
+        with open(report_file) as in_stream:
+            report_dict = json.load(in_stream)
+    else:
+        report_dict = dict()
+    for name, scores in res:
+        run = runs_dict[name]
+        report_dict[name] = {
+            "additional_args": run["additional_args"],
+            "config": str(run["config_path"]),
+            "out_dir": str(run["out_dir"]),
+            "results": scores._asdict(),
+            "treebank": run["train_file"].parent.name,
+        }
+    with open(report_file, "w") as out_stream:
+        json.dump(report_dict, out_stream)
+
     summary_file = out_dir / "summary.tsv"
-    if not summary_file.exists():
-        summary_file.write_text("run\tdev UPOS\tdev LAS\ttest UPOS\ttest LAS\n")
-    with open(summary_file, "a") as out_stream:
-        for name, scores in res:
-            out_stream.write(
-                f"{name}\t{100*scores.dev_upos:.2f}\t{100*scores.dev_las:.2f}\t{100*scores.test_upos:.2f}\t{100*scores.test_las:.2f}\n"
-            )
-    # TODO: stats aggregated across random seeds computed here
+    if rand_seeds is None:
+        with open(summary_file, "w") as out_stream:
+            summary_file.write_text("run\tdev UPOS\tdev LAS\ttest UPOS\ttest LAS\n")
+            for name, report in report_dict.items():
+                out_stream.write(name)
+                for s in ("dev_upos", "dev_las", "test_upos", "test_las"):
+                    out_stream.write(f"\t{100*report['results'][s]:.2f}")
+                out_stream.write("\n")
+    else:
+        df_dict = {
+            run_name: {
+                **{
+                    k: v
+                    for k, v in run_report.items()
+                    if k not in ("additional_args", "results")
+                },
+                **run_report["additional_args"],
+                **run_report["results"],
+            }
+            for run_name, run_report in report_dict.items()
+        }
+        df = pd.DataFrame.from_dict(df_dict, orient="index")
+        df.to_csv(out_dir / "full_report.csv")
+        grouped = df.groupby(
+            ["config", "treebank", *(a for a in args_names if a != "rand_seed")],
+        )
+        grouped[["dev_upos", "dev_las", "test_upos", "test_las"]].describe().to_csv(
+            summary_file
+        )
+        best_dir = out_dir / "best"
+        for run_name, report in df.loc[grouped["dev_las"].idxmax()].iterrows():
+            shutil.copytree(report["out_dir"], best_dir / run_name, dirs_exist_ok=True)
 
 
 if __name__ == "__main__":

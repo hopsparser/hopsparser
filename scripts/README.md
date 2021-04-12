@@ -3,7 +3,6 @@ Utility scripts
 
 This contains utility scripts that are not part of the parser but make its usage easier.
 
-
 ## `train_models.py`: training a treebank×configs matrix
 
 `train_models.py` is an utility to train and evaluate models using several configs on several
@@ -11,7 +10,7 @@ treebanks. We use it internally to train the models we provide and it is not muc
 we need it to be for that purpose (but PR to improve that are welcome). It also has very little
 error management so if any train run fails it will just hang until you SIGINT or SIGKILL it.
 
-After installing npdependency, it can be run with
+After installing `npdependency[traintools]`, it can be run with
 
 ```console
 python scripts/train_models.py {configs_dir} {treebanks_dir} --args "fasttext={fasttext_model}" --devices "{device1},{device2},{…}" --out-dir {out_dir}
@@ -23,6 +22,11 @@ For each `{config_name}.yaml}` file in `{configs_dir}` and each `{treebank_name}
 train and test set. It will also create a summary of the performances of the various runs in
 `{out_dir}/summary.tsv`.
 
+You can also specify a number of rand seeds with `--rand-seeds seed1,seed2,…`, in which case the
+summary will report descriptive statistics (mean, standard deviation…) for every configuration,
+treebank and additional args combination and `{out_dir}/best` will contain the results of the best
+runs.
+
 The `--device` flag is used to specify the devices available to train on as comma-separated list.
 The script runs in a rudimentary task queue which distributes the train runs among these devices: every
 run waits until a device is available, then grab it, trains on it and releases it once it is done.
@@ -31,3 +35,13 @@ To make several runs happen concurrently on the same device, just specify it sev
 `--devices "cuda:1,cuda:1"` will maintain two training process on the GPU with index 1. `"cpu"` is
 of course an acceptable device that you can also specify several times and mix with GPU devices, so
 this doesn't require access to GPUs.
+
+For reference, we train our models using
+
+```console
+python scripts/train_models.py {repo_root}/examples/ {resource_dir}/treebanks --devices "cuda:0,cuda:1,cuda:0,cuda:1" --rand_seeds "0,1,2,3,4,5,6,7,8" --out-dir {output_dir}/newmodels --args "fasttext={resource_dir}/fasttext_model.bin"
+```
+
+For our contemporary French models, the whole procedure takes around 36h/seed on our machine.
+
+Note that when running with the same output dir, the existing runs will be preserved (and not re-runned) and aggregated in the summaries, so it's easy to add more runs after the fact.
