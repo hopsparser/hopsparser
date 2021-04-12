@@ -188,7 +188,7 @@ def serve(
     subprocess.run(
         ["uvicorn", "npdependency.server:app", "--port", str(port)],
         env={
-            "models": f'{{"default":"{model_path}"}}',
+            "models": json.dumps({"default": str(model_path)}),
             "device": device,
             **os.environ,
         },
