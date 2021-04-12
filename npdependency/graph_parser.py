@@ -570,8 +570,10 @@ class BiAffineParser(nn.Module):
 
     @classmethod
     def load(
-        cls, model_path: Union[str, pathlib.Path], overrides: Dict[str, Any]
+        cls, model_path: Union[str, pathlib.Path], overrides: Optional[Dict[str, Any]]=None
     ) -> "BiAffineParser":
+        if overrides is None:
+            overrides = dict()
         # TODO: move the initialization code to initialize (even if that duplicates code?)
         model_path = pathlib.Path(model_path)
         if model_path.is_dir():
@@ -699,8 +701,6 @@ def parse(
     out_file: Union[str, pathlib.Path, IO[str]],
     overrides: Optional[Dict[str, str]] = None,
 ):
-    if overrides is None:
-        overrides = dict()
     parser = BiAffineParser.load(model_path, overrides)
     testset = DependencyDataset(
         DepGraph.read_conll(in_file),
