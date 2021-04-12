@@ -296,10 +296,6 @@ class DependencyBatch(NamedTuple):
 
 
 class DependencyDataset:
-    """
-    A representation of the DepBank for efficient processing.
-    This is a sorted dataset.
-    """
 
     PAD_IDX: Final[int] = 0
     PAD_TOKEN: Final[str] = "<pad>"
@@ -329,38 +325,78 @@ class DependencyDataset:
         self.tagtoi = {tag: idx for idx, tag in enumerate(self.itotag)}
 
         self.encoded_trees: List[EncodedTree] = []
-        self.encode()
+
+    def encode_tree(self, tree: DepGraph) -> EncodedTree:
+        tag_idxes = torch.tensor(
+            [self.tagtoi.get(tag, self.tagtoi[self.UNK_WORD]) for tag in tree.pos_tags],
+            dtype=torch.long,
+        )
+        tag_idxes[0] = self.LABEL_PADDING
+        heads = torch.tensor(tree.heads, dtype=torch.long)
+        heads[0] = self.LABEL_PADDING
+        # FIXME: should unk labels be padding?
+        labels = torch.tensor(
+            [self.labtoi.get(lab, self.LABEL_PADDING) for lab in tree.deprels],
+            dtype=torch.long,
+        )
+        labels[0] = self.LABEL_PADDING
+        return EncodedTree(
+            words=self.lexer.encode(tree.words),
+            subwords=self.ft_lexer.encode(tree.words),
+            chars=self.chars_lexer.encode(tree.words),
+            heads=heads,
+            labels=labels,
+            tags=tag_idxes,
+        )
 
     def encode(self):
         self.encoded_trees = []
-
         for tree in self.treelist:
-            tag_idxes = torch.tensor(
-                [
-                    self.tagtoi.get(tag, self.tagtoi[self.UNK_WORD])
-                    for tag in tree.pos_tags
-                ],
-                dtype=torch.long,
-            )
-            tag_idxes[0] = self.LABEL_PADDING
-            heads = torch.tensor(tree.heads, dtype=torch.long)
-            heads[0] = self.LABEL_PADDING
-            # FIXME: should unk labels be padding?
-            labels = torch.tensor(
-                [self.labtoi.get(lab, self.LABEL_PADDING) for lab in tree.deprels],
-                dtype=torch.long,
-            )
-            labels[0] = self.LABEL_PADDING
-            self.encoded_trees.append(
-                EncodedTree(
-                    words=self.lexer.encode(tree.words),
-                    subwords=self.ft_lexer.encode(tree.words),
-                    chars=self.chars_lexer.encode(tree.words),
-                    heads=heads,
-                    labels=labels,
-                    tags=tag_idxes,
-                )
-            )
+            self.encoded_trees.append(self.encode_tree(tree))
+
+    def make_single_batch(
+        self,
+        trees: Sequence[DepGraph],
+        encoded_trees: Optional[Sequence[EncodedTree]] = None,
+    ) -> DependencyBatch:
+        if encoded_trees is None:
+            encoded_trees = [self.encode_tree(tree) for tree in trees]
+        words = self.lexer.make_batch([tree.words for tree in encoded_trees])
+        chars = self.chars_lexer.make_batch([tree.chars for tree in encoded_trees])
+        subwords = self.ft_lexer.make_batch([tree.subwords for tree in encoded_trees])
+
+        tags = pad_sequence(
+            [tree.tags for tree in encoded_trees],
+            batch_first=True,
+            padding_value=self.LABEL_PADDING,
+        )
+        heads = pad_sequence(
+            [tree.heads for tree in encoded_trees],
+            batch_first=True,
+            padding_value=self.LABEL_PADDING,
+        )
+        labels = pad_sequence(
+            [tree.labels for tree in encoded_trees],
+            batch_first=True,
+            padding_value=self.LABEL_PADDING,
+        )
+
+        sent_lengths = torch.tensor([len(t) for t in trees])
+        # NOTE: this is equivalent to and faster and clearer but less pure than
+        # `torch.arange(sent_lengths.max()).unsqueeze(0).lt(sent_lengths.unsqueeze(1).logical_and(torch.arange(sent_lengths.max()).gt(0))`
+        content_mask = labels.ne(self.LABEL_PADDING)
+
+        return DependencyBatch(
+            chars=chars,
+            encoded_words=words,
+            heads=heads,
+            labels=labels,
+            content_mask=content_mask,
+            sent_lengths=sent_lengths,
+            subwords=subwords,
+            tags=tags,
+            trees=trees,
+        )
 
     def make_batches(
         self,
@@ -369,6 +405,8 @@ class DependencyDataset:
         shuffle_data: bool = True,
         order_by_length: bool = False,
     ) -> Iterable[DependencyBatch]:
+        if not self.encoded_trees:
+            self.encode()
         N = len(self.treelist)
         order = list(range(N))
         if shuffle_data:
@@ -387,45 +425,7 @@ class DependencyDataset:
             batch_indices = order[i : i + batch_size]
             trees = tuple(self.treelist[j] for j in batch_indices)
             encoded_trees = [self.encoded_trees[j] for j in batch_indices]
-
-            words = self.lexer.make_batch([tree.words for tree in encoded_trees])
-            chars = self.chars_lexer.make_batch([tree.chars for tree in encoded_trees])
-            subwords = self.ft_lexer.make_batch(
-                [tree.subwords for tree in encoded_trees]
-            )
-
-            tags = pad_sequence(
-                [tree.tags for tree in encoded_trees],
-                batch_first=True,
-                padding_value=self.LABEL_PADDING,
-            )
-            heads = pad_sequence(
-                [tree.heads for tree in encoded_trees],
-                batch_first=True,
-                padding_value=self.LABEL_PADDING,
-            )
-            labels = pad_sequence(
-                [tree.labels for tree in encoded_trees],
-                batch_first=True,
-                padding_value=self.LABEL_PADDING,
-            )
-
-            sent_lengths = torch.tensor([len(t) for t in trees])
-            # NOTE: this is equivalent to and faster and clearer but less pure than
-            # `torch.arange(sent_lengths.max()).unsqueeze(0).lt(sent_lengths.unsqueeze(1).logical_and(torch.arange(sent_lengths.max()).gt(0))`
-            content_mask = labels.ne(self.LABEL_PADDING)
-
-            yield DependencyBatch(
-                chars=chars,
-                encoded_words=words,
-                heads=heads,
-                labels=labels,
-                content_mask=content_mask,
-                sent_lengths=sent_lengths,
-                subwords=subwords,
-                tags=tags,
-                trees=trees,
-            )
+            yield self.make_single_batch(trees, encoded_trees)
 
     def __len__(self):
         return len(self.treelist)
