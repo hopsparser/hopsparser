@@ -478,13 +478,13 @@ class BiAffineParser(nn.Module):
                     # Predict heads
                     probs = arc_scores.numpy().T
                     batch_width = probs.shape[0]
-                    mst_heads = (
+                    mst_heads_np = (
                         np.argmax(probs[:length, :length], axis=1)
                         if greedy
                         else chuliu_edmonds(probs[:length, :length])
                     )
                     mst_heads = torch.from_numpy(
-                        np.pad(mst_heads, (0, batch_width - length))
+                        np.pad(mst_heads_np, (0, batch_width - length))
                     ).to(self.device)
 
                     # Predict tags
