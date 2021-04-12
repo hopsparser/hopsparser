@@ -2,7 +2,6 @@ from dataclasses import dataclass
 import pathlib
 from random import shuffle
 from typing import (
-    Generator,
     IO,
     Iterable,
     List,
@@ -204,7 +203,7 @@ class DepGraph:
         cls: Type[_T_DEPGRAPH],
         filename: Union[str, pathlib.Path, IO[str]],
         max_tree_length: Optional[int] = None,
-    ) -> Generator[_T_DEPGRAPH, None, None]:
+    ) -> Iterable[_T_DEPGRAPH]:
         print(f"Reading treebank from {filename}")
         with smart_open(filename) as istream:
             current_tree_lines: List[str] = []
@@ -380,7 +379,7 @@ class DependencyDataset:
             padding_value=self.LABEL_PADDING,
         )
 
-        sent_lengths = torch.tensor([len(t) for t in trees])
+        sent_lengths = torch.tensor([len(t) for t in trees], dtype=torch.long)
         # NOTE: this is equivalent to and faster and clearer but less pure than
         # `torch.arange(sent_lengths.max()).unsqueeze(0).lt(sent_lengths.unsqueeze(1).logical_and(torch.arange(sent_lengths.max()).gt(0))`
         content_mask = labels.ne(self.LABEL_PADDING)
@@ -422,7 +421,7 @@ class DependencyDataset:
 
         for i in batch_order:
             batch_indices = order[i : i + batch_size]
-            trees = tuple(self.treelist[j] for j in batch_indices)
+            trees = [self.treelist[j] for j in batch_indices]
             encoded_trees = [self.encoded_trees[j] for j in batch_indices]
             yield self.make_single_batch(trees, encoded_trees)
 

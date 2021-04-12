@@ -105,7 +105,7 @@ async def process(req: ParseRequest) -> ParseResponse:
         use_tags=parser.tagset,
     )
     parsed = io.StringIO()
-    parser.predict_batch(treebank, parsed, greedy=False)
+    parser.batched_predict(treebank, parsed, greedy=False)
     return ParseResponse(
         model=model_name, acknowledgements=[""], result=parsed.getvalue()
     )

@@ -13,6 +13,7 @@ from typing import (
     Callable,
     Dict,
     IO,
+    Iterable,
     List,
     Optional,
     Sequence,
@@ -438,25 +439,18 @@ class BiAffineParser(nn.Module):
         self.load_params(model_path / "model.pt")
         self.save_params(model_path / "model.pt")
 
-    def predict_batch(
+    def batched_predict(
         self,
-        test_set: DependencyDataset,
+        batch_lst: Iterable[DependencyBatch],
         ostream: IO[str],
-        batch_size: Optional[int] = None,
+        itotag: Dict[int, str],
+        itolab: Dict[int, str],
         greedy: bool = False,
     ):
-        if batch_size is None:
-            batch_size = self.default_batch_size
         self.eval()
-        # keep natural order here
-        test_batches = test_set.make_batches(
-            batch_size, shuffle_batches=False, shuffle_data=False, order_by_length=False
-        )
-
-        out_trees: List[DepGraph] = []
 
         with torch.no_grad():
-            for batch in test_batches:
+            for batch in batch_lst:
                 batch = batch.to(self.device)
 
                 # batch prediction
@@ -489,7 +483,7 @@ class BiAffineParser(nn.Module):
 
                     # Predict tags
                     tag_idxes = tagger_scores.argmax(dim=1)
-                    pos_tags = [test_set.itotag[idx] for idx in tag_idxes]
+                    pos_tags = [itotag[idx] for idx in tag_idxes]
                     # Predict labels
                     select = mst_heads.unsqueeze(0).expand(lab_scores.size(0), -1)
                     selected = torch.gather(lab_scores, 1, select.unsqueeze(1)).squeeze(
@@ -497,20 +491,16 @@ class BiAffineParser(nn.Module):
                     )
                     mst_labels = selected.argmax(dim=0)
                     edges = [
-                        deptree.Edge(head.item(), test_set.itolab[lbl], dep)
+                        deptree.Edge(head.item(), itolab[lbl], dep)
                         for (dep, lbl, head) in zip(
                             list(range(length)), mst_labels, mst_heads
                         )
                     ]
-                    out_trees.append(
-                        tree.replace(
-                            edges=edges[1:],
-                            pos_tags=pos_tags[1:],
-                        )
+                    result_tree = tree.replace(
+                        edges=edges[1:],
+                        pos_tags=pos_tags[1:],
                     )
-
-        for tree in out_trees:
-            print(str(tree), file=ostream, end="\n\n")
+                    print(str(result_tree), file=ostream, end="\n\n")
 
     @classmethod
     def initialize(
@@ -704,7 +694,7 @@ def parse(
     overrides: Optional[Dict[str, str]] = None,
 ):
     parser = BiAffineParser.load(model_path, overrides)
-    testset = DependencyDataset(
+    test_set = DependencyDataset(
         DepGraph.read_conll(in_file),
         parser.lexer,
         parser.char_rnn,
@@ -713,8 +703,21 @@ def parse(
         use_tags=parser.tagset,
     )
     print("Parsing", file=sys.stderr)
+    # keep natural order here
+    batches = test_set.make_batches(
+        parser.default_batch_size,
+        shuffle_batches=False,
+        shuffle_data=False,
+        order_by_length=False,
+    )
     with smart_open(out_file, "w") as ostream:
-        parser.predict_batch(testset, cast(IO[str], ostream), greedy=False)
+        parser.batched_predict(
+            batches,
+            cast(IO[str], ostream),
+            test_set.itotag,
+            test_set.itolab,
+            greedy=False,
+        )
 
 
 def main(argv=None):
@@ -864,7 +867,18 @@ def main(argv=None):
                 f"{os.path.basename(args.dev_file)}.parsed",
             )
         with open(parsed_devset_path, "w") as ostream:
-            parser.predict_batch(devset, ostream, greedy=False)
+            parser.batched_predict(
+                devset.make_batches(
+                    parser.default_batch_size,
+                    shuffle_batches=False,
+                    shuffle_data=False,
+                    order_by_length=False,
+                ),
+                ostream,
+                devset.itotag,
+                devset.itolab,
+                greedy=False,
+            )
         gold_devset = evaluator.load_conllu_file(args.dev_file)
         syst_devset = evaluator.load_conllu_file(parsed_devset_path)
         dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
