@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import pathlib
 from random import shuffle
 from typing import (
+    Generator,
     IO,
     Iterable,
     List,
@@ -203,10 +204,9 @@ class DepGraph:
         cls: Type[_T_DEPGRAPH],
         filename: Union[str, pathlib.Path, IO[str]],
         max_tree_length: Optional[int] = None,
-    ) -> List[_T_DEPGRAPH]:
+    ) -> Generator[_T_DEPGRAPH, None, None]:
         print(f"Reading treebank from {filename}")
         with smart_open(filename) as istream:
-            trees = []
             current_tree_lines: List[str] = []
             # Add a dummy empty line to flush the last tree even if the CoNLL-U mandatory empty last
             # line is absent
@@ -217,7 +217,7 @@ class DepGraph:
                             max_tree_length is None
                             or len(current_tree_lines) <= max_tree_length
                         ):
-                            trees.append(cls.from_conllu(current_tree_lines))
+                            yield cls.from_conllu(current_tree_lines)
                         else:
                             print(
                                 f"Dropped tree with length {len(current_tree_lines)} > {max_tree_length}",
@@ -225,7 +225,6 @@ class DepGraph:
                         current_tree_lines = []
                 else:
                     current_tree_lines.append(line)
-        return trees
 
 
 class EncodedTree(NamedTuple):
@@ -306,7 +305,7 @@ class DependencyDataset:
 
     def __init__(
         self,
-        treelist: List[DepGraph],
+        treelist: Iterable[DepGraph],
         lexer: lexers.Lexer,
         chars_lexer: lexers.CharRNNLexer,
         ft_lexer: lexers.FastTextLexer,
@@ -316,7 +315,7 @@ class DependencyDataset:
         self.lexer = lexer
         self.chars_lexer = chars_lexer
         self.ft_lexer = ft_lexer
-        self.treelist = treelist
+        self.treelist = list(treelist)
 
         self.itolab = use_labels
         self.labtoi = {label: idx for idx, label in enumerate(self.itolab)}

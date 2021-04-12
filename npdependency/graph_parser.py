@@ -570,7 +570,9 @@ class BiAffineParser(nn.Module):
 
     @classmethod
     def load(
-        cls, model_path: Union[str, pathlib.Path], overrides: Optional[Dict[str, Any]]=None
+        cls,
+        model_path: Union[str, pathlib.Path],
+        overrides: Optional[Dict[str, Any]] = None,
     ) -> "BiAffineParser":
         if overrides is None:
             overrides = dict()
@@ -793,14 +795,17 @@ def main(argv=None):
 
     if args.train_file and args.dev_file:
         # TRAIN MODE
-        traintrees = DepGraph.read_conll(args.train_file, max_tree_length=150)
+        traintrees = list(DepGraph.read_conll(args.train_file, max_tree_length=150))
         if os.path.exists(model_dir) and not args.overwrite:
             print(f"Continuing training from {model_dir}", file=sys.stderr)
             parser = BiAffineParser.load(model_dir, overrides)
         else:
             if args.overwrite:
                 if not args.out_dir:
-                    print("ERROR: overwriting is only supported with --out_dir", file=sys.stderr)
+                    print(
+                        "ERROR: overwriting is only supported with --out_dir",
+                        file=sys.stderr,
+                    )
                     return 1
                 print(
                     f"Erasing existing trained model in {model_dir} since --overwrite was asked",
@@ -879,7 +884,12 @@ def main(argv=None):
                 os.path.dirname(args.pred_file),
                 f"{os.path.basename(args.pred_file)}.parsed",
             )
-        parse(trained_config_file, args.pred_file, parsed_testset_path, overrides=overrides)
+        parse(
+            trained_config_file,
+            args.pred_file,
+            parsed_testset_path,
+            overrides=overrides,
+        )
         print("Parsing done.", file=sys.stderr)
 
 
