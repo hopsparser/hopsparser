@@ -239,7 +239,7 @@ _T_DependencyBatch = TypeVar("_T_DependencyBatch", bound="DependencyBatch")
 
 
 class DependencyBatch(NamedTuple):
-    """Batched and padded sentences.
+    """Encoded, padded and batched trees.
 
     ## Attributes
 
@@ -277,14 +277,11 @@ class DependencyBatch(NamedTuple):
     def to(
         self: _T_DependencyBatch, device: Union[str, torch.device]
     ) -> _T_DependencyBatch:
-        encoded_words = self.encoded_words.to(device)
-        chars = self.chars.to(device)
-        subwords = self.subwords.to(device)
         return type(self)(
             trees=self.trees,
-            chars=chars,
-            subwords=subwords,
-            encoded_words=encoded_words,
+            chars=self.chars.to(device),
+            subwords=self.subwords.to(device),
+            encoded_words=self.encoded_words.to(device),
             tags=self.tags.to(device),
             heads=self.heads.to(device),
             labels=self.labels.to(device),
