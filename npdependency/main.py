@@ -11,7 +11,6 @@ import click
 import click_pathlib
 
 from npdependency import graph_parser
-from npdependency.utils import smart_open
 from npdependency import conll2018_eval as evaluator
 
 # Python 3.7 shim
@@ -82,18 +81,6 @@ def parse(
     else:
         input_file = input_path
 
-    if raw:
-        intermediary_file = tempfile.TemporaryFile(mode="w+")
-        with smart_open(input_file, "r") as in_stream:
-            for line in in_stream:
-                if not line or line.isspace():
-                    continue
-                for i, w in enumerate(line.strip().split(), start=1):
-                    intermediary_file.write(f"{i}\t{w}\n")
-                intermediary_file.write("\n")
-        intermediary_file.seek(0)
-        input_file = intermediary_file
-
     output_file: Union[TextIO, str]
     if output_path == "-":
         output_file = sys.stdout
@@ -101,7 +88,7 @@ def parse(
         output_file = output_path
 
     graph_parser.parse(
-        model_path, input_file, output_file, overrides={"device": device}
+        model_path, input_file, output_file, overrides={"device": device}, raw=raw
     )
 
 

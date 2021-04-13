@@ -15,9 +15,11 @@ from typing import (
     IO,
     Iterable,
     List,
+    NamedTuple,
     Optional,
     Sequence,
     Tuple,
+    TypeVar,
     Union,
     cast,
 )
@@ -26,10 +28,11 @@ import numpy as np
 import torch
 import transformers
 import yaml
+from boltons import iterutils as itu
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-from npdependency import lexers
 
+from npdependency import lexers
 from npdependency.utils import smart_open
 from npdependency import conll2018_eval as evaluator
 from npdependency import deptree
@@ -106,8 +109,63 @@ class LRSchedule(TypedDict):
     warmup_steps: int
 
 
-class BiAffineParser(nn.Module):
+class EncodedSentence(NamedTuple):
+    words: Sequence[str]
+    encoded_words: Union[torch.Tensor, lexers.BertLexerSentence]
+    subwords: torch.Tensor
+    chars: torch.Tensor
+    sent_len: int
 
+
+_T_SentencesBatch = TypeVar("_T_SentencesBatch", bound="SentencesBatch")
+
+
+class SentencesBatch(NamedTuple):
+    """Batched and padded sentences.
+
+    ## Attributes
+
+    - `words` The word forms for every sentence in the batch
+    - `encoded_words` The words of the sentences, encoded and batched by a lexer and meant to be consumed by
+      it directly. The details stay opaque at this level, see the relevant lexer instead.
+    - `subwords` Encoded FastText subwords as a sequence of `LongTensor`. As with `chars`,
+      `subwords[i][j, k]` is the k-th subword of the i-th word of the j-th sentence in the batch.
+    - `chars` Encoded chars as a sequence of `LongTensor`. `chars[i][j, k]` is the k-th character of
+      the i-th word of the j-th sentence in the batch.
+    - `tags` The gold POS tags (if any) as a `LongTensor` with shape `(batch_size,
+      max_sentence_length)`
+    - `heads` The gold heads (if any) as a `LongTensor` with shape `(batch_size,
+      max_sentence_length)`
+    - `labels` The gold dependency labels (if any) as a `LongTensor` with shape `(batch_size,
+      max_sentence_length)`
+    - `sent_length` The lengths of the sentences in the batch as `LongTensor` with shape
+      `(batch_size,)`
+    - `content_mask` A `BoolTensor` mask of shape `(batch_size, max_sentence_length)` such that
+      `content_mask[i, j]` is true iff the j-th word of the i-th sentence in the batch is neither
+      padding not the root (i.e. iff `1 <= j < sent_length[i]`).
+    """
+
+    words: Sequence[Sequence[str]]
+    encoded_words: Union[torch.Tensor, BertLexerBatch]
+    subwords: torch.Tensor
+    chars: torch.Tensor
+    sent_lengths: torch.Tensor
+    content_mask: torch.Tensor
+
+    def to(
+        self: _T_SentencesBatch, device: Union[str, torch.device]
+    ) -> _T_SentencesBatch:
+        return type(self)(
+            words=self.words,
+            encoded_words=self.encoded_words.to(device),
+            chars=self.chars.to(device),
+            subwords=self.subwords.to(device),
+            sent_lengths=self.sent_lengths,
+            content_mask=self.content_mask.to(device),
+        )
+
+
+class BiAffineParser(nn.Module):
     """Biaffine Dependency Parser."""
 
     def __init__(
@@ -438,12 +496,47 @@ class BiAffineParser(nn.Module):
         self.load_params(model_path / "model.pt")
         self.save_params(model_path / "model.pt")
 
+    def encode_sentence(self, words: Sequence[str]) -> EncodedSentence:
+        return EncodedSentence(
+            words=words,
+            encoded_words=self.lexer.encode([DepGraph.ROOT_TOKEN, *words]),
+            subwords=self.ft_lexer.encode(words),
+            chars=self.char_rnn.encode(words),
+            sent_len=len(words),
+        )
+
+    def batch_sentences(self, sentences: Sequence[EncodedSentence]) -> SentencesBatch:
+        words = [sent.words for sent in sentences]
+        # TODO: fix the typing here
+        encoded_words = self.lexer.make_batch([sent.encoded_words for sent in sentences])  # type: ignore[misc]
+        chars = self.char_rnn.make_batch([sent.chars for sent in sentences])
+        subwords = self.ft_lexer.make_batch([sent.subwords for sent in sentences])
+
+        sent_lengths = torch.tensor(
+            [sent.sent_len for sent in sentences], dtype=torch.long
+        )
+
+        content_mask = (
+            torch.arange(sent_lengths.max().item())
+            .unsqueeze(0)
+            .lt(sent_lengths.unsqueeze(1))
+        )
+        # For the root tokens
+        content_mask[:, 0] = False
+
+        return SentencesBatch(
+            words=words,
+            encoded_words=encoded_words,
+            chars=chars,
+            subwords=subwords,
+            content_mask=content_mask,
+            sent_lengths=sent_lengths,
+        )
+
     def batched_predict(
         self,
-        batch_lst: Iterable[DependencyBatch],
+        batch_lst: Union[Iterable[DependencyBatch], Iterable[SentencesBatch]],
         ostream: IO[str],
-        itotag: Dict[int, str],
-        itolab: Dict[int, str],
         greedy: bool = False,
     ):
         self.eval()
@@ -461,8 +554,31 @@ class BiAffineParser(nn.Module):
                 )
                 arc_scores_batch = arc_scores_batch.cpu()
 
+                if isinstance(batch, DependencyBatch):
+                    trees = batch.trees
+                else:
+                    trees = [
+                        DepGraph(
+                            nodes=[
+                                deptree.DepNode(
+                                    identifier=i,
+                                    form=w,
+                                    lemma="_",
+                                    upos="_",
+                                    xpos="_",
+                                    feats="_",
+                                    head=0,
+                                    deprel="_",
+                                    deps="_",
+                                    misc="_",
+                                )
+                                for i, w in enumerate(words)
+                            ],
+                        )
+                        for words in batch.words
+                    ]
                 for (tree, length, tagger_scores, arc_scores, lab_scores) in zip(
-                    batch.trees,
+                    trees,
                     batch.sent_lengths,
                     tagger_scores_batch,
                     arc_scores_batch,
@@ -482,7 +598,7 @@ class BiAffineParser(nn.Module):
 
                     # Predict tags
                     tag_idxes = tagger_scores.argmax(dim=1)
-                    pos_tags = [itotag[idx] for idx in tag_idxes]
+                    pos_tags = [self.tagset[idx] for idx in tag_idxes]
                     # Predict labels
                     select = mst_heads.unsqueeze(0).expand(lab_scores.size(0), -1)
                     selected = torch.gather(lab_scores, 1, select.unsqueeze(1)).squeeze(
@@ -490,7 +606,7 @@ class BiAffineParser(nn.Module):
                     )
                     mst_labels = selected.argmax(dim=0)
                     edges = [
-                        deptree.Edge(head.item(), itolab[lbl], dep)
+                        deptree.Edge(head.item(), self.labels[lbl], dep)
                         for (dep, lbl, head) in zip(
                             list(range(length)), mst_labels, mst_heads
                         )
@@ -691,31 +807,43 @@ def parse(
     in_file: Union[str, pathlib.Path, IO[str]],
     out_file: Union[str, pathlib.Path, IO[str]],
     overrides: Optional[Dict[str, str]] = None,
+    raw: bool = False,
 ):
     parser = BiAffineParser.load(model_path, overrides)
-    test_set = DependencyDataset(
-        DepGraph.read_conll(in_file),
-        parser.lexer,
-        parser.char_rnn,
-        parser.ft_lexer,
-        use_labels=parser.labels,
-        use_tags=parser.tagset,
-    )
-    print("Parsing", file=sys.stderr)
-    # keep natural order here
-    batches = test_set.make_batches(
-        parser.default_batch_size,
-        shuffle_batches=False,
-        shuffle_data=False,
-    )
-    with smart_open(out_file, "w") as ostream:
-        parser.batched_predict(
-            batches,
-            cast(IO[str], ostream),
-            test_set.itotag,
-            test_set.itolab,
-            greedy=False,
-        )
+    print("Encoding", file=sys.stderr)
+    with smart_open(in_file) as in_stream:
+        batches: Union[Iterable[DependencyBatch], Iterable[SentencesBatch]]
+        if raw:
+            sentences = (
+                parser.encode_sentence(line.strip().split()) for line in in_stream
+            )
+            batches = (
+                parser.batch_sentences(sentences)
+                for sentences in itu.chunked_iter(
+                    sentences, size=parser.default_batch_size
+                )
+            )
+        else:
+            test_set = DependencyDataset(
+                DepGraph.read_conll(in_file),
+                parser.lexer,
+                parser.char_rnn,
+                parser.ft_lexer,
+                use_labels=parser.labels,
+                use_tags=parser.tagset,
+            )
+            batches = test_set.make_batches(
+                parser.default_batch_size,
+                shuffle_batches=False,
+                shuffle_data=False,
+            )
+        print("Parsing", file=sys.stderr)
+        with smart_open(out_file, "w") as ostream:
+            parser.batched_predict(
+                batches,
+                cast(IO[str], ostream),
+                greedy=False,
+            )
 
 
 def main(argv=None):
@@ -872,8 +1000,6 @@ def main(argv=None):
                     shuffle_data=False,
                 ),
                 ostream,
-                devset.itotag,
-                devset.itolab,
                 greedy=False,
             )
         gold_devset = evaluator.load_conllu_file(args.dev_file)
