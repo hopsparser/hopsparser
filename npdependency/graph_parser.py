@@ -497,12 +497,13 @@ class BiAffineParser(nn.Module):
         self.save_params(model_path / "model.pt")
 
     def encode_sentence(self, words: Sequence[str]) -> EncodedSentence:
+        words_with_root = [DepGraph.ROOT_TOKEN, *words]
         return EncodedSentence(
             words=words,
-            encoded_words=self.lexer.encode([DepGraph.ROOT_TOKEN, *words]),
-            subwords=self.ft_lexer.encode(words),
-            chars=self.char_rnn.encode(words),
-            sent_len=len(words),
+            encoded_words=self.lexer.encode(words_with_root),
+            subwords=self.ft_lexer.encode(words_with_root),
+            chars=self.char_rnn.encode(words_with_root),
+            sent_len=len(words_with_root),
         )
 
     def batch_sentences(self, sentences: Sequence[EncodedSentence]) -> SentencesBatch:
@@ -572,7 +573,7 @@ class BiAffineParser(nn.Module):
                                     deps="_",
                                     misc="_",
                                 )
-                                for i, w in enumerate(words)
+                                for i, w in enumerate(words, start=1)
                             ],
                         )
                         for words in batch.words
@@ -815,7 +816,9 @@ def parse(
         batches: Union[Iterable[DependencyBatch], Iterable[SentencesBatch]]
         if raw:
             sentences = (
-                parser.encode_sentence(line.strip().split()) for line in in_stream
+                parser.encode_sentence(line.strip().split())
+                for line in in_stream
+                if line and not line.isspace()
             )
             batches = (
                 parser.batch_sentences(sentences)
