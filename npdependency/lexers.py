@@ -142,8 +142,8 @@ class CharRNNLexer(nn.Module):
             res = [self.special_tokens_idx]
         else:
             res = [self.c2idx[c] for c in token if c in self.c2idx]
-        if not res:
-            res = [self.pad_idx]
+            if not res:
+                res = [self.pad_idx]
         return torch.tensor(res, dtype=torch.long)
 
     def encode(self, tokens_sequence: Sequence[str]) -> torch.Tensor:
