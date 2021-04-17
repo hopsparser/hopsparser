@@ -140,7 +140,8 @@ class CharRNNLexer(nn.Module):
         """
         if token in self.special_tokens:
             res = [self.special_tokens_idx]
-        res = [self.c2idx[c] for c in token if c in self.c2idx]
+        else:
+            res = [self.c2idx[c] for c in token if c in self.c2idx]
         if not res:
             res = [self.pad_idx]
         return torch.tensor(res, dtype=torch.long)
