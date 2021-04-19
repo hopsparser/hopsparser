@@ -102,7 +102,7 @@ class CharRNNLexer(nn.Module):
         self.char_embedding_size: Final[int] = char_embedding_size
         self.embedding_size: Final[int] = embedding_size
         self.char_embedding = nn.Embedding(
-            len(self.i2c), self.char_embedding_size, padding_idx=type(self).pad_idx
+            len(self.i2c), self.char_embedding_size, padding_idx=self.pad_idx
         )
         self.char_bilstm = nn.LSTM(
             self.char_embedding_size,
