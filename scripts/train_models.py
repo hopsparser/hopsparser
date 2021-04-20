@@ -281,7 +281,7 @@ def main(
                 "| Model name | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download |\n"
                 "|:-----------|:----------:|:---------:|:-----------:|:----------:|:--------:|\n"
             )
-            for run_name, report in df.loc[grouped["dev_las"].idxmax()].iterrows():
+            for run_name, report in sorted(df.loc[grouped["dev_las"].idxmax()].iterrows()):
                 shutil.copytree(
                     report["out_dir"], best_dir / run_name, dirs_exist_ok=True
                 )
