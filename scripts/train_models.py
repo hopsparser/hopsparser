@@ -223,8 +223,8 @@ def main(
                         },
                     ),
                 )
-
-    res = run_multi(runs, devices)
+    if runs:
+        res = run_multi(runs, devices)
 
     runs_dict = dict(runs)
     report_file = out_dir / "full_report.json"
