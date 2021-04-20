@@ -223,8 +223,7 @@ def main(
                         },
                     ),
                 )
-    if runs:
-        res = run_multi(runs, devices)
+    res = run_multi(runs, devices)
 
     runs_dict = dict(runs)
     report_file = out_dir / "full_report.json"
@@ -285,7 +284,7 @@ def main(
                 shutil.copytree(
                     report["out_dir"], best_dir / run_name, dirs_exist_ok=True
                 )
-                out_stream.write("|")
+                out_stream.write("| ")
                 out_stream.write(
                     " | ".join(
                         [
@@ -302,7 +301,7 @@ def main(
                         ]
                     )
                 )
-                out_stream.write("|\n")
+                out_stream.write(" | [link]() |\n")
 
 
 if __name__ == "__main__":
