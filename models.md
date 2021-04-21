@@ -86,6 +86,6 @@ running them on CPUs is still possible, albeit slow.
 
 | Model name                       | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download                                 |
 | -------------------------------- | ---------- | --------- | ----------- | ---------- | ---------------------------------------- |
-| UD_Old_French-SRCMF-flaubert+fro | 97.11      | 90.43     | 97.34       | 90.78      | [link][UD_Old_French-SRCMF-flaubert+fro] |
+| UD_Old_French-SRCMF-flaubert+fro | 97.15      | 90.24     | 97.22       | 90.39      | [link][UD_Old_French-SRCMF-flaubert+fro] |
 
-[UD_Old_French-SRCMF-flaubert+fro]: https://sharedocs.huma-num.fr/wl/?id=cCWgzz3vQn5PacxKUDjjDpILvJeX0B14
+[UD_Old_French-SRCMF-flaubert+fro]: https://sharedocs.huma-num.fr/wl/?id=ssFXOn4ms2ZYx36Xe0FHfaXU1YKoXIA1

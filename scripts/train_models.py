@@ -284,11 +284,12 @@ def main(
                 shutil.copytree(
                     report["out_dir"], best_dir / run_name, dirs_exist_ok=True
                 )
+                model_name = run_name.split("+", maxsplit=1)[0]
                 out_stream.write("| ")
                 out_stream.write(
                     " | ".join(
                         [
-                            run_name.split("+", maxsplit=1)[0],
+                            model_name,
                             *(
                                 f"{100*report[v]:.2f}"
                                 for v in [
@@ -301,7 +302,7 @@ def main(
                         ]
                     )
                 )
-                out_stream.write(" | [link]() |\n")
+                out_stream.write(f" | [link][{model_name}] |\n")
 
 
 if __name__ == "__main__":
