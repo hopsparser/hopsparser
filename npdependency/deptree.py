@@ -1,3 +1,4 @@
+import collections.abc
 from dataclasses import dataclass
 import pathlib
 from random import shuffle
@@ -311,7 +312,7 @@ class DependencyDataset:
         self.lexer = lexer
         self.chars_lexer = chars_lexer
         self.ft_lexer = ft_lexer
-        self.treelist = list(treelist)
+        self.treelist = treelist
 
         self.itolab = use_labels
         self.labtoi = {label: idx for idx, label in enumerate(self.itolab)}
@@ -399,6 +400,8 @@ class DependencyDataset:
         shuffle_batches: bool = False,
         shuffle_data: bool = True,
     ) -> Iterable[DependencyBatch]:
+        if not isinstance(self.treelist, collections.abc.Sequence):
+            self.treelist = list(self.treelist)
         if not self.encoded_trees:
             self.encode()
         N = len(self.treelist)

@@ -140,7 +140,7 @@ def evaluate(
     if out_format == "md":
         click.echo(
             "| UPOS  |  UAS  |  LAS  |\n"
-            "|-------|-------|-------|\n"
+            "|:-----:|:-----:|:-----:|\n"
             f"| {100*metrics['UPOS'].f1:.2f} | {100*metrics['UAS'].f1:.2f} | {100*metrics['LAS'].f1:.2f} |"
         )
     elif out_format == "json":

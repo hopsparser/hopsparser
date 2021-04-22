@@ -835,10 +835,11 @@ def parse(
                 use_labels=parser.labels,
                 use_tags=parser.tagset,
             )
-            batches = test_set.make_batches(
-                parser.default_batch_size,
-                shuffle_batches=False,
-                shuffle_data=False,
+            batches = (
+                test_set.make_single_batch(sentences)
+                for sentences in itu.chunked_iter(
+                    test_set.treelist, size=parser.default_batch_size
+                )
             )
         print("Parsing", file=sys.stderr)
         with smart_open(out_file, "w") as ostream:
@@ -963,7 +964,7 @@ def main(argv=None):
             use_tags=parser.tagset,
         )
         devset = DependencyDataset(
-            DepGraph.read_conll(args.dev_file),
+            list(DepGraph.read_conll(args.dev_file)),
             parser.lexer,
             parser.char_rnn,
             parser.ft_lexer,
