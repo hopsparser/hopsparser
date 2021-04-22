@@ -736,7 +736,7 @@ class BiAffineParser(nn.Module):
             )
             if not bert_config_path.exists():
                 lexer.bert.config.save_pretrained(bert_config_path)
-                lexer.bert_tokenizer.save_pretrained(bert_config_path)
+                lexer.bert_tokenizer.save_pretrained(bert_config_path, legacy_format=False)
                 # Saving local paths in config is of little use and leaks information
                 if os.path.exists(hp["lexer"]):
                     hp["lexer"] = "."
