@@ -1,4 +1,4 @@
-for f in pathlib.Path(".").glob("*/model"):
+for f in p`.*/model`:
     model_name = f.parent.name.split("+")[0]
     $XZ_OPT="-9 -T0" tar \
         -C @(f.parent) \

@@ -10,73 +10,73 @@ running them on CPUs is still possible, albeit slow.
 
 ### FTB-UD
 
-| Model name                  | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download                            |
-| --------------------------- | ---------- | --------- | ----------- | ---------- | ----------------------------------- |
-| UD_French-FTB-2.7-camembert | 98.46      |88.25      |98.56      |88.44      | [link][UD_French-FTB-2.7-camembert] |
-| UD_French-FTB-2.7-flaubert  | 98.51      |88.27      |98.61      |88.46      | [link][UD_French-FTB-2.7-flaubert]  |
-| UD_French-FTB-2.7-nobert    | 97.86      |84.28      |97.89      |83.91      | [link][UD_French-FTB-2.7-nobert]    |
+| Model name | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download |
+|:-----------|:----------:|:---------:|:-----------:|:----------:|:--------:|
+| UD_French-FTB-2.7-camembert | 98.46 | 88.23 | 98.57 | 88.43 | [link][UD_French-FTB-2.7-camembert] |
+| UD_French-FTB-2.7-flaubert | 98.48 | 88.56 | 98.57 | 88.45 | [link][UD_French-FTB-2.7-flaubert] |
+| UD_French-FTB-2.7-nobert | 97.83 | 84.54 | 97.85 | 83.77 | [link][UD_French-FTB-2.7-nobert] |
 
-[UD_French-FTB-2.7-camembert]: https://sharedocs.huma-num.fr/wl/?id=qu7IhWYrISIcQDrHUzcf774JkCXfyBI1
+[UD_French-FTB-2.7-camembert]: https://sharedocs.huma-num.fr/wl/?id=bSBG4wDnjGiiQiMUaMoBverIc5WE7Uox
 
-[UD_French-FTB-2.7-flaubert]: https://sharedocs.huma-num.fr/wl/?id=6b2tnCQf9HFTEZsdnTmnEvAbloPubjNV
+[UD_French-FTB-2.7-flaubert]: https://sharedocs.huma-num.fr/wl/?id=DuantRUPLGlpFqdFFmYJ7UcQarp4G35N
 
-[UD_French-FTB-2.7-nobert]: https://sharedocs.huma-num.fr/wl/?id=lCtafL0B6z53Rxc6MXbJM2d4kpZq0p0e
+[UD_French-FTB-2.7-nobert]: https://sharedocs.huma-num.fr/wl/?id=tcYFkTG3QXh1nSkQL69DAUJxBLHx4hdf
 
 ### FTB-SPMRL
 
-| Model name          | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download                    |
-| ------------------- | ---------- | --------- | ----------- | ---------- | --------------------------- |
-| ftb_spmrl-camembert | 98.88      |89.05      |98.74      |89.35      | [link][ftb_spmrl-camembert] |
-| ftb_spmrl-flaubert  | 98.84      |89.22      |98.71      |89.51      | [link][ftb_spmrl-flaubert]  |
-| ftb_spmrl-nobert    | 98.25      |85.37      |98.13      |84.57      | [link][ftb_spmrl-nobert]    |
+| Model name | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download |
+|:-----------|:----------:|:---------:|:-----------:|:----------:|:--------:|
+| ftb_spmrl-camembert | 98.83 | 89.07 | 98.74 | 89.39 | [link][ftb_spmrl-camembert] |
+| ftb_spmrl-flaubert | 98.88 | 89.43 | 98.78 | 89.54 | [link][ftb_spmrl-flaubert] |
+| ftb_spmrl-nobert | 98.17 | 85.46 | 98.03 | 84.54 | [link][ftb_spmrl-nobert] |
 
-[ftb_spmrl-camembert]: https://sharedocs.huma-num.fr/wl/?id=CkLcU78r5JZ6hDZ5OBuyUJM9ffh6ksgn
+[ftb_spmrl-camembert]: https://sharedocs.huma-num.fr/wl/?id=WDQ8A8bsSdbMCHmLGB4PA9P551WMFL9v
 
-[ftb_spmrl-flaubert]: https://sharedocs.huma-num.fr/wl/?id=Hqv26oIWT4cSqSET5OTo82rxxfCTrTln
+[ftb_spmrl-flaubert]: https://sharedocs.huma-num.fr/wl/?id=YuJjhXWP7UORLtTKwrtOxLQnNWOpmkTY
 
-[ftb_spmrl-nobert]: https://sharedocs.huma-num.fr/wl/?id=8620wtCFnVcvmuP6i2njblOd4dXdGtmV
+[ftb_spmrl-nobert]: https://sharedocs.huma-num.fr/wl/?id=igaumRaYZWeDjPgaOKk74su3Ey7GIHT8
 
 ### GSD-UD
 
-| Model name                  | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download                            |
-| --------------------------- | ---------- | --------- | ----------- | ---------- | ----------------------------------- |
-| UD_French-GSD-2.7-camembert | 98.52      |95.53      |98.22      |94.06      | [link][UD_French-GSD-2.7-camembert] |
-| UD_French-GSD-2.7-flaubert  | 98.51      |88.27      |98.61      |88.46      | [link][UD_French-GSD-2.7-flaubert]  |
-| UD_French-GSD-2.7-nobert    | 97.79      |91.75      |97.28      |88.95      | [link][UD_French-GSD-2.7-nobert]    |
+| Model name | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download |
+|:-----------|:----------:|:---------:|:-----------:|:----------:|:--------:|
+| UD_French-GSD-2.7-camembert | 98.53 | 95.56 | 98.27 | 93.93 | [link][UD_French-GSD-2.7-camembert] |
+| UD_French-GSD-2.7-flaubert | 98.59 | 95.56 | 98.56 | 94.19 | [link][UD_French-GSD-2.7-flaubert] |
+| UD_French-GSD-2.7-nobert | 97.77 | 91.63 | 97.24 | 89.04 | [link][UD_French-GSD-2.7-nobert] |
 
-[UD_French-GSD-2.7-camembert]: https://sharedocs.huma-num.fr/wl/?id=3Ax0VXpnsmUuzqTHPnunBnUVW6AgS1rC
+[UD_French-GSD-2.7-camembert]: https://sharedocs.huma-num.fr/wl/?id=WvuQmIe19ezwXLVhamQOLIhis1Ifwaw8
 
-[UD_French-GSD-2.7-flaubert]: https://sharedocs.huma-num.fr/wl/?id=5u7UgVA9cN3GHI6VmyUTvmQI6iDyyU8S
+[UD_French-GSD-2.7-flaubert]: https://sharedocs.huma-num.fr/wl/?id=WuJal5961Vng83Er90gkVC9LGBSp4iqX
 
-[UD_French-GSD-2.7-nobert]: https://sharedocs.huma-num.fr/wl/?id=xTQ6Bt1EiKakjLsn9xUUe7UGDcXjeu19
+[UD_French-GSD-2.7-nobert]: https://sharedocs.huma-num.fr/wl/?id=WREEhUZMu7C8WrQVnqL9gnKJttZAiG97
 
 ### Sequoia-UD
 
-| Model name                      | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download                                |
-| ------------------------------- | ---------- | --------- | ----------- | ---------- | --------------------------------------- |
-| UD_French-Sequoia-2.7-camembert | 99.02      |93.26      |99.07      |93.36      | [link][UD_French-Sequoia-2.7-camembert] |
-| UD_French-Sequoia-2.7-flaubert  | 99.16      |94.15      |99.33      |94.31      | [link][UD_French-Sequoia-2.7-flaubert]  |
-| UD_French-Sequoia-2.7-nobert    | 96.97      |85.41      |97.26      |85.63      | [link][UD_French-Sequoia-2.7-nobert]    |
+| Model name | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download |
+|:-----------|:----------:|:---------:|:-----------:|:----------:|:--------:|
+| UD_French-Sequoia-2.7-camembert | 98.92 | 93.67 | 99.22 | 93.77 | [link][UD_French-Sequoia-2.7-camembert] |
+| UD_French-Sequoia-2.7-flaubert | 99.21 | 94.09 | 99.36 | 94.40 | [link][UD_French-Sequoia-2.7-flaubert] |
+| UD_French-Sequoia-2.7-nobert | 96.82 | 84.60 | 97.14 | 84.73 | [link][UD_French-Sequoia-2.7-nobert] |
 
-[UD_French-Sequoia-2.7-camembert]: https://sharedocs.huma-num.fr/wl/?id=GW5ue77TNS99lQAZJ8fb5ujtj1rEmBfj
+[UD_French-Sequoia-2.7-camembert]: https://sharedocs.huma-num.fr/wl/?id=Xf2yTDk3rkfUtzDRcTCmGI1fuJ6p6qup
 
-[UD_French-Sequoia-2.7-flaubert]: https://sharedocs.huma-num.fr/wl/?id=z6NYjiGPVVzOEfTJQ5pQFRYfvpbzVcQq
+[UD_French-Sequoia-2.7-flaubert]: https://sharedocs.huma-num.fr/wl/?id=1QniPAnJQeoRWhpSPI7cPFsTN1y78Twp
 
-[UD_French-Sequoia-2.7-nobert]: https://sharedocs.huma-num.fr/wl/?id=TLhIy5ShxzEOPBUd8YaftFSI99E1qxQk
+[UD_French-Sequoia-2.7-nobert]: https://sharedocs.huma-num.fr/wl/?id=yiq7c9tYIAxBQmMOJVLFrtbHxkZwa1Xu
 
 ### French-Spoken-UD
 
-| Model name                     | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download                               |
-| ------------------------------ | ---------- | --------- | ----------- | ---------- | -------------------------------------- |
-| UD_French-Spoken-2.7-camembert | 96.97      |80.38      |96.83      |79.72      | [link][UD_French-Spoken-2.7-camembert] |
-| UD_French-Spoken-2.7-flaubert  | 97.06      |80.68      |96.69      |79.15      | [link][UD_French-Spoken-2.7-flaubert]  |
-| UD_French-Spoken-2.7-nobert    | 93.94      |72.61      |93.42      |71.66      | [link][UD_French-Spoken-2.7-nobert]    |
+| Model name | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download |
+|:-----------|:----------:|:---------:|:-----------:|:----------:|:--------:|
+| UD_French-Spoken-2.7-camembert | 96.20 | 80.76 | 95.86 | 78.97 | [link][UD_French-Spoken-2.7-camembert] |
+| UD_French-Spoken-2.7-flaubert | 96.85 | 81.45 | 96.75 | 80.46 | [link][UD_French-Spoken-2.7-flaubert] |
+| UD_French-Spoken-2.7-nobert | 93.53 | 71.46 | 92.62 | 69.78 | [link][UD_French-Spoken-2.7-nobert] |
 
-[UD_French-Spoken-2.7-camembert]: https://sharedocs.huma-num.fr/wl/?id=MiCoXaMelAQEzxZGzzKTrSGmCIGfNwFd
+[UD_French-Spoken-2.7-camembert]: https://sharedocs.huma-num.fr/wl/?id=mAHijt9mBTs0bfy1jH9nHPOOp1Spx0Rh
 
-[UD_French-Spoken-2.7-flaubert]: https://sharedocs.huma-num.fr/wl/?id=x6BswC571NYGO2760Imz4ShtgURajIua
+[UD_French-Spoken-2.7-flaubert]: https://sharedocs.huma-num.fr/wl/?id=kyvgnfyhu41RBDK70cUCaSrO9gkRPBr3
 
-[UD_French-Spoken-2.7-nobert]: https://sharedocs.huma-num.fr/wl/?id=2g7oP1qGb1gxH6M2fjEnRi0N6UNVBh6H
+[UD_French-Spoken-2.7-nobert]: https://sharedocs.huma-num.fr/wl/?id=FNQY4UWTP9NsFNsAAgEpbMfHyzdmzFIM
 
 ## Old French
 
