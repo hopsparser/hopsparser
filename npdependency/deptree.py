@@ -82,33 +82,23 @@ class DepGraph:
     @property
     def words(self) -> List[str]:
         """
-        A list where each element list[i] is the form of
-        the position of the governor of the word at position i.
+        A list where each element list[i] is the form of the word at position i.
         """
         return [self.ROOT_TOKEN, *(n.form for n in self.nodes)]
 
     @property
     def pos_tags(self) -> List[str]:
-        """
-        A list where each element list[i] is the upos of
-        the position of the governor of the word at position i.
-        """
+        """A list where each element list[i] is the upos of the word at position i."""
         return [self.ROOT_TOKEN, *(n.upos for n in self.nodes)]
 
     @property
     def heads(self) -> List[int]:
-        """
-        A list where each element list[i] is the index of
-        the position of the governor of the word at position i.
-        """
+        """A list where each element list[i] is the index of the position of the governor of the word at position i."""
         return [0, *(n.head for n in self.nodes)]
 
     @property
     def deprels(self) -> List[str]:
-        """
-        A list where each element list[i] is the label of
-        the position of the governor of the word at position i.
-        """
+        """A list where each element list[i] is the dependency label of of the word at position i."""
         return [self.ROOT_TOKEN, *(n.deprel for n in self.nodes)]
 
     def replace(

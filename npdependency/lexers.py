@@ -96,13 +96,13 @@ class CharRNNLexer(nn.Module):
         # FIXME: use the class attributes to insert the pad and special token at the right position
         # instead of harcoding them like this
         self.i2c = ["<pad>", "<special>", *charset]
-        self.c2idx = {c: idx for idx, c in enumerate(charset)}
+        self.c2idx = {c: idx for idx, c in enumerate(self.i2c)}
         self.special_tokens = set([] if special_tokens is None else special_tokens)
 
         self.char_embedding_size: Final[int] = char_embedding_size
         self.embedding_size: Final[int] = embedding_size
         self.char_embedding = nn.Embedding(
-            len(self.i2c), self.char_embedding_size, padding_idx=type(self).pad_idx
+            len(self.i2c), self.char_embedding_size, padding_idx=self.pad_idx
         )
         self.char_bilstm = nn.LSTM(
             self.char_embedding_size,
@@ -140,9 +140,10 @@ class CharRNNLexer(nn.Module):
         """
         if token in self.special_tokens:
             res = [self.special_tokens_idx]
-        res = [self.c2idx[c] for c in token if c in self.c2idx]
-        if not res:
-            res = [self.pad_idx]
+        else:
+            res = [self.c2idx[c] for c in token if c in self.c2idx]
+            if not res:
+                res = [self.pad_idx]
         return torch.tensor(res, dtype=torch.long)
 
     def encode(self, tokens_sequence: Sequence[str]) -> torch.Tensor:
@@ -168,7 +169,7 @@ class CharRNNLexer(nn.Module):
             dtype=torch.long,
         )
         for i, sent in enumerate(batch):
-            res[i, : sent.shape[0], : sent.shape[1]]
+            res[i, : sent.shape[0], : sent.shape[1]] = sent
         return res
 
 
@@ -213,11 +214,7 @@ class FastTextLexer(nn.Module):
         self.pad_idx: Final[int] = self.embeddings.padding_idx
 
     def subwords_idxes(self, token: str) -> torch.Tensor:
-        """
-        Returns a list of ft subwords indexes for the token
-        :param tok_sequence:
-        :return:
-        """
+        """Returns a list of ft subwords indexes a token"""
         return torch.from_numpy(self.fasttextmodel.get_subwords(token)[1])
 
     def forward(self, inpt: torch.Tensor) -> torch.Tensor:
@@ -233,16 +230,14 @@ class FastTextLexer(nn.Module):
         """
         Turns a string into a list of subword codes.
         """
-        if token == "":
-            return torch.tensor([self.pad_idx], dtype=torch.long)
-        elif token in self.special_tokens:
+        if token in self.special_tokens:
             return torch.tensor([self.special_tokens_idx], dtype=torch.long)
         return self.subwords_idxes(token)
 
     def encode(self, tokens_sequence: Sequence[str]) -> torch.Tensor:
         """Map word tokens to integer indices."""
         subword_indices = [self.word2subcodes(token) for token in tokens_sequence]
-        # shape: sentence_length×num_chars_in_longest_word
+        # shape: sentence_length×num_subwords_in_longest_word
         return pad_sequence(
             subword_indices, padding_value=self.pad_idx, batch_first=True
         )
@@ -262,7 +257,8 @@ class FastTextLexer(nn.Module):
             dtype=torch.long,
         )
         for i, sent in enumerate(batch):
-            res[i, : sent.shape[0], : sent.shape[1]]
+            res[i, : sent.shape[0], : sent.shape[1]] = sent
+        # shape: batch_size×max_sentence_length×num_subwords_in_longest_word
         return res
 
     @classmethod

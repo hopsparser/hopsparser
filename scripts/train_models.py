@@ -223,7 +223,6 @@ def main(
                         },
                     ),
                 )
-
     res = run_multi(runs, devices)
 
     runs_dict = dict(runs)
@@ -276,8 +275,34 @@ def main(
             summary_file
         )
         best_dir = out_dir / "best"
-        for run_name, report in df.loc[grouped["dev_las"].idxmax()].iterrows():
-            shutil.copytree(report["out_dir"], best_dir / run_name, dirs_exist_ok=True)
+        with open(best_dir / "models.md", "w") as out_stream:
+            out_stream.write(
+                "| Model name | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download |\n"
+                "|:-----------|:----------:|:---------:|:-----------:|:----------:|:--------:|\n"
+            )
+            for run_name, report in sorted(df.loc[grouped["dev_las"].idxmax()].iterrows()):
+                shutil.copytree(
+                    report["out_dir"], best_dir / run_name, dirs_exist_ok=True
+                )
+                model_name = run_name.split("+", maxsplit=1)[0]
+                out_stream.write("| ")
+                out_stream.write(
+                    " | ".join(
+                        [
+                            model_name,
+                            *(
+                                f"{100*report[v]:.2f}"
+                                for v in [
+                                    "dev_upos",
+                                    "dev_las",
+                                    "test_upos",
+                                    "test_las",
+                                ]
+                            ),
+                        ]
+                    )
+                )
+                out_stream.write(f" | [link][{model_name}] |\n")
 
 
 if __name__ == "__main__":
