@@ -197,6 +197,7 @@ class FastTextLexer(nn.Module):
         # the special (root) tokens, with values sampled accross the vocabulary
         self.vocab_size: Final[int] = weights.shape[0]
         self.embedding_size: Final[int] = weights.shape[1]
+        # FIXME: this should really be called `special_tokens_embedding`
         # NOTE: I haven't thought too hard about this, maybe it's a bad idea
         root_embedding = weights[
             torch.randint(high=self.vocab_size, size=(self.embedding_size,)),
