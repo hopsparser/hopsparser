@@ -83,7 +83,7 @@ def parse(
     raw: bool,
 ):
     if ignore_unencodable and not raw:
-        warnings.warn("--ignore-unencodable is only menaingful in raw mode")
+        warnings.warn("--ignore-unencodable is only meaningful in raw mode")
     input_file: Union[IO[str], str]
     if input_path == "-":
         input_file = sys.stdin
