@@ -84,22 +84,11 @@ def parse(
 ):
     if ignore_unencodable and not raw:
         warnings.warn("--ignore-unencodable is only meaningful in raw mode")
-    input_file: Union[IO[str], str]
-    if input_path == "-":
-        input_file = sys.stdin
-    else:
-        input_file = input_path
-
-    output_file: Union[TextIO, str]
-    if output_path == "-":
-        output_file = sys.stdout
-    else:
-        output_file = output_path
 
     graph_parser.parse(
         model_path,
-        input_file,
-        output_file,
+        input_path,
+        output_path,
         overrides={"device": device},
         raw=raw,
         strict=not ignore_unencodable,
