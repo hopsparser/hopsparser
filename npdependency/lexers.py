@@ -30,6 +30,10 @@ except ImportError:
     from typing_extensions import Final, Literal, Protocol  # type: ignore[misc]
 
 
+class LexingError(Exception):
+    pass
+
+
 @torch.jit.script
 def integer_dropout(t: torch.Tensor, fill_value: int, p: float) -> torch.Tensor:
     mask = torch.empty_like(t, dtype=torch.bool).bernoulli_(p)
@@ -631,7 +635,7 @@ class BertBaseLexer(nn.Module):
             self.stoi.get(token, self.unk_word_idx) for token in tokens_sequence
         ]
 
-        # We deal with the root token separately since the BERT model has no reason to know of it
+        # The root token is remved here since the BERT model has no reason to know of it
         unrooted_tok_sequence = tokens_sequence[1:]
         # NOTE: for now the 🤗 tokenizer interface is not unified between fast and non-fast
         # tokenizers AND not all tokenizers support the fast mode, so we have to do this little
@@ -642,6 +646,10 @@ class BertBaseLexer(nn.Module):
                 is_split_into_words=True,
                 return_special_tokens_mask=True,
             )
+            if len(bert_encoding.sequence_ids) > self.bert_tokenizer.model_max_length:
+                raise LexingError(
+                    f"Sentence too long for the BERT model: {unrooted_tok_sequence}"
+                )
             # TODO: there might be a better way to do this?
             alignments = [
                 bert_encoding.word_to_tokens(i)
@@ -651,8 +659,15 @@ class BertBaseLexer(nn.Module):
             bert_tokens = [
                 self.bert_tokenizer.tokenize(token) for token in unrooted_tok_sequence
             ]
+            subtokens_sequence = [
+                subtoken for token in bert_tokens for subtoken in token
+            ]
+            if len(subtokens_sequence) > self.bert_tokenizer.model_max_length:
+                raise LexingError(
+                    f"Sentence too long for the BERT model: {unrooted_tok_sequence}"
+                )
             bert_encoding = self.bert_tokenizer.encode_plus(
-                [subtoken for token in bert_tokens for subtoken in token],
+                subtokens_sequence,
                 return_special_tokens_mask=True,
             )
             bert_word_lengths = [len(word) for word in bert_tokens]
