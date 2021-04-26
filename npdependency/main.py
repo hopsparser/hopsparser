@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 from typing import Generator, IO, Optional, TextIO, Union
+import warnings
 
 import click
 import click_pathlib
@@ -66,15 +67,23 @@ def cli():
 @click.option(
     "--raw",
     is_flag=True,
-    help="Instead of a CoNLL-U file, take as input a document with one sentence per line, with tokens separated by spaces",
+    help="Instead of a CoNLL-U file, take as input a document with one sentence per line, with tokens separated by spaces.",
+)
+@click.option(
+    "--ignore-unencodable",
+    is_flag=True,
+    help="In raw mode, silently ignore sentences that can't be encoded (for instance too long sentences when using a transformer model).",
 )
 def parse(
     model_path: pathlib.Path,
+    ignore_unencodable: bool,
     input_path: str,
     output_path: str,
     device: str,
     raw: bool,
 ):
+    if ignore_unencodable and not raw:
+        warnings.warn("--ignore-unencodable is only menaingful in raw mode")
     input_file: Union[IO[str], str]
     if input_path == "-":
         input_file = sys.stdin
@@ -88,7 +97,12 @@ def parse(
         output_file = output_path
 
     graph_parser.parse(
-        model_path, input_file, output_file, overrides={"device": device}, raw=raw
+        model_path,
+        input_file,
+        output_file,
+        overrides={"device": device},
+        raw=raw,
+        strict=not ignore_unencodable,
     )
 
 

@@ -646,7 +646,7 @@ class BertBaseLexer(nn.Module):
                 is_split_into_words=True,
                 return_special_tokens_mask=True,
             )
-            if len(bert_encoding.sequence_ids) > self.bert_tokenizer.model_max_length:
+            if len(bert_encoding.data["input_ids"]) > self.bert_tokenizer.model_max_length:
                 raise LexingError(
                     f"Sentence too long for the BERT model: {unrooted_tok_sequence}"
                 )
@@ -664,7 +664,7 @@ class BertBaseLexer(nn.Module):
             ]
             if len(subtokens_sequence) > self.bert_tokenizer.model_max_length:
                 raise LexingError(
-                    f"Sentence too long for the BERT model: {unrooted_tok_sequence}"
+                    f"Sentence too long for this transformer model: {unrooted_tok_sequence}"
                 )
             bert_encoding = self.bert_tokenizer.encode_plus(
                 subtokens_sequence,
