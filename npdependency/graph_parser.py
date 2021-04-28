@@ -413,14 +413,15 @@ class BiAffineParser(nn.Module):
     def train_model(
         self,
         train_set: DependencyDataset,
-        dev_set: DependencyDataset,
         epochs: int,
         lr: float,
         lr_schedule: LRSchedule,
         model_path: Union[str, pathlib.Path],
         batch_size: Optional[int] = None,
+        dev_set: Optional[DependencyDataset] = None,
     ):
         model_path = pathlib.Path(model_path)
+        weights_file = model_path / "model.pt"
         if batch_size is None:
             batch_size = self.default_batch_size
         print(f"Start training on {self.device}")
@@ -481,21 +482,23 @@ class BiAffineParser(nn.Module):
                 optimizer.step()
                 scheduler.step()
 
-            dev_loss, dev_tag_acc, dev_arc_acc, dev_lab_acc = self.eval_model(
-                dev_set, batch_size=batch_size
-            )
-            print(
-                f"Epoch {e} train mean loss {train_loss / overall_size}"
-                f" valid mean loss {dev_loss} valid tag acc {dev_tag_acc} valid arc acc {dev_arc_acc} valid label acc {dev_lab_acc}"
-                f" Base LR {scheduler.get_last_lr()[0]}"
-            )
+            if dev_set is not None:
+                dev_loss, dev_tag_acc, dev_arc_acc, dev_lab_acc = self.eval_model(
+                    dev_set, batch_size=batch_size
+                )
+                print(
+                    f"Epoch {e} train mean loss {train_loss / overall_size}"
+                    f" valid mean loss {dev_loss} valid tag acc {dev_tag_acc} valid arc acc {dev_arc_acc} valid label acc {dev_lab_acc}"
+                    f" Base LR {scheduler.get_last_lr()[0]}"
+                )
 
-            if dev_arc_acc > best_arc_acc:
-                self.save_params(model_path / "model.pt")
-                best_arc_acc = dev_arc_acc
+                if dev_arc_acc > best_arc_acc:
+                    self.save_params(weights_file)
+                    best_arc_acc = dev_arc_acc
+            else:
+                self.save_params(weights_file)
 
-        self.load_params(model_path / "model.pt")
-        self.save_params(model_path / "model.pt")
+        self.load_params(weights_file)
 
     @overload
     def encode_sentence(
@@ -833,7 +836,6 @@ def loadlist(filename):
 
 def train(
     config_file: pathlib.Path,
-    dev_file: pathlib.Path,
     model_dir: pathlib.Path,
     train_file: pathlib.Path,
     fasttext_model: Optional[pathlib.Path],
@@ -841,6 +843,7 @@ def train(
     overrides: Optional[Dict[str, str]] = None,
     overwrite: bool = False,
     rand_seed: Optional[int] = None,
+    dev_file: Optional[pathlib.Path] = None,
 ):
     if rand_seed is not None:
         random.seed(rand_seed)
@@ -880,23 +883,26 @@ def train(
         use_labels=parser.labels,
         use_tags=parser.tagset,
     )
-    devset = DependencyDataset(
-        list(DepGraph.read_conll(dev_file)),
-        parser.lexer,
-        parser.char_rnn,
-        parser.ft_lexer,
-        use_labels=parser.labels,
-        use_tags=parser.tagset,
-    )
+    if dev_file is not None:
+        devset = DependencyDataset(
+            list(DepGraph.read_conll(dev_file)),
+            parser.lexer,
+            parser.char_rnn,
+            parser.ft_lexer,
+            use_labels=parser.labels,
+            use_tags=parser.tagset,
+        )
+    else:
+        devset = None
 
     parser.train_model(
-        train_set=trainset,
+        batch_size=hp["batch_size"],
         dev_set=devset,
         epochs=hp["epochs"],
-        batch_size=hp["batch_size"],
         lr=hp["lr"],
         lr_schedule=hp.get("lr_schedule", {"shape": "exponential", "warmup_steps": 0}),
         model_path=model_dir,
+        train_set=trainset,
     )
 
 
