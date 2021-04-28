@@ -719,7 +719,8 @@ class BiAffineParser(nn.Module):
                 raise ValueError(f"No config in {model_path}")
         else:
             warnings.warn(
-                "Loading a model from a YAML file is deprecated and will be removed in a future version."
+                "Loading a model from a YAML file is deprecated and will be removed in a future version.",
+                category=FutureWarning,
             )
             config_path = model_path
             model_path = model_path.parent
@@ -853,7 +854,8 @@ def train(
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
     if "device" in hp:
         warnings.warn(
-            "Setting a device directly in a configuration file is deprecated and will be silently ignored in a future version."
+            "Setting a device directly in a configuration file is DEPRECATED and will be silently ignored in a future version.",
+            category=FutureWarning,
         )
 
     traintrees = list(DepGraph.read_conll(train_file, max_tree_length=max_tree_length))
@@ -1005,7 +1007,10 @@ def main(argv=None):
         type=int,
         help="Force the random seed fo Python and Pytorch (see <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)",
     )
-
+    warnings.warn(
+        "The `graph_parser` interface is DEPRECATED and will be removed in a future release, use `hopsparser train` instead",
+        category=FutureWarning,
+    )
     args = parser.parse_args(argv)
 
     if args.overwrite and not args.out_dir:
@@ -1028,7 +1033,7 @@ def main(argv=None):
     else:
         model_dir = pathlib.Path(args.config_file).parent
         # We need to give the temp file a name to avoid garbage collection before the method exits
-        # this is not very clean but this code path will be deprecated soon anyway.
+        # this is not very clean but this code path will be removed soon anyway.
         _temp_config_file = tempfile.NamedTemporaryFile()
         shutil.copy(args.config_file, _temp_config_file.name)
         config_file = pathlib.Path(_temp_config_file.name)
