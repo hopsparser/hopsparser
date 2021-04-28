@@ -836,9 +836,9 @@ def loadlist(filename):
 
 def train(
     config_file: pathlib.Path,
-    model_dir: pathlib.Path,
+    model_path: pathlib.Path,
     train_file: pathlib.Path,
-    fasttext_model: Optional[pathlib.Path],
+    fasttext: Optional[pathlib.Path],
     max_tree_length: Optional[int] = None,
     overrides: Optional[Dict[str, str]] = None,
     overwrite: bool = False,
@@ -857,22 +857,22 @@ def train(
         )
 
     traintrees = list(DepGraph.read_conll(train_file, max_tree_length=max_tree_length))
-    if model_dir.exists() and not overwrite:
-        print(f"Continuing training from {model_dir}", file=sys.stderr)
-        parser = BiAffineParser.load(model_dir, overrides)
+    if model_path.exists() and not overwrite:
+        print(f"Continuing training from {model_path}", file=sys.stderr)
+        parser = BiAffineParser.load(model_path, overrides)
     else:
         if overwrite:
             print(
-                f"Erasing existing trained model in {model_dir} since overwrite was asked",
+                f"Erasing existing trained model in {model_path} since overwrite was asked",
                 file=sys.stderr,
             )
-            shutil.rmtree(model_dir)
+            shutil.rmtree(model_path)
         parser = BiAffineParser.initialize(
             config_path=config_file,
-            model_path=model_dir,
+            model_path=model_path,
             overrides=overrides,
             treebank=traintrees,
-            fasttext=fasttext_model,
+            fasttext=fasttext,
         )
 
     trainset = DependencyDataset(
@@ -901,7 +901,7 @@ def train(
         epochs=hp["epochs"],
         lr=hp["lr"],
         lr_schedule=hp.get("lr_schedule", {"shape": "exponential", "warmup_steps": 0}),
-        model_path=model_dir,
+        model_path=model_path,
         train_set=trainset,
     )
 
@@ -1040,11 +1040,11 @@ def main(argv=None):
             config_file=pathlib.Path(config_file),
             dev_file=pathlib.Path(args.dev_file),
             train_file=pathlib.Path(args.train_file),
-            fasttext_model=(
+            fasttext=(
                 pathlib.Path(args.fasttext) if args.fasttext is not None else None
             ),
             max_tree_length=150,
-            model_dir=model_dir,
+            model_path=model_dir,
             overrides=overrides,
             overwrite=args.overwrite,
             rand_seed=args.rand_seed,
