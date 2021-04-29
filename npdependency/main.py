@@ -171,7 +171,7 @@ def train(
         dev_file=dev_file,
         train_file=train_file,
         fasttext=fasttext,
-        max_tree_length=150,
+        max_tree_length=max_tree_length,
         model_path=model_path,
         overrides={"device": device},
         overwrite=overwrite,
