@@ -274,6 +274,7 @@ def main(
             summary_file
         )
         best_dir = out_dir / "best"
+        best_dir.mkdir(exist_ok=True, parents=True)
         with open(best_dir / "models.md", "w") as out_stream:
             out_stream.write(
                 "| Model name | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download |\n"
