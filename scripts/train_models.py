@@ -174,7 +174,7 @@ def main(
     configs = list(configs_dir.glob("*.yaml"))
     if rand_seeds is not None:
         args = [
-            ("rand_seed", [str(s) for s in rand_seeds]),
+            ("rand-seed", [str(s) for s in rand_seeds]),
             *(args if args is not None else []),
         ]
     additional_args_combinations: List[Dict[str, str]]
@@ -268,7 +268,7 @@ def main(
         df = pd.DataFrame.from_dict(df_dict, orient="index")
         df.to_csv(out_dir / "full_report.csv")
         grouped = df.groupby(
-            ["config", "treebank", *(a for a in args_names if a != "rand_seed")],
+            ["config", "treebank", *(a for a in args_names if a != "rand-seed")],
         )
         grouped[["dev_upos", "dev_las", "test_upos", "test_las"]].describe().to_csv(
             summary_file
