@@ -59,7 +59,7 @@ def train_single_model(
     dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
 
     gold_testset = evaluator.load_conllu_file(test_file)
-    syst_testset = evaluator.load_conllu_file(out_dir / f"{test_file.stem}.conllu.parsed")
+    syst_testset = evaluator.load_conllu_file(out_dir / f"{test_file.stem}.parsed.conllu")
     test_metrics = evaluator.evaluate(gold_testset, syst_testset)
 
     return TrainResults(
