@@ -885,6 +885,7 @@ def train(
         use_labels=parser.labels,
         use_tags=parser.tagset,
     )
+    devset: Optional[DependencyDataset]
     if dev_file is not None:
         devset = DependencyDataset(
             list(DepGraph.read_conll(dev_file)),
