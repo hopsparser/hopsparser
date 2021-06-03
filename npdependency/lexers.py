@@ -658,9 +658,8 @@ class BertBaseLexer(nn.Module):
                 bert_encoding.word_to_tokens(i)
                 for i in range(len(unrooted_tok_sequence))
             ]
-            if (
-                i := next((i for i, a in enumerate(alignments) if a is None), None)
-            ) is not None:
+            i = next((i for i, a in enumerate(alignments) if a is None), None)
+            if i is not None:
                 raise LexingError(
                     f"Unencodable token {unrooted_tok_sequence[i]!r} at {i} in sentence {unrooted_tok_sequence}"
                 )
@@ -668,9 +667,8 @@ class BertBaseLexer(nn.Module):
             bert_tokens = [
                 self.bert_tokenizer.tokenize(token) for token in unrooted_tok_sequence
             ]
-            if (
-                i := next((i for i, s in enumerate(bert_tokens) if not s), None)
-            ) is not None:
+            i = next((i for i, s in enumerate(bert_tokens) if not s), None)
+            if i is not None:
                 raise LexingError(
                     f"Unencodable token {unrooted_tok_sequence[i]!r} at {i} in sentence {unrooted_tok_sequence}"
                 )
