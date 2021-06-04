@@ -5,7 +5,7 @@ import pathlib
 import subprocess
 import sys
 import tempfile
-from typing import Generator, IO, Optional, TextIO, Union
+from typing import Generator, Optional, Union
 import warnings
 
 import click
