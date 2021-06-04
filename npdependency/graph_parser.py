@@ -525,6 +525,10 @@ class BiAffineParser(nn.Module):
             if strict:
                 raise e
             else:
+                print(
+                    f"Skipping sentence {e.sentence} due to lexing error '{e.message}'.",
+                    file=sys.stderr,
+                )
                 return None
         return encoded
 

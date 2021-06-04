@@ -31,7 +31,10 @@ except ImportError:
 
 
 class LexingError(Exception):
-    pass
+    def __init__(self, message: str, sentence: Optional[str] = None):
+        self.message = message
+        self.sentence = sentence
+        super().__init__(self.message)
 
 
 @torch.jit.script
@@ -499,6 +502,12 @@ class BertBaseLexer(nn.Module):
                 bert_model, use_fast=True, add_prefix_space=True
             )
 
+        self.max_length = min(
+            self.bert_tokenizer.max_len_single_sentence,
+            getattr(self.bert.config, "max_position_embeddings", float("inf"))
+            - self.bert_tokenizer.num_special_tokens_to_add(pair=False),
+        )
+
         self.embedding_size = embedding_size + self.bert.config.hidden_size
 
         self.embedding = nn.Embedding(
@@ -589,7 +598,6 @@ class BertBaseLexer(nn.Module):
             # bert embedding so we use the average of all subword embeddings
             for word_n, span in enumerate(alignment, start=1):
                 # shape: `span.end-span.start×features`
-                # it along the first dimension
                 bert_word_embeddings = bert_subword_embeddings[
                     sent_n, span.start : span.end, ...
                 ]
@@ -646,12 +654,10 @@ class BertBaseLexer(nn.Module):
                 is_split_into_words=True,
                 return_special_tokens_mask=True,
             )
-            if (
-                len(bert_encoding.data["input_ids"])
-                > self.bert_tokenizer.model_max_length
-            ):
+            if len(bert_encoding.data["input_ids"]) > self.max_length:
                 raise LexingError(
-                    f"Sentence too long for the BERT model: {unrooted_tok_sequence}"
+                    f"Sentence too long for this transformer model ({len(bert_encoding.data['input_ids'])} tokens > {self.max_length})",
+                    str(unrooted_tok_sequence),
                 )
             # TODO: there might be a better way to do this?
             alignments = [
@@ -661,7 +667,8 @@ class BertBaseLexer(nn.Module):
             i = next((i for i, a in enumerate(alignments) if a is None), None)
             if i is not None:
                 raise LexingError(
-                    f"Unencodable token {unrooted_tok_sequence[i]!r} at {i} in sentence {unrooted_tok_sequence}"
+                    f"Unencodable token {unrooted_tok_sequence[i]!r} at {i}",
+                    str(unrooted_tok_sequence),
                 )
         else:
             bert_tokens = [
@@ -670,14 +677,16 @@ class BertBaseLexer(nn.Module):
             i = next((i for i, s in enumerate(bert_tokens) if not s), None)
             if i is not None:
                 raise LexingError(
-                    f"Unencodable token {unrooted_tok_sequence[i]!r} at {i} in sentence {unrooted_tok_sequence}"
+                    f"Unencodable token {unrooted_tok_sequence[i]!r} at {i}",
+                    str(unrooted_tok_sequence),
                 )
             subtokens_sequence = [
                 subtoken for token in bert_tokens for subtoken in token
             ]
-            if len(subtokens_sequence) > self.bert_tokenizer.model_max_length:
+            if len(subtokens_sequence) > self.max_length:
                 raise LexingError(
-                    f"Sentence too long for this transformer model: {unrooted_tok_sequence}"
+                    f"Sentence too long for this transformer model ({len(subtokens_sequence)} tokens > {self.max_length})",
+                    str(unrooted_tok_sequence),
                 )
             bert_encoding = self.bert_tokenizer.encode_plus(
                 subtokens_sequence,
