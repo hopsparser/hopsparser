@@ -65,30 +65,37 @@ def cli():
 )
 @device_opt
 @click.option(
-    "--raw",
-    is_flag=True,
-    help="Instead of a CoNLL-U file, take as input a document with one sentence per line, with tokens separated by spaces.",
+    "--batch-size",
+    type=click.IntRange(min=1),
+    help="In raw mode, silently ignore sentences that can't be encoded (for instance too long sentences when using a transformer model).",
 )
 @click.option(
     "--ignore-unencodable",
     is_flag=True,
     help="In raw mode, silently ignore sentences that can't be encoded (for instance too long sentences when using a transformer model).",
 )
+@click.option(
+    "--raw",
+    is_flag=True,
+    help="Instead of a CoNLL-U file, take as input a document with one sentence per line, with tokens separated by spaces.",
+)
 def parse(
-    model_path: pathlib.Path,
+    batch_size: Optional[int],
+    device: str,
     ignore_unencodable: bool,
     input_path: str,
     output_path: str,
-    device: str,
+    model_path: pathlib.Path,
     raw: bool,
 ):
     if ignore_unencodable and not raw:
         warnings.warn("--ignore-unencodable is only meaningful in raw mode")
 
     graph_parser.parse(
-        model_path,
-        input_path,
-        output_path,
+        batch_size=batch_size,
+        in_file=input_path,
+        model_path=model_path,
+        out_file=output_path,
         overrides={"device": device},
         raw=raw,
         strict=not ignore_unencodable,

@@ -835,11 +835,14 @@ def parse(
     model_path: Union[str, pathlib.Path],
     in_file: Union[str, pathlib.Path, IO[str]],
     out_file: Union[str, pathlib.Path, IO[str]],
+    batch_size: Optional[int] = None,
     overrides: Optional[Dict[str, str]] = None,
     raw: bool = False,
     strict: bool = True,
 ):
     parser = BiAffineParser.load(model_path, overrides)
+    if batch_size is None:
+        batch_size = parser.default_batch_size
     print("Encoding", file=sys.stderr)
     with smart_open(in_file) as in_stream:
         batches: Union[Iterable[DependencyBatch], Iterable[SentencesBatch]]
@@ -856,7 +859,7 @@ def parse(
             batches = (
                 parser.batch_sentences(sentences)
                 for sentences in itu.chunked_iter(
-                    sentences, size=parser.default_batch_size
+                    sentences, size=batch_size,
                 )
             )
         else:
