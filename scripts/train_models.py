@@ -25,7 +25,7 @@ class TrainResults(NamedTuple):
 def train_single_model(
     train_file: pathlib.Path,
     dev_file: pathlib.Path,
-    pred_file: pathlib.Path,
+    test_file: pathlib.Path,
     out_dir: pathlib.Path,
     config_path: pathlib.Path,
     device: str,
@@ -33,15 +33,15 @@ def train_single_model(
 ) -> TrainResults:
     subprocess.run(
         [
-            "graph_parser",
-            "--train_file",
+            "hopsparser",
+            "train",
+            str(config_path),
             str(train_file),
-            "--dev_file",
-            str(dev_file),
-            "--pred_file",
-            str(pred_file),
-            "--out_dir",
             str(out_dir),
+            "--dev-file",
+            str(dev_file),
+            "--test-file",
+            str(test_file),
             "--device",
             device,
             *(
@@ -50,17 +50,16 @@ def train_single_model(
                 if value
                 for a in (f"--{key}", value)
             ),
-            str(config_path),
         ],
         check=True,
     )
 
     gold_devset = evaluator.load_conllu_file(dev_file)
-    syst_devset = evaluator.load_conllu_file(out_dir / f"{dev_file.name}.parsed")
+    syst_devset = evaluator.load_conllu_file(out_dir / f"{dev_file.stem}.parsed.conllu")
     dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
 
-    gold_testset = evaluator.load_conllu_file(pred_file)
-    syst_testset = evaluator.load_conllu_file(out_dir / f"{pred_file.name}.parsed")
+    gold_testset = evaluator.load_conllu_file(test_file)
+    syst_testset = evaluator.load_conllu_file(out_dir / f"{test_file.stem}.parsed.conllu")
     test_metrics = evaluator.evaluate(gold_testset, syst_testset)
 
     return TrainResults(
@@ -175,7 +174,7 @@ def main(
     configs = list(configs_dir.glob("*.yaml"))
     if rand_seeds is not None:
         args = [
-            ("rand_seed", [str(s) for s in rand_seeds]),
+            ("rand-seed", [str(s) for s in rand_seeds]),
             *(args if args is not None else []),
         ]
     additional_args_combinations: List[Dict[str, str]]
@@ -194,7 +193,7 @@ def main(
             common_params = {
                 "train_file": t / "train.conllu",
                 "dev_file": t / "dev.conllu",
-                "pred_file": t / "test.conllu",
+                "test_file": t / "test.conllu",
                 "config_path": c,
             }
             run_base_name = f"{prefix}{t.name}-{c.stem}"
@@ -269,12 +268,13 @@ def main(
         df = pd.DataFrame.from_dict(df_dict, orient="index")
         df.to_csv(out_dir / "full_report.csv")
         grouped = df.groupby(
-            ["config", "treebank", *(a for a in args_names if a != "rand_seed")],
+            ["config", "treebank", *(a for a in args_names if a != "rand-seed")],
         )
         grouped[["dev_upos", "dev_las", "test_upos", "test_las"]].describe().to_csv(
             summary_file
         )
         best_dir = out_dir / "best"
+        best_dir.mkdir(exist_ok=True, parents=True)
         with open(best_dir / "models.md", "w") as out_stream:
             out_stream.write(
                 "| Model name | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download |\n"

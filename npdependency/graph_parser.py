@@ -413,14 +413,15 @@ class BiAffineParser(nn.Module):
     def train_model(
         self,
         train_set: DependencyDataset,
-        dev_set: DependencyDataset,
         epochs: int,
         lr: float,
         lr_schedule: LRSchedule,
         model_path: Union[str, pathlib.Path],
         batch_size: Optional[int] = None,
+        dev_set: Optional[DependencyDataset] = None,
     ):
         model_path = pathlib.Path(model_path)
+        weights_file = model_path / "model.pt"
         if batch_size is None:
             batch_size = self.default_batch_size
         print(f"Start training on {self.device}")
@@ -481,21 +482,23 @@ class BiAffineParser(nn.Module):
                 optimizer.step()
                 scheduler.step()
 
-            dev_loss, dev_tag_acc, dev_arc_acc, dev_lab_acc = self.eval_model(
-                dev_set, batch_size=batch_size
-            )
-            print(
-                f"Epoch {e} train mean loss {train_loss / overall_size}"
-                f" valid mean loss {dev_loss} valid tag acc {dev_tag_acc} valid arc acc {dev_arc_acc} valid label acc {dev_lab_acc}"
-                f" Base LR {scheduler.get_last_lr()[0]}"
-            )
+            if dev_set is not None:
+                dev_loss, dev_tag_acc, dev_arc_acc, dev_lab_acc = self.eval_model(
+                    dev_set, batch_size=batch_size
+                )
+                print(
+                    f"Epoch {e} train mean loss {train_loss / overall_size}"
+                    f" valid mean loss {dev_loss} valid tag acc {dev_tag_acc} valid arc acc {dev_arc_acc} valid label acc {dev_lab_acc}"
+                    f" Base LR {scheduler.get_last_lr()[0]}"
+                )
 
-            if dev_arc_acc > best_arc_acc:
-                self.save_params(model_path / "model.pt")
-                best_arc_acc = dev_arc_acc
+                if dev_arc_acc > best_arc_acc:
+                    self.save_params(weights_file)
+                    best_arc_acc = dev_arc_acc
+            else:
+                self.save_params(weights_file)
 
-        self.load_params(model_path / "model.pt")
-        self.save_params(model_path / "model.pt")
+        self.load_params(weights_file)
 
     @overload
     def encode_sentence(
@@ -649,8 +652,8 @@ class BiAffineParser(nn.Module):
         cls,
         config_path: pathlib.Path,
         model_path: pathlib.Path,
-        overrides: Dict[str, Any],
         treebank: List[DepGraph],
+        overrides: Optional[Dict[str, Any]] = None,
         fasttext: Optional[pathlib.Path] = None,
     ) -> "BiAffineParser":
         model_path.mkdir(parents=True, exist_ok=False)
@@ -716,7 +719,8 @@ class BiAffineParser(nn.Module):
                 raise ValueError(f"No config in {model_path}")
         else:
             warnings.warn(
-                "Loading a model from a YAML file is deprecated and will be removed in a future version."
+                "Loading a model from a YAML file is deprecated and will be removed in a future version.",
+                category=FutureWarning,
             )
             config_path = model_path
             model_path = model_path.parent
@@ -831,6 +835,80 @@ def loadlist(filename):
     return strlist
 
 
+def train(
+    config_file: pathlib.Path,
+    model_path: pathlib.Path,
+    train_file: pathlib.Path,
+    fasttext: Optional[pathlib.Path],
+    max_tree_length: Optional[int] = None,
+    overrides: Optional[Dict[str, str]] = None,
+    overwrite: bool = False,
+    rand_seed: Optional[int] = None,
+    dev_file: Optional[pathlib.Path] = None,
+):
+    if rand_seed is not None:
+        random.seed(rand_seed)
+        torch.manual_seed(rand_seed)
+
+    with open(config_file) as in_stream:
+        hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
+    if "device" in hp:
+        warnings.warn(
+            "Setting a device directly in a configuration file is DEPRECATED and will be silently ignored in a future version.",
+            category=FutureWarning,
+        )
+
+    traintrees = list(DepGraph.read_conll(train_file, max_tree_length=max_tree_length))
+    if model_path.exists() and not overwrite:
+        print(f"Continuing training from {model_path}", file=sys.stderr)
+        parser = BiAffineParser.load(model_path, overrides)
+    else:
+        if overwrite:
+            print(
+                f"Erasing existing trained model in {model_path} since overwrite was asked",
+                file=sys.stderr,
+            )
+            shutil.rmtree(model_path)
+        parser = BiAffineParser.initialize(
+            config_path=config_file,
+            model_path=model_path,
+            overrides=overrides,
+            treebank=traintrees,
+            fasttext=fasttext,
+        )
+
+    trainset = DependencyDataset(
+        traintrees,
+        parser.lexer,
+        parser.char_rnn,
+        parser.ft_lexer,
+        use_labels=parser.labels,
+        use_tags=parser.tagset,
+    )
+    devset: Optional[DependencyDataset]
+    if dev_file is not None:
+        devset = DependencyDataset(
+            list(DepGraph.read_conll(dev_file)),
+            parser.lexer,
+            parser.char_rnn,
+            parser.ft_lexer,
+            use_labels=parser.labels,
+            use_tags=parser.tagset,
+        )
+    else:
+        devset = None
+
+    parser.train_model(
+        batch_size=hp["batch_size"],
+        dev_set=devset,
+        epochs=hp["epochs"],
+        lr=hp["lr"],
+        lr_schedule=hp.get("lr_schedule", {"shape": "exponential", "warmup_steps": 0}),
+        model_path=model_path,
+        train_set=trainset,
+    )
+
+
 def parse(
     model_path: Union[str, pathlib.Path],
     in_file: Union[str, pathlib.Path, IO[str]],
@@ -930,11 +1008,18 @@ def main(argv=None):
         type=int,
         help="Force the random seed fo Python and Pytorch (see <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)",
     )
-
+    warnings.warn(
+        "The `graph_parser` interface is DEPRECATED and will be removed in a future release, use `hopsparser train` instead",
+        category=FutureWarning,
+    )
     args = parser.parse_args(argv)
-    if args.rand_seed is not None:
-        random.seed(args.rand_seed)
-        torch.manual_seed(args.rand_seed)
+
+    if args.overwrite and not args.out_dir:
+        print(
+            "ERROR: overwriting is only supported with --out_dir",
+            file=sys.stderr,
+        )
+        return 1
 
     if args.device is not None:
         overrides = {"device": args.device}
@@ -949,80 +1034,29 @@ def main(argv=None):
     else:
         model_dir = pathlib.Path(args.config_file).parent
         # We need to give the temp file a name to avoid garbage collection before the method exits
-        # this is not very clean but this code path will be deprecated soon anyway.
+        # this is not very clean but this code path will be removed soon anyway.
         _temp_config_file = tempfile.NamedTemporaryFile()
         shutil.copy(args.config_file, _temp_config_file.name)
         config_file = pathlib.Path(_temp_config_file.name)
         trained_config_file = pathlib.Path(args.config_file)
 
-    with open(config_file) as in_stream:
-        hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
-    if "device" in hp:
-        warnings.warn(
-            "Setting a device directly in a configuration file is deprecated and will be removed in a future version. Use --device instead."
-        )
-
     if args.train_file and args.dev_file:
-        # TRAIN MODE
-        traintrees = list(DepGraph.read_conll(args.train_file, max_tree_length=150))
-        if os.path.exists(model_dir) and not args.overwrite:
-            print(f"Continuing training from {model_dir}", file=sys.stderr)
-            parser = BiAffineParser.load(model_dir, overrides)
-        else:
-            if args.overwrite:
-                if not args.out_dir:
-                    print(
-                        "ERROR: overwriting is only supported with --out_dir",
-                        file=sys.stderr,
-                    )
-                    return 1
-                print(
-                    f"Erasing existing trained model in {model_dir} since --overwrite was asked",
-                    file=sys.stderr,
-                )
-                shutil.rmtree(model_dir)
-            parser = BiAffineParser.initialize(
-                config_path=config_file,
-                model_path=model_dir,
-                overrides=overrides,
-                treebank=traintrees,
-                fasttext=(
-                    pathlib.Path(args.fasttext) if args.fasttext is not None else None
-                ),
-            )
-
-        trainset = DependencyDataset(
-            traintrees,
-            parser.lexer,
-            parser.char_rnn,
-            parser.ft_lexer,
-            use_labels=parser.labels,
-            use_tags=parser.tagset,
-        )
-        devset = DependencyDataset(
-            list(DepGraph.read_conll(args.dev_file)),
-            parser.lexer,
-            parser.char_rnn,
-            parser.ft_lexer,
-            use_labels=parser.labels,
-            use_tags=parser.tagset,
-        )
-
-        parser.train_model(
-            train_set=trainset,
-            dev_set=devset,
-            epochs=hp["epochs"],
-            batch_size=hp["batch_size"],
-            lr=hp["lr"],
-            lr_schedule=hp.get(
-                "lr_schedule", {"shape": "exponential", "warmup_steps": 0}
+        print("Start training", file=sys.stderr)
+        train(
+            config_file=pathlib.Path(config_file),
+            dev_file=pathlib.Path(args.dev_file),
+            train_file=pathlib.Path(args.train_file),
+            fasttext=(
+                pathlib.Path(args.fasttext) if args.fasttext is not None else None
             ),
+            max_tree_length=150,
             model_path=model_dir,
+            overrides=overrides,
+            overwrite=args.overwrite,
+            rand_seed=args.rand_seed,
         )
-        print("training done.", file=sys.stderr)
-        # Load final params
-        parser.load_params(model_dir / "model.pt")
-        parser.eval()
+        print("Training done.", file=sys.stderr)
+        print("Parsing dev corpus", file=sys.stderr)
         if args.out_dir is not None:
             parsed_devset_path = os.path.join(
                 args.out_dir, f"{os.path.basename(args.dev_file)}.parsed"
@@ -1032,16 +1066,7 @@ def main(argv=None):
                 os.path.dirname(args.dev_file),
                 f"{os.path.basename(args.dev_file)}.parsed",
             )
-        with open(parsed_devset_path, "w") as ostream:
-            parser.batched_predict(
-                devset.make_batches(
-                    parser.default_batch_size,
-                    shuffle_batches=False,
-                    shuffle_data=False,
-                ),
-                ostream,
-                greedy=False,
-            )
+        parse(model_dir, args.dev_file, parsed_devset_path, overrides=overrides)
         gold_devset = evaluator.load_conllu_file(args.dev_file)
         syst_devset = evaluator.load_conllu_file(parsed_devset_path)
         dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
@@ -1061,6 +1086,7 @@ def main(argv=None):
                 os.path.dirname(args.pred_file),
                 f"{os.path.basename(args.pred_file)}.parsed",
             )
+        print("Parsing test corpus", file=sys.stderr)
         parse(
             trained_config_file,
             args.pred_file,
