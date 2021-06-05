@@ -106,6 +106,26 @@ graph_parser  --train_file TRAINFILE --dev_file DEVFILE --out_dir OUT params.yam
 where TRAINFILE and DEVFILE are given in CONLL-U format (without empty words). After some time
 (minutes, hours…) you are done and the model is ready to run (go back to the parsing section)
 
+## Citation
+
+If you use this parser for your scientific publication, or if you find the resources in this
+repository useful, please cite the following paper
+
+```biblatex
+@inproceedings{grobol:hal-03223424,
+    title = {{Analyse en dépendances du français avec des plongements contextualisés}},
+    author = {Grobol, Loïc and Crabbé, Benoît},
+    url = {https://hal.archives-ouvertes.fr/hal-03223424},
+    booktitle = {{Actes de la 28ème Conférence sur le Traitement Automatique des Langues Naturelles}},
+    eventtitle = {{TALN-RÉCITAL 2021}},
+    venue = {Lille, France},
+    pdf = {https://hal.archives-ouvertes.fr/hal-03223424/file/HOPS_final.pdf},
+    hal_id = {hal-03223424},
+    hal_version = {v1},
+}
+```
+
+
 ## Licence
 
 This software is released under the MIT Licence, with some files released under compatible free
