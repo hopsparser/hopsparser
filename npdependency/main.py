@@ -5,7 +5,8 @@ import pathlib
 import subprocess
 import sys
 import tempfile
-from typing import Generator, IO, Optional, TextIO, Union
+from typing import Generator, Optional, Union
+import warnings
 
 import click
 import click_pathlib
@@ -64,31 +65,40 @@ def cli():
 )
 @device_opt
 @click.option(
+    "--batch-size",
+    type=click.IntRange(min=1),
+    help="In raw mode, silently ignore sentences that can't be encoded (for instance too long sentences when using a transformer model).",
+)
+@click.option(
+    "--ignore-unencodable",
+    is_flag=True,
+    help="In raw mode, silently ignore sentences that can't be encoded (for instance too long sentences when using a transformer model).",
+)
+@click.option(
     "--raw",
     is_flag=True,
-    help="Instead of a CoNLL-U file, take as input a document with one sentence per line, with tokens separated by spaces",
+    help="Instead of a CoNLL-U file, take as input a document with one sentence per line, with tokens separated by spaces.",
 )
 def parse(
-    model_path: pathlib.Path,
+    batch_size: Optional[int],
+    device: str,
+    ignore_unencodable: bool,
     input_path: str,
     output_path: str,
-    device: str,
+    model_path: pathlib.Path,
     raw: bool,
 ):
-    input_file: Union[IO[str], str]
-    if input_path == "-":
-        input_file = sys.stdin
-    else:
-        input_file = input_path
-
-    output_file: Union[TextIO, str]
-    if output_path == "-":
-        output_file = sys.stdout
-    else:
-        output_file = output_path
+    if ignore_unencodable and not raw:
+        warnings.warn("--ignore-unencodable is only meaningful in raw mode")
 
     graph_parser.parse(
-        model_path, input_file, output_file, overrides={"device": device}, raw=raw
+        batch_size=batch_size,
+        in_file=input_path,
+        model_path=model_path,
+        out_file=output_path,
+        overrides={"device": device},
+        raw=raw,
+        strict=not ignore_unencodable,
     )
 
 

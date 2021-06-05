@@ -30,6 +30,13 @@ except ImportError:
     from typing_extensions import Final, Literal, Protocol  # type: ignore[misc]
 
 
+class LexingError(Exception):
+    def __init__(self, message: str, sentence: Optional[str] = None):
+        self.message = message
+        self.sentence = sentence
+        super().__init__(self.message)
+
+
 @torch.jit.script
 def integer_dropout(t: torch.Tensor, fill_value: int, p: float) -> torch.Tensor:
     mask = torch.empty_like(t, dtype=torch.bool).bernoulli_(p)
@@ -495,6 +502,12 @@ class BertBaseLexer(nn.Module):
                 bert_model, use_fast=True, add_prefix_space=True
             )
 
+        self.max_length = min(
+            self.bert_tokenizer.max_len_single_sentence,
+            getattr(self.bert.config, "max_position_embeddings", float("inf"))
+            - self.bert_tokenizer.num_special_tokens_to_add(pair=False),
+        )
+
         self.embedding_size = embedding_size + self.bert.config.hidden_size
 
         self.embedding = nn.Embedding(
@@ -585,7 +598,6 @@ class BertBaseLexer(nn.Module):
             # bert embedding so we use the average of all subword embeddings
             for word_n, span in enumerate(alignment, start=1):
                 # shape: `span.end-span.start×features`
-                # it along the first dimension
                 bert_word_embeddings = bert_subword_embeddings[
                     sent_n, span.start : span.end, ...
                 ]
@@ -631,7 +643,7 @@ class BertBaseLexer(nn.Module):
             self.stoi.get(token, self.unk_word_idx) for token in tokens_sequence
         ]
 
-        # We deal with the root token separately since the BERT model has no reason to know of it
+        # The root token is remved here since the BERT model has no reason to know of it
         unrooted_tok_sequence = tokens_sequence[1:]
         # NOTE: for now the 🤗 tokenizer interface is not unified between fast and non-fast
         # tokenizers AND not all tokenizers support the fast mode, so we have to do this little
@@ -642,17 +654,42 @@ class BertBaseLexer(nn.Module):
                 is_split_into_words=True,
                 return_special_tokens_mask=True,
             )
+            if len(bert_encoding.data["input_ids"]) > self.max_length:
+                raise LexingError(
+                    f"Sentence too long for this transformer model ({len(bert_encoding.data['input_ids'])} tokens > {self.max_length})",
+                    str(unrooted_tok_sequence),
+                )
             # TODO: there might be a better way to do this?
             alignments = [
                 bert_encoding.word_to_tokens(i)
                 for i in range(len(unrooted_tok_sequence))
             ]
+            i = next((i for i, a in enumerate(alignments) if a is None), None)
+            if i is not None:
+                raise LexingError(
+                    f"Unencodable token {unrooted_tok_sequence[i]!r} at {i}",
+                    str(unrooted_tok_sequence),
+                )
         else:
             bert_tokens = [
                 self.bert_tokenizer.tokenize(token) for token in unrooted_tok_sequence
             ]
+            i = next((i for i, s in enumerate(bert_tokens) if not s), None)
+            if i is not None:
+                raise LexingError(
+                    f"Unencodable token {unrooted_tok_sequence[i]!r} at {i}",
+                    str(unrooted_tok_sequence),
+                )
+            subtokens_sequence = [
+                subtoken for token in bert_tokens for subtoken in token
+            ]
+            if len(subtokens_sequence) > self.max_length:
+                raise LexingError(
+                    f"Sentence too long for this transformer model ({len(subtokens_sequence)} tokens > {self.max_length})",
+                    str(unrooted_tok_sequence),
+                )
             bert_encoding = self.bert_tokenizer.encode_plus(
-                [subtoken for token in bert_tokens for subtoken in token],
+                subtokens_sequence,
                 return_special_tokens_mask=True,
             )
             bert_word_lengths = [len(word) for word in bert_tokens]

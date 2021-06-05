@@ -22,6 +22,7 @@ from typing import (
     TypeVar,
     Union,
     cast,
+    overload,
 )
 
 import numpy as np
@@ -496,15 +497,40 @@ class BiAffineParser(nn.Module):
         self.load_params(model_path / "model.pt")
         self.save_params(model_path / "model.pt")
 
-    def encode_sentence(self, words: Sequence[str]) -> EncodedSentence:
+    @overload
+    def encode_sentence(
+        self, words: Sequence[str], strict: Literal[True] = True
+    ) -> EncodedSentence:
+        pass
+
+    @overload
+    def encode_sentence(
+        self, words: Sequence[str], strict: bool
+    ) -> Optional[EncodedSentence]:
+        pass
+
+    def encode_sentence(
+        self, words: Sequence[str], strict: bool = True
+    ) -> Optional[EncodedSentence]:
         words_with_root = [DepGraph.ROOT_TOKEN, *words]
-        return EncodedSentence(
-            words=words,
-            encoded_words=self.lexer.encode(words_with_root),
-            subwords=self.ft_lexer.encode(words_with_root),
-            chars=self.char_rnn.encode(words_with_root),
-            sent_len=len(words_with_root),
-        )
+        try:
+            encoded = EncodedSentence(
+                words=words,
+                encoded_words=self.lexer.encode(words_with_root),
+                subwords=self.ft_lexer.encode(words_with_root),
+                chars=self.char_rnn.encode(words_with_root),
+                sent_len=len(words_with_root),
+            )
+        except lexers.LexingError as e:
+            if strict:
+                raise e
+            else:
+                print(
+                    f"Skipping sentence {e.sentence} due to lexing error '{e.message}'.",
+                    file=sys.stderr,
+                )
+                return None
+        return encoded
 
     def batch_sentences(self, sentences: Sequence[EncodedSentence]) -> SentencesBatch:
         words = [sent.words for sent in sentences]
@@ -809,23 +835,31 @@ def parse(
     model_path: Union[str, pathlib.Path],
     in_file: Union[str, pathlib.Path, IO[str]],
     out_file: Union[str, pathlib.Path, IO[str]],
+    batch_size: Optional[int] = None,
     overrides: Optional[Dict[str, str]] = None,
     raw: bool = False,
+    strict: bool = True,
 ):
     parser = BiAffineParser.load(model_path, overrides)
+    if batch_size is None:
+        batch_size = parser.default_batch_size
     print("Encoding", file=sys.stderr)
     with smart_open(in_file) as in_stream:
         batches: Union[Iterable[DependencyBatch], Iterable[SentencesBatch]]
         if raw:
             sentences = (
-                parser.encode_sentence(line.strip().split())
+                encoded
                 for line in in_stream
                 if line and not line.isspace()
+                for encoded in [
+                    parser.encode_sentence(line.strip().split(), strict=strict)
+                ]
+                if encoded is not None
             )
             batches = (
                 parser.batch_sentences(sentences)
                 for sentences in itu.chunked_iter(
-                    sentences, size=parser.default_batch_size
+                    sentences, size=batch_size,
                 )
             )
         else:
