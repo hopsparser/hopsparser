@@ -107,6 +107,7 @@ def parse(
         overrides={"device": device},
         raw=raw,
         strict=not ignore_unencodable,
+    )
 
 
 @cli.command(help="Train a parsing model")
