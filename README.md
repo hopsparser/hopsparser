@@ -1,5 +1,8 @@
 HOPS, an honest parser of sentences
-==================================
+===================================
+
+[![Build Status](https://github.com/bencrabbe/npdependency/actions/workflows/ci.yml/badge.svg)](https://github.com/bencrabbe/npdependency/actions?query=workflow%3ACI)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 This is a graph-based dependency parser inspired by the paper of [(Dozat
 2017)](https://nlp.stanford.edu/pubs/dozat2017deep.pdf). Contrary to Dozat, the parser performs its
