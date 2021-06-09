@@ -69,7 +69,7 @@ jobs:
             - name: Test with tox
               run: |
                   pip install tox
-                  tox -m 'not slow'
+                  tox
     build_wheels:
         name: Build wheels on ${{ matrix.os }}
         runs-on: ${{ matrix.os }}
