@@ -33,9 +33,6 @@ pip install -e .
 
 In that case, you can run the smoketests with `tox` to ensure that everything works on your end.
 
-Alternatively (but not recommended), you can also clone this repo, install the dependencies listed
-in `setup.cfg` and call `python -m npdependency.graph_parser` directly from the root of the repo.
-
 ## Parsing task
 
 The parsing task (or prediction task) assumes you have an already trained model in the directory
