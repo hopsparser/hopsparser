@@ -1,6 +1,7 @@
 HOPS, an honest parser of sentences
 ===================================
 
+[![Latest PyPI version](https://img.shields.io/pypi/v/hopsparser.svg)](https://pypi.org/project/hopsparser)
 [![Build Status](https://github.com/bencrabbe/npdependency/actions/workflows/ci.yml/badge.svg)](https://github.com/bencrabbe/npdependency/actions?query=workflow%3ACI)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
@@ -71,11 +72,11 @@ actually used for performing computations can be specified using the `--device` 
 
 ## Running in server mode
 
-See [the server mode documentation](docs/server.md).
+See [the server mode documentation](https://github.com/bencrabbe/npdependency/blob/master/docs/server.md).
 
 ## Pretrained models
 
-We provide some pretrained models, see the list in [models.md](doc/models.md).
+We provide some pretrained models, see the list in [models.md](https://github.com/bencrabbe/npdependency/blob/master/docs/models.md).
 
 The reader may notice a difference with the results published in [(Le et al
 2020)](https://arxiv.org/abs/1912.05372). The difference comes from a better usage of fasttext and
@@ -93,7 +94,7 @@ run out of memory.
 Training can be performed with the following steps:
 
 1. Create a directory OUT for storing your new model
-2. Copy a config YAML file from the [examples](examples) directory
+2. Copy a config YAML file from the [examples](https://github.com/bencrabbe/npdependency/tree/master/examples) directory
 3. Edit it according to your needs
 4. Run the command:
 
