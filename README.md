@@ -20,7 +20,7 @@ The parser is meant to work with python >= 3.8. Install with pip, which should t
 dependencies and install the console entry points
 
 ```sh
-pip install git+https://github.com/bencrabbe/npdependency
+pip install hopsparser
 ```
 
 If you want a development install (so you can modify the code locally and directly run it), you can
