@@ -78,7 +78,7 @@ See [the server mode documentation](docs/server.md).
 
 ## Pretrained models
 
-We provide some pretrained models, see the list in [models.md](models.md).
+We provide some pretrained models, see the list in [models.md](doc/models.md).
 
 The reader may notice a difference with the results published in [(Le et al
 2020)](https://arxiv.org/abs/1912.05372). The difference comes from a better usage of fasttext and
