@@ -17,6 +17,8 @@ def raw_text(test_data_dir: pathlib.Path) -> pathlib.Path:
     return test_data_dir / "raw.txt"
 
 
-@pytest.fixture(params=["toy_nobert", "toy_flaubert"])
+@pytest.fixture(
+    params=["toy_nobert", pytest.param("toy_flaubert", marks=pytest.mark.slow)]
+)
 def train_config(test_data_dir: pathlib.Path, request) -> pathlib.Path:
     return test_data_dir / f"{request.param}.yaml"
