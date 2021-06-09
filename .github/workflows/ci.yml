@@ -67,7 +67,7 @@ jobs:
                 restore-keys: |
                   ${{ runner.os }}-transformers-
             - name: Run tox with tox-gh-actions
-              uses: ymyzk/tox-gh-actions@master
+              uses: ymyzk/tox-gh-actions@v2.5.0
     build_wheels:
         name: Build wheels on ${{ matrix.os }}
         runs-on: ${{ matrix.os }}
