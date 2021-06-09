@@ -96,15 +96,15 @@ Training can be performed with the following steps:
 
 1. Create a directory OUT for storing your new model
 2. Copy a config YAML file from the [examples](examples) directory
-3. Edit the `params.yaml` according to your needs
+3. Edit it according to your needs
 4. Run the command:
 
 ```sh
-graph_parser  --train_file TRAINFILE --dev_file DEVFILE --out_dir OUT params.yaml
+hopsparser train CONFIG.yaml TRAIN.conllu OUTPUT_DIR --dev-file DEV.conllu --test-file TEST.conllu 
 ```
 
-where TRAINFILE and DEVFILE are given in CONLL-U format (without empty words). After some time
-(minutes, hours…) you are done and the model is ready to run (go back to the parsing section)
+After some time (minutes, hours…) you are done and the model is ready to run (go back to the parsing
+section). There are other options, see `hopsparser train --help`.
 
 ## Citation
 
