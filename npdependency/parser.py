@@ -719,12 +719,8 @@ class BiAffineParser(nn.Module):
             if not config_path.exists():
                 raise ValueError(f"No config in {model_path}")
         else:
-            warnings.warn(
-                "Loading a model from a YAML file is deprecated and will be removed in a future version.",
-                category=FutureWarning,
-            )
-            config_path = model_path
-            model_path = model_path.parent
+            raise ValueError("The model path should be a directory, not a file")
+
         print(f"Initializing a parser from {model_path}")
 
         with open(config_path) as in_stream:
