@@ -11,7 +11,7 @@ import warnings
 import click
 import click_pathlib
 
-from npdependency import graph_parser
+from npdependency import parser
 from npdependency import conll2018_eval as evaluator
 
 # Python 3.7 shim
@@ -100,7 +100,7 @@ def parse(
     if ignore_unencodable and not raw:
         warnings.warn("--ignore-unencodable is only meaningful in raw mode")
 
-    graph_parser.parse(
+    parser.parse(
         batch_size=batch_size,
         in_file=input_path,
         model_path=model_path,
@@ -168,7 +168,7 @@ def train(
     train_file: pathlib.Path,
 ):
     model_path = output_dir / "model"
-    graph_parser.train(
+    parser.train(
         config_file=config_file,
         dev_file=dev_file,
         train_file=train_file,
@@ -182,7 +182,7 @@ def train(
     output_metrics = dict()
     if dev_file is not None:
         parsed_devset_path = output_dir / f"{dev_file.stem}.parsed.conllu"
-        graph_parser.parse(
+        parser.parse(
             model_path, dev_file, parsed_devset_path, overrides={"device": device}
         )
         gold_devset = evaluator.load_conllu_file(dev_file)
@@ -193,7 +193,7 @@ def train(
 
     if test_file is not None:
         parsed_testset_path = output_dir / f"{test_file.stem}.parsed.conllu"
-        graph_parser.parse(
+        parser.parse(
             model_path, test_file, parsed_testset_path, overrides={"device": device}
         )
         gold_testset = evaluator.load_conllu_file(test_file)
@@ -245,7 +245,7 @@ def evaluate(
             input_file = pathlib.Path(treebank_path)
 
         output_file = intermediary_path / "parsed.conllu"
-        graph_parser.parse(
+        parser.parse(
             model_path, input_file, output_file, overrides={"device": device}
         )
         gold_set = evaluator.load_conllu_file(str(input_file))

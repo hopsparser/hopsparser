@@ -4,7 +4,7 @@ import fastapi
 import pydantic
 
 from npdependency import __version__
-from npdependency import deptree, graph_parser
+from npdependency import deptree, parser
 
 
 class Settings(pydantic.BaseSettings):
@@ -16,7 +16,7 @@ settings = Settings()
 
 
 models = {
-    model_name: graph_parser.BiAffineParser.load(
+    model_name: parser.BiAffineParser.load(
         config_path, overrides={"device": settings.device}
     )
     for model_name, config_path in settings.models.items()
