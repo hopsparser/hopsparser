@@ -60,27 +60,6 @@ def test_train_parse(
     )
 
 
-def test_graph_parser(
-    train_config: pathlib.Path,
-    treebank: pathlib.Path,
-    script_runner: pytest_console_scripts.ScriptRunner,
-    tmp_path: pathlib.Path,
-):
-    ret = script_runner.run(
-        "graph_parser",
-        str(train_config),
-        "--train_file",
-        str(treebank),
-        "--dev_file",
-        str(treebank),
-        "--pred_file",
-        str(treebank),
-        "--out_dir",
-        str(tmp_path),
-    )
-    assert ret.success
-
-
 def test_gold_evaluation(
     script_runner: pytest_console_scripts.ScriptRunner, treebank: pathlib.Path
 ):
