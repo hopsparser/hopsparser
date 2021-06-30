@@ -4,10 +4,13 @@ from collections import Counter
 import pathlib
 from tempfile import gettempdir
 from typing import (
+    Final,
     Iterable,
     List,
+    Literal,
     NamedTuple,
     Optional,
+    Protocol,
     Sequence,
     Set,
     Type,

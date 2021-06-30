@@ -13,10 +13,12 @@ from typing import (
     IO,
     Iterable,
     List,
+    Literal,
     NamedTuple,
     Optional,
     Sequence,
     Tuple,
+    TypedDict,
     TypeVar,
     Union,
     cast,
@@ -31,17 +33,17 @@ from boltons import iterutils as itu
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
-from npdependency import lexers
-from npdependency.utils import smart_open
-from npdependency import deptree
-from npdependency.deptree import (
+from hopsparser import lexers
+from hopsparser.utils import smart_open
+from hopsparser import deptree
+from hopsparser.deptree import (
     DependencyBatch,
     DependencyDataset,
     DepGraph,
     gen_labels,
     gen_tags,
 )
-from npdependency.lexers import (
+from hopsparser.lexers import (
     BertBaseLexer,
     BertLexerBatch,
     CharRNNLexer,
@@ -50,7 +52,7 @@ from npdependency.lexers import (
     freeze_module,
     make_vocab,
 )
-from npdependency.mst import chuliu_edmonds_one_root as chuliu_edmonds
+from hopsparser.mst import chuliu_edmonds_one_root as chuliu_edmonds
 
 
 class MLP(nn.Module):

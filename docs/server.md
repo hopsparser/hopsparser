@@ -59,8 +59,8 @@ Where `processed_output` is the output of parser in the requested output format.
 
 ## Going further
 
-`hopsparser serve` is actually a very thin wrapper for running `npdependency.server:app` in
-[Uvicorn](https://www.uvicorn.org). `npdependency.server:app` uses the
+`hopsparser serve` is actually a very thin wrapper for running `hopsparser.server:app` in
+[Uvicorn](https://www.uvicorn.org). `hopsparser.server:app` uses the
 [ASGI](https://asgi.readthedocs.io/en/latest/) interface and you can use it directly for fun and
 profits. For instance you could
 

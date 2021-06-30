@@ -5,14 +5,14 @@ import pathlib
 import subprocess
 import sys
 import tempfile
-from typing import Dict, Generator, Optional, Union
+from typing import Dict, Generator, Literal, Optional, Union
 import warnings
 
 import click
 import click_pathlib
 
-from npdependency import parser
-from npdependency import conll2018_eval as evaluator
+from hopsparser import parser
+from hopsparser import conll2018_eval as evaluator
 
 
 device_opt = click.option(
@@ -280,7 +280,7 @@ def serve(
     port: int,
 ):
     subprocess.run(
-        ["uvicorn", "npdependency.server:app", "--port", str(port)],
+        ["uvicorn", "hopsparser.server:app", "--port", str(port)],
         env={
             "models": json.dumps({"default": str(model_path)}),
             "device": device,

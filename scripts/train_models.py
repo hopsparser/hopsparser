@@ -12,7 +12,7 @@ import click
 import click_pathlib
 import pandas as pd
 
-from npdependency import conll2018_eval as evaluator
+from hopsparser import conll2018_eval as evaluator
 
 
 class TrainResults(NamedTuple):

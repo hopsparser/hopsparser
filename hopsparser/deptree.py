@@ -18,9 +18,9 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from typing_extensions import Final
 
-from npdependency import lexers
-from npdependency.lexers import BertLexerBatch, BertLexerSentence
-from npdependency.utils import smart_open
+from hopsparser import lexers
+from hopsparser.lexers import BertLexerBatch, BertLexerSentence
+from hopsparser.utils import smart_open
 
 
 class MWERange(NamedTuple):

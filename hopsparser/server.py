@@ -3,8 +3,8 @@ from typing import Dict, List, Literal, Optional
 import fastapi
 import pydantic
 
-from npdependency import __version__
-from npdependency import deptree, parser
+from hopsparser import __version__
+from hopsparser import deptree, parser
 
 
 class Settings(pydantic.BaseSettings):
