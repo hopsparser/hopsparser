@@ -1,5 +1,4 @@
 import math
-import os.path
 import pathlib
 import random
 import shutil
@@ -751,7 +750,7 @@ class BiAffineParser(nn.Module):
                     bert_config_path, legacy_format=not lexer.bert_tokenizer.is_fast
                 )
                 # Saving local paths in config is of little use and leaks information
-                if os.path.exists(hp["lexer"]):
+                if pathlib.Path(hp["lexer"]).exists():
                     hp["lexer"] = "."
 
         chars_lexer = CharRNNLexer(
