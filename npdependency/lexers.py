@@ -23,12 +23,6 @@ from torch import nn
 from torch.nn.utils.rnn import pad_sequence
 from transformers.tokenization_utils_base import BatchEncoding, TokenSpan
 
-# Python 3.7 shim
-try:
-    from typing import Final, Literal, Protocol
-except ImportError:
-    from typing_extensions import Final, Literal, Protocol  # type: ignore[misc]
-
 
 class LexingError(Exception):
     def __init__(self, message: str, sentence: Optional[str] = None):

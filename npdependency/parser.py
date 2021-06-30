@@ -52,12 +52,6 @@ from npdependency.lexers import (
 )
 from npdependency.mst import chuliu_edmonds_one_root as chuliu_edmonds
 
-# Python 3.7 shim
-try:
-    from typing import Literal, TypedDict
-except ImportError:
-    from typing_extensions import Literal, TypedDict  # type: ignore
-
 
 class MLP(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, dropout=0.0):

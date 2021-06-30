@@ -14,12 +14,6 @@ import click_pathlib
 from npdependency import parser
 from npdependency import conll2018_eval as evaluator
 
-# Python 3.7 shim
-try:
-    from typing import Literal
-except ImportError:
-    from typing_extensions import Literal  # type: ignore[misc]
-
 
 device_opt = click.option(
     "--device",
