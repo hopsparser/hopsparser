@@ -5,10 +5,10 @@ HOPS, an honest parser of sentences
 [![Build Status](https://github.com/bencrabbe/npdependency/actions/workflows/ci.yml/badge.svg)](https://github.com/bencrabbe/npdependency/actions?query=workflow%3ACI)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-This is a graph-based dependency parser inspired by the paper of [(Dozat
-2017)](https://nlp.stanford.edu/pubs/dozat2017deep.pdf). Contrary to Dozat, the parser performs its
-own tagging and can use several lexers such as FastText, BERT and others. It has been originally
-designed within the [FlauBERT](https://github.com/getalp/Flaubert) initiative.
+This is a graph-based dependency parser inspired by [Dozat and Manning
+(2017)](https://nlp.stanford.edu/pubs/dozat2017deep.pdf)'s biaffine graph parser. Contrary to Dozat,
+the parser performs its own tagging and can use several lexers such as FastText, BERT and others. It
+has been originally designed within the [FlauBERT](https://github.com/getalp/Flaubert) initiative.
 
 I advise to have a GPU with at least 12GB graphical memory. With smaller GPUs, using a BERT
 preprocessor will become difficult. The parser comes with pretrained models ready for parsing
@@ -60,7 +60,7 @@ instance:
 6	.
 ```
 
-That is we require word indexation and word forms only. Empty words are currently not supported.
+That is, we require word indexation and word forms only. Empty words are currently not supported.
 Multi-word tokens are not taken into account by the parsing models but are preserved in the outputs.
 
 Alternatively, you may add the `--raw` flag to the command above, in which case the parser expects a
@@ -78,17 +78,11 @@ See [the server mode documentation](https://github.com/bencrabbe/npdependency/bl
 
 We provide some pretrained models, see the list in [models.md](https://github.com/bencrabbe/npdependency/blob/master/docs/models.md).
 
-The reader may notice a difference with the results published in [(Le et al
-2020)](https://arxiv.org/abs/1912.05372). The difference comes from a better usage of fasttext and
-from the fact that this parser also predicts part of speech tags while the version described in [(Le
-et al 2020)](https://arxiv.org/abs/1912.05372) required predicted tags as part of its input. These
-changes make the parser easier to use in "real life" projects.
-
 ## Training
 
-Instead of using a pretrained model, one can train his own model. Training a model with BERT
-definitely requires a GPU. Unless you have a GPU with a very large amount of onboard memory, I
-advise to use very small batch sizes (2, 4, 8, 16, 32, 64) for training. Otherwise you are likely to
+Instead of using a pretrained model, one can train their own model. Training a model with BERT
+definitely requires a GPU. Unless you have a GPU with a large amount of onboard memory, using small
+batch sizes (2, 4, 8, 16, 32, 64) for training is probably a good idea. Otherwise you are likely to
 run out of memory.
 
 Training can be performed with the following steps:
