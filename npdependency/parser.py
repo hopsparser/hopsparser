@@ -1,11 +1,9 @@
-import argparse
 import math
 import os.path
 import pathlib
 import random
 import shutil
 import sys
-import tempfile
 import warnings
 from typing import (
     Any,
@@ -35,7 +33,6 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from npdependency import lexers
 from npdependency.utils import smart_open
-from npdependency import conll2018_eval as evaluator
 from npdependency import deptree
 from npdependency.deptree import (
     DependencyBatch,
