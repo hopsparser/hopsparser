@@ -123,8 +123,8 @@ class CharRNNLexer(nn.Module):
         :return: a word embedding tensor
         """
         # FIXME: there is probably a better way to do this since this results in tokens that are
-        # full padding We need the of course (the will be cat to other padding embeddings in
-        # graph_parser), running the RNN on them is frustrating
+        # full padding We need them of course (they will be cat to other padding embeddings in
+        # graph_parser), but running the RNN on them is frustrating
         flattened_inputs = inpt.view(-1, inpt.shape[-1])
         embeddings = self.char_embedding(flattened_inputs)
         # ! FIXME: this does not take the padding into account

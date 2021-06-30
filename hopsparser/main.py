@@ -96,10 +96,10 @@ def parse(
 
     parser.parse(
         batch_size=batch_size,
+        device=device,
         in_file=input_path,
         model_path=model_path,
         out_file=output_path,
-        overrides={"device": device},
         raw=raw,
         strict=not ignore_unencodable,
     )
@@ -165,20 +165,18 @@ def train(
     parser.train(
         config_file=config_file,
         dev_file=dev_file,
+        device=device,
         train_file=train_file,
         fasttext=fasttext,
         max_tree_length=max_tree_length,
         model_path=model_path,
-        overrides={"device": device},
         overwrite=overwrite,
         rand_seed=rand_seed,
     )
     output_metrics = dict()
     if dev_file is not None:
         parsed_devset_path = output_dir / f"{dev_file.stem}.parsed.conllu"
-        parser.parse(
-            model_path, dev_file, parsed_devset_path, overrides={"device": device}
-        )
+        parser.parse(model_path, dev_file, parsed_devset_path, device=device)
         gold_devset = evaluator.load_conllu_file(dev_file)
         syst_devset = evaluator.load_conllu_file(parsed_devset_path)
         dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
@@ -187,9 +185,7 @@ def train(
 
     if test_file is not None:
         parsed_testset_path = output_dir / f"{test_file.stem}.parsed.conllu"
-        parser.parse(
-            model_path, test_file, parsed_testset_path, overrides={"device": device}
-        )
+        parser.parse(model_path, test_file, parsed_testset_path, device=device)
         gold_testset = evaluator.load_conllu_file(test_file)
         syst_testset = evaluator.load_conllu_file(parsed_testset_path)
         test_metrics = evaluator.evaluate(gold_testset, syst_testset)
@@ -239,17 +235,13 @@ def evaluate(
             input_file = pathlib.Path(treebank_path)
 
         output_file = intermediary_path / "parsed.conllu"
-        parser.parse(
-            model_path, input_file, output_file, overrides={"device": device}
-        )
+        parser.parse(model_path, input_file, output_file, device=device)
         gold_set = evaluator.load_conllu_file(str(input_file))
         syst_set = evaluator.load_conllu_file(str(output_file))
     metrics = evaluator.evaluate(gold_set, syst_set)
     if out_format == "md":
         output_metrics = {n: metrics[n].f1 for n in ("UPOS", "UAS", "LAS")}
-        click.echo(
-            make_metrics_table(output_metrics)
-        )
+        click.echo(make_metrics_table(output_metrics))
     elif out_format == "json":
         json.dump({m: metrics[m].f1 for m in ("UPOS", "UAS", "LAS")}, sys.stdout)
     else:

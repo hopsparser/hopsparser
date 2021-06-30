@@ -5,10 +5,8 @@ import shutil
 import sys
 import warnings
 from typing import (
-    Any,
     BinaryIO,
     Callable,
-    Dict,
     IO,
     Iterable,
     List,
@@ -166,7 +164,6 @@ class BiAffineParser(nn.Module):
         biased_biaffine: bool,
         chars_lexer: CharRNNLexer,
         default_batch_size: int,
-        device: Union[str, torch.device],
         encoder_dropout: float,  # lstm dropout
         ft_lexer: FastTextLexer,
         labels: Sequence[str],
@@ -181,14 +178,13 @@ class BiAffineParser(nn.Module):
 
         super(BiAffineParser, self).__init__()
         self.default_batch_size = default_batch_size
-        self.device = torch.device(device)
         self.tagset = tagset
         self.labels = labels
         self.mlp_arc_hidden = mlp_arc_hidden
         self.mlp_input = mlp_input
         self.mlp_lab_hidden = mlp_lab_hidden
 
-        self.lexer = lexer.to(self.device)
+        self.lexer = lexer
 
         self.dep_rnn = nn.LSTM(
             self.lexer.embedding_size
@@ -199,41 +195,31 @@ class BiAffineParser(nn.Module):
             batch_first=True,
             dropout=encoder_dropout,
             bidirectional=True,
-        ).to(self.device)
+        )
 
         # POS tagger & char RNN
-        self.pos_tagger = MLP(mlp_input * 2, mlp_tag_hidden, len(self.tagset)).to(
-            self.device
-        )
-        self.char_rnn = chars_lexer.to(self.device)
-        self.ft_lexer = ft_lexer.to(self.device)
+        self.pos_tagger = MLP(mlp_input * 2, mlp_tag_hidden, len(self.tagset))
+        self.char_rnn = chars_lexer
+        self.ft_lexer = ft_lexer
 
         # Arc MLPs
-        self.arc_mlp_h = MLP(mlp_input * 2, mlp_arc_hidden, mlp_input, mlp_dropout).to(
-            self.device
-        )
-        self.arc_mlp_d = MLP(mlp_input * 2, mlp_arc_hidden, mlp_input, mlp_dropout).to(
-            self.device
-        )
+        self.arc_mlp_h = MLP(mlp_input * 2, mlp_arc_hidden, mlp_input, mlp_dropout)
+        self.arc_mlp_d = MLP(mlp_input * 2, mlp_arc_hidden, mlp_input, mlp_dropout)
         # Label MLPs
-        self.lab_mlp_h = MLP(mlp_input * 2, mlp_lab_hidden, mlp_input, mlp_dropout).to(
-            self.device
-        )
-        self.lab_mlp_d = MLP(mlp_input * 2, mlp_lab_hidden, mlp_input, mlp_dropout).to(
-            self.device
-        )
+        self.lab_mlp_h = MLP(mlp_input * 2, mlp_lab_hidden, mlp_input, mlp_dropout)
+        self.lab_mlp_d = MLP(mlp_input * 2, mlp_lab_hidden, mlp_input, mlp_dropout)
 
         # BiAffine layers
-        self.arc_biaffine = BiAffine(mlp_input, 1, bias=biased_biaffine).to(self.device)
+        self.arc_biaffine = BiAffine(mlp_input, 1, bias=biased_biaffine)
         self.lab_biaffine = BiAffine(
             mlp_input, len(self.labels), bias=biased_biaffine
-        ).to(self.device)
+        )
 
     def save_params(self, path: Union[str, pathlib.Path, BinaryIO]):
         torch.save(self.state_dict(), path)
 
     def load_params(self, path: Union[str, pathlib.Path, BinaryIO]):
-        state_dict = torch.load(path, map_location=self.device)
+        state_dict = torch.load(path)
         self.load_state_dict(state_dict)
 
     def forward(
@@ -334,7 +320,7 @@ class BiAffineParser(nn.Module):
         )
 
         self.eval()
-
+        device = next(self.parameters()).device
         dev_batches = dev_set.make_batches(
             batch_size, shuffle_batches=False, shuffle_data=False
         )
@@ -347,7 +333,7 @@ class BiAffineParser(nn.Module):
             for batch in dev_batches:
                 overall_size += int(batch.content_mask.sum().item())
 
-                batch = batch.to(self.device)
+                batch = batch.to(device)
 
                 # preds
                 tagger_scores, arc_scores, lab_scores = self(
@@ -407,7 +393,8 @@ class BiAffineParser(nn.Module):
         weights_file = model_path / "model.pt"
         if batch_size is None:
             batch_size = self.default_batch_size
-        print(f"Start training on {self.device}")
+        device = next(self.parameters()).device
+        print(f"Start training on {device}")
         loss_fnc = nn.CrossEntropyLoss(
             reduction="sum", ignore_index=train_set.LABEL_PADDING
         )
@@ -448,7 +435,7 @@ class BiAffineParser(nn.Module):
             for batch in train_batches:
                 overall_size += int(batch.content_mask.sum().item())
 
-                batch = batch.to(self.device)
+                batch = batch.to(device)
 
                 # FORWARD
                 tagger_scores, arc_scores, lab_scores = self(
@@ -553,10 +540,11 @@ class BiAffineParser(nn.Module):
         greedy: bool = False,
     ):
         self.eval()
+        device = next(self.parameters()).device
 
         with torch.no_grad():
             for batch in batch_lst:
-                batch = batch.to(self.device)
+                batch = batch.to(device)
 
                 # batch prediction
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = self(
@@ -607,7 +595,7 @@ class BiAffineParser(nn.Module):
                     )
                     mst_heads = torch.from_numpy(
                         np.pad(mst_heads_np, (0, batch_width - length))
-                    ).to(self.device)
+                    )
 
                     # Predict tags
                     tag_idxes = tagger_scores.argmax(dim=1)
@@ -636,7 +624,6 @@ class BiAffineParser(nn.Module):
         config_path: pathlib.Path,
         model_path: pathlib.Path,
         treebank: List[DepGraph],
-        overrides: Optional[Dict[str, Any]] = None,
         fasttext: Optional[pathlib.Path] = None,
     ) -> "BiAffineParser":
         model_path.mkdir(parents=True, exist_ok=False)
@@ -685,16 +672,13 @@ class BiAffineParser(nn.Module):
         itotag = gen_tags(treebank)
         savelist(itotag, model_path / "tagcodes.lst")
 
-        return cls.load(model_path, overrides)
+        return cls.load(model_path)
 
     @classmethod
     def load(
         cls,
         model_path: Union[str, pathlib.Path],
-        overrides: Optional[Dict[str, Any]] = None,
     ) -> "BiAffineParser":
-        if overrides is None:
-            overrides = dict()
         # TODO: move the initialization code to initialize (even if that duplicates code?)
         model_path = pathlib.Path(model_path)
         if model_path.is_dir():
@@ -708,8 +692,6 @@ class BiAffineParser(nn.Module):
 
         with open(config_path) as in_stream:
             hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
-        hp.update(overrides)
-        hp.setdefault("device", "cpu")
 
         # FIXME: put that in the word lexer class
         ordered_vocab = loadlist(model_path / "vocab.lst")
@@ -768,7 +750,6 @@ class BiAffineParser(nn.Module):
         itotag = loadlist(model_path / "tagcodes.lst")
         parser = cls(
             biased_biaffine=hp.get("biased_biaffine", True),
-            device=hp["device"],
             chars_lexer=chars_lexer,
             default_batch_size=hp.get("batch_size", 1),
             encoder_dropout=hp["encoder_dropout"],
@@ -820,8 +801,8 @@ def train(
     model_path: pathlib.Path,
     train_file: pathlib.Path,
     fasttext: Optional[pathlib.Path],
+    device: Union[str, torch.device] = "cpu",
     max_tree_length: Optional[int] = None,
-    overrides: Optional[Dict[str, str]] = None,
     overwrite: bool = False,
     rand_seed: Optional[int] = None,
     dev_file: Optional[pathlib.Path] = None,
@@ -832,16 +813,11 @@ def train(
 
     with open(config_file) as in_stream:
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
-    if "device" in hp:
-        warnings.warn(
-            "Setting a device directly in a configuration file is DEPRECATED and will be silently ignored in a future version.",
-            category=FutureWarning,
-        )
 
     traintrees = list(DepGraph.read_conll(train_file, max_tree_length=max_tree_length))
     if model_path.exists() and not overwrite:
         print(f"Continuing training from {model_path}", file=sys.stderr)
-        parser = BiAffineParser.load(model_path, overrides)
+        parser = BiAffineParser.load(model_path)
     else:
         if overwrite:
             print(
@@ -852,10 +828,10 @@ def train(
         parser = BiAffineParser.initialize(
             config_path=config_file,
             model_path=model_path,
-            overrides=overrides,
             treebank=traintrees,
             fasttext=fasttext,
         )
+    parser = parser.to(device)
 
     trainset = DependencyDataset(
         traintrees,
@@ -893,12 +869,13 @@ def parse(
     model_path: Union[str, pathlib.Path],
     in_file: Union[str, pathlib.Path, IO[str]],
     out_file: Union[str, pathlib.Path, IO[str]],
+    device: Union[str, torch.device] = "cpu",
     batch_size: Optional[int] = None,
-    overrides: Optional[Dict[str, str]] = None,
     raw: bool = False,
     strict: bool = True,
 ):
-    parser = BiAffineParser.load(model_path, overrides)
+    parser = BiAffineParser.load(model_path)
+    parser = parser.to(device)
     if batch_size is None:
         batch_size = parser.default_batch_size
     print("Encoding", file=sys.stderr)
