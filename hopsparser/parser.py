@@ -595,7 +595,7 @@ class BiAffineParser(nn.Module):
                     )
                     mst_heads = torch.from_numpy(
                         np.pad(mst_heads_np, (0, batch_width - length))
-                    )
+                    ).to(device)
 
                     # Predict tags
                     tag_idxes = tagger_scores.argmax(dim=1)
