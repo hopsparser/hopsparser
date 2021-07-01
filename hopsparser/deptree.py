@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import pathlib
 from random import shuffle
 from typing import (
+    Final,
     IO,
     Iterable,
     List,
@@ -16,8 +17,6 @@ from typing import (
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
-from typing_extensions import Final
-
 from hopsparser import lexers
 from hopsparser.lexers import BertLexerBatch, BertLexerSentence
 from hopsparser.utils import smart_open
