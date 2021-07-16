@@ -22,6 +22,7 @@ import fasttext
 import torch
 import torch.jit
 import transformers
+from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence
 from transformers.tokenization_utils_base import BatchEncoding, TokenSpan
@@ -288,7 +289,7 @@ class FastTextLexer(nn.Module):
                     file=source_stream,
                 )
 
-            print("Training fasttext model", file=sys.stderr)
+            logger.info("Training fasttext model")
             # TODO: make the hyperparameters here configurable?
             model = fasttext.train_unsupervised(
                 source_file, model="skipgram", neg=10, minCount=5, epoch=10
@@ -305,7 +306,7 @@ class FastTextLexer(nn.Module):
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
         else:
-            print("Training fasttext model", file=sys.stderr)
+            logger.info("Training fasttext model")
             # TODO: make the hyperparameters here configurable?
             model = fasttext.train_unsupervised(
                 raw_text_path, model="skipgram", neg=10, minCount=5, epoch=10

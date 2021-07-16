@@ -2,7 +2,6 @@ import math
 import pathlib
 import random
 import shutil
-import sys
 import warnings
 from typing import (
     BinaryIO,
@@ -28,6 +27,7 @@ import torch
 import transformers
 import yaml
 from boltons import iterutils as itu
+from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
@@ -386,7 +386,7 @@ class BiAffineParser(nn.Module):
         if batch_size is None:
             batch_size = self.default_batch_size
         device = next(self.parameters()).device
-        print(f"Start training on {device}", file=sys.stderr)
+        logger.info(f"Start training on {device}")
         loss_fnc = nn.CrossEntropyLoss(
             reduction="sum", ignore_index=train_set.LABEL_PADDING
         )
@@ -448,11 +448,10 @@ class BiAffineParser(nn.Module):
                 dev_loss, dev_tag_acc, dev_arc_acc, dev_lab_acc = self.eval_model(
                     dev_set, batch_size=batch_size
                 )
-                print(
+                logger.info(
                     f"Epoch {e} train mean loss {train_loss / overall_size}"
                     f" valid mean loss {dev_loss} valid tag acc {dev_tag_acc} valid arc acc {dev_arc_acc} valid label acc {dev_lab_acc}"
                     f" Base LR {scheduler.get_last_lr()[0]}"
-                    file=sys.stderr,
                 )
 
                 if dev_arc_acc > best_arc_acc:
@@ -491,9 +490,8 @@ class BiAffineParser(nn.Module):
             if strict:
                 raise e
             else:
-                print(
+                logger.info(
                     f"Skipping sentence {e.sentence} due to lexing error '{e.message}'.",
-                    file=sys.stderr,
                 )
                 return None
         return encoded
@@ -625,7 +623,7 @@ class BiAffineParser(nn.Module):
         shutil.copy(config_path, model_config_path)
         fasttext_model_path = model_path / "fasttext_model.bin"
         if fasttext is None:
-            print("Generating a FastText model from the treebank", file=sys.sterr)
+            logger.info("Generating a FastText model from the treebank")
             FastTextLexer.train_model_from_sents(
                 [tree.words[1:] for tree in treebank], fasttext_model_path
             )
@@ -633,11 +631,11 @@ class BiAffineParser(nn.Module):
             try:
                 # ugly, but we have no better way of checking if a file is a valid model
                 FastTextLexer.load(fasttext)
-                print(f"Using the FastText model at {fasttext}", file=sys.stderr)
+                logger.info(f"Using the FastText model at {fasttext}")
                 shutil.copy(fasttext, fasttext_model_path)
             except ValueError:
                 # FastText couldn't load it, so it should be raw text
-                print(f"Generating a FastText model from {fasttext}", file=sys.stderr)
+                logger.info(f"Generating a FastText model from {fasttext}")
                 FastTextLexer.train_model_from_raw(fasttext, fasttext_model_path)
         else:
             raise ValueError(f"{fasttext} not found")
@@ -681,7 +679,7 @@ class BiAffineParser(nn.Module):
         else:
             raise ValueError("The model path should be a directory, not a file")
 
-        print(f"Initializing a parser from {model_path}", file=sys.stderr)
+        logger.info(f"Initializing a parser from {model_path}")
 
         with open(config_path) as in_stream:
             hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
@@ -809,13 +807,12 @@ def train(
 
     traintrees = list(DepGraph.read_conll(train_file, max_tree_length=max_tree_length))
     if model_path.exists() and not overwrite:
-        print(f"Continuing training from {model_path}", file=sys.stderr)
+        logger.info(f"Continuing training from {model_path}")
         parser = BiAffineParser.load(model_path)
     else:
         if overwrite:
-            print(
+            logger.info(
                 f"Erasing existing trained model in {model_path} since overwrite was asked",
-                file=sys.stderr,
             )
             shutil.rmtree(model_path)
         parser = BiAffineParser.initialize(
@@ -871,7 +868,6 @@ def parse(
     parser = parser.to(device)
     if batch_size is None:
         batch_size = parser.default_batch_size
-    print("Encoding", file=sys.stderr)
     with smart_open(in_file) as in_stream:
         batches: Union[Iterable[DependencyBatch], Iterable[SentencesBatch]]
         if raw:
@@ -906,7 +902,7 @@ def parse(
                     test_set.treelist, size=parser.default_batch_size
                 )
             )
-        print("Parsing", file=sys.stderr)
+        logger.info("Parsing")
         with smart_open(out_file, "w") as ostream:
             parser.batched_predict(
                 batches,
