@@ -7,6 +7,7 @@ import warnings
 from typing import (
     BinaryIO,
     Callable,
+    Final,
     IO,
     Iterable,
     List,
@@ -53,15 +54,19 @@ from hopsparser.mst import chuliu_edmonds_one_root as chuliu_edmonds
 
 
 class MLP(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, dropout=0.0):
+    def __init__(
+        self, input_dim: int, hidden_dim: int, output_dim: int, dropout: float = 0.0
+    ):
         super(MLP, self).__init__()
-        self.Wdown = nn.Linear(input_size, hidden_size)
-        self.Wup = nn.Linear(hidden_size, output_size)
+        self.input_dim: Final[int] = input_dim
+        self.output_dim: Final[int] = output_dim
+        self.w_down = nn.Linear(self.input_dim, hidden_dim)
+        self.w_up = nn.Linear(hidden_dim, self.output_dim)
         self.g = nn.ReLU()
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, input):
-        return self.Wup(self.dropout(self.g(self.Wdown(input))))
+    def forward(self, inpt: torch.Tensor) -> torch.Tensor:
+        return self.w_up(self.dropout(self.g(self.w_down(inpt))))
 
 
 # Note: This is the biaffine layer used in Qi et al. (2018) and Dozat and Manning (2017).
@@ -70,13 +75,11 @@ class BiAffine(nn.Module):
 
     def __init__(self, input_dim: int, output_dim: int, bias: bool):
         super(BiAffine, self).__init__()
-        self.input_dim = input_dim
-        self.output_dim = output_dim
-        self.bias = bias
+        self.input_dim: Final[int] = input_dim
+        self.output_dim: Final[int] = output_dim
+        self.bias: Final[bool] = bias
         weight_input = input_dim + 1 if bias else input_dim
-        self.weight = nn.Parameter(
-            torch.FloatTensor(output_dim, weight_input, weight_input)
-        )
+        self.weight = nn.Parameter(torch.empty(output_dim, weight_input, weight_input))
         nn.init.xavier_uniform_(self.weight)
 
     def forward(self, h: torch.Tensor, d: torch.Tensor) -> torch.Tensor:
@@ -84,15 +87,6 @@ class BiAffine(nn.Module):
             h = torch.cat((h, h.new_ones((*h.shape[:-1], 1))), dim=-1)
             d = torch.cat((d, d.new_ones((*d.shape[:-1], 1))), dim=-1)
         return torch.einsum("bxi,oij,byj->boxy", h, self.weight, d)
-
-
-class Tagger(nn.Module):
-    def __init__(self, input_dim, tagset_size):
-        super(Tagger, self).__init__()
-        self.W = nn.Linear(input_dim, tagset_size)
-
-    def forward(self, input):
-        return self.W(input)
 
 
 class LRSchedule(TypedDict):
@@ -211,9 +205,7 @@ class BiAffineParser(nn.Module):
 
         # BiAffine layers
         self.arc_biaffine = BiAffine(mlp_input, 1, bias=biased_biaffine)
-        self.lab_biaffine = BiAffine(
-            mlp_input, len(self.labels), bias=biased_biaffine
-        )
+        self.lab_biaffine = BiAffine(mlp_input, len(self.labels), bias=biased_biaffine)
 
     def save_params(self, path: Union[str, pathlib.Path, BinaryIO]):
         torch.save(self.state_dict(), path)
@@ -894,7 +886,8 @@ def parse(
             batches = (
                 parser.batch_sentences(sentences)
                 for sentences in itu.chunked_iter(
-                    sentences, size=batch_size,
+                    sentences,
+                    size=batch_size,
                 )
             )
         else:
