@@ -386,7 +386,7 @@ class BiAffineParser(nn.Module):
         if batch_size is None:
             batch_size = self.default_batch_size
         device = next(self.parameters()).device
-        print(f"Start training on {device}")
+        print(f"Start training on {device}", file=sys.stderr)
         loss_fnc = nn.CrossEntropyLoss(
             reduction="sum", ignore_index=train_set.LABEL_PADDING
         )
@@ -452,6 +452,7 @@ class BiAffineParser(nn.Module):
                     f"Epoch {e} train mean loss {train_loss / overall_size}"
                     f" valid mean loss {dev_loss} valid tag acc {dev_tag_acc} valid arc acc {dev_arc_acc} valid label acc {dev_lab_acc}"
                     f" Base LR {scheduler.get_last_lr()[0]}"
+                    file=sys.stderr,
                 )
 
                 if dev_arc_acc > best_arc_acc:
@@ -624,7 +625,7 @@ class BiAffineParser(nn.Module):
         shutil.copy(config_path, model_config_path)
         fasttext_model_path = model_path / "fasttext_model.bin"
         if fasttext is None:
-            print("Generating a FastText model from the treebank")
+            print("Generating a FastText model from the treebank", file=sys.sterr)
             FastTextLexer.train_model_from_sents(
                 [tree.words[1:] for tree in treebank], fasttext_model_path
             )
@@ -632,11 +633,11 @@ class BiAffineParser(nn.Module):
             try:
                 # ugly, but we have no better way of checking if a file is a valid model
                 FastTextLexer.load(fasttext)
-                print(f"Using the FastText model at {fasttext}")
+                print(f"Using the FastText model at {fasttext}", file=sys.stderr)
                 shutil.copy(fasttext, fasttext_model_path)
             except ValueError:
                 # FastText couldn't load it, so it should be raw text
-                print(f"Generating a FastText model from {fasttext}")
+                print(f"Generating a FastText model from {fasttext}", file=sys.stderr)
                 FastTextLexer.train_model_from_raw(fasttext, fasttext_model_path)
         else:
             raise ValueError(f"{fasttext} not found")
@@ -680,7 +681,7 @@ class BiAffineParser(nn.Module):
         else:
             raise ValueError("The model path should be a directory, not a file")
 
-        print(f"Initializing a parser from {model_path}")
+        print(f"Initializing a parser from {model_path}", file=sys.stderr)
 
         with open(config_path) as in_stream:
             hp = yaml.load(in_stream, Loader=yaml.SafeLoader)

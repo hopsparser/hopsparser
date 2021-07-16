@@ -204,7 +204,7 @@ class DepGraph:
         filename: Union[str, pathlib.Path, IO[str]],
         max_tree_length: Optional[int] = None,
     ) -> Iterable[_T_DEPGRAPH]:
-        print(f"Reading treebank from {filename}")
+        print(f"Reading treebank from {filename}", file=sys.stderr)
         with smart_open(filename) as istream:
             current_tree_lines: List[str] = []
             # Add a dummy empty line to flush the last tree even if the CoNLL-U mandatory empty last
@@ -220,6 +220,7 @@ class DepGraph:
                         else:
                             print(
                                 f"Dropped tree with length {len(current_tree_lines)} > {max_tree_length}",
+                                file=sys.stderr,
                             )
                         current_tree_lines = []
                 else:

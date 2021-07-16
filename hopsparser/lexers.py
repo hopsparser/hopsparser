@@ -288,7 +288,7 @@ class FastTextLexer(nn.Module):
                     file=source_stream,
                 )
 
-            print("Training fasttext model...")
+            print("Training fasttext model", file=sys.stderr)
             # TODO: make the hyperparameters here configurable?
             model = fasttext.train_unsupervised(
                 source_file, model="skipgram", neg=10, minCount=5, epoch=10
@@ -305,7 +305,7 @@ class FastTextLexer(nn.Module):
         if os.path.exists(target_file):
             raise ValueError(f"{target_file} already exists!")
         else:
-            print("Training fasttext model...")
+            print("Training fasttext model", file=sys.stderr)
             # TODO: make the hyperparameters here configurable?
             model = fasttext.train_unsupervised(
                 raw_text_path, model="skipgram", neg=10, minCount=5, epoch=10
