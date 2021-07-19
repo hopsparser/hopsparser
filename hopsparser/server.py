@@ -104,8 +104,10 @@ async def process(req: ParseRequest) -> ParseResponse:
         use_labels=parser.labels,
         use_tags=parser.tagset,
     )
-    parsed = io.StringIO()
-    parser.batched_predict(treebank, parsed, greedy=False)
-    return ParseResponse(
-        model=model_name, acknowledgements=[""], result=parsed.getvalue()
+    parsed = "".join(
+        [
+            f"{tree.to_conllu()}\n\n"
+            for tree in parser.batched_predict(treebank, greedy=False)
+        ]
     )
+    return ParseResponse(model=model_name, acknowledgements=[""], result=parsed)

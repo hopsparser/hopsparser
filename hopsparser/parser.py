@@ -18,7 +18,6 @@ from typing import (
     TypedDict,
     TypeVar,
     Union,
-    cast,
     overload,
 )
 
@@ -527,9 +526,8 @@ class BiAffineParser(nn.Module):
     def batched_predict(
         self,
         batch_lst: Union[Iterable[DependencyBatch], Iterable[SentencesBatch]],
-        ostream: IO[str],
         greedy: bool = False,
-    ):
+    ) -> Iterable[DepGraph]:
         self.eval()
         device = next(self.parameters()).device
 
@@ -607,7 +605,7 @@ class BiAffineParser(nn.Module):
                         edges=edges[1:],
                         pos_tags=pos_tags[1:],
                     )
-                    print(str(result_tree), file=ostream, end="\n\n")
+                    yield result_tree
 
     @classmethod
     def initialize(
@@ -904,8 +902,10 @@ def parse(
             )
         logger.info("Parsing")
         with smart_open(out_file, "w") as ostream:
-            parser.batched_predict(
+            for tree in parser.batched_predict(
                 batches,
-                cast(IO[str], ostream),
                 greedy=False,
-            )
+            ):
+                ostream.write(tree.to_conllu())
+                ostream.write("\n\n")
+
