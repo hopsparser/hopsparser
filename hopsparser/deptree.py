@@ -184,10 +184,8 @@ class DepGraph:
             metadata=metadata,
         )
 
-    def __str__(self):
-        """
-        CoNLL-U string for the dep tree
-        """
+    def to_conllu(self) -> str:
+        """CoNLL-U string for the dep tree"""
         lines = self.metadata
         for n in self.nodes:
             mwe_list = [mwe for mwe in self.mwe_ranges if mwe.start == n.identifier]
@@ -195,6 +193,9 @@ class DepGraph:
                 lines.append(mwe.to_conll())
             lines.append(n.to_conll())
         return "\n".join(lines)
+
+    def __str__(self):
+        return self.to_conllu()
 
     def __len__(self):
         return len(self.words)
