@@ -607,6 +607,51 @@ class BiAffineParser(nn.Module):
                     )
                     yield result_tree
 
+    def parse(
+        self,
+        inpt: Union[str, pathlib.Path, IO[str]],
+        batch_size: Optional[int] = None,
+        raw: bool = False,
+        strict: bool = True,
+    ) -> Iterable[DepGraph]:
+        if batch_size is None:
+            batch_size = self.default_batch_size
+        with smart_open(inpt) as in_stream:
+            batches: Union[Iterable[DependencyBatch], Iterable[SentencesBatch]]
+            if raw:
+                sentences = (
+                    encoded
+                    for line in in_stream
+                    if line and not line.isspace()
+                    for encoded in [
+                        self.encode_sentence(line.strip().split(), strict=strict)
+                    ]
+                    if encoded is not None
+                )
+                batches = (
+                    self.batch_sentences(sentences)
+                    for sentences in itu.chunked_iter(
+                        sentences,
+                        size=batch_size,
+                    )
+                )
+            else:
+                test_set = DependencyDataset(
+                    DepGraph.read_conll(inpt),
+                    self.lexer,
+                    self.char_rnn,
+                    self.ft_lexer,
+                    use_labels=self.labels,
+                    use_tags=self.tagset,
+                )
+                batches = (
+                    test_set.make_single_batch(sentences)
+                    for sentences in itu.chunked_iter(
+                        test_set.treelist, size=self.default_batch_size
+                    )
+                )
+            yield from self.batched_predict(batches, greedy=False)
+
     @classmethod
     def initialize(
         cls,
@@ -864,48 +909,10 @@ def parse(
 ):
     parser = BiAffineParser.load(model_path)
     parser = parser.to(device)
-    if batch_size is None:
-        batch_size = parser.default_batch_size
-    with smart_open(in_file) as in_stream:
-        batches: Union[Iterable[DependencyBatch], Iterable[SentencesBatch]]
-        if raw:
-            sentences = (
-                encoded
-                for line in in_stream
-                if line and not line.isspace()
-                for encoded in [
-                    parser.encode_sentence(line.strip().split(), strict=strict)
-                ]
-                if encoded is not None
-            )
-            batches = (
-                parser.batch_sentences(sentences)
-                for sentences in itu.chunked_iter(
-                    sentences,
-                    size=batch_size,
-                )
-            )
-        else:
-            test_set = DependencyDataset(
-                DepGraph.read_conll(in_file),
-                parser.lexer,
-                parser.char_rnn,
-                parser.ft_lexer,
-                use_labels=parser.labels,
-                use_tags=parser.tagset,
-            )
-            batches = (
-                test_set.make_single_batch(sentences)
-                for sentences in itu.chunked_iter(
-                    test_set.treelist, size=parser.default_batch_size
-                )
-            )
-        logger.info("Parsing")
-        with smart_open(out_file, "w") as ostream:
-            for tree in parser.batched_predict(
-                batches,
-                greedy=False,
-            ):
-                ostream.write(tree.to_conllu())
-                ostream.write("\n\n")
-
+    logger.info("Parsing")
+    with smart_open(out_file, "w") as ostream:
+        for tree in parser.parse(
+            inpt=in_file, batch_size=batch_size, raw=raw, strict=strict
+        ):
+            ostream.write(tree.to_conllu())
+            ostream.write("\n\n")
