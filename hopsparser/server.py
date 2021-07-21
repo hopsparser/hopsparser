@@ -4,7 +4,7 @@ import fastapi
 import pydantic
 
 from hopsparser import __version__
-from hopsparser import deptree, parser
+from hopsparser import parser
 
 
 class Settings(pydantic.BaseSettings):
@@ -16,9 +16,7 @@ settings = Settings()
 
 
 models = {
-    model_name: parser.BiAffineParser.load(
-        config_path, overrides={"device": settings.device}
-    )
+    model_name: parser.BiAffineParser.load(config_path).to(settings.device)
     for model_name, config_path in settings.models.items()
 }
 default_model = next(iter(models.keys()))
@@ -83,31 +81,11 @@ async def process(req: ParseRequest) -> ParseResponse:
             status_code=404,
             detail="Requested model not loaded",
         )
-    if req.input == "conllu":
-        treebank_inpt = io.StringIO(req.data)
-    elif req.input == "horizontal":
-        tree_strs = []
-        for line in req.data.splitlines():
-            if not line or line.isspace():
-                continue
-            tree_strs.append(
-                "\n".join(
-                    f"{i}\t{w}" for i, w in enumerate(line.strip().split(), start=1)
-                )
-            )
-        treebank_inpt = io.StringIO("\n\n".join(tree_strs))
-    treebank = deptree.DependencyDataset(
-        deptree.DepGraph.read_conll(treebank_inpt),
-        parser.lexer,
-        parser.char_rnn,
-        parser.ft_lexer,
-        use_labels=parser.labels,
-        use_tags=parser.tagset,
-    )
+    inpt = io.StringIO(req.data)
     parsed = "".join(
         [
             f"{tree.to_conllu()}\n\n"
-            for tree in parser.batched_predict(treebank, greedy=False)
+            for tree in parser.parse(inpt, raw=req.input == "horizontal")
         ]
     )
     return ParseResponse(model=model_name, acknowledgements=[""], result=parsed)
