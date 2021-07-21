@@ -18,5 +18,5 @@ lr_schedule:
   warmup_steps: 100
 # Word embeddings
 lexer: "flaubert/flaubert_small_cased"
-bert_layers: [0, 1, 2, 3, 4, 5]
+bert_layers: "*"
 bert_subwords_reduction: "mean"

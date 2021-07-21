@@ -533,6 +533,9 @@ class BertBaseLexer(nn.Module):
                 f"Wrong BERT layer selections for a model with {num_layers} layers: {bert_layers}"
             )
         self.bert_layers = bert_layers
+        # Deactivate layerdrop if available
+        if hasattr(self.bert, "layerdrop"):
+            self.bert.layerdrop = 0.0
         # TODO: check if the value is allowed?
         self.bert_subwords_reduction = bert_subwords_reduction
         self.bert_weighted = bert_weighted
