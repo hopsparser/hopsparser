@@ -1,8 +1,11 @@
+import io
 import pathlib
 
 from pytest_assert_utils import util
 
 from fastapi.testclient import TestClient
+
+from hopsparser import deptree
 
 
 def test_model_availability(api_client: TestClient):
@@ -20,5 +23,10 @@ def process(api_client: TestClient, raw_text: pathlib.Path):
     assert response.json() == {
         "model": util.Any(),
         "acknowledgements": util.Any(),
-        "data": util.Any()
+        "data": util.Any(),
     }
+
+    parsed_trees = list(
+        deptree.DepGraph.read_conll(io.StringIO(response.json()["data"]))
+    )
+    assert len(parsed_trees) == len(raw_text.read_text().splitlines())
