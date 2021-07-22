@@ -24,7 +24,11 @@ def raw_text(test_data_dir: pathlib.Path) -> pathlib.Path:
 
 
 @pytest.fixture(
-    params=["toy_nobert", pytest.param("toy_flaubert", marks=pytest.mark.slow)]
+    params=[
+        "toy_nobert",
+        pytest.param("toy_flaubert", marks=pytest.mark.slow),
+        pytest.param("toy_bert_fasttok", marks=pytest.mark.slow),
+    ]
 )
 def train_config(test_data_dir: pathlib.Path, request) -> pathlib.Path:
     return test_data_dir / f"{request.param}.yaml"
@@ -48,4 +52,5 @@ def api_client(
 ) -> Generator[TestClient, None, None]:
     monkeypatch.setenv("models", json.dumps({"default": str(model_path)}))
     from hopsparser.server import app
+
     yield TestClient(app=app)
