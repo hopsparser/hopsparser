@@ -59,11 +59,11 @@ def cli():
 )
 @click.argument(
     "input_path",
-    type=click.Path(resolve_path=True, exists=True, dir_okay=False, allow_dash=True),
+    type=click.File("r"),
 )
 @click.argument(
     "output_path",
-    type=click.Path(resolve_path=True, dir_okay=False, writable=True, allow_dash=True),
+    type=click.File("w"),
     default="-",
 )
 @device_opt

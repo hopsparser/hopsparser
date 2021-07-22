@@ -609,48 +609,47 @@ class BiAffineParser(nn.Module):
 
     def parse(
         self,
-        inpt: Union[str, pathlib.Path, IO[str]],
+        inpt: Iterable[str],
         batch_size: Optional[int] = None,
         raw: bool = False,
         strict: bool = True,
     ) -> Iterable[DepGraph]:
         if batch_size is None:
             batch_size = self.default_batch_size
-        with smart_open(inpt) as in_stream:
-            batches: Union[Iterable[DependencyBatch], Iterable[SentencesBatch]]
-            if raw:
-                sentences = (
-                    encoded
-                    for line in in_stream
-                    if line and not line.isspace()
-                    for encoded in [
-                        self.encode_sentence(line.strip().split(), strict=strict)
-                    ]
-                    if encoded is not None
+        batches: Union[Iterable[DependencyBatch], Iterable[SentencesBatch]]
+        if raw:
+            sentences = (
+                encoded
+                for line in inpt
+                if line and not line.isspace()
+                for encoded in [
+                    self.encode_sentence(line.strip().split(), strict=strict)
+                ]
+                if encoded is not None
+            )
+            batches = (
+                self.batch_sentences(sentences)
+                for sentences in itu.chunked_iter(
+                    sentences,
+                    size=batch_size,
                 )
-                batches = (
-                    self.batch_sentences(sentences)
-                    for sentences in itu.chunked_iter(
-                        sentences,
-                        size=batch_size,
-                    )
+            )
+        else:
+            test_set = DependencyDataset(
+                DepGraph.read_conll(inpt),
+                self.lexer,
+                self.char_rnn,
+                self.ft_lexer,
+                use_labels=self.labels,
+                use_tags=self.tagset,
+            )
+            batches = (
+                test_set.make_single_batch(sentences)
+                for sentences in itu.chunked_iter(
+                    test_set.treelist, size=self.default_batch_size
                 )
-            else:
-                test_set = DependencyDataset(
-                    DepGraph.read_conll(inpt),
-                    self.lexer,
-                    self.char_rnn,
-                    self.ft_lexer,
-                    use_labels=self.labels,
-                    use_tags=self.tagset,
-                )
-                batches = (
-                    test_set.make_single_batch(sentences)
-                    for sentences in itu.chunked_iter(
-                        test_set.treelist, size=self.default_batch_size
-                    )
-                )
-            yield from self.batched_predict(batches, greedy=False)
+            )
+        yield from self.batched_predict(batches, greedy=False)
 
     @classmethod
     def initialize(
@@ -848,7 +847,10 @@ def train(
     with open(config_file) as in_stream:
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
 
-    traintrees = list(DepGraph.read_conll(train_file, max_tree_length=max_tree_length))
+    with open(train_file) as in_stream:
+        traintrees = list(
+            DepGraph.read_conll(in_stream, max_tree_length=max_tree_length)
+        )
     if model_path.exists() and not overwrite:
         logger.info(f"Continuing training from {model_path}")
         parser = BiAffineParser.load(model_path)
@@ -876,14 +878,15 @@ def train(
     )
     devset: Optional[DependencyDataset]
     if dev_file is not None:
-        devset = DependencyDataset(
-            list(DepGraph.read_conll(dev_file)),
-            parser.lexer,
-            parser.char_rnn,
-            parser.ft_lexer,
-            use_labels=parser.labels,
-            use_tags=parser.tagset,
-        )
+        with open(dev_file) as in_stream:
+            devset = DependencyDataset(
+                list(DepGraph.read_conll(in_stream)),
+                parser.lexer,
+                parser.char_rnn,
+                parser.ft_lexer,
+                use_labels=parser.labels,
+                use_tags=parser.tagset,
+            )
     else:
         devset = None
 
@@ -910,9 +913,9 @@ def parse(
     parser = BiAffineParser.load(model_path)
     parser = parser.to(device)
     logger.info("Parsing")
-    with smart_open(out_file, "w") as ostream:
+    with smart_open(in_file) as in_stream, smart_open(out_file, "w") as ostream:
         for tree in parser.parse(
-            inpt=in_file, batch_size=batch_size, raw=raw, strict=strict
+            inpt=in_stream, batch_size=batch_size, raw=raw, strict=strict
         ):
             ostream.write(tree.to_conllu())
             ostream.write("\n\n")

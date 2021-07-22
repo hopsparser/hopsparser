@@ -39,7 +39,8 @@ def model_path(
     tmp_path: pathlib.Path, train_config: pathlib.Path, treebank: pathlib.Path
 ) -> pathlib.Path:
     model_path = tmp_path / "model"
-    trees = list(deptree.DepGraph.read_conll(treebank))
+    with open(treebank) as in_stream:
+        trees = list(deptree.DepGraph.read_conll(in_stream))
     _ = parser.BiAffineParser.initialize(
         config_path=train_config, model_path=model_path, treebank=trees
     )

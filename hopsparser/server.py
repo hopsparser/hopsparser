@@ -81,11 +81,10 @@ async def process(req: ParseRequest) -> ParseResponse:
             status_code=404,
             detail="Requested model not loaded",
         )
-    inpt = io.StringIO(req.data)
     parsed = "".join(
         [
             f"{tree.to_conllu()}\n\n"
-            for tree in parser.parse(inpt, raw=req.input == "horizontal")
+            for tree in parser.parse(req.data.splitlines(), raw=req.input == "horizontal")
         ]
     )
     return ParseResponse(model=model_name, acknowledgements=[""], result=parsed)

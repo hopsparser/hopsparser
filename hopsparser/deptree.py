@@ -1,10 +1,10 @@
 import collections.abc
 from dataclasses import dataclass
-import pathlib
+import itertools
 from random import shuffle
 from typing import (
     Final,
-    IO,
+
     Iterable,
     List,
     NamedTuple,
@@ -203,29 +203,27 @@ class DepGraph:
     @classmethod
     def read_conll(
         cls: Type[_T_DEPGRAPH],
-        filename: Union[str, pathlib.Path, IO[str]],
+        lines: Iterable[str],
         max_tree_length: Optional[int] = None,
     ) -> Iterable[_T_DEPGRAPH]:
-        logger.info(f"Reading treebank from {filename}")
-        with smart_open(filename) as istream:
-            current_tree_lines: List[str] = []
-            # Add a dummy empty line to flush the last tree even if the CoNLL-U mandatory empty last
-            # line is absent
-            for line in (*istream, ""):
-                if not line or line.isspace():
-                    if current_tree_lines:
-                        if (
-                            max_tree_length is None
-                            or len(current_tree_lines) <= max_tree_length
-                        ):
-                            yield cls.from_conllu(current_tree_lines)
-                        else:
-                            logger.info(
-                                f"Dropped tree with length {len(current_tree_lines)} > {max_tree_length}",
-                            )
-                        current_tree_lines = []
-                else:
-                    current_tree_lines.append(line)
+        current_tree_lines: List[str] = []
+        # Add a dummy empty line to flush the last tree even if the CoNLL-U mandatory empty last
+        # line is absent
+        for line in itertools.chain(lines, [""]):
+            if not line or line.isspace():
+                if current_tree_lines:
+                    if (
+                        max_tree_length is None
+                        or len(current_tree_lines) <= max_tree_length
+                    ):
+                        yield cls.from_conllu(current_tree_lines)
+                    else:
+                        logger.info(
+                            f"Dropped tree with length {len(current_tree_lines)} > {max_tree_length}",
+                        )
+                    current_tree_lines = []
+            else:
+                current_tree_lines.append(line)
 
 
 class EncodedTree(NamedTuple):
