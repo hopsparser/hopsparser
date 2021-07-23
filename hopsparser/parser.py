@@ -1,3 +1,4 @@
+import collections.abc
 import math
 import pathlib
 import random
@@ -28,18 +29,12 @@ import yaml
 from boltons import iterutils as itu
 from loguru import logger
 from torch import nn
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
 
 from hopsparser import lexers
 from hopsparser.utils import smart_open
 from hopsparser import deptree
-from hopsparser.deptree import (
-    DependencyBatch,
-    DependencyDataset,
-    DepGraph,
-    gen_labels,
-    gen_tags,
-)
+from hopsparser.deptree import DepGraph
 from hopsparser.lexers import (
     BertBaseLexer,
     BertLexerBatch,
@@ -50,6 +45,217 @@ from hopsparser.lexers import (
     make_vocab,
 )
 from hopsparser.mst import chuliu_edmonds_one_root as chuliu_edmonds
+
+
+class EncodedTree(NamedTuple):
+    words: Union[torch.Tensor, lexers.BertLexerSentence]
+    subwords: torch.Tensor
+    chars: torch.Tensor
+    heads: torch.Tensor
+    labels: torch.Tensor
+    tags: torch.Tensor
+
+
+_T_DependencyBatch = TypeVar("_T_DependencyBatch", bound="DependencyBatch")
+
+
+class DependencyBatch(NamedTuple):
+    """Encoded, padded and batched trees.
+
+    ## Attributes
+
+    - `trees` The sentences as `DepGraph`s for rich attribute access.
+    - `chars` Encoded chars as a sequence of `LongTensor`. `chars[i][j, k]` is the k-th character of
+      the i-th word of the j-th sentence in the batch.
+    - `subwords` Encoded FastText subwords as a sequence of `LongTensor`. As with `chars`,
+      `subwords[i][j, k]` is the k-th subword of the i-th word of the j-th sentence in the batch.
+    - `encoded_words` The words of the sentences, encoded and batched by a lexer and meant to be
+      consumed by it directly. The details stay opaque at this level, see the relevant lexer
+      instead.
+    - `tags` The gold POS tags (if any) as a `LongTensor` with shape `(batch_size,
+      max_sentence_length)`
+    - `heads` The gold heads (if any) as a `LongTensor` with shape `(batch_size,
+      max_sentence_length)`
+    - `labels` The gold dependency labels (if any) as a `LongTensor` with shape `(batch_size,
+      max_sentence_length)`
+    - `sent_length` The lengths of the sentences in the batch as `LongTensor` with shape
+      `(batch_size,)`
+    - `content_mask` A `BoolTensor` mask of shape `(batch_size, max_sentence_length)` such that
+      `content_mask[i, j]` is true iff the j-th word of the i-th sentence in the batch is neither
+      padding not the root (i.e. iff `1 <= j < sent_length[i]`).
+    """
+
+    trees: Sequence[DepGraph]
+    chars: torch.Tensor
+    subwords: torch.Tensor
+    encoded_words: Union[torch.Tensor, BertLexerBatch]
+    tags: torch.Tensor
+    heads: torch.Tensor
+    labels: torch.Tensor
+    sent_lengths: torch.Tensor
+    content_mask: torch.Tensor
+
+    def to(
+        self: _T_DependencyBatch, device: Union[str, torch.device]
+    ) -> _T_DependencyBatch:
+        return type(self)(
+            trees=self.trees,
+            chars=self.chars.to(device),
+            subwords=self.subwords.to(device),
+            encoded_words=self.encoded_words.to(device),
+            tags=self.tags.to(device),
+            heads=self.heads.to(device),
+            labels=self.labels.to(device),
+            sent_lengths=self.sent_lengths,
+            content_mask=self.content_mask.to(device),
+        )
+
+
+class DependencyDataset:
+
+    PAD_IDX: Final[int] = 0
+    PAD_TOKEN: Final[str] = "<pad>"
+    UNK_WORD: Final[str] = "<unk>"
+    # Labels that are -100 are ignored in torch crossentropy (we still set it explicitely in
+    # `graph_parser`)
+    LABEL_PADDING: Final[int] = -100
+
+    def __init__(
+        self,
+        treelist: Iterable[DepGraph],
+        lexer: lexers.Lexer,
+        chars_lexer: lexers.CharRNNLexer,
+        ft_lexer: lexers.FastTextLexer,
+        use_labels: Sequence[str],
+        use_tags: Sequence[str],
+    ):
+        self.lexer = lexer
+        self.chars_lexer = chars_lexer
+        self.ft_lexer = ft_lexer
+        self.treelist = treelist
+
+        self.itolab = use_labels
+        self.labtoi = {label: idx for idx, label in enumerate(self.itolab)}
+
+        self.itotag = use_tags
+        self.tagtoi = {tag: idx for idx, tag in enumerate(self.itotag)}
+
+        self.encoded_trees: List[EncodedTree] = []
+
+    def encode_tree(self, tree: DepGraph) -> EncodedTree:
+        tag_idxes = torch.tensor(
+            [self.tagtoi.get(tag, self.tagtoi[self.UNK_WORD]) for tag in tree.pos_tags],
+            dtype=torch.long,
+        )
+        tag_idxes[0] = self.LABEL_PADDING
+        heads = torch.tensor(tree.heads, dtype=torch.long)
+        heads[0] = self.LABEL_PADDING
+        # FIXME: should unk labels be padding?
+        labels = torch.tensor(
+            [self.labtoi.get(lab, self.LABEL_PADDING) for lab in tree.deprels],
+            dtype=torch.long,
+        )
+        labels[0] = self.LABEL_PADDING
+        return EncodedTree(
+            words=self.lexer.encode(tree.words),
+            subwords=self.ft_lexer.encode(tree.words),
+            chars=self.chars_lexer.encode(tree.words),
+            heads=heads,
+            labels=labels,
+            tags=tag_idxes,
+        )
+
+    def encode(self):
+        self.encoded_trees = []
+        for tree in self.treelist:
+            self.encoded_trees.append(self.encode_tree(tree))
+
+    def make_single_batch(
+        self,
+        trees: Sequence[DepGraph],
+        encoded_trees: Optional[Sequence[EncodedTree]] = None,
+    ) -> DependencyBatch:
+        if encoded_trees is None:
+            encoded_trees = [self.encode_tree(tree) for tree in trees]
+        words = self.lexer.make_batch([tree.words for tree in encoded_trees])
+        chars = self.chars_lexer.make_batch([tree.chars for tree in encoded_trees])
+        subwords = self.ft_lexer.make_batch([tree.subwords for tree in encoded_trees])
+
+        tags = pad_sequence(
+            [tree.tags for tree in encoded_trees],
+            batch_first=True,
+            padding_value=self.LABEL_PADDING,
+        )
+        heads = pad_sequence(
+            [tree.heads for tree in encoded_trees],
+            batch_first=True,
+            padding_value=self.LABEL_PADDING,
+        )
+        labels = pad_sequence(
+            [tree.labels for tree in encoded_trees],
+            batch_first=True,
+            padding_value=self.LABEL_PADDING,
+        )
+
+        sent_lengths = torch.tensor([len(t) for t in trees], dtype=torch.long)
+        # NOTE: this is equivalent to and faster and clearer but less pure than
+        # `torch.arange(sent_lengths.max()).unsqueeze(0).lt(sent_lengths.unsqueeze(1).logical_and(torch.arange(sent_lengths.max()).gt(0))`
+        content_mask = labels.ne(self.LABEL_PADDING)
+
+        return DependencyBatch(
+            chars=chars,
+            encoded_words=words,
+            heads=heads,
+            labels=labels,
+            content_mask=content_mask,
+            sent_lengths=sent_lengths,
+            subwords=subwords,
+            tags=tags,
+            trees=trees,
+        )
+
+    def make_batches(
+        self,
+        batch_size: int,
+        shuffle_batches: bool = False,
+        shuffle_data: bool = True,
+    ) -> Iterable[DependencyBatch]:
+        if not isinstance(self.treelist, collections.abc.Sequence):
+            self.treelist = list(self.treelist)
+        if not self.encoded_trees:
+            self.encode()
+        N = len(self.treelist)
+        order = list(range(N))
+        if shuffle_data:
+            random.shuffle(order)
+
+        batch_order = list(range(0, N, batch_size))
+        if shuffle_batches:
+            random.shuffle(batch_order)
+
+        for i in batch_order:
+            batch_indices = order[i : i + batch_size]
+            trees = [self.treelist[j] for j in batch_indices]
+            encoded_trees = [self.encoded_trees[j] for j in batch_indices]
+            yield self.make_single_batch(trees, encoded_trees)
+
+    def __len__(self):
+        return len(self.treelist)
+
+
+def gen_tags(treelist: Iterable[DepGraph]) -> List[str]:
+    tagset = set([tag for tree in treelist for tag in tree.pos_tags])
+    return [
+        DependencyDataset.PAD_TOKEN,
+        DepGraph.ROOT_TOKEN,
+        DependencyDataset.UNK_WORD,
+        *sorted(tagset),
+    ]
+
+
+def gen_labels(treelist: Iterable[DepGraph]) -> List[str]:
+    labels = set([lbl for tree in treelist for lbl in tree.deprels])
+    return [DependencyDataset.PAD_TOKEN, *sorted(labels)]
 
 
 class MLP(nn.Module):

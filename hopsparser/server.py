@@ -1,4 +1,3 @@
-import io
 from typing import Dict, List, Literal, Optional
 import fastapi
 import pydantic
