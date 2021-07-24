@@ -28,6 +28,7 @@ import torch
 import transformers
 import yaml
 from boltons import iterutils as itu
+from boltons.dictutils import OneToOne
 from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
@@ -49,7 +50,9 @@ from hopsparser.mst import chuliu_edmonds_one_root as chuliu_edmonds
 
 
 def gen_tags(treelist: Iterable[DepGraph]) -> List[str]:
-    tagset = set([tag for tree in treelist for tag in tree.pos_tags])
+    tagset = set([tag for tree in treelist for tag in tree.pos_tags[1:]])
+    if tagset.intersection((BiAffineParser.PAD_TOKEN, BiAffineParser.UNK_WORD)):
+        raise ValueError("Tag conflict: the treebank contains reserved POS tags")
     return [
         BiAffineParser.PAD_TOKEN,
         DepGraph.ROOT_TOKEN,
@@ -60,6 +63,8 @@ def gen_tags(treelist: Iterable[DepGraph]) -> List[str]:
 
 def gen_labels(treelist: Iterable[DepGraph]) -> List[str]:
     labels = set([lbl for tree in treelist for lbl in tree.deprels])
+    if BiAffineParser.PAD_TOKEN in labels:
+        raise ValueError("Tag conflict: the treebank contains reserved dep labels")
     return [BiAffineParser.PAD_TOKEN, *sorted(labels)]
 
 
@@ -245,8 +250,12 @@ class BiAffineParser(nn.Module):
 
         super(BiAffineParser, self).__init__()
         self.default_batch_size = default_batch_size
-        self.tagset = tagset
-        self.labels = labels
+        self.tagset: OneToOne[str, int] = OneToOne.unique(
+            (t, i) for i, t in enumerate(tagset)
+        )
+        self.labels: OneToOne[str, int] = OneToOne.unique(
+            (l, i) for i, l in enumerate(labels)
+        )
         self.mlp_arc_hidden = mlp_arc_hidden
         self.mlp_input = mlp_input
         self.mlp_lab_hidden = mlp_lab_hidden
@@ -609,6 +618,63 @@ class BiAffineParser(nn.Module):
             sent_lengths=sent_lengths,
         )
 
+    def encode_tree(self, tree: DepGraph) -> EncodedTree:
+        sentence = self.encode_sentence(tree.words[1:])
+        tag_idxes = torch.tensor(
+            [self.tagset.get(tag, self.LABEL_PADDING) for tag in tree.pos_tags],
+            dtype=torch.long,
+        )
+        tag_idxes[0] = self.LABEL_PADDING
+        heads = torch.tensor(tree.heads, dtype=torch.long)
+        heads[0] = self.LABEL_PADDING
+        # FIXME: should unk labels be padding?
+        labels = torch.tensor(
+            [self.labels.get(lab, self.LABEL_PADDING) for lab in tree.deprels],
+            dtype=torch.long,
+        )
+        labels[0] = self.LABEL_PADDING
+        return EncodedTree(
+            sentence=sentence,
+            heads=heads,
+            labels=labels,
+            tags=tag_idxes,
+        )
+
+    def batch_trees(
+        self,
+        trees: Sequence[DepGraph],
+        encoded_trees: Optional[Sequence[EncodedTree]] = None,
+    ) -> DependencyBatch:
+        if encoded_trees is None:
+            encoded_trees = [self.encode_tree(tree) for tree in trees]
+        # FIXME: typing err here because we need to constraint that the encoded trees are all
+        # encoded by the same lexer
+        sentences = self.batch_sentences([tree.sentence for tree in encoded_trees])
+
+        tags = pad_sequence(
+            [tree.tags for tree in encoded_trees],
+            batch_first=True,
+            padding_value=self.LABEL_PADDING,
+        )
+        heads = pad_sequence(
+            [tree.heads for tree in encoded_trees],
+            batch_first=True,
+            padding_value=self.LABEL_PADDING,
+        )
+        labels = pad_sequence(
+            [tree.labels for tree in encoded_trees],
+            batch_first=True,
+            padding_value=self.LABEL_PADDING,
+        )
+
+        return DependencyBatch(
+            sentences=sentences,
+            heads=heads,
+            labels=labels,
+            tags=tags,
+            trees=trees,
+        )
+
     def batched_predict(
         self,
         batch_lst: Union[Iterable[DependencyBatch], Iterable[SentencesBatch]],
@@ -678,7 +744,7 @@ class BiAffineParser(nn.Module):
 
                     # Predict tags
                     tag_idxes = tagger_scores.argmax(dim=1)
-                    pos_tags = [self.tagset[idx] for idx in tag_idxes]
+                    pos_tags = [self.tagset.inv[idx] for idx in tag_idxes.tolist()]
                     # Predict labels
                     select = mst_heads.unsqueeze(0).expand(lab_scores.size(0), -1)
                     selected = torch.gather(lab_scores, 1, select.unsqueeze(1)).squeeze(
@@ -686,9 +752,9 @@ class BiAffineParser(nn.Module):
                     )
                     mst_labels = selected.argmax(dim=0)
                     edges = [
-                        deptree.Edge(head.item(), self.labels[lbl], dep)
+                        deptree.Edge(head.item(), self.labels.inv[lbl], dep)
                         for (dep, lbl, head) in zip(
-                            list(range(length)), mst_labels, mst_heads
+                            list(range(length)), mst_labels.tolist(), mst_heads
                         )
                     ]
                     result_tree = tree.replace(
@@ -725,12 +791,10 @@ class BiAffineParser(nn.Module):
                 )
             )
         else:
-            test_set = DependencyDataset(self, DepGraph.read_conll(inpt))
+            trees = DepGraph.read_conll(inpt)
             batches = (
-                test_set.make_single_batch(sentences)
-                for sentences in itu.chunked_iter(
-                    test_set.treelist, size=self.default_batch_size
-                )
+                self.batch_trees(batch)
+                for batch in itu.chunked_iter(trees, size=batch_size)
             )
         yield from self.batched_predict(batches, greedy=False)
 
@@ -918,72 +982,10 @@ class DependencyDataset:
 
         self.encoded_trees: List[EncodedTree] = []
 
-    def encode_tree(self, tree: DepGraph) -> EncodedTree:
-        tag_idxes = torch.tensor(
-            [
-                self.tagtoi.get(tag, self.tagtoi[self.parser.UNK_WORD])
-                for tag in tree.pos_tags
-            ],
-            dtype=torch.long,
-        )
-        tag_idxes[0] = self.parser.LABEL_PADDING
-        heads = torch.tensor(tree.heads, dtype=torch.long)
-        heads[0] = self.parser.LABEL_PADDING
-        # FIXME: should unk labels be padding?
-        labels = torch.tensor(
-            [self.labtoi.get(lab, self.parser.LABEL_PADDING) for lab in tree.deprels],
-            dtype=torch.long,
-        )
-        labels[0] = self.parser.LABEL_PADDING
-        sentence = self.parser.encode_sentence(tree.words[1:])
-        return EncodedTree(
-            sentence=sentence,
-            heads=heads,
-            labels=labels,
-            tags=tag_idxes,
-        )
-
     def encode(self):
         self.encoded_trees = []
         for tree in self.treelist:
-            self.encoded_trees.append(self.encode_tree(tree))
-
-    def make_single_batch(
-        self,
-        trees: Sequence[DepGraph],
-        encoded_trees: Optional[Sequence[EncodedTree]] = None,
-    ) -> DependencyBatch:
-        if encoded_trees is None:
-            encoded_trees = [self.encode_tree(tree) for tree in trees]
-        # FIXME: typing err here because we need to constraint that the encoded trees are all
-        # encoded by the same lexer
-        sentences = self.parser.batch_sentences(
-            [tree.sentence for tree in encoded_trees]
-        )
-
-        tags = pad_sequence(
-            [tree.tags for tree in encoded_trees],
-            batch_first=True,
-            padding_value=self.parser.LABEL_PADDING,
-        )
-        heads = pad_sequence(
-            [tree.heads for tree in encoded_trees],
-            batch_first=True,
-            padding_value=self.parser.LABEL_PADDING,
-        )
-        labels = pad_sequence(
-            [tree.labels for tree in encoded_trees],
-            batch_first=True,
-            padding_value=self.parser.LABEL_PADDING,
-        )
-
-        return DependencyBatch(
-            sentences=sentences,
-            heads=heads,
-            labels=labels,
-            tags=tags,
-            trees=trees,
-        )
+            self.encoded_trees.append(self.parser.encode_tree(tree))
 
     def make_batches(
         self,
@@ -1008,7 +1010,7 @@ class DependencyDataset:
             batch_indices = order[i : i + batch_size]
             trees = [self.treelist[j] for j in batch_indices]
             encoded_trees = [self.encoded_trees[j] for j in batch_indices]
-            yield self.make_single_batch(trees, encoded_trees)
+            yield self.parser.batch_trees(trees, encoded_trees)
 
     def __len__(self):
         return len(self.treelist)
