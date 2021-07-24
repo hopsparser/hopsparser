@@ -35,6 +35,14 @@ def test_train_parse(
     )
     assert ret.success
     ret = script_runner.run(
+        "eval_parse",
+        "-v",
+        str(tmp_path / f"{treebank.stem}.parsed.conllu"),
+        str(treebank),
+    )
+    assert ret.success
+    assert ret.success
+    ret = script_runner.run(
         "hopsparser",
         "parse",
         "--device",
