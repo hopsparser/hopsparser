@@ -99,11 +99,6 @@ class BiAffine(nn.Module):
         return torch.einsum("bxi,oij,byj->boxy", h, self.weight, d)
 
 
-class LRSchedule(TypedDict):
-    shape: Literal["exponential", "linear", "constant"]
-    warmup_steps: int
-
-
 class EncodedSentence(NamedTuple):
     words: Sequence[str]
     encoded_words: Union[torch.Tensor, lexers.BertLexerSentence]
@@ -161,9 +156,7 @@ class SentencesBatch(NamedTuple):
 
 
 class EncodedTree(NamedTuple):
-    words: Union[torch.Tensor, lexers.BertLexerSentence]
-    subwords: torch.Tensor
-    chars: torch.Tensor
+    sentence: EncodedSentence
     heads: torch.Tensor
     labels: torch.Tensor
     tags: torch.Tensor
@@ -199,29 +192,26 @@ class DependencyBatch(NamedTuple):
     """
 
     trees: Sequence[DepGraph]
-    chars: torch.Tensor
-    subwords: torch.Tensor
-    encoded_words: Union[torch.Tensor, BertLexerBatch]
+    sentences: SentencesBatch
     tags: torch.Tensor
     heads: torch.Tensor
     labels: torch.Tensor
-    sent_lengths: torch.Tensor
-    content_mask: torch.Tensor
 
     def to(
         self: _T_DependencyBatch, device: Union[str, torch.device]
     ) -> _T_DependencyBatch:
         return type(self)(
             trees=self.trees,
-            chars=self.chars.to(device),
-            subwords=self.subwords.to(device),
-            encoded_words=self.encoded_words.to(device),
+            sentences=self.sentences.to(device),
             tags=self.tags.to(device),
             heads=self.heads.to(device),
             labels=self.labels.to(device),
-            sent_lengths=self.sent_lengths,
-            content_mask=self.content_mask.to(device),
         )
+
+
+class LRSchedule(TypedDict):
+    shape: Literal["exponential", "linear", "constant"]
+    warmup_steps: int
 
 
 _T_BiAffineParser = TypeVar("_T_BiAffineParser", bound="BiAffineParser")
@@ -367,7 +357,9 @@ class BiAffineParser(nn.Module):
         # We will select the labels for the true heads, so we have to give a true head to
         # the padding tokens (even if they will be ignored in the crossentropy since the true
         # label for that head is set to -100) so we give them the root.
-        positive_heads = batch.heads.masked_fill(batch.content_mask.logical_not(), 0)
+        positive_heads = batch.heads.masked_fill(
+            batch.sentences.content_mask.logical_not(), 0
+        )
         # [batch, 1, 1, sent_len]
         headsL = positive_heads.unsqueeze(1).unsqueeze(2)
         # [batch, n_labels, 1, sent_len]
@@ -406,13 +398,16 @@ class BiAffineParser(nn.Module):
 
         with torch.no_grad():
             for batch in dev_batches:
-                overall_size += int(batch.content_mask.sum().item())
+                overall_size += int(batch.sentences.content_mask.sum().item())
 
                 batch = batch.to(device)
 
                 # preds
                 tagger_scores, arc_scores, lab_scores = self(
-                    batch.encoded_words, batch.chars, batch.subwords, batch.sent_lengths
+                    batch.sentences.encoded_words,
+                    batch.sentences.chars,
+                    batch.sentences.subwords,
+                    batch.sentences.sent_lengths,
                 )
 
                 gloss += self.parser_loss(
@@ -422,14 +417,18 @@ class BiAffineParser(nn.Module):
                 # greedy arc accuracy (without parsing)
                 arc_pred = arc_scores.argmax(dim=-2)
                 arc_accuracy = (
-                    arc_pred.eq(batch.heads).logical_and(batch.content_mask).sum()
+                    arc_pred.eq(batch.heads)
+                    .logical_and(batch.sentences.content_mask)
+                    .sum()
                 )
                 arc_acc += arc_accuracy.item()
 
                 # tagger accuracy
                 tag_pred = tagger_scores.argmax(dim=2)
                 tag_accuracy = (
-                    tag_pred.eq(batch.tags).logical_and(batch.content_mask).sum()
+                    tag_pred.eq(batch.tags)
+                    .logical_and(batch.sentences.content_mask)
+                    .sum()
                 )
                 tag_acc += tag_accuracy.item()
 
@@ -439,11 +438,13 @@ class BiAffineParser(nn.Module):
                     lab_pred,
                     1,
                     batch.heads.masked_fill(
-                        batch.content_mask.logical_not(), 0
+                        batch.sentences.content_mask.logical_not(), 0
                     ).unsqueeze(1),
                 ).squeeze(1)
                 lab_accuracy = (
-                    lab_pred.eq(batch.labels).logical_and(batch.content_mask).sum()
+                    lab_pred.eq(batch.labels)
+                    .logical_and(batch.sentences.content_mask)
+                    .sum()
                 )
                 lab_acc += lab_accuracy.item()
 
@@ -506,13 +507,16 @@ class BiAffineParser(nn.Module):
             )
             self.train()
             for batch in train_batches:
-                overall_size += int(batch.content_mask.sum().item())
+                overall_size += int(batch.sentences.content_mask.sum().item())
 
                 batch = batch.to(device)
 
                 # FORWARD
                 tagger_scores, arc_scores, lab_scores = self(
-                    batch.encoded_words, batch.chars, batch.subwords, batch.sent_lengths
+                    batch.sentences.encoded_words,
+                    batch.sentences.chars,
+                    batch.sentences.subwords,
+                    batch.sentences.sent_lengths,
                 )
 
                 loss = self.parser_loss(
@@ -617,12 +621,16 @@ class BiAffineParser(nn.Module):
             for batch in batch_lst:
                 batch = batch.to(device)
 
+                if isinstance(batch, DependencyBatch):
+                    batch_sentences = batch.sentences
+                else:
+                    batch_sentences = batch
                 # batch prediction
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = self(
-                    batch.encoded_words,
-                    batch.chars,
-                    batch.subwords,
-                    batch.sent_lengths,
+                    batch_sentences.encoded_words,
+                    batch_sentences.chars,
+                    batch_sentences.subwords,
+                    batch_sentences.sent_lengths,
                 )
                 arc_scores_batch = arc_scores_batch.cpu()
 
@@ -651,7 +659,7 @@ class BiAffineParser(nn.Module):
                     ]
                 for (tree, length, tagger_scores, arc_scores, lab_scores) in zip(
                     trees,
-                    batch.sent_lengths,
+                    batch_sentences.sent_lengths,
                     tagger_scores_batch,
                     arc_scores_batch,
                     lab_scores_batch,
@@ -912,7 +920,10 @@ class DependencyDataset:
 
     def encode_tree(self, tree: DepGraph) -> EncodedTree:
         tag_idxes = torch.tensor(
-            [self.tagtoi.get(tag, self.tagtoi[self.parser.UNK_WORD]) for tag in tree.pos_tags],
+            [
+                self.tagtoi.get(tag, self.tagtoi[self.parser.UNK_WORD])
+                for tag in tree.pos_tags
+            ],
             dtype=torch.long,
         )
         tag_idxes[0] = self.parser.LABEL_PADDING
@@ -924,10 +935,9 @@ class DependencyDataset:
             dtype=torch.long,
         )
         labels[0] = self.parser.LABEL_PADDING
+        sentence = self.parser.encode_sentence(tree.words[1:])
         return EncodedTree(
-            words=self.parser.lexer.encode(tree.words),
-            subwords=self.parser.ft_lexer.encode(tree.words),
-            chars=self.parser.char_rnn.encode(tree.words),
+            sentence=sentence,
             heads=heads,
             labels=labels,
             tags=tag_idxes,
@@ -947,10 +957,8 @@ class DependencyDataset:
             encoded_trees = [self.encode_tree(tree) for tree in trees]
         # FIXME: typing err here because we need to constraint that the encoded trees are all
         # encoded by the same lexer
-        words = self.parser.lexer.make_batch([tree.words for tree in encoded_trees])
-        chars = self.parser.char_rnn.make_batch([tree.chars for tree in encoded_trees])
-        subwords = self.parser.ft_lexer.make_batch(
-            [tree.subwords for tree in encoded_trees]
+        sentences = self.parser.batch_sentences(
+            [tree.sentence for tree in encoded_trees]
         )
 
         tags = pad_sequence(
@@ -969,19 +977,10 @@ class DependencyDataset:
             padding_value=self.parser.LABEL_PADDING,
         )
 
-        sent_lengths = torch.tensor([len(t) for t in trees], dtype=torch.long)
-        # NOTE: this is equivalent to and faster and clearer but less pure than
-        # `torch.arange(sent_lengths.max()).unsqueeze(0).lt(sent_lengths.unsqueeze(1).logical_and(torch.arange(sent_lengths.max()).gt(0))`
-        content_mask = labels.ne(self.parser.LABEL_PADDING)
-
         return DependencyBatch(
-            chars=chars,
-            encoded_words=words,
+            sentences=sentences,
             heads=heads,
             labels=labels,
-            content_mask=content_mask,
-            sent_lengths=sent_lengths,
-            subwords=subwords,
             tags=tags,
             trees=trees,
         )
