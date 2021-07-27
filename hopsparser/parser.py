@@ -593,7 +593,9 @@ class BiAffineParser(nn.Module):
     def batch_sentences(self, sentences: Sequence[EncodedSentence]) -> SentencesBatch:
         words = [sent.words for sent in sentences]
         # TODO: fix the typing here
-        encoded_words = self.lexer.make_batch([sent.encoded_words for sent in sentences])  # type: ignore[misc]
+        encoded_words = self.lexer.make_batch(
+            [sent.encoded_words for sent in sentences]
+        )
         chars = self.char_rnn.make_batch([sent.chars for sent in sentences])
         subwords = self.ft_lexer.make_batch([sent.subwords for sent in sentences])
 
@@ -703,26 +705,7 @@ class BiAffineParser(nn.Module):
                 if isinstance(batch, DependencyBatch):
                     trees = batch.trees
                 else:
-                    trees = [
-                        DepGraph(
-                            nodes=[
-                                deptree.DepNode(
-                                    identifier=i,
-                                    form=w,
-                                    lemma="_",
-                                    upos="_",
-                                    xpos="_",
-                                    feats="_",
-                                    head=0,
-                                    deprel="_",
-                                    deps="_",
-                                    misc="_",
-                                )
-                                for i, w in enumerate(words, start=1)
-                            ],
-                        )
-                        for words in batch.words
-                    ]
+                    trees = [DepGraph.from_words(words) for words in batch.words]
                 for (tree, length, tagger_scores, arc_scores, lab_scores) in zip(
                     trees,
                     batch_sentences.sent_lengths,
@@ -752,9 +735,9 @@ class BiAffineParser(nn.Module):
                     )
                     mst_labels = selected.argmax(dim=0)
                     edges = [
-                        deptree.Edge(head.item(), self.labels.inv[lbl], dep)
+                        deptree.Edge(head, self.labels.inv[lbl], dep)
                         for (dep, lbl, head) in zip(
-                            list(range(length)), mst_labels.tolist(), mst_heads
+                            list(range(length)), mst_labels.tolist(), mst_heads.tolist()
                         )
                     ]
                     result_tree = tree.replace(

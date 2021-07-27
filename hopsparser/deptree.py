@@ -213,3 +213,26 @@ class DepGraph:
                     current_tree_lines = []
             else:
                 current_tree_lines.append(line)
+
+    @classmethod
+    def from_words(
+        cls: Type[_T_DEPGRAPH],
+        words: Iterable[str],
+    ) -> _T_DEPGRAPH:
+        return cls(
+            nodes=[
+                DepNode(
+                    identifier=i,
+                    form=w,
+                    lemma="_",
+                    upos="_",
+                    xpos="_",
+                    feats="_",
+                    head=0,
+                    deprel="_",
+                    deps="_",
+                    misc="_",
+                )
+                for i, w in enumerate(words, start=1)
+            ],
+        )
