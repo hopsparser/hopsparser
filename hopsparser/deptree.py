@@ -1,13 +1,6 @@
-from dataclasses import dataclass
 import itertools
-from typing import (
-    Iterable,
-    List,
-    NamedTuple,
-    Optional,
-    Type,
-    TypeVar,
-)
+from dataclasses import dataclass
+from typing import Iterable, List, NamedTuple, Optional, Type, TypeVar
 
 from loguru import logger
 

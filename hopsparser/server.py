@@ -1,9 +1,9 @@
 from typing import Dict, List, Literal, Optional
+
 import fastapi
 import pydantic
 
-from hopsparser import __version__
-from hopsparser import parser
+from hopsparser import __version__, parser
 
 
 class Settings(pydantic.BaseSettings):
@@ -83,7 +83,9 @@ async def process(req: ParseRequest) -> ParseResponse:
     parsed = "".join(
         [
             f"{tree.to_conllu()}\n\n"
-            for tree in parser.parse(req.data.splitlines(), raw=req.input == "horizontal")
+            for tree in parser.parse(
+                req.data.splitlines(), raw=req.input == "horizontal"
+            )
         ]
     )
     return ParseResponse(model=model_name, acknowledgements=[""], result=parsed)

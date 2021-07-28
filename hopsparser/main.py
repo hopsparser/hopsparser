@@ -5,15 +5,14 @@ import pathlib
 import subprocess
 import sys
 import tempfile
-from typing import Dict, Generator, Literal, Optional, Union
 import warnings
+from typing import Dict, Generator, Literal, Optional, Union
 
 import click
 import click_pathlib
 
-from hopsparser import parser
 from hopsparser import conll2018_eval as evaluator
-
+from hopsparser import parser
 
 device_opt = click.option(
     "--device",

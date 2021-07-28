@@ -5,10 +5,10 @@ import random
 import shutil
 import warnings
 from typing import (
+    IO,
     BinaryIO,
     Callable,
     Final,
-    IO,
     Iterable,
     List,
     Literal,
@@ -33,9 +33,7 @@ from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
 
-from hopsparser import lexers
-from hopsparser.utils import smart_open
-from hopsparser import deptree
+from hopsparser import deptree, lexers
 from hopsparser.deptree import DepGraph
 from hopsparser.lexers import (
     BertBaseLexer,
@@ -47,6 +45,7 @@ from hopsparser.lexers import (
     make_vocab,
 )
 from hopsparser.mst import chuliu_edmonds_one_root as chuliu_edmonds
+from hopsparser.utils import smart_open
 
 
 def gen_tags(treelist: Iterable[DepGraph]) -> List[str]:

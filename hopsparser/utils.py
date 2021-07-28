@@ -1,7 +1,7 @@
 import contextlib
 import pathlib
 import sys
-from typing import Generator, cast, IO, Union
+from typing import IO, Generator, Union, cast
 
 
 @contextlib.contextmanager
