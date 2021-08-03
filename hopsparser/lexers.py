@@ -1,3 +1,4 @@
+import json
 import os.path
 import pathlib
 from abc import abstractmethod
@@ -22,6 +23,7 @@ import fasttext
 import torch
 import torch.jit
 import transformers
+from boltons.dictutils import OneToOne
 from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence
@@ -75,6 +77,9 @@ class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH]):
         raise NotImplementedError
 
 
+_T_CharRNNLexer = TypeVar("_T_CharRNNLexer", bound="CharRNNLexer")
+
+
 class CharRNNLexer(nn.Module):
     """A lexer encoding words by running a bi-RNN on their characters
 
@@ -91,30 +96,39 @@ class CharRNNLexer(nn.Module):
 
     def __init__(
         self,
-        char_embedding_size: int,
+        char_embeddings_dim: int,
         charset: Sequence[str],
-        embedding_size: int,
+        output_dim: int,
         special_tokens: Optional[Iterable[str]] = None,
     ):
-        super().__init__()
+        """Create a new CharRNNLexer.
 
-        # FIXME: use the class attributes to insert the pad and special token at the right position
-        # instead of harcoding them like this
-        self.i2c = ["<pad>", "<special>", *charset]
-        self.c2idx = {c: idx for idx, c in enumerate(self.i2c)}
+        `charset` should not have any duplicates. Note also that the elements at `pad_idx` and
+        `special_tokens idx` will have a special meaning. Building a new `CharRNNLexer` is
+        preferably done via `from_chars`, which takes care of deduplicating and inserting special
+        tokens.
+        """
+        super().__init__()
+        try:
+            self.vocab: OneToOne[str, int] = OneToOne.unique((c, i) for i, c in enumerate(charset))
+        except ValueError as e:
+            raise ValueError("Duplicated characters in charsets") from e
         self.special_tokens = set([] if special_tokens is None else special_tokens)
 
-        self.char_embedding_size: Final[int] = char_embedding_size
-        self.embedding_size: Final[int] = embedding_size
-        self.char_embedding = nn.Embedding(
-            len(self.i2c), self.char_embedding_size, padding_idx=self.pad_idx
+        if output_dim % 2:
+            raise ValueError("`output_dim` must be a multiple of 2")
+        self.char_embeddings_dim: Final[int] = char_embeddings_dim
+        self.output_dim: Final[int] = output_dim
+        self.embedding = nn.Embedding(
+            len(self.vocab), self.char_embeddings_dim, padding_idx=self.pad_idx
         )
+        # FIXME: this supposes an even output dim
         self.char_bilstm = nn.LSTM(
-            self.char_embedding_size,
-            self.embedding_size // 2,
-            1,
             batch_first=True,
             bidirectional=True,
+            hidden_size=self.output_dim // 2,
+            input_size=self.char_embeddings_dim,
+            num_layers=1,
         )
 
     def forward(self, inpt: torch.Tensor) -> torch.Tensor:
@@ -127,11 +141,11 @@ class CharRNNLexer(nn.Module):
         # full padding We need them of course (they will be cat to other padding embeddings in
         # graph_parser), but running the RNN on them is frustrating
         flattened_inputs = inpt.view(-1, inpt.shape[-1])
-        embeddings = self.char_embedding(flattened_inputs)
+        embeddings = self.embedding(flattened_inputs)
         # ! FIXME: this does not take the padding into account
         _, (_, cembedding) = self.char_bilstm(embeddings)
         # TODO: why use the cell state and not the output state here?
-        result = cembedding.view(*inpt.shape[:-1], self.embedding_size)
+        result = cembedding.view(*inpt.shape[:-1], self.output_dim)
         return result
 
     def word2charcodes(self, token: str) -> torch.Tensor:
@@ -146,7 +160,7 @@ class CharRNNLexer(nn.Module):
         if token in self.special_tokens:
             res = [self.special_tokens_idx]
         else:
-            res = [self.c2idx[c] for c in token if c in self.c2idx]
+            res = [idx for idx in (self.vocab.get(c) for c in token) if idx is not None]
             if not res:
                 res = [self.pad_idx]
         return torch.tensor(res, dtype=torch.long)
@@ -176,6 +190,41 @@ class CharRNNLexer(nn.Module):
         for i, sent in enumerate(batch):
             res[i, : sent.shape[0], : sent.shape[1]] = sent
         return res
+
+    def save(self, model_dir: pathlib.Path, save_weights: bool = True):
+        model_dir.mkdir(exist_ok=True, parents=True)
+        config_file = model_dir / "config.json"
+        with open(config_file, "w") as out_stream:
+            json.dump(
+                {
+                    "char_embeddings_dim": self.char_embeddings_dim,
+                    "output_dim": self.output_dim,
+                    "special_tokens": list(self.special_tokens),
+                    "charset": [self.vocab.inv[i] for i in range(len(self.vocab))],
+                },
+                out_stream,
+            )
+        if save_weights:
+            torch.save(self.state_dict(), model_dir / "weights.pt")
+
+    @classmethod
+    def load(cls: Type[_T_CharRNNLexer], model_dir: pathlib.Path) -> _T_CharRNNLexer:
+        with open(model_dir / "config.json") as in_stream:
+            config = json.load(in_stream)
+        res = cls(**config)
+        weight_file = model_dir / "weights.pt"
+        if weight_file.exists():
+            res.load_state_dict(torch.load(weight_file))
+        return res
+
+    @classmethod
+    def from_chars(
+        cls: Type[_T_CharRNNLexer], chars: Iterable[str], **kwargs
+    ) -> _T_CharRNNLexer:
+        charset = sorted(set(chars))
+        if wrong := [c for c in charset if len(c) > 1]:
+            raise ValueError(f"Characters of length > 1 in charset: {wrong}")
+        return cls(charset=["<pad>", "<special>", *charset], **kwargs)
 
 
 _T_FastTextLexer = TypeVar("_T_FastTextLexer", bound="FastTextLexer")

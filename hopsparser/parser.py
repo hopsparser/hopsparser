@@ -230,6 +230,8 @@ class BiAffineParser(nn.Module):
     # Labels that are -100 are ignored in torch crossentropy (we still set it explicitely)
     LABEL_PADDING: Final[int] = -100
 
+    # FIXME: mlp_input here is conterintuitive: the actual MLP input dim will be twice that, this is
+    # more accurately the dimension of the outputs of each direction of the LSTM
     def __init__(
         self,
         biased_biaffine: bool,
@@ -263,7 +265,7 @@ class BiAffineParser(nn.Module):
 
         self.dep_rnn = nn.LSTM(
             self.lexer.embedding_size
-            + chars_lexer.embedding_size
+            + chars_lexer.output_dim
             + ft_lexer.embedding_size,
             mlp_input,
             3,
@@ -788,6 +790,8 @@ class BiAffineParser(nn.Module):
         treebank: List[DepGraph],
         fasttext: Optional[pathlib.Path] = None,
     ) -> _T_BiAffineParser:
+        with open(config_path) as in_stream:
+            config = yaml.load(in_stream, Loader=yaml.SafeLoader)
         model_path.mkdir(parents=True, exist_ok=False)
         # TODO: remove this once we have a proper full save method?
         model_config_path = model_path / "config.yaml"
@@ -822,11 +826,13 @@ class BiAffineParser(nn.Module):
         )
         savelist(ordered_vocab, model_path / "vocab.lst")
 
-        # FIXME: This should be done by the lexer class
-        savelist(
-            sorted(set((c for word in ordered_vocab for c in word))),
-            model_path / "charcodes.lst",
+        chars_lexer = CharRNNLexer.from_chars(
+            chars=(c for word in ordered_vocab for c in word),
+            special_tokens=[DepGraph.ROOT_TOKEN],
+            char_embeddings_dim=config["char_embedding_size"],
+            output_dim=config["charlstm_output_size"],
         )
+        chars_lexer.save(model_path / "chars_lexer", save_weights=False)
 
         itolab = gen_labels(treebank)
         savelist(itolab, model_path / "labcodes.lst")
@@ -897,12 +903,7 @@ class BiAffineParser(nn.Module):
                 if pathlib.Path(hp["lexer"]).exists():
                     hp["lexer"] = "."
 
-        chars_lexer = CharRNNLexer(
-            charset=loadlist(model_path / "charcodes.lst"),
-            special_tokens=[DepGraph.ROOT_TOKEN],
-            char_embedding_size=hp["char_embedding_size"],
-            embedding_size=hp["charlstm_output_size"],
-        )
+        chars_lexer = CharRNNLexer.load(model_path / "chars_lexer")
 
         ft_lexer = FastTextLexer.load(
             str(model_path / "fasttext_model.bin"), special_tokens=[DepGraph.ROOT_TOKEN]
