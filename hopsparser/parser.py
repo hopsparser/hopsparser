@@ -262,6 +262,8 @@ class BiAffineParser(nn.Module):
         self.mlp_lab_hidden = mlp_lab_hidden
 
         self.lexer = lexer
+        self.chars_lexer = chars_lexer
+        self.ft_lexer = ft_lexer
 
         self.dep_rnn = nn.LSTM(
             self.lexer.embedding_size
@@ -276,8 +278,6 @@ class BiAffineParser(nn.Module):
 
         # POS tagger & char RNN
         self.pos_tagger = MLP(mlp_input * 2, mlp_tag_hidden, len(self.tagset))
-        self.char_rnn = chars_lexer
-        self.ft_lexer = ft_lexer
 
         # Arc MLPs
         self.arc_mlp_h = MLP(mlp_input * 2, mlp_arc_hidden, mlp_input, mlp_dropout)
@@ -315,7 +315,7 @@ class BiAffineParser(nn.Module):
         - `label_scores`: $`batch_size×num_deprels×max_sent_length×max_sent_length`$
         """
         # Computes char embeddings
-        char_embed = self.char_rnn(chars)
+        char_embed = self.chars_lexer(chars)
         # Computes fasttext embeddings
         ft_embed = self.ft_lexer(ft_subwords)
         # Computes word embeddings
@@ -578,7 +578,7 @@ class BiAffineParser(nn.Module):
                 words=words,
                 encoded_words=self.lexer.encode(words_with_root),
                 subwords=self.ft_lexer.encode(words_with_root),
-                chars=self.char_rnn.encode(words_with_root),
+                chars=self.chars_lexer.encode(words_with_root),
                 sent_len=len(words_with_root),
             )
         except lexers.LexingError as e:
@@ -597,7 +597,7 @@ class BiAffineParser(nn.Module):
         encoded_words = self.lexer.make_batch(
             [sent.encoded_words for sent in sentences]
         )
-        chars = self.char_rnn.make_batch([sent.chars for sent in sentences])
+        chars = self.chars_lexer.make_batch([sent.chars for sent in sentences])
         subwords = self.ft_lexer.make_batch([sent.subwords for sent in sentences])
 
         sent_lengths = torch.tensor(
