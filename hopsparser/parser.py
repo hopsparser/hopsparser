@@ -818,7 +818,7 @@ class BiAffineParser(nn.Module):
                 )
         else:
             raise ValueError(f"{fasttext} not found")
-        fasttext_lexer.save(model_path / "fasttext_lexer")
+        fasttext_lexer.save(model_path / "fasttext_lexer", save_weights=False)
 
         # NOTE: these include the [ROOT] token, which will thus automatically have a dedicated
         # word embeddings in layers based on this vocab
