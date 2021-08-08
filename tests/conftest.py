@@ -8,7 +8,7 @@ import pytest
 from hopsparser import parser, deptree
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def test_data_dir() -> pathlib.Path:
     return pathlib.Path(__file__).parent / "fixtures"
 
@@ -21,6 +21,11 @@ def treebank(test_data_dir: pathlib.Path) -> pathlib.Path:
 @pytest.fixture
 def raw_text(test_data_dir: pathlib.Path) -> pathlib.Path:
     return test_data_dir / "raw.txt"
+
+
+@pytest.fixture(scope="session")
+def fasttext_model_path(test_data_dir: pathlib.Path) -> pathlib.Path:
+    return test_data_dir / "fasttext_model.bin"
 
 
 @pytest.fixture(

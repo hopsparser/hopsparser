@@ -796,24 +796,29 @@ class BiAffineParser(nn.Module):
         # TODO: remove this once we have a proper full save method?
         model_config_path = model_path / "config.yaml"
         shutil.copy(config_path, model_config_path)
-        fasttext_model_path = model_path / "fasttext_model.bin"
+
         if fasttext is None:
             logger.info("Generating a FastText model from the treebank")
-            FastTextLexer.train_model_from_sents(
-                [tree.words[1:] for tree in treebank], fasttext_model_path
+            fasttext_lexer = FastTextLexer.from_sents(
+                [tree.words[1:] for tree in treebank],
+                special_tokens=[DepGraph.ROOT_TOKEN],
             )
         elif fasttext.exists():
             try:
                 # ugly, but we have no better way of checking if a file is a valid model
-                FastTextLexer.load(fasttext)
+                fasttext_lexer = FastTextLexer.from_fasttext_model(
+                    fasttext, special_tokens=[DepGraph.ROOT_TOKEN]
+                )
                 logger.info(f"Using the FastText model at {fasttext}")
-                shutil.copy(fasttext, fasttext_model_path)
             except ValueError:
                 # FastText couldn't load it, so it should be raw text
                 logger.info(f"Generating a FastText model from {fasttext}")
-                FastTextLexer.train_model_from_raw(fasttext, fasttext_model_path)
+                fasttext_lexer = FastTextLexer.from_raw(
+                    fasttext, special_tokens=[DepGraph.ROOT_TOKEN]
+                )
         else:
             raise ValueError(f"{fasttext} not found")
+        fasttext_lexer.save(model_path / "fasttext_lexer")
 
         # NOTE: these include the [ROOT] token, which will thus automatically have a dedicated
         # word embeddings in layers based on this vocab
@@ -904,10 +909,7 @@ class BiAffineParser(nn.Module):
                     hp["lexer"] = "."
 
         chars_lexer = CharRNNLexer.load(model_path / "chars_lexer")
-
-        ft_lexer = FastTextLexer.load(
-            str(model_path / "fasttext_model.bin"), special_tokens=[DepGraph.ROOT_TOKEN]
-        )
+        ft_lexer = FastTextLexer.load(model_path / "fasttext_lexer")
 
         itolab = loadlist(model_path / "labcodes.lst")
         itotag = loadlist(model_path / "tagcodes.lst")

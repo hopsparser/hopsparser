@@ -1,9 +1,8 @@
 import json
-import os.path
 import pathlib
 from abc import abstractmethod
 from collections import Counter
-from tempfile import gettempdir
+import tempfile
 from typing import (
     Final,
     Iterable,
@@ -110,7 +109,9 @@ class CharRNNLexer(nn.Module):
         """
         super().__init__()
         try:
-            self.vocab: OneToOne[str, int] = OneToOne.unique((c, i) for i, c in enumerate(charset))
+            self.vocab: OneToOne[str, int] = OneToOne.unique(
+                (c, i) for i, c in enumerate(charset)
+            )
         except ValueError as e:
             raise ValueError("Duplicated characters in charsets") from e
         self.special_tokens = set([] if special_tokens is None else special_tokens)
@@ -239,12 +240,12 @@ class FastTextLexer(nn.Module):
 
     def __init__(
         self,
-        fasttextmodel: fasttext.FastText._FastText,
+        fasttext_model: fasttext.FastText._FastText,
         special_tokens: Optional[Iterable[str]] = None,
     ):
         super().__init__()
-        self.fasttextmodel = fasttextmodel
-        weights = torch.from_numpy(fasttextmodel.get_input_matrix())
+        self.fasttext_model = fasttext_model
+        weights = torch.from_numpy(fasttext_model.get_input_matrix())
         # Note: `vocab_size` is the size of the actual fasttext vocabulary. In pratice, the
         # embeddings here have two more tokens in their vocabulary: one for padding (embedding fixed
         # at 0, since the padding embedding never receive gradient in `nn.Embedding`) and one for
@@ -270,15 +271,21 @@ class FastTextLexer(nn.Module):
 
     def subwords_idxes(self, token: str) -> torch.Tensor:
         """Returns a list of ft subwords indexes a token"""
-        return torch.from_numpy(self.fasttextmodel.get_subwords(token)[1])
+        return torch.from_numpy(self.fasttext_model.get_subwords(token)[1])
 
     def forward(self, inpt: torch.Tensor) -> torch.Tensor:
         """
-        :param inpt: a batch of subwords *×num_subwords
+        :param inpt: a batch of subwords of shape `$*×subwords_dim×features_dim$`
         :return: the fasttext embeddings for this batch
         """
-        # Note: the padding embedding is 0 and should not be modified during training (as per the
+        # NOTE: the padding embedding is 0 and should not be modified during training (as per the
         # `torch.nn.Embedding` doc) so the mean here does not include padding subwords
+        # NOTE: we use the *mean* of the *input* vectors of the subwords, following [the original
+        # FastText
+        # implementation](https://github.com/facebookresearch/fastText/blob/a20c0d27cd0ee88a25ea0433b7f03038cd728459/src/fasttext.cc#L117)
+        # instead of using the *sum* of *unspecified* (either input or output) vectors as per the
+        # original FastText paper (“Enriching Word Vectors with Subword Information”, Bojanowski et
+        # al., 2017)
         return self.embeddings(inpt).mean(dim=-2)
 
     def word2subcodes(self, token: str) -> torch.Tensor:
@@ -316,52 +323,71 @@ class FastTextLexer(nn.Module):
         # shape: batch_size×max_sentence_length×num_subwords_in_longest_word
         return res
 
+    def save(self, model_dir: pathlib.Path, save_weights: bool = True):
+        model_dir.mkdir(exist_ok=True, parents=True)
+        config_file = model_dir / "config.json"
+        with open(config_file, "w") as out_stream:
+            json.dump(
+                {
+                    "special_tokens": list(self.special_tokens),
+                },
+                out_stream,
+            )
+        # Not necessarily very useful (since it doesn't save the fine-tuned special tokens embedding
+        # so if you want to save the model you should still use save_weights) but nice: set the
+        # FastText model weights to the fine-tuned ones
+        self.fasttext_model.set_matrices(
+            self.embeddings.weight[:-2].numpy(), self.fasttext_model.get_output_matrix()
+        )
+        self.fasttext_model.save_model(str(model_dir / "fasttext_model.bin"))
+        if save_weights:
+            torch.save(self.state_dict(), model_dir / "weights.pt")
+
     @classmethod
     def load(
-        cls: Type[_T_FastTextLexer], modelfile: Union[str, pathlib.Path], **kwargs
-    ) -> _T_FastTextLexer:
-        return cls(fasttext.load_model(str(modelfile)), **kwargs)
-
-    @classmethod
-    def train_model_from_sents(
         cls: Type[_T_FastTextLexer],
-        source_sents: Iterable[List[str]],
-        target_file: Union[str, pathlib.Path],
+        model_dir: pathlib.Path,
     ) -> _T_FastTextLexer:
-        if os.path.exists(target_file):
-            raise ValueError(f"{target_file} already exists!")
-        else:
-            source_file = os.path.join(gettempdir(), "source.ft")
-            with open(source_file, "w") as source_stream:
-                print(
-                    "\n".join([" ".join(sent) for sent in source_sents]),
-                    file=source_stream,
-                )
-
-            logger.info("Training fasttext model")
-            # TODO: make the hyperparameters here configurable?
-            model = fasttext.train_unsupervised(
-                source_file, model="skipgram", neg=10, minCount=5, epoch=10
-            )
-            model.save_model(str(target_file))
-        return cls(model)
+        with open(model_dir / "config.json") as in_stream:
+            config = json.load(in_stream)
+        res = cls.from_fasttext_model(model_dir / "fasttext_model.bin", **config)
+        weight_file = model_dir / "weights.pt"
+        if weight_file.exists():
+            res.load_state_dict(torch.load(weight_file))
+        return res
 
     @classmethod
-    def train_model_from_raw(
+    def from_fasttext_model(
+        cls: Type[_T_FastTextLexer], model_file: Union[str, pathlib.Path], **kwargs
+    ) -> _T_FastTextLexer:
+        return cls(fasttext.load_model(str(model_file)), **kwargs)
+
+    @classmethod
+    def from_raw(
         cls: Type[_T_FastTextLexer],
         raw_text_path: Union[str, pathlib.Path],
-        target_file: Union[str, pathlib.Path],
+        **kwargs,
     ) -> _T_FastTextLexer:
-        if os.path.exists(target_file):
-            raise ValueError(f"{target_file} already exists!")
-        else:
-            logger.info("Training fasttext model")
-            # TODO: make the hyperparameters here configurable?
-            model = fasttext.train_unsupervised(
-                raw_text_path, model="skipgram", neg=10, minCount=5, epoch=10
-            )
-            model.save_model(target_file)
-        return cls(model)
+        logger.info("Training fasttext model")
+        # TODO: make the hyperparameters here configurable?
+        model = fasttext.train_unsupervised(
+            str(raw_text_path), model="skipgram", neg=10, minCount=5, epoch=10
+        )
+        return cls(model, **kwargs)
+
+    @classmethod
+    def from_sents(
+        cls: Type[_T_FastTextLexer],
+        sents: Iterable[List[str]],
+        **kwargs,
+    ) -> _T_FastTextLexer:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            train_file = pathlib.Path(tmp_dir) / "train.txt"
+            with open(train_file, "w") as out_stream:
+                for s in sents:
+                    out_stream.write(" ".join(s))
+                    out_stream.write("\n")
+            return cls.from_raw(train_file, **kwargs)
 
 
 _T_DefaultLexer = TypeVar("_T_DefaultLexer", bound="DefaultLexer")
