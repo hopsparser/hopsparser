@@ -903,9 +903,10 @@ class BiAffineParser(nn.Module):
                 word_dropout=hp["word_dropout"],
             )
             if not bert_config_path.exists():
-                lexer.bert.config.save_pretrained(bert_config_path)
-                lexer.bert_tokenizer.save_pretrained(
-                    bert_config_path, legacy_format=not lexer.bert_tokenizer.is_fast
+                lexer.bert.model.config.save_pretrained(bert_config_path)
+                lexer.bert.tokenizer.save_pretrained(
+                    bert_config_path,
+                    legacy_format=not lexer.bert.tokenizer.is_fast,
                 )
                 # Saving local paths in config is of little use and leaks information
                 if pathlib.Path(hp["lexer"]).exists():
@@ -1042,10 +1043,13 @@ def train(
         parser = BiAffineParser.load(model_path)
     else:
         if overwrite:
-            logger.info(
-                f"Erasing existing trained model in {model_path} since overwrite was asked",
-            )
-            shutil.rmtree(model_path)
+            if model_path.exists():
+                logger.info(
+                    f"Erasing existing trained model in {model_path} since overwrite was asked",
+                )
+                shutil.rmtree(model_path)
+            else:
+                logger.warning(f"--overwrite asked but {model_path} does not exist")
         parser = BiAffineParser.initialize(
             config_path=config_file,
             model_path=model_path,

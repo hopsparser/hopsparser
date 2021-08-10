@@ -539,7 +539,7 @@ _T_BertLexerBatch = TypeVar("_T_BertLexerBatch", bound="BertLexerBatch")
 
 class BertLexerBatch(NamedTuple):
     word_indices: torch.Tensor
-    bert_encoding: BatchEncoding
+    encoding: BatchEncoding
     subword_alignments: Sequence[Sequence[TokenSpan]]
 
     def to(
@@ -547,7 +547,7 @@ class BertLexerBatch(NamedTuple):
     ) -> _T_BertLexerBatch:
         return type(self)(
             self.word_indices.to(device=device),
-            self.bert_encoding.to(device=device),
+            self.encoding.to(device=device),
             self.subword_alignments,
         )
 
@@ -557,7 +557,7 @@ class BertLexerBatch(NamedTuple):
 
 class BertLexerSentence(NamedTuple):
     word_indices: Sequence[int]
-    bert_encoding: BatchEncoding
+    encoding: BatchEncoding
     subwords_alignments: Sequence[TokenSpan]
 
 
@@ -590,6 +590,209 @@ def align_with_special_tokens(
     return res
 
 
+class BertLexer(nn.Module):
+    """
+    This Lexer performs tokenization and embedding mapping with BERT
+    style models.
+    """
+
+    def __init__(
+        self,
+        layers: Optional[Sequence[int]],
+        model: str,
+        subwords_reduction: Literal["first", "mean"],
+        weight_layers: bool,
+    ):
+
+        super().__init__()
+
+        try:
+            self.model = transformers.AutoModel.from_pretrained(
+                model, output_hidden_states=True
+            )
+        except OSError:
+            config = transformers.AutoConfig.from_pretrained(model)
+            self.model = transformers.AutoModel.from_config(config)
+
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained(
+            model, use_fast=True
+        )
+        # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
+        if isinstance(self.tokenizer, transformers.GPT2TokenizerFast):
+            self.tokenizer = transformers.AutoTokenizer.from_pretrained(
+                model, use_fast=True, add_prefix_space=True
+            )
+
+        self.max_length = min(
+            self.tokenizer.max_len_single_sentence,
+            getattr(self.model.config, "max_position_embeddings", float("inf"))
+            - self.tokenizer.num_special_tokens_to_add(pair=False),
+        )
+
+        self.output_dim = self.model.config.hidden_size
+
+        # 🤗 has no unified API for the number of layers
+        num_layers = next(
+            n
+            for param_name in ("num_layers", "n_layers", "num_hidden_layers")
+            for n in [getattr(self.model.config, param_name, None)]
+            if n is not None
+        )
+        if layers is None:
+            layers = list(range(num_layers))
+        elif not all(-num_layers <= layer_idx < num_layers for layer_idx in layers):
+            raise ValueError(
+                f"Wrong BERT layer selections for a model with {num_layers} layers: {layers}"
+            )
+        self.layers = layers
+        # Deactivate layerdrop if available
+        if hasattr(self.model, "layerdrop"):
+            self.model.layerdrop = 0.0
+        # TODO: check if the value is allowed?
+        self.subwords_reduction = subwords_reduction
+        self.weight_layers = weight_layers
+        self.layer_weights = nn.Parameter(
+            torch.ones(len(layers), dtype=torch.float),
+            requires_grad=self.weight_layers,
+        )
+        self.layers_gamma = nn.Parameter(
+            torch.ones(1, dtype=torch.float),
+            requires_grad=self.weight_layers,
+        )
+
+    def forward(self, inpt: BertLexerBatch) -> torch.Tensor:
+        layers = self.model(
+            input_ids=inpt.encoding["input_ids"], return_dict=True
+        ).hidden_states
+        # Shape: layers×batch×sequence×features
+        selected_layers = torch.stack([layers[i] for i in self.layers], 0)
+
+        if self.weight_layers:
+            # Torch has no equivalent to `np.average` so this is somewhat annoying
+            # ! FIXME: recomputing the softmax for every batch is needed at train time but is wasting
+            # ! time in eval
+            # Shape: layers
+            normal_weights = self.layer_weights.softmax(dim=0)
+            # shape: batch×subwords_sequence×features
+            subword_embeddings = self.layers_gamma * torch.einsum(
+                "l,lbsf->bsf", normal_weights, selected_layers
+            )
+        else:
+            subword_embeddings = selected_layers.mean(dim=0)
+        # We already know the shape the BERT embeddings should have and we pad with zeros
+        # shape: batch×sentence(WITH ROOT TOKEN)×features
+        word_embeddings = subword_embeddings.new_zeros(
+            (
+                len(inpt.subword_alignments),
+                max(len(s) for s in inpt.subword_alignments) + 1,
+                subword_embeddings.shape[2],
+            )
+        )
+        word_embeddings[:, 0, ...] = subword_embeddings.mean(dim=1)
+        # FIXME: this loop is embarassingly parallel, there must be a way to parallelize it
+        for sent_n, alignment in enumerate(inpt.subword_alignments):
+            # TODO: If we revise the alignment format, this could probably be made faster using
+            # <https://pytorch-scatter.readthedocs.io/en/latest/functions/scatter.html>
+            # The word indices start at 1 because word 0 is the root token, for which we have no
+            # bert embedding so we use the average of all subword embeddings
+            for word_n, span in enumerate(alignment, start=1):
+                # shape: `span.end-span.start×features`
+                this_word_subword_embeddings = subword_embeddings[
+                    sent_n, span.start : span.end, ...
+                ]
+                if self.subwords_reduction == "first":
+                    reduced_bert_word_embedding = this_word_subword_embeddings[0, ...]
+                elif self.subwords_reduction == "mean":
+                    reduced_bert_word_embedding = this_word_subword_embeddings.mean(
+                        dim=0
+                    )
+                else:
+                    raise ValueError(f"Unknown reduction {self.subwords_reduction}")
+                word_embeddings[sent_n, word_n, ...] = reduced_bert_word_embedding
+
+        return word_embeddings
+
+    def make_batch(
+        self,
+        batch: Sequence[BertLexerSentence],
+    ) -> BertLexerBatch:
+        """Pad a batch of sentences."""
+        encodings_lst, subwords_alignments = [], []
+        for sent in batch:
+            encodings_lst.append(sent.encoding)
+            subwords_alignments.append(sent.subwords_alignments)
+        encoding = self.tokenizer.pad(encodings_lst)
+        encoding.convert_to_tensors("pt")
+        return BertLexerBatch(
+            torch.zeros((1,)),
+            encoding,
+            subwords_alignments,
+        )
+
+    def encode(self, tokens_sequence: Sequence[str]) -> BertLexerSentence:
+        """
+        This maps word tokens to integer indexes.
+        Args:
+           tok_sequence: a sequence of strings
+        """
+        # The root token is remved here since the BERT model has no reason to know of it
+        unrooted_tok_sequence = tokens_sequence[1:]
+        # NOTE: for now the 🤗 tokenizer interface is not unified between fast and non-fast
+        # tokenizers AND not all tokenizers support the fast mode, so we have to do this little
+        # awkward dance. Eventually we should be able to remove the non-fast branch here.
+        if self.tokenizer.is_fast:
+            bert_encoding = self.tokenizer(
+                unrooted_tok_sequence,
+                is_split_into_words=True,
+                return_special_tokens_mask=True,
+            )
+            if len(bert_encoding.data["input_ids"]) > self.max_length:
+                raise LexingError(
+                    f"Sentence too long for this transformer model ({len(bert_encoding.data['input_ids'])} tokens > {self.max_length})",
+                    str(unrooted_tok_sequence),
+                )
+            # TODO: there might be a better way to do this?
+            alignments = [
+                bert_encoding.word_to_tokens(i)
+                for i in range(len(unrooted_tok_sequence))
+            ]
+            i = next((i for i, a in enumerate(alignments) if a is None), None)
+            if i is not None:
+                raise LexingError(
+                    f"Unencodable token {unrooted_tok_sequence[i]!r} at {i}",
+                    str(unrooted_tok_sequence),
+                )
+        else:
+            bert_tokens = [
+                self.tokenizer.tokenize(token) for token in unrooted_tok_sequence
+            ]
+            i = next((i for i, s in enumerate(bert_tokens) if not s), None)
+            if i is not None:
+                raise LexingError(
+                    f"Unencodable token {unrooted_tok_sequence[i]!r} at {i}",
+                    str(unrooted_tok_sequence),
+                )
+            subtokens_sequence = [
+                subtoken for token in bert_tokens for subtoken in token
+            ]
+            if len(subtokens_sequence) > self.max_length:
+                raise LexingError(
+                    f"Sentence too long for this transformer model ({len(subtokens_sequence)} tokens > {self.max_length})",
+                    str(unrooted_tok_sequence),
+                )
+            bert_encoding = self.tokenizer.encode_plus(
+                subtokens_sequence,
+                return_special_tokens_mask=True,
+            )
+            bert_word_lengths = [len(word) for word in bert_tokens]
+            alignments = align_with_special_tokens(
+                bert_word_lengths,
+                bert_encoding["special_tokens_mask"],
+            )
+
+        return BertLexerSentence([], bert_encoding, alignments)
+
+
 class BertBaseLexer(nn.Module):
     """
     This Lexer performs tokenization and embedding mapping with BERT
@@ -615,30 +818,14 @@ class BertBaseLexer(nn.Module):
         self.stoi = {token: idx for idx, token in enumerate(self.itos)}
         self.unk_word_idx = self.stoi[unk_word]
 
-        try:
-            self.bert = transformers.AutoModel.from_pretrained(
-                bert_model, output_hidden_states=True
-            )
-        except OSError:
-            config = transformers.AutoConfig.from_pretrained(bert_model)
-            self.bert = transformers.AutoModel.from_config(config)
-
-        self.bert_tokenizer = transformers.AutoTokenizer.from_pretrained(
-            bert_model, use_fast=True
-        )
-        # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
-        if isinstance(self.bert_tokenizer, transformers.GPT2TokenizerFast):
-            self.bert_tokenizer = transformers.AutoTokenizer.from_pretrained(
-                bert_model, use_fast=True, add_prefix_space=True
-            )
-
-        self.max_length = min(
-            self.bert_tokenizer.max_len_single_sentence,
-            getattr(self.bert.config, "max_position_embeddings", float("inf"))
-            - self.bert_tokenizer.num_special_tokens_to_add(pair=False),
+        self.bert = BertLexer(
+            layers=bert_layers,
+            model=bert_model,
+            subwords_reduction=bert_subwords_reduction,
+            weight_layers=bert_weighted,
         )
 
-        self.output_dim = embedding_dim + self.bert.config.hidden_size
+        self.output_dim = embedding_dim + self.bert.output_dim
 
         self.embedding = nn.Embedding(
             len(self.itos),
@@ -648,37 +835,6 @@ class BertBaseLexer(nn.Module):
 
         self.word_dropout = word_dropout
         self._dpout = 0.0
-
-        # 🤗 has no unified API for the number of layers
-        num_layers = next(
-            n
-            for param_name in ("num_layers", "n_layers", "num_hidden_layers")
-            for n in [getattr(self.bert.config, param_name, None)]
-            if n is not None
-        )
-        if bert_layers is None:
-            bert_layers = list(range(num_layers))
-        elif not all(
-            -num_layers <= layer_idx < num_layers for layer_idx in bert_layers
-        ):
-            raise ValueError(
-                f"Wrong BERT layer selections for a model with {num_layers} layers: {bert_layers}"
-            )
-        self.bert_layers = bert_layers
-        # Deactivate layerdrop if available
-        if hasattr(self.bert, "layerdrop"):
-            self.bert.layerdrop = 0.0
-        # TODO: check if the value is allowed?
-        self.bert_subwords_reduction = bert_subwords_reduction
-        self.bert_weighted = bert_weighted
-        self.layer_weights = nn.Parameter(
-            torch.ones(len(bert_layers), dtype=torch.float),
-            requires_grad=self.bert_weighted,
-        )
-        self.layers_gamma = nn.Parameter(
-            torch.ones(1, dtype=torch.float),
-            requires_grad=self.bert_weighted,
-        )
 
     def train(self, mode: bool = True) -> "BertBaseLexer":
         if mode:
@@ -693,56 +849,7 @@ class BertBaseLexer(nn.Module):
             word_indices = integer_dropout(word_indices, self.unk_word_idx, self._dpout)
         word_embeddings = self.embedding(word_indices)
 
-        bert_layers = self.bert(
-            input_ids=inpt.bert_encoding["input_ids"], return_dict=True
-        ).hidden_states
-        # Shape: layers×batch×sequence×features
-        selected_bert_layers = torch.stack(
-            [bert_layers[i] for i in self.bert_layers], 0
-        )
-
-        if self.bert_weighted:
-            # Torch has no equivalent to `np.average` so this is somewhat annoying
-            # ! FIXME: recomputing the softmax for every batch is needed at train time but is wasting
-            # ! time in eval
-            # Shape: layers
-            normal_weights = self.layer_weights.softmax(dim=0)
-            # shape: batch×subwords_sequence×features
-            bert_subword_embeddings = self.layers_gamma * torch.einsum(
-                "l,lbsf->bsf", normal_weights, selected_bert_layers
-            )
-        else:
-            bert_subword_embeddings = selected_bert_layers.mean(dim=0)
-        # We already know the shape the BERT embeddings should have and we pad with zeros
-        # shape: batch×sentence×features
-        bert_embeddings = word_embeddings.new_zeros(
-            (
-                word_embeddings.shape[0],
-                word_embeddings.shape[1],
-                bert_subword_embeddings.shape[2],
-            )
-        )
-        bert_embeddings[:, 0, ...] = bert_subword_embeddings.mean(dim=1)
-        # FIXME: this loop is embarassingly parallel, there must be a way to parallelize it
-        for sent_n, alignment in enumerate(inpt.subword_alignments):
-            # TODO: If we revise the alignment format, this could probably be made faster using
-            # <https://pytorch-scatter.readthedocs.io/en/latest/functions/scatter.html>
-            # The word indices start at 1 because word 0 is the root token, for which we have no
-            # bert embedding so we use the average of all subword embeddings
-            for word_n, span in enumerate(alignment, start=1):
-                # shape: `span.end-span.start×features`
-                bert_word_embeddings = bert_subword_embeddings[
-                    sent_n, span.start : span.end, ...
-                ]
-                if self.bert_subwords_reduction == "first":
-                    reduced_bert_word_embedding = bert_word_embeddings[0, ...]
-                elif self.bert_subwords_reduction == "mean":
-                    reduced_bert_word_embedding = bert_word_embeddings.mean(dim=0)
-                else:
-                    raise ValueError(
-                        f"Unknown reduction {self.bert_subwords_reduction}"
-                    )
-                bert_embeddings[sent_n, word_n, ...] = reduced_bert_word_embedding
+        bert_embeddings = self.bert(inpt)
 
         return torch.cat((word_embeddings, bert_embeddings), dim=2)
 
@@ -751,19 +858,16 @@ class BertBaseLexer(nn.Module):
         batch: Sequence[BertLexerSentence],
     ) -> BertLexerBatch:
         """Pad a batch of sentences."""
-        words_batch, bert_batch, alignments = [], [], []
+        words_batch = []
         for sent in batch:
             words_batch.append(torch.tensor(sent.word_indices, dtype=torch.long))
-            bert_batch.append(sent.bert_encoding)
-            alignments.append(sent.subwords_alignments)
-        bert_encoding = self.bert_tokenizer.pad(bert_batch)
-        bert_encoding.convert_to_tensors("pt")
+        bert_batch = self.bert.make_batch(batch)
         return BertLexerBatch(
             pad_sequence(
                 words_batch, batch_first=True, padding_value=self.embedding.padding_idx
             ),
-            bert_encoding,
-            alignments,
+            bert_batch.encoding,
+            bert_batch.subword_alignments,
         )
 
     def encode(self, tokens_sequence: Sequence[str]) -> BertLexerSentence:
@@ -776,59 +880,8 @@ class BertBaseLexer(nn.Module):
             self.stoi.get(token, self.unk_word_idx) for token in tokens_sequence
         ]
 
-        # The root token is remved here since the BERT model has no reason to know of it
-        unrooted_tok_sequence = tokens_sequence[1:]
-        # NOTE: for now the 🤗 tokenizer interface is not unified between fast and non-fast
-        # tokenizers AND not all tokenizers support the fast mode, so we have to do this little
-        # awkward dance. Eventually we should be able to remove the non-fast branch here.
-        if self.bert_tokenizer.is_fast:
-            bert_encoding = self.bert_tokenizer(
-                unrooted_tok_sequence,
-                is_split_into_words=True,
-                return_special_tokens_mask=True,
-            )
-            if len(bert_encoding.data["input_ids"]) > self.max_length:
-                raise LexingError(
-                    f"Sentence too long for this transformer model ({len(bert_encoding.data['input_ids'])} tokens > {self.max_length})",
-                    str(unrooted_tok_sequence),
-                )
-            # TODO: there might be a better way to do this?
-            alignments = [
-                bert_encoding.word_to_tokens(i)
-                for i in range(len(unrooted_tok_sequence))
-            ]
-            i = next((i for i, a in enumerate(alignments) if a is None), None)
-            if i is not None:
-                raise LexingError(
-                    f"Unencodable token {unrooted_tok_sequence[i]!r} at {i}",
-                    str(unrooted_tok_sequence),
-                )
-        else:
-            bert_tokens = [
-                self.bert_tokenizer.tokenize(token) for token in unrooted_tok_sequence
-            ]
-            i = next((i for i, s in enumerate(bert_tokens) if not s), None)
-            if i is not None:
-                raise LexingError(
-                    f"Unencodable token {unrooted_tok_sequence[i]!r} at {i}",
-                    str(unrooted_tok_sequence),
-                )
-            subtokens_sequence = [
-                subtoken for token in bert_tokens for subtoken in token
-            ]
-            if len(subtokens_sequence) > self.max_length:
-                raise LexingError(
-                    f"Sentence too long for this transformer model ({len(subtokens_sequence)} tokens > {self.max_length})",
-                    str(unrooted_tok_sequence),
-                )
-            bert_encoding = self.bert_tokenizer.encode_plus(
-                subtokens_sequence,
-                return_special_tokens_mask=True,
-            )
-            bert_word_lengths = [len(word) for word in bert_tokens]
-            alignments = align_with_special_tokens(
-                bert_word_lengths,
-                bert_encoding["special_tokens_mask"],
-            )
+        bert_sent = self.bert.encode(tokens_sequence)
 
-        return BertLexerSentence(word_idxes, bert_encoding, alignments)
+        return BertLexerSentence(
+            word_idxes, bert_sent.encoding, bert_sent.subwords_alignments
+        )
