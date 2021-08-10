@@ -39,7 +39,7 @@ from hopsparser.lexers import (
     BertBaseLexer,
     BertLexerBatch,
     CharRNNLexer,
-    DefaultLexer,
+    WordEmbeddingsLexer,
     FastTextLexer,
     freeze_module,
     make_vocab,
@@ -240,7 +240,7 @@ class BiAffineParser(nn.Module):
         encoder_dropout: float,  # lstm dropout
         ft_lexer: FastTextLexer,
         labels: Sequence[str],
-        lexer: Union[DefaultLexer, BertBaseLexer],
+        lexer: Union[WordEmbeddingsLexer, BertBaseLexer],
         mlp_input: int,
         mlp_tag_hidden: int,
         mlp_arc_hidden: int,
@@ -266,9 +266,7 @@ class BiAffineParser(nn.Module):
         self.ft_lexer = ft_lexer
 
         self.dep_rnn = nn.LSTM(
-            self.lexer.embedding_size
-            + chars_lexer.output_dim
-            + ft_lexer.embedding_size,
+            self.lexer.output_dim + chars_lexer.output_dim + ft_lexer.output_dim,
             mlp_input,
             3,
             batch_first=True,
@@ -820,19 +818,32 @@ class BiAffineParser(nn.Module):
             raise ValueError(f"{fasttext} not found")
         fasttext_lexer.save(model_path / "fasttext_lexer", save_weights=False)
 
-        # NOTE: these include the [ROOT] token, which will thus automatically have a dedicated
-        # word embeddings in layers based on this vocab
-        # TODO: the threshold should be configurable
-        ordered_vocab = make_vocab(
-            [word for tree in treebank for word in tree.words],
-            0,
-            unk_word=cls.UNK_WORD,
-            pad_token=cls.PAD_TOKEN,
-        )
-        savelist(ordered_vocab, model_path / "vocab.lst")
+        corpus_words = [word for tree in treebank for word in tree.words[1:]]
+        if config["lexer"] == "default":
+            word_embeddings_lexer = WordEmbeddingsLexer.from_words(
+                words=(DepGraph.ROOT_TOKEN, cls.UNK_WORD, *corpus_words),
+                embeddings_dim=config["word_embedding_size"],
+                word_dropout=config["word_dropout"],
+                words_padding_idx=cls.PAD_IDX,
+                unk_word=cls.UNK_WORD,
+            )
+            word_embeddings_lexer.save(
+                model_path / "word_embeddings_lexer", save_weights=False
+            )
+        else:
+            # NOTE: these include the [ROOT] token, which will thus automatically have a dedicated
+            # word embeddings in layers based on this vocab
+            # TODO: the threshold should be configurable
+            ordered_vocab = make_vocab(
+                [DepGraph.ROOT_TOKEN, *corpus_words],
+                0,
+                unk_word=cls.UNK_WORD,
+                pad_token=cls.PAD_TOKEN,
+            )
+            savelist(ordered_vocab, model_path / "vocab.lst")
 
         chars_lexer = CharRNNLexer.from_chars(
-            chars=(c for word in ordered_vocab for c in word),
+            chars=(c for word in corpus_words for c in word),
             special_tokens=[DepGraph.ROOT_TOKEN],
             char_embeddings_dim=config["char_embedding_size"],
             output_dim=config["charlstm_output_size"],
@@ -866,20 +877,12 @@ class BiAffineParser(nn.Module):
         with open(config_path) as in_stream:
             hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
 
-        # FIXME: put that in the word lexer class
-        ordered_vocab = loadlist(model_path / "vocab.lst")
-
         # TODO: separate the BERT and word lexers
-        lexer: Union[DefaultLexer, BertBaseLexer]
+        lexer: Union[WordEmbeddingsLexer, BertBaseLexer]
         if hp["lexer"] == "default":
-            lexer = DefaultLexer(
-                ordered_vocab,
-                hp["word_embedding_size"],
-                hp["word_dropout"],
-                words_padding_idx=cls.PAD_IDX,
-                unk_word=cls.UNK_WORD,
-            )
+            lexer = WordEmbeddingsLexer.load(model_path / "word_embeddings_lexer")
         else:
+            ordered_vocab = loadlist(model_path / "vocab.lst")
             bert_config_path = model_path / "bert_config"
             if bert_config_path.exists():
                 bert_model = str(bert_config_path)
@@ -893,7 +896,7 @@ class BiAffineParser(nn.Module):
                 bert_layers=bert_layers,
                 bert_subwords_reduction=hp.get("bert_subwords_reduction", "first"),
                 bert_weighted=hp.get("bert_weighted", False),
-                embedding_size=hp["word_embedding_size"],
+                embedding_dim=hp["word_embedding_size"],
                 itos=ordered_vocab,
                 unk_word=cls.UNK_WORD,
                 words_padding_idx=cls.PAD_IDX,

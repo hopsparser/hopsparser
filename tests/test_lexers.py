@@ -33,8 +33,10 @@ def test_char_rnn_create_save_load(
         tmp_path = pathlib.Path(tmp_dir)
         char_lexer.save(tmp_path, save_weights=True)
         reloaded = lexers.CharRNNLexer.load(tmp_path)
-    assert char_lexer.vocab == reloaded.vocab
+    assert char_lexer.vocabulary == reloaded.vocabulary
+    char_lexer.eval()
     orig_encoding = char_lexer(char_lexer.make_batch([char_lexer.encode(test_text)]))
+    reloaded.eval()
     reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
     assert torch.equal(orig_encoding, reloaded_encoding)
 
@@ -72,8 +74,41 @@ def test_fasttext_train_create_save_load(
         fasttext_lexer.save(tmp_path, save_weights=True)
         reloaded = lexers.FastTextLexer.load(tmp_path)
     assert fasttext_lexer.special_tokens == reloaded.special_tokens
+    fasttext_lexer.eval()
     orig_encoding = fasttext_lexer(
         fasttext_lexer.make_batch([fasttext_lexer.encode(test_text)])
     )
+    reloaded.eval()
+    reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
+    assert torch.equal(orig_encoding, reloaded_encoding)
+
+
+@given(
+    embeddings_dim=st.integers(min_value=1, max_value=512),
+    words=st.lists(st.text(), min_size=1),
+    word_dropout=st.floats(min_value=0.0, max_value=1.0),
+    test_text=st.lists(st.text(min_size=1), min_size=1),
+)
+def test_word_embeddings_create_save_load(
+    embeddings_dim: int,
+    test_text: List[str],
+    word_dropout: float,
+    words: List[str],
+):
+    lexer = lexers.WordEmbeddingsLexer.from_words(
+        embeddings_dim=embeddings_dim,
+        word_dropout=word_dropout,
+        words_padding_idx=0,
+        words=words,
+        unk_word=words[0],
+    )
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = pathlib.Path(tmp_dir)
+        lexer.save(tmp_path, save_weights=True)
+        reloaded = lexers.WordEmbeddingsLexer.load(tmp_path)
+    assert lexer.vocabulary == reloaded.vocabulary
+    lexer.eval()
+    orig_encoding = lexer(lexer.make_batch([lexer.encode(test_text)]))
+    reloaded.eval()
     reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
     assert torch.equal(orig_encoding, reloaded_encoding)

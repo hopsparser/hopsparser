@@ -109,11 +109,11 @@ class CharRNNLexer(nn.Module):
         """
         super().__init__()
         try:
-            self.vocab: OneToOne[str, int] = OneToOne.unique(
+            self.vocabulary: OneToOne[str, int] = OneToOne.unique(
                 (c, i) for i, c in enumerate(charset)
             )
         except ValueError as e:
-            raise ValueError("Duplicated characters in charsets") from e
+            raise ValueError("Duplicated characters in charset") from e
         self.special_tokens = set([] if special_tokens is None else special_tokens)
 
         if output_dim % 2:
@@ -121,7 +121,7 @@ class CharRNNLexer(nn.Module):
         self.char_embeddings_dim: Final[int] = char_embeddings_dim
         self.output_dim: Final[int] = output_dim
         self.embedding = nn.Embedding(
-            len(self.vocab), self.char_embeddings_dim, padding_idx=self.pad_idx
+            len(self.vocabulary), self.char_embeddings_dim, padding_idx=self.pad_idx
         )
         # FIXME: this supposes an even output dim
         self.char_bilstm = nn.LSTM(
@@ -161,7 +161,11 @@ class CharRNNLexer(nn.Module):
         if token in self.special_tokens:
             res = [self.special_tokens_idx]
         else:
-            res = [idx for idx in (self.vocab.get(c) for c in token) if idx is not None]
+            res = [
+                idx
+                for idx in (self.vocabulary.get(c) for c in token)
+                if idx is not None
+            ]
             if not res:
                 res = [self.pad_idx]
         return torch.tensor(res, dtype=torch.long)
@@ -201,7 +205,9 @@ class CharRNNLexer(nn.Module):
                     "char_embeddings_dim": self.char_embeddings_dim,
                     "output_dim": self.output_dim,
                     "special_tokens": list(self.special_tokens),
-                    "charset": [self.vocab.inv[i] for i in range(len(self.vocab))],
+                    "charset": [
+                        self.vocabulary.inv[i] for i in range(len(self.vocabulary))
+                    ],
                 },
                 out_stream,
             )
@@ -251,15 +257,15 @@ class FastTextLexer(nn.Module):
         # at 0, since the padding embedding never receive gradient in `nn.Embedding`) and one for
         # the special (root) tokens, with values sampled accross the vocabulary
         self.vocab_size: Final[int] = weights.shape[0]
-        self.embedding_size: Final[int] = weights.shape[1]
+        self.output_dim: Final[int] = weights.shape[1]
         # FIXME: this should really be called `special_tokens_embedding`
         # NOTE: I haven't thought too hard about this, maybe it's a bad idea
         root_embedding = weights[
-            torch.randint(high=self.vocab_size, size=(self.embedding_size,)),
-            torch.arange(self.embedding_size),
+            torch.randint(high=self.vocab_size, size=(self.output_dim,)),
+            torch.arange(self.output_dim),
         ].unsqueeze(0)
         weights = torch.cat(
-            (weights, torch.zeros((1, self.embedding_size)), root_embedding), dim=0
+            (weights, torch.zeros((1, self.output_dim)), root_embedding), dim=0
         ).to(torch.float)
         weights.requires_grad = True
         self.embeddings = nn.Embedding.from_pretrained(
@@ -390,34 +396,47 @@ class FastTextLexer(nn.Module):
             return cls.from_raw(train_file, **kwargs)
 
 
-_T_DefaultLexer = TypeVar("_T_DefaultLexer", bound="DefaultLexer")
+_T_WordEmbeddingsLexer = TypeVar("_T_WordEmbeddingsLexer", bound="WordEmbeddingsLexer")
 
 
-class DefaultLexer(nn.Module):
+class WordEmbeddingsLexer(nn.Module):
     """
     This is the basic lexer wrapping an embedding layer.
     """
 
     def __init__(
         self,
-        itos: Sequence[str],
-        embedding_size: int,
+        vocabulary: Sequence[str],
+        embeddings_dim: int,
         word_dropout: float,
         words_padding_idx: int,
         unk_word: str,
     ):
+        """Create a new WordEmbeddingsLexer.
+
+        `vocabulary` should not have any duplicates. Note also that the elements at `pad_idx` and
+        `special_tokens idx` will have a special meaning. Building a new `WordEmbeddingsLexer` is
+        preferably done via `from_words`, which takes care of deduplicating and inserting special
+        tokens.
+        """
         super().__init__()
+        try:
+            self.vocabulary: OneToOne[str, int] = OneToOne.unique(
+                (c, i) for i, c in enumerate(vocabulary)
+            )
+        except ValueError as e:
+            raise ValueError("Duplicated words in vocabulary") from e
         self.embedding = nn.Embedding(
-            len(itos), embedding_size, padding_idx=words_padding_idx
+            len(self.vocabulary), embeddings_dim, padding_idx=words_padding_idx
         )
-        self.embedding_size = embedding_size
-        self.itos = itos
-        self.stoi = {token: idx for idx, token in enumerate(self.itos)}
-        self.unk_word_idx = self.stoi[unk_word]
+        self.output_dim = embeddings_dim
+        self.unk_word_idx = self.vocabulary[unk_word]
         self.word_dropout = word_dropout
         self._dpout = 0.0
 
-    def train(self: _T_DefaultLexer, mode: bool = True) -> _T_DefaultLexer:
+    def train(
+        self: _T_WordEmbeddingsLexer, mode: bool = True
+    ) -> _T_WordEmbeddingsLexer:
         if mode:
             self._dpout = self.word_dropout
         else:
@@ -437,7 +456,7 @@ class DefaultLexer(nn.Module):
     def encode(self, tokens_sequence: Sequence[str]) -> torch.Tensor:
         """Map word tokens to integer indices."""
         word_idxes = [
-            self.stoi.get(token, self.unk_word_idx) for token in tokens_sequence
+            self.vocabulary.get(token, self.unk_word_idx) for token in tokens_sequence
         ]
         return torch.tensor(word_idxes)
 
@@ -448,6 +467,44 @@ class DefaultLexer(nn.Module):
             padding_value=self.embedding.padding_idx,
             batch_first=True,
         )
+
+    def save(self, model_dir: pathlib.Path, save_weights: bool = True):
+        model_dir.mkdir(exist_ok=True, parents=True)
+        config_file = model_dir / "config.json"
+        with open(config_file, "w") as out_stream:
+            json.dump(
+                {
+                    "embeddings_dim": self.output_dim,
+                    "unk_word": self.vocabulary.inv[self.unk_word_idx],
+                    "vocabulary": [
+                        self.vocabulary.inv[i] for i in range(len(self.vocabulary))
+                    ],
+                    "word_dropout": self.word_dropout,
+                    "words_padding_idx": self.embedding.padding_idx,
+                },
+                out_stream,
+            )
+        if save_weights:
+            torch.save(self.state_dict(), model_dir / "weights.pt")
+
+    @classmethod
+    def load(
+        cls: Type[_T_WordEmbeddingsLexer], model_dir: pathlib.Path
+    ) -> _T_WordEmbeddingsLexer:
+        with open(model_dir / "config.json") as in_stream:
+            config = json.load(in_stream)
+        res = cls(**config)
+        weight_file = model_dir / "weights.pt"
+        if weight_file.exists():
+            res.load_state_dict(torch.load(weight_file))
+        return res
+
+    @classmethod
+    def from_words(
+        cls: Type[_T_WordEmbeddingsLexer], words: Iterable[str], **kwargs
+    ) -> _T_WordEmbeddingsLexer:
+        vocabulary = sorted(set(words))
+        return cls(vocabulary=vocabulary, **kwargs)
 
 
 def freeze_module(module: nn.Module, freezing: bool = True):
@@ -544,7 +601,7 @@ class BertBaseLexer(nn.Module):
         self,
         itos: Sequence[str],
         unk_word: str,
-        embedding_size: int,
+        embedding_dim: int,
         word_dropout: float,
         bert_layers: Optional[Sequence[int]],
         bert_model: str,
@@ -581,11 +638,11 @@ class BertBaseLexer(nn.Module):
             - self.bert_tokenizer.num_special_tokens_to_add(pair=False),
         )
 
-        self.embedding_size = embedding_size + self.bert.config.hidden_size
+        self.output_dim = embedding_dim + self.bert.config.hidden_size
 
         self.embedding = nn.Embedding(
             len(self.itos),
-            embedding_size,
+            embedding_dim,
             padding_idx=words_padding_idx,
         )
 
