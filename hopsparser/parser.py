@@ -42,7 +42,6 @@ from hopsparser.lexers import (
     WordEmbeddingsLexer,
     FastTextLexer,
     freeze_module,
-    make_vocab,
 )
 from hopsparser.mst import chuliu_edmonds_one_root as chuliu_edmonds
 from hopsparser.utils import smart_open
@@ -792,6 +791,7 @@ class BiAffineParser(nn.Module):
             config = yaml.load(in_stream, Loader=yaml.SafeLoader)
         model_path.mkdir(parents=True, exist_ok=False)
         # TODO: remove this once we have a proper full save method?
+        # FIXME: this leaks local path for local bert models
         model_config_path = model_path / "config.yaml"
         shutil.copy(config_path, model_config_path)
 
@@ -821,26 +821,37 @@ class BiAffineParser(nn.Module):
         corpus_words = [word for tree in treebank for word in tree.words[1:]]
         if config["lexer"] == "default":
             word_embeddings_lexer = WordEmbeddingsLexer.from_words(
-                words=(DepGraph.ROOT_TOKEN, cls.UNK_WORD, *corpus_words),
                 embeddings_dim=config["word_embedding_size"],
-                word_dropout=config["word_dropout"],
-                words_padding_idx=cls.PAD_IDX,
                 unk_word=cls.UNK_WORD,
+                word_dropout=config["word_dropout"],
+                words=(DepGraph.ROOT_TOKEN, cls.UNK_WORD, *corpus_words),
+                words_padding_idx=cls.PAD_IDX,
             )
             word_embeddings_lexer.save(
                 model_path / "word_embeddings_lexer", save_weights=False
             )
         else:
-            # NOTE: these include the [ROOT] token, which will thus automatically have a dedicated
-            # word embeddings in layers based on this vocab
-            # TODO: the threshold should be configurable
-            ordered_vocab = make_vocab(
-                [DepGraph.ROOT_TOKEN, *corpus_words],
-                0,
-                unk_word=cls.UNK_WORD,
-                pad_token=cls.PAD_TOKEN,
+            bert_layers = config.get("bert_layers", "*")
+            if bert_layers == "*":
+                bert_layers = None
+            lexer = BertBaseLexer.from_pretrained_and_words(
+                model_name_or_path=config["lexer"],
+                bert_config={
+                    "layers": bert_layers,
+                    "subwords_reduction": config.get(
+                        "bert_subwords_reduction", "first"
+                    ),
+                    "weight_layers": config.get("bert_weighted", False),
+                },
+                words=(DepGraph.ROOT_TOKEN, cls.UNK_WORD, *corpus_words),
+                words_config={
+                    "embeddings_dim": config["word_embedding_size"],
+                    "unk_word": cls.UNK_WORD,
+                    "word_dropout": config["word_dropout"],
+                    "words_padding_idx": cls.PAD_IDX,
+                },
             )
-            savelist(ordered_vocab, model_path / "vocab.lst")
+            lexer.save(model_path / "bert_lexer")
 
         chars_lexer = CharRNNLexer.from_chars(
             chars=(c for word in corpus_words for c in word),
@@ -877,40 +888,11 @@ class BiAffineParser(nn.Module):
         with open(config_path) as in_stream:
             hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
 
-        # TODO: separate the BERT and word lexers
         lexer: Union[WordEmbeddingsLexer, BertBaseLexer]
         if hp["lexer"] == "default":
             lexer = WordEmbeddingsLexer.load(model_path / "word_embeddings_lexer")
         else:
-            ordered_vocab = loadlist(model_path / "vocab.lst")
-            bert_config_path = model_path / "bert_config"
-            if bert_config_path.exists():
-                bert_model = str(bert_config_path)
-            else:
-                bert_model = hp["lexer"]
-            bert_layers = hp.get("bert_layers", [4, 5, 6, 7])
-            if bert_layers == "*":
-                bert_layers = None
-            lexer = BertBaseLexer(
-                bert_model=bert_model,
-                bert_layers=bert_layers,
-                bert_subwords_reduction=hp.get("bert_subwords_reduction", "first"),
-                bert_weighted=hp.get("bert_weighted", False),
-                embedding_dim=hp["word_embedding_size"],
-                itos=ordered_vocab,
-                unk_word=cls.UNK_WORD,
-                words_padding_idx=cls.PAD_IDX,
-                word_dropout=hp["word_dropout"],
-            )
-            if not bert_config_path.exists():
-                lexer.bert.model.config.save_pretrained(bert_config_path)
-                lexer.bert.tokenizer.save_pretrained(
-                    bert_config_path,
-                    legacy_format=not lexer.bert.tokenizer.is_fast,
-                )
-                # Saving local paths in config is of little use and leaks information
-                if pathlib.Path(hp["lexer"]).exists():
-                    hp["lexer"] = "."
+            lexer = BertBaseLexer.load(model_path / "bert_lexer")
 
         chars_lexer = CharRNNLexer.load(model_path / "chars_lexer")
         ft_lexer = FastTextLexer.load(model_path / "fasttext_lexer")
@@ -935,18 +917,12 @@ class BiAffineParser(nn.Module):
         weights_file = model_path / "model.pt"
         if weights_file.exists():
             parser.load_params(str(weights_file))
-        else:
-            parser.save_params(str(weights_file))
-            # We were actually initializing — rather than loading — the model, let's save the
-            # config with our changes
-            with open(config_path, "w") as out_stream:
-                yaml.dump(hp, out_stream)
 
         if hp.get("freeze_fasttext", False):
             freeze_module(ft_lexer)
         if hp.get("freeze_bert", False):
             if isinstance(lexer, lexers.BertBaseLexer):
-                freeze_module(lexer.bert)
+                freeze_module(lexer.bert_lexer)
             else:
                 warnings.warn(
                     "A non-BERT lexer has no BERT to freeze, ignoring `freeze_bert` hyperparameter"

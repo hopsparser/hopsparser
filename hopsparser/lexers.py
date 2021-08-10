@@ -1,9 +1,10 @@
 import json
 import pathlib
 from abc import abstractmethod
-from collections import Counter
 import tempfile
 from typing import (
+    Any,
+    Dict,
     Final,
     Iterable,
     List,
@@ -40,22 +41,6 @@ class LexingError(Exception):
 def integer_dropout(t: torch.Tensor, fill_value: int, p: float) -> torch.Tensor:
     mask = torch.empty_like(t, dtype=torch.bool).bernoulli_(p)
     return t.masked_fill(mask, fill_value)
-
-
-def make_vocab(
-    words: Iterable[str], threshold: int, unk_word: str, pad_token: str
-) -> List[str]:
-    """
-    Extracts the set of tokens found in the data and orders it
-    """
-    vocab_counter = Counter(words)
-    vocab = set(
-        [tok for (tok, counts) in vocab_counter.most_common() if counts > threshold]
-    )
-    vocab.add(unk_word)
-
-    itos = [pad_token, *sorted(vocab)]
-    return itos
 
 
 _T_LEXER_SENT = TypeVar("_T_LEXER_SENT")
@@ -556,7 +541,7 @@ class BertLexerBatch(NamedTuple):
 
 
 class BertLexerSentence(NamedTuple):
-    word_indices: Sequence[int]
+    word_indices: torch.Tensor
     encoding: BatchEncoding
     subwords_alignments: Sequence[TokenSpan]
 
@@ -590,6 +575,9 @@ def align_with_special_tokens(
     return res
 
 
+_T_BertLexer = TypeVar("_T_BertLexer", bound="BertLexer")
+
+
 class BertLexer(nn.Module):
     """
     This Lexer performs tokenization and embedding mapping with BERT
@@ -599,24 +587,16 @@ class BertLexer(nn.Module):
     def __init__(
         self,
         layers: Optional[Sequence[int]],
-        model: str,
+        model: transformers.PreTrainedModel,
+        tokenizer: transformers.PreTrainedTokenizerBase,
         subwords_reduction: Literal["first", "mean"],
         weight_layers: bool,
     ):
 
         super().__init__()
 
-        try:
-            self.model = transformers.AutoModel.from_pretrained(
-                model, output_hidden_states=True
-            )
-        except OSError:
-            config = transformers.AutoConfig.from_pretrained(model)
-            self.model = transformers.AutoModel.from_config(config)
-
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained(
-            model, use_fast=True
-        )
+        self.model = model
+        self.tokenizer = tokenizer
         # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
         if isinstance(self.tokenizer, transformers.GPT2TokenizerFast):
             self.tokenizer = transformers.AutoTokenizer.from_pretrained(
@@ -662,7 +642,9 @@ class BertLexer(nn.Module):
 
     def forward(self, inpt: BertLexerBatch) -> torch.Tensor:
         layers = self.model(
-            input_ids=inpt.encoding["input_ids"], return_dict=True
+            input_ids=inpt.encoding["input_ids"],
+            return_dict=True,
+            output_hidden_states=True,
         ).hidden_states
         # Shape: layers×batch×sequence×features
         selected_layers = torch.stack([layers[i] for i in self.layers], 0)
@@ -730,11 +712,6 @@ class BertLexer(nn.Module):
         )
 
     def encode(self, tokens_sequence: Sequence[str]) -> BertLexerSentence:
-        """
-        This maps word tokens to integer indexes.
-        Args:
-           tok_sequence: a sequence of strings
-        """
         # The root token is remved here since the BERT model has no reason to know of it
         unrooted_tok_sequence = tokens_sequence[1:]
         # NOTE: for now the 🤗 tokenizer interface is not unified between fast and non-fast
@@ -792,83 +769,80 @@ class BertLexer(nn.Module):
 
         return BertLexerSentence([], bert_encoding, alignments)
 
+    def save(self, model_dir: pathlib.Path, save_weights: bool = True):
+        model_dir.mkdir(exist_ok=True, parents=True)
+        config_file = model_dir / "config.json"
+        with open(config_file, "w") as out_stream:
+            json.dump(
+                {
+                    "layers": self.layers,
+                    "subwords_reduction": self.subwords_reduction,
+                    "weight_layers": self.weight_layers,
+                },
+                out_stream,
+            )
+        bert_model_path = model_dir / "model"
+        self.model.config.save_pretrained(bert_model_path)
+        self.tokenizer.save_pretrained(
+            bert_model_path,
+            legacy_format=not self.tokenizer.is_fast,
+        )
+        if save_weights:
+            torch.save(self.state_dict(), model_dir / "weights.pt")
+
+    @classmethod
+    def load(cls: Type[_T_BertLexer], model_dir: pathlib.Path) -> _T_BertLexer:
+        with open(model_dir / "config.json") as in_stream:
+            config = json.load(in_stream)
+        bert_model_path = model_dir / "model"
+        bert_config = transformers.AutoConfig.from_pretrained(bert_model_path)
+        model = transformers.AutoModel.from_config(bert_config)
+        tokenizer = transformers.AutoTokenizer.from_pretrained(
+            bert_model_path, use_fast=True
+        )
+        res = cls(model=model, tokenizer=tokenizer, **config)
+        weight_file = model_dir / "weights.pt"
+        if weight_file.exists():
+            res.load_state_dict(torch.load(weight_file))
+        return res
+
+    @classmethod
+    def from_pretrained(
+        cls: Type[_T_BertLexer], model_name_or_path: Union[str, pathlib.Path], **kwargs
+    ) -> _T_BertLexer:
+        try:
+            model = transformers.AutoModel.from_pretrained(model_name_or_path)
+        except OSError:
+            config = transformers.AutoConfig.from_pretrained(model_name_or_path)
+            model = transformers.AutoModel.from_config(config)
+
+        tokenizer = transformers.AutoTokenizer.from_pretrained(
+            model_name_or_path, use_fast=True
+        )
+
+        return cls(model=model, tokenizer=tokenizer, **kwargs)
+
+
+_T_BertBaseLexer = TypeVar("_T_BertBaseLexer", bound="BertBaseLexer")
+
 
 class BertBaseLexer(nn.Module):
     """
-    This Lexer performs tokenization and embedding mapping with BERT
-    style models. It concatenates a standard embedding with a BERT
-    embedding.
+    This Lexer performs tokenization and embedding mapping with BERT style models. It concatenates a
+    standard embedding with a BERT embedding.
     """
 
     def __init__(
         self,
-        itos: Sequence[str],
-        unk_word: str,
-        embedding_dim: int,
-        word_dropout: float,
-        bert_layers: Optional[Sequence[int]],
-        bert_model: str,
-        bert_subwords_reduction: Literal["first", "mean"],
-        bert_weighted: bool,
-        words_padding_idx: int,
+        words_lexer: WordEmbeddingsLexer,
+        bert_lexer: BertLexer,
     ):
 
         super().__init__()
-        self.itos = itos
-        self.stoi = {token: idx for idx, token in enumerate(self.itos)}
-        self.unk_word_idx = self.stoi[unk_word]
+        self.words_lexer = words_lexer
+        self.bert_lexer = bert_lexer
 
-        self.bert = BertLexer(
-            layers=bert_layers,
-            model=bert_model,
-            subwords_reduction=bert_subwords_reduction,
-            weight_layers=bert_weighted,
-        )
-
-        self.output_dim = embedding_dim + self.bert.output_dim
-
-        self.embedding = nn.Embedding(
-            len(self.itos),
-            embedding_dim,
-            padding_idx=words_padding_idx,
-        )
-
-        self.word_dropout = word_dropout
-        self._dpout = 0.0
-
-    def train(self, mode: bool = True) -> "BertBaseLexer":
-        if mode:
-            self._dpout = self.word_dropout
-        else:
-            self._dpout = 0.0
-        return super().train(mode)
-
-    def forward(self, inpt: BertLexerBatch) -> torch.Tensor:
-        word_indices = inpt.word_indices
-        if self._dpout:
-            word_indices = integer_dropout(word_indices, self.unk_word_idx, self._dpout)
-        word_embeddings = self.embedding(word_indices)
-
-        bert_embeddings = self.bert(inpt)
-
-        return torch.cat((word_embeddings, bert_embeddings), dim=2)
-
-    def make_batch(
-        self,
-        batch: Sequence[BertLexerSentence],
-    ) -> BertLexerBatch:
-        """Pad a batch of sentences."""
-        words_batch = []
-        for sent in batch:
-            words_batch.append(torch.tensor(sent.word_indices, dtype=torch.long))
-        bert_batch = self.bert.make_batch(batch)
-        return BertLexerBatch(
-            pad_sequence(
-                words_batch, batch_first=True, padding_value=self.embedding.padding_idx
-            ),
-            bert_batch.encoding,
-            bert_batch.subword_alignments,
-        )
+        self.output_dim = self.words_lexer.output_dim + self.bert_lexer.output_dim
 
     def encode(self, tokens_sequence: Sequence[str]) -> BertLexerSentence:
         """
@@ -876,12 +850,53 @@ class BertBaseLexer(nn.Module):
         Args:
            tok_sequence: a sequence of strings
         """
-        word_idxes = [
-            self.stoi.get(token, self.unk_word_idx) for token in tokens_sequence
-        ]
-
-        bert_sent = self.bert.encode(tokens_sequence)
+        word_idxes = self.words_lexer.encode(tokens_sequence)
+        bert_sent = self.bert_lexer.encode(tokens_sequence)
 
         return BertLexerSentence(
             word_idxes, bert_sent.encoding, bert_sent.subwords_alignments
         )
+
+    def make_batch(
+        self,
+        batch: Sequence[BertLexerSentence],
+    ) -> BertLexerBatch:
+        """Pad a batch of sentences."""
+        words_batch = self.words_lexer.make_batch([sent.word_indices for sent in batch])
+        bert_batch = self.bert_lexer.make_batch(batch)
+        return BertLexerBatch(
+            words_batch,
+            bert_batch.encoding,
+            bert_batch.subword_alignments,
+        )
+
+    def forward(self, inpt: BertLexerBatch) -> torch.Tensor:
+        word_embeddings = self.words_lexer(inpt.word_indices)
+        bert_embeddings = self.bert_lexer(inpt)
+        return torch.cat((word_embeddings, bert_embeddings), dim=2)
+
+    def save(self, model_dir: pathlib.Path, save_weights: bool = True):
+        model_dir.mkdir(exist_ok=True, parents=True)
+        self.words_lexer.save(model_dir / "words", save_weights=save_weights)
+        self.bert_lexer.save(model_dir / "bert", save_weights=save_weights)
+
+    @classmethod
+    def load(cls: Type[_T_BertBaseLexer], model_dir: pathlib.Path) -> _T_BertBaseLexer:
+        words_lexer = WordEmbeddingsLexer.load(model_dir / "words")
+        bert_lexer = BertLexer.load(model_dir / "bert")
+        return cls(words_lexer=words_lexer, bert_lexer=bert_lexer)
+
+    @classmethod
+    def from_pretrained_and_words(
+        cls: Type[_T_BertBaseLexer],
+        bert_config: Dict[str, Any],
+        model_name_or_path: Union[str, pathlib.Path],
+        words: Iterable[str],
+        words_config: Dict[str, Any],
+    ) -> _T_BertBaseLexer:
+        words_lexer = WordEmbeddingsLexer.from_words(words, **words_config)
+        bert_lexer = BertLexer.from_pretrained(
+            model_name_or_path=model_name_or_path,
+            **bert_config,
+        )
+        return cls(words_lexer=words_lexer, bert_lexer=bert_lexer)
