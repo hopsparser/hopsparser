@@ -1,9 +1,12 @@
+import math
 import pathlib
 import tempfile
-from typing import List
+from typing import List, Literal, Tuple
 
 import fasttext
+import pytest
 import torch
+import transformers
 from hypothesis import given, settings, strategies as st
 
 from hopsparser import lexers
@@ -107,6 +110,74 @@ def test_word_embeddings_create_save_load(
         lexer.save(tmp_path, save_weights=True)
         reloaded = lexers.WordEmbeddingsLexer.load(tmp_path)
     assert lexer.vocabulary == reloaded.vocabulary
+    lexer.eval()
+    orig_encoding = lexer(lexer.make_batch([lexer.encode(test_text)]))
+    reloaded.eval()
+    reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
+    assert torch.equal(orig_encoding, reloaded_encoding)
+
+
+@pytest.fixture(params=["lysandre/tiny-bert-random", "flaubert/flaubert_small_cased"])
+def transformer_model(
+    request,
+) -> Tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase]:
+    model = transformers.AutoModel.from_pretrained(request.param)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(request.param, use_fast=True)
+    return (model, tokenizer)
+
+
+@settings(deadline=2000)
+# FIXME: whitespace should not technically be forbidden in `test_text`, only a single whitespace.
+# FIXME: should we really skip control characters?.
+@given(
+    data=st.data(),
+    subwords_reduction=st.one_of([st.just("first"), st.just("mean")]),
+    test_text=st.lists(
+        st.text(alphabet=st.characters(blacklist_categories=["Zs", "C"]), min_size=1),
+        min_size=1,
+    ),
+    weight_layers=st.booleans(),
+)
+def test_bert_embeddings_create_save_load(
+    data: st.DataObject,
+    subwords_reduction: Literal["first", "mean"],
+    test_text: List[str],
+    transformer_model: Tuple[
+        transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase
+    ],
+    weight_layers: bool,
+):
+    model, tokenizer = transformer_model
+    max_num_layers = min(
+        getattr(model.config, param_name, math.inf)
+        for param_name in ("num_layers", "n_layers", "num_hidden_layers")
+    )
+    layers = data.draw(
+        st.one_of(
+            [
+                st.none(),
+                st.lists(
+                    st.integers(
+                        min_value=-max_num_layers, max_value=max_num_layers - 1
+                    ),
+                    min_size=1,
+                ),
+            ]
+        )
+    )
+    lexer = lexers.BertLexer(
+        layers=layers,
+        model=transformer_model[0],
+        subwords_reduction=subwords_reduction,
+        tokenizer=tokenizer,
+        weight_layers=weight_layers,
+    )
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = pathlib.Path(tmp_dir)
+        lexer.save(tmp_path, save_weights=True)
+        reloaded = lexers.BertLexer.load(tmp_path)
+    # TODO: there must be a better way to deal with roots
+    test_text = ["", *test_text]
     lexer.eval()
     orig_encoding = lexer(lexer.make_batch([lexer.encode(test_text)]))
     reloaded.eval()

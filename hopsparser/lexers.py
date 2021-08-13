@@ -1,4 +1,5 @@
 import json
+import math
 import pathlib
 from abc import abstractmethod
 import tempfile
@@ -588,8 +589,8 @@ class BertLexer(nn.Module):
         self,
         layers: Optional[Sequence[int]],
         model: transformers.PreTrainedModel,
-        tokenizer: transformers.PreTrainedTokenizerBase,
         subwords_reduction: Literal["first", "mean"],
+        tokenizer: transformers.PreTrainedTokenizerBase,
         weight_layers: bool,
     ):
 
@@ -605,24 +606,22 @@ class BertLexer(nn.Module):
 
         self.max_length = min(
             self.tokenizer.max_len_single_sentence,
-            getattr(self.model.config, "max_position_embeddings", float("inf"))
+            getattr(self.model.config, "max_position_embeddings", math.inf)
             - self.tokenizer.num_special_tokens_to_add(pair=False),
         )
 
         self.output_dim = self.model.config.hidden_size
 
         # 🤗 has no unified API for the number of layers
-        num_layers = next(
-            n
+        num_layers = min(
+            getattr(model.config, param_name, math.inf)
             for param_name in ("num_layers", "n_layers", "num_hidden_layers")
-            for n in [getattr(self.model.config, param_name, None)]
-            if n is not None
         )
         if layers is None:
             layers = list(range(num_layers))
         elif not all(-num_layers <= layer_idx < num_layers for layer_idx in layers):
             raise ValueError(
-                f"Wrong BERT layer selections for a model with {num_layers} layers: {layers}"
+                f"Wrong layers selections for a model with {num_layers} layers: {layers}"
             )
         self.layers = layers
         # Deactivate layerdrop if available
@@ -713,6 +712,8 @@ class BertLexer(nn.Module):
 
     def encode(self, tokens_sequence: Sequence[str]) -> BertLexerSentence:
         # The root token is remved here since the BERT model has no reason to know of it
+        # FIXME: this means that this lexer is not really reusable, we should find a better way to
+        # get a represetations for ROOT
         unrooted_tok_sequence = tokens_sequence[1:]
         # NOTE: for now the 🤗 tokenizer interface is not unified between fast and non-fast
         # tokenizers AND not all tokenizers support the fast mode, so we have to do this little
