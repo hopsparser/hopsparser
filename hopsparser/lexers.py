@@ -47,6 +47,8 @@ def integer_dropout(t: torch.Tensor, fill_value: int, p: float) -> torch.Tensor:
 _T_LEXER_SENT = TypeVar("_T_LEXER_SENT")
 _T_LEXER_BATCH = TypeVar("_T_LEXER_BATCH")
 
+_T_Lexer = TypeVar("_T_Lexer", bound="Lexer")
+
 
 class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH]):
     @abstractmethod
@@ -55,6 +57,15 @@ class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH]):
 
     @abstractmethod
     def make_batch(self, batch: Sequence[_T_LEXER_SENT]) -> _T_LEXER_BATCH:
+        raise NotImplementedError
+
+    @abstractmethod
+    def save(self, model_path: pathlib.Path, save_weights: bool):
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def load(cls: Type[_T_Lexer], model_path: pathlib.Path) -> _T_Lexer:
         raise NotImplementedError
 
     @abstractmethod
@@ -182,9 +193,9 @@ class CharRNNLexer(nn.Module):
             res[i, : sent.shape[0], : sent.shape[1]] = sent
         return res
 
-    def save(self, model_dir: pathlib.Path, save_weights: bool = True):
-        model_dir.mkdir(exist_ok=True, parents=True)
-        config_file = model_dir / "config.json"
+    def save(self, model_path: pathlib.Path, save_weights: bool = True):
+        model_path.mkdir(exist_ok=True, parents=True)
+        config_file = model_path / "config.json"
         with open(config_file, "w") as out_stream:
             json.dump(
                 {
@@ -198,14 +209,14 @@ class CharRNNLexer(nn.Module):
                 out_stream,
             )
         if save_weights:
-            torch.save(self.state_dict(), model_dir / "weights.pt")
+            torch.save(self.state_dict(), model_path / "weights.pt")
 
     @classmethod
-    def load(cls: Type[_T_CharRNNLexer], model_dir: pathlib.Path) -> _T_CharRNNLexer:
-        with open(model_dir / "config.json") as in_stream:
+    def load(cls: Type[_T_CharRNNLexer], model_path: pathlib.Path) -> _T_CharRNNLexer:
+        with open(model_path / "config.json") as in_stream:
             config = json.load(in_stream)
         res = cls(**config)
-        weight_file = model_dir / "weights.pt"
+        weight_file = model_path / "weights.pt"
         if weight_file.exists():
             res.load_state_dict(torch.load(weight_file))
         return res
@@ -315,9 +326,9 @@ class FastTextLexer(nn.Module):
         # shape: batch_size×max_sentence_length×num_subwords_in_longest_word
         return res
 
-    def save(self, model_dir: pathlib.Path, save_weights: bool = True):
-        model_dir.mkdir(exist_ok=True, parents=True)
-        config_file = model_dir / "config.json"
+    def save(self, model_path: pathlib.Path, save_weights: bool = True):
+        model_path.mkdir(exist_ok=True, parents=True)
+        config_file = model_path / "config.json"
         with open(config_file, "w") as out_stream:
             json.dump(
                 {
@@ -331,19 +342,19 @@ class FastTextLexer(nn.Module):
         self.fasttext_model.set_matrices(
             self.embeddings.weight[:-2].numpy(), self.fasttext_model.get_output_matrix()
         )
-        self.fasttext_model.save_model(str(model_dir / "fasttext_model.bin"))
+        self.fasttext_model.save_model(str(model_path / "fasttext_model.bin"))
         if save_weights:
-            torch.save(self.state_dict(), model_dir / "weights.pt")
+            torch.save(self.state_dict(), model_path / "weights.pt")
 
     @classmethod
     def load(
         cls: Type[_T_FastTextLexer],
-        model_dir: pathlib.Path,
+        model_path: pathlib.Path,
     ) -> _T_FastTextLexer:
-        with open(model_dir / "config.json") as in_stream:
+        with open(model_path / "config.json") as in_stream:
             config = json.load(in_stream)
-        res = cls.from_fasttext_model(model_dir / "fasttext_model.bin", **config)
-        weight_file = model_dir / "weights.pt"
+        res = cls.from_fasttext_model(model_path / "fasttext_model.bin", **config)
+        weight_file = model_path / "weights.pt"
         if weight_file.exists():
             res.load_state_dict(torch.load(weight_file))
         return res
@@ -454,9 +465,9 @@ class WordEmbeddingsLexer(nn.Module):
             batch_first=True,
         )
 
-    def save(self, model_dir: pathlib.Path, save_weights: bool = True):
-        model_dir.mkdir(exist_ok=True, parents=True)
-        config_file = model_dir / "config.json"
+    def save(self, model_path: pathlib.Path, save_weights: bool = True):
+        model_path.mkdir(exist_ok=True, parents=True)
+        config_file = model_path / "config.json"
         with open(config_file, "w") as out_stream:
             json.dump(
                 {
@@ -471,16 +482,16 @@ class WordEmbeddingsLexer(nn.Module):
                 out_stream,
             )
         if save_weights:
-            torch.save(self.state_dict(), model_dir / "weights.pt")
+            torch.save(self.state_dict(), model_path / "weights.pt")
 
     @classmethod
     def load(
-        cls: Type[_T_WordEmbeddingsLexer], model_dir: pathlib.Path
+        cls: Type[_T_WordEmbeddingsLexer], model_path: pathlib.Path
     ) -> _T_WordEmbeddingsLexer:
-        with open(model_dir / "config.json") as in_stream:
+        with open(model_path / "config.json") as in_stream:
             config = json.load(in_stream)
         res = cls(**config)
-        weight_file = model_dir / "weights.pt"
+        weight_file = model_path / "weights.pt"
         if weight_file.exists():
             res.load_state_dict(torch.load(weight_file))
         return res
@@ -770,9 +781,9 @@ class BertLexer(nn.Module):
 
         return BertLexerSentence([], bert_encoding, alignments)
 
-    def save(self, model_dir: pathlib.Path, save_weights: bool = True):
-        model_dir.mkdir(exist_ok=True, parents=True)
-        config_file = model_dir / "config.json"
+    def save(self, model_path: pathlib.Path, save_weights: bool = True):
+        model_path.mkdir(exist_ok=True, parents=True)
+        config_file = model_path / "config.json"
         with open(config_file, "w") as out_stream:
             json.dump(
                 {
@@ -782,27 +793,27 @@ class BertLexer(nn.Module):
                 },
                 out_stream,
             )
-        bert_model_path = model_dir / "model"
+        bert_model_path = model_path / "model"
         self.model.config.save_pretrained(bert_model_path)
         self.tokenizer.save_pretrained(
             bert_model_path,
             legacy_format=not self.tokenizer.is_fast,
         )
         if save_weights:
-            torch.save(self.state_dict(), model_dir / "weights.pt")
+            torch.save(self.state_dict(), model_path / "weights.pt")
 
     @classmethod
-    def load(cls: Type[_T_BertLexer], model_dir: pathlib.Path) -> _T_BertLexer:
-        with open(model_dir / "config.json") as in_stream:
+    def load(cls: Type[_T_BertLexer], model_path: pathlib.Path) -> _T_BertLexer:
+        with open(model_path / "config.json") as in_stream:
             config = json.load(in_stream)
-        bert_model_path = model_dir / "model"
+        bert_model_path = model_path / "model"
         bert_config = transformers.AutoConfig.from_pretrained(bert_model_path)
         model = transformers.AutoModel.from_config(bert_config)
         tokenizer = transformers.AutoTokenizer.from_pretrained(
             bert_model_path, use_fast=True
         )
         res = cls(model=model, tokenizer=tokenizer, **config)
-        weight_file = model_dir / "weights.pt"
+        weight_file = model_path / "weights.pt"
         if weight_file.exists():
             res.load_state_dict(torch.load(weight_file))
         return res
@@ -835,8 +846,8 @@ class BertBaseLexer(nn.Module):
 
     def __init__(
         self,
-        words_lexer: WordEmbeddingsLexer,
         bert_lexer: BertLexer,
+        words_lexer: WordEmbeddingsLexer,
     ):
 
         super().__init__()
@@ -876,15 +887,15 @@ class BertBaseLexer(nn.Module):
         bert_embeddings = self.bert_lexer(inpt)
         return torch.cat((word_embeddings, bert_embeddings), dim=2)
 
-    def save(self, model_dir: pathlib.Path, save_weights: bool = True):
-        model_dir.mkdir(exist_ok=True, parents=True)
-        self.words_lexer.save(model_dir / "words", save_weights=save_weights)
-        self.bert_lexer.save(model_dir / "bert", save_weights=save_weights)
+    def save(self, model_path: pathlib.Path, save_weights: bool = True):
+        model_path.mkdir(exist_ok=True, parents=True)
+        self.words_lexer.save(model_path / "words", save_weights=save_weights)
+        self.bert_lexer.save(model_path / "bert", save_weights=save_weights)
 
     @classmethod
-    def load(cls: Type[_T_BertBaseLexer], model_dir: pathlib.Path) -> _T_BertBaseLexer:
-        words_lexer = WordEmbeddingsLexer.load(model_dir / "words")
-        bert_lexer = BertLexer.load(model_dir / "bert")
+    def load(cls: Type[_T_BertBaseLexer], model_path: pathlib.Path) -> _T_BertBaseLexer:
+        words_lexer = WordEmbeddingsLexer.load(model_path / "words")
+        bert_lexer = BertLexer.load(model_path / "bert")
         return cls(words_lexer=words_lexer, bert_lexer=bert_lexer)
 
     @classmethod

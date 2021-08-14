@@ -1,10 +1,12 @@
 import collections.abc
+import json
 import math
 import pathlib
 import random
 import shutil
 import warnings
 from typing import (
+    Dict,
     IO,
     BinaryIO,
     Callable,
@@ -37,6 +39,7 @@ from hopsparser import deptree, lexers
 from hopsparser.deptree import DepGraph
 from hopsparser.lexers import (
     BertBaseLexer,
+    BertLexer,
     BertLexerBatch,
     CharRNNLexer,
     WordEmbeddingsLexer,
@@ -237,7 +240,7 @@ class BiAffineParser(nn.Module):
         chars_lexer: CharRNNLexer,
         default_batch_size: int,
         encoder_dropout: float,  # lstm dropout
-        ft_lexer: FastTextLexer,
+        fasttext_lexer: FastTextLexer,
         labels: Sequence[str],
         lexer: Union[WordEmbeddingsLexer, BertBaseLexer],
         mlp_input: int,
@@ -258,14 +261,16 @@ class BiAffineParser(nn.Module):
         )
         self.mlp_arc_hidden = mlp_arc_hidden
         self.mlp_input = mlp_input
+        self.mlp_tag_hidden = mlp_tag_hidden
         self.mlp_lab_hidden = mlp_lab_hidden
+        self.mlp_dropout = mlp_dropout
 
         self.lexer = lexer
         self.chars_lexer = chars_lexer
-        self.ft_lexer = ft_lexer
+        self.fasttext_lexer = fasttext_lexer
 
         self.dep_rnn = nn.LSTM(
-            self.lexer.output_dim + chars_lexer.output_dim + ft_lexer.output_dim,
+            self.lexer.output_dim + chars_lexer.output_dim + fasttext_lexer.output_dim,
             mlp_input,
             3,
             batch_first=True,
@@ -274,18 +279,28 @@ class BiAffineParser(nn.Module):
         )
 
         # POS tagger & char RNN
-        self.pos_tagger = MLP(mlp_input * 2, mlp_tag_hidden, len(self.tagset))
+        self.pos_tagger = MLP(self.mlp_input * 2, self.mlp_tag_hidden, len(self.tagset))
 
         # Arc MLPs
-        self.arc_mlp_h = MLP(mlp_input * 2, mlp_arc_hidden, mlp_input, mlp_dropout)
-        self.arc_mlp_d = MLP(mlp_input * 2, mlp_arc_hidden, mlp_input, mlp_dropout)
+        self.arc_mlp_h = MLP(
+            self.mlp_input * 2, self.mlp_arc_hidden, self.mlp_input, self.mlp_dropout
+        )
+        self.arc_mlp_d = MLP(
+            self.mlp_input * 2, self.mlp_arc_hidden, self.mlp_input, self.mlp_dropout
+        )
         # Label MLPs
-        self.lab_mlp_h = MLP(mlp_input * 2, mlp_lab_hidden, mlp_input, mlp_dropout)
-        self.lab_mlp_d = MLP(mlp_input * 2, mlp_lab_hidden, mlp_input, mlp_dropout)
+        self.lab_mlp_h = MLP(
+            self.mlp_input * 2, self.mlp_lab_hidden, self.mlp_input, self.mlp_dropout
+        )
+        self.lab_mlp_d = MLP(
+            self.mlp_input * 2, self.mlp_lab_hidden, self.mlp_input, self.mlp_dropout
+        )
 
         # BiAffine layers
-        self.arc_biaffine = BiAffine(mlp_input, 1, bias=biased_biaffine)
-        self.lab_biaffine = BiAffine(mlp_input, len(self.labels), bias=biased_biaffine)
+        self.arc_biaffine = BiAffine(self.mlp_input, 1, bias=biased_biaffine)
+        self.lab_biaffine = BiAffine(
+            self.mlp_input, len(self.labels), bias=biased_biaffine
+        )
 
     def save_params(self, path: Union[str, pathlib.Path, BinaryIO]):
         torch.save(self.state_dict(), path)
@@ -314,7 +329,7 @@ class BiAffineParser(nn.Module):
         # Computes char embeddings
         char_embed = self.chars_lexer(chars)
         # Computes fasttext embeddings
-        ft_embed = self.ft_lexer(ft_subwords)
+        ft_embed = self.fasttext_lexer(ft_subwords)
         # Computes word embeddings
         lex_emb = self.lexer(words)
 
@@ -473,7 +488,7 @@ class BiAffineParser(nn.Module):
         dev_set: Optional["DependencyDataset"] = None,
     ):
         model_path = pathlib.Path(model_path)
-        weights_file = model_path / "model.pt"
+        weights_file = model_path / "weights.pt"
         if batch_size is None:
             batch_size = self.default_batch_size
         device = next(self.parameters()).device
@@ -574,7 +589,7 @@ class BiAffineParser(nn.Module):
             encoded = EncodedSentence(
                 words=words,
                 encoded_words=self.lexer.encode(words_with_root),
-                subwords=self.ft_lexer.encode(words_with_root),
+                subwords=self.fasttext_lexer.encode(words_with_root),
                 chars=self.chars_lexer.encode(words_with_root),
                 sent_len=len(words_with_root),
             )
@@ -595,7 +610,7 @@ class BiAffineParser(nn.Module):
             [sent.encoded_words for sent in sentences]
         )
         chars = self.chars_lexer.make_batch([sent.chars for sent in sentences])
-        subwords = self.ft_lexer.make_batch([sent.subwords for sent in sentences])
+        subwords = self.fasttext_lexer.make_batch([sent.subwords for sent in sentences])
 
         sent_lengths = torch.tensor(
             [sent.sent_len for sent in sentences], dtype=torch.long
@@ -779,21 +794,61 @@ class BiAffineParser(nn.Module):
             )
         yield from self.batched_predict(batches, greedy=False)
 
+    def save(self, model_path: pathlib.Path, save_weights: bool = True):
+        model_path.mkdir(exist_ok=True, parents=True)
+        config_file = model_path / "config.json"
+        with open(config_file, "w") as out_stream:
+            json.dump(
+                {
+                    "biased_biaffine": self.arc_biaffine.bias,
+                    "default_batch_size": self.default_batch_size,
+                    "encoder_dropout": self.dep_rnn.dropout,
+                    "labels": self.labels,
+                    "mlp_input": self.mlp_input,
+                    "mlp_tag_hidden": self.mlp_tag_hidden,
+                    "mlp_arc_hidden": self.mlp_arc_hidden,
+                    "mlp_lab_hidden": self.mlp_lab_hidden,
+                    "mlp_dropout": self.mlp_dropout,
+                    "tagset": self.tagset,
+                },
+                out_stream,
+            )
+        parser_lexers: Dict[str, lexers.Lexer] = {
+            "chars_lexer": self.chars_lexer,
+            "fasttext_lexer": self.fasttext_lexer,
+        }
+        lexers_path = model_path / "lexers"
+        for lexer_name, lexer in parser_lexers.items():
+            lexer.save(model_path=lexers_path / lexer_name, save_weights=False)
+        if isinstance(self.lexer, lexers.BertBaseLexer):
+            self.lexer.words_lexer.save(
+                model_path=lexers_path / "word_embeddings_lexer",
+                save_weights=False,
+            )
+            self.lexer.bert_lexer.save(
+                model_path=lexers_path / "bert_lexer", save_weights=False
+            )
+        else:
+            self.lexer.save(
+                model_path=lexers_path / "word_embeddings_lexer",
+                save_weights=False,
+            )
+
+        if save_weights:
+            torch.save(self.state_dict(), model_path / "weights.pt")
+
     @classmethod
     def initialize(
         cls: Type[_T_BiAffineParser],
         config_path: pathlib.Path,
-        model_path: pathlib.Path,
         treebank: List[DepGraph],
         fasttext: Optional[pathlib.Path] = None,
     ) -> _T_BiAffineParser:
+        logger.info(f"Initializing a parser from {config_path}")
         with open(config_path) as in_stream:
             config = yaml.load(in_stream, Loader=yaml.SafeLoader)
-        model_path.mkdir(parents=True, exist_ok=False)
-        # TODO: remove this once we have a proper full save method?
-        # FIXME: this leaks local path for local bert models
-        model_config_path = model_path / "config.yaml"
-        shutil.copy(config_path, model_config_path)
+        config.setdefault("biased_biaffine", True)
+        config.setdefault("batch_size", 1)
 
         if fasttext is None:
             logger.info("Generating a FastText model from the treebank")
@@ -816,19 +871,16 @@ class BiAffineParser(nn.Module):
                 )
         else:
             raise ValueError(f"{fasttext} not found")
-        fasttext_lexer.save(model_path / "fasttext_lexer", save_weights=False)
 
         corpus_words = [word for tree in treebank for word in tree.words[1:]]
+        lexer: Union[WordEmbeddingsLexer, BertBaseLexer]
         if config["lexer"] == "default":
-            word_embeddings_lexer = WordEmbeddingsLexer.from_words(
+            lexer = WordEmbeddingsLexer.from_words(
                 embeddings_dim=config["word_embedding_size"],
                 unk_word=cls.UNK_WORD,
                 word_dropout=config["word_dropout"],
                 words=(DepGraph.ROOT_TOKEN, cls.UNK_WORD, *corpus_words),
                 words_padding_idx=cls.PAD_IDX,
-            )
-            word_embeddings_lexer.save(
-                model_path / "word_embeddings_lexer", save_weights=False
             )
         else:
             bert_layers = config.get("bert_layers", "*")
@@ -851,7 +903,6 @@ class BiAffineParser(nn.Module):
                     "words_padding_idx": cls.PAD_IDX,
                 },
             )
-            lexer.save(model_path / "bert_lexer")
 
         chars_lexer = CharRNNLexer.from_chars(
             chars=(c for word in corpus_words for c in word),
@@ -859,74 +910,64 @@ class BiAffineParser(nn.Module):
             char_embeddings_dim=config["char_embedding_size"],
             output_dim=config["charlstm_output_size"],
         )
-        chars_lexer.save(model_path / "chars_lexer", save_weights=False)
 
         itolab = gen_labels(treebank)
-        savelist(itolab, model_path / "labcodes.lst")
-
         itotag = gen_tags(treebank)
-        savelist(itotag, model_path / "tagcodes.lst")
 
-        return cls.load(model_path)
+        return cls(
+            chars_lexer=chars_lexer,
+            fasttext_lexer=fasttext_lexer,
+            labels=itolab,
+            lexer=lexer,
+            tagset=itotag,
+            biased_biaffine=config["biased_biaffine"],
+            default_batch_size=config["batch_size"],
+            encoder_dropout=config["encoder_dropout"],
+            mlp_input=config["mlp_input"],
+            mlp_tag_hidden=config["mlp_tag_hidden"],
+            mlp_arc_hidden=config["mlp_arc_hidden"],
+            mlp_lab_hidden=config["mlp_lab_hidden"],
+            mlp_dropout=config["mlp_dropout"],
+        )
 
     @classmethod
     def load(
         cls: Type[_T_BiAffineParser],
         model_path: Union[str, pathlib.Path],
     ) -> _T_BiAffineParser:
-        # TODO: move the initialization code to initialize (even if that duplicates code?)
         model_path = pathlib.Path(model_path)
-        if model_path.is_dir():
-            config_path = model_path / "config.yaml"
-            if not config_path.exists():
-                raise ValueError(f"No config in {model_path}")
-        else:
-            raise ValueError("The model path should be a directory, not a file")
-
-        logger.info(f"Initializing a parser from {model_path}")
+        config_path = model_path / "config.json"
 
         with open(config_path) as in_stream:
-            hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
+            config = json.load(in_stream)
+
+        lexers_path = model_path / "lexers"
 
         lexer: Union[WordEmbeddingsLexer, BertBaseLexer]
-        if hp["lexer"] == "default":
-            lexer = WordEmbeddingsLexer.load(model_path / "word_embeddings_lexer")
-        else:
-            lexer = BertBaseLexer.load(model_path / "bert_lexer")
-
-        chars_lexer = CharRNNLexer.load(model_path / "chars_lexer")
-        ft_lexer = FastTextLexer.load(model_path / "fasttext_lexer")
-
-        itolab = loadlist(model_path / "labcodes.lst")
-        itotag = loadlist(model_path / "tagcodes.lst")
-        parser = cls(
-            biased_biaffine=hp.get("biased_biaffine", True),
-            chars_lexer=chars_lexer,
-            default_batch_size=hp.get("batch_size", 1),
-            encoder_dropout=hp["encoder_dropout"],
-            ft_lexer=ft_lexer,
-            labels=itolab,
-            lexer=lexer,
-            mlp_input=hp["mlp_input"],
-            mlp_tag_hidden=hp["mlp_tag_hidden"],
-            mlp_arc_hidden=hp["mlp_arc_hidden"],
-            mlp_lab_hidden=hp["mlp_lab_hidden"],
-            mlp_dropout=hp["mlp_dropout"],
-            tagset=itotag,
+        word_embeddings_lexer = WordEmbeddingsLexer.load(
+            lexers_path / "word_embeddings_lexer"
         )
-        weights_file = model_path / "model.pt"
+        if (bert_lexer_path := lexers_path / "bert_lexer").exists():
+            bert_lexer = BertLexer.load(bert_lexer_path)
+            lexer = BertBaseLexer(
+                bert_lexer=bert_lexer, words_lexer=word_embeddings_lexer
+            )
+        else:
+            lexer = word_embeddings_lexer
+
+        chars_lexer = CharRNNLexer.load(lexers_path / "chars_lexer")
+        fasttext_lexer = FastTextLexer.load(lexers_path / "fasttext_lexer")
+
+        parser = cls(
+            chars_lexer=chars_lexer,
+            fasttext_lexer=fasttext_lexer,
+            lexer=lexer,
+            **config,
+        )
+        weights_file = model_path / "weights.pt"
         if weights_file.exists():
             parser.load_params(str(weights_file))
 
-        if hp.get("freeze_fasttext", False):
-            freeze_module(ft_lexer)
-        if hp.get("freeze_bert", False):
-            if isinstance(lexer, lexers.BertBaseLexer):
-                freeze_module(lexer.bert_lexer)
-            else:
-                warnings.warn(
-                    "A non-BERT lexer has no BERT to freeze, ignoring `freeze_bert` hyperparameter"
-                )
         return parser
 
 
@@ -981,17 +1022,6 @@ class DependencyDataset:
         return len(self.treelist)
 
 
-def savelist(strlist, filename):
-    with open(filename, "w") as ostream:
-        ostream.write("\n".join(strlist))
-
-
-def loadlist(filename):
-    with open(filename) as istream:
-        strlist = [line.strip() for line in istream]
-    return strlist
-
-
 def train(
     config_file: pathlib.Path,
     model_path: pathlib.Path,
@@ -1028,11 +1058,20 @@ def train(
                 logger.warning(f"--overwrite asked but {model_path} does not exist")
         parser = BiAffineParser.initialize(
             config_path=config_file,
-            model_path=model_path,
             treebank=traintrees,
             fasttext=fasttext,
         )
     parser = parser.to(device)
+    if hp.get("freeze_fasttext", False):
+        freeze_module(parser.fasttext_lexer)
+    if hp.get("freeze_bert", False):
+        if isinstance(parser.lexer, lexers.BertBaseLexer):
+            freeze_module(parser.lexer.bert_lexer.model)
+        else:
+            warnings.warn(
+                "A non-BERT lexer has no BERT to freeze, ignoring `freeze_bert` hyperparameter"
+            )
+    parser.save(model_path)
 
     trainset = DependencyDataset(
         parser,

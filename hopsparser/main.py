@@ -2,6 +2,7 @@ import contextlib
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -161,6 +162,7 @@ def train(
     train_file: pathlib.Path,
 ):
     model_path = output_dir / "model"
+    shutil.copy(config_file, output_dir / config_file.name)
     parser.train(
         config_file=config_file,
         dev_file=dev_file,
