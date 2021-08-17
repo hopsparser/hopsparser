@@ -609,11 +609,6 @@ class BertLexer(nn.Module):
 
         self.model = model
         self.tokenizer = tokenizer
-        # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
-        if isinstance(self.tokenizer, transformers.GPT2TokenizerFast):
-            self.tokenizer = transformers.AutoTokenizer.from_pretrained(
-                model, use_fast=True, add_prefix_space=True
-            )
 
         self.max_length = min(
             self.tokenizer.max_len_single_sentence,
@@ -812,6 +807,11 @@ class BertLexer(nn.Module):
         tokenizer = transformers.AutoTokenizer.from_pretrained(
             bert_model_path, use_fast=True
         )
+        # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
+        if isinstance(tokenizer, transformers.GPT2TokenizerFast):
+            tokenizer = transformers.AutoTokenizer.from_pretrained(
+                bert_model_path, use_fast=True, add_prefix_space=True
+            )
         res = cls(model=model, tokenizer=tokenizer, **config)
         weight_file = model_path / "weights.pt"
         if weight_file.exists():
@@ -831,6 +831,11 @@ class BertLexer(nn.Module):
         tokenizer = transformers.AutoTokenizer.from_pretrained(
             model_name_or_path, use_fast=True
         )
+        # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
+        if isinstance(tokenizer, transformers.GPT2TokenizerFast):
+            tokenizer = transformers.AutoTokenizer.from_pretrained(
+                model_name_or_path, use_fast=True, add_prefix_space=True
+            )
 
         return cls(model=model, tokenizer=tokenizer, **kwargs)
 
