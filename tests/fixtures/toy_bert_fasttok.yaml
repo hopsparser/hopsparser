@@ -17,6 +17,6 @@ lr_schedule:
   shape: linear
   warmup_steps: 100
 # Word embeddings
-lexer: "lysandre/tiny-bert-random"
+lexer: "lgrobol/roberta-minuscule"
 bert_layers: "*"
 bert_subwords_reduction: "mean"
