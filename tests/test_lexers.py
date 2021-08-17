@@ -8,6 +8,7 @@ import pytest
 import torch
 import transformers
 from hypothesis import given, settings, strategies as st
+from pytest_lazyfixture import lazy_fixture
 
 from hopsparser import lexers
 
@@ -117,8 +118,8 @@ def test_word_embeddings_create_save_load(
     assert torch.equal(orig_encoding, reloaded_encoding)
 
 
-@pytest.fixture(params=["lysandre/tiny-bert-random", "flaubert/flaubert_small_cased"])
-def transformer_model(
+@pytest.fixture(params=["lgrobol/flaubert-minuscule"])
+def remote_transformer_model(
     request,
 ) -> Tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase]:
     model = transformers.AutoModel.from_pretrained(request.param)
@@ -126,9 +127,33 @@ def transformer_model(
     return (model, tokenizer)
 
 
+@pytest.fixture
+def local_transformer_model(
+    test_data_dir: pathlib.Path,
+) -> Tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase]:
+    model = transformers.AutoModel.from_pretrained(test_data_dir / "roberta-minuscule")
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        test_data_dir / "roberta-minuscule", use_fast=True, add_prefix_space=True
+    )
+    return (model, tokenizer)
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        lazy_fixture("local_transformer_model"),
+        lazy_fixture("remote_transformer_model"),
+    ],
+)
+def transformer_model(
+    request,
+) -> Tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase]:
+    return request.param
+
+
 @settings(deadline=2000)
-# FIXME: whitespace should not technically be forbidden in `test_text`, only a single whitespace.
-# FIXME: should we really skip control characters?.
+# FIXME: should we really skip control characters and whitespaces? We do now because most 🤗
+# tokenizers strip them out instead of rendering them as unk
 @given(
     data=st.data(),
     subwords_reduction=st.one_of([st.just("first"), st.just("mean")]),
