@@ -123,9 +123,7 @@ class DepGraph:
 
     @classmethod
     def from_conllu(cls: Type[_T_DEPGRAPH], istream: Iterable[str]) -> _T_DEPGRAPH:
-        """
-        Reads a conll tree from input stream
-        """
+        """Read a conll tree from an input stream"""
         conll = []
         metadata = []
         for line in istream:

@@ -232,8 +232,9 @@ class BiAffineParser(nn.Module):
     # Labels that are -100 are ignored in torch crossentropy (we still set it explicitely)
     LABEL_PADDING: Final[int] = -100
 
-    # FIXME: mlp_input here is conterintuitive: the actual MLP input dim will be twice that, this is
+    # FIXME: `mlp_input` here is conterintuitive: the actual MLP input dim will be twice that, this is
     # more accurately the dimension of the outputs of each direction of the LSTM
+    # FIXME: `default_batch_size` is discutable, since it's heavily machine-dependent
     def __init__(
         self,
         biased_biaffine: bool,
@@ -759,6 +760,8 @@ class BiAffineParser(nn.Module):
                     )
                     yield result_tree
 
+    # FIXME: this is awkward when parsing pre-tokenize input: we should accept something like `inpt:
+    # Iterable[Sequence[str]]`
     def parse(
         self,
         inpt: Iterable[str],
@@ -862,7 +865,6 @@ class BiAffineParser(nn.Module):
                 fasttext_lexer = FastTextLexer.from_fasttext_model(
                     fasttext, special_tokens=[DepGraph.ROOT_TOKEN]
                 )
-                logger.info(f"Using the FastText model at {fasttext}")
             except ValueError:
                 # FastText couldn't load it, so it should be raw text
                 logger.info(f"Generating a FastText model from {fasttext}")
