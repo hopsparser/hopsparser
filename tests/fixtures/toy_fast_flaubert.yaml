@@ -1,0 +1,22 @@
+# Layer dimensions
+word_embedding_size: 256
+charlstm_output_size: 128
+char_embedding_size: 64
+mlp_input: 1024
+mlp_tag_hidden: 16
+mlp_arc_hidden: 512
+mlp_lab_hidden: 128
+# Training hyperparameters
+encoder_dropout: 0.5
+mlp_dropout: 0.5
+word_dropout: 0.5
+batch_size: 8
+epochs: 2
+lr: 0.00003
+lr_schedule:
+  shape: linear
+  warmup_steps: 100
+# Word embeddings
+lexer: "lgrobol/flaubert-minuscule"
+bert_layers: "*"
+bert_subwords_reduction: "mean"
