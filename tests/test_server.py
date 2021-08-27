@@ -1,11 +1,24 @@
 import io
+import json
 import pathlib
+from typing import Generator
 
+import pytest
 from pytest_assert_utils import util
 
 from fastapi.testclient import TestClient
 
 from hopsparser import deptree
+
+
+@pytest.fixture
+def api_client(
+    model_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> Generator[TestClient, None, None]:
+    monkeypatch.setenv("models", json.dumps({"default": str(model_path)}))
+    from hopsparser.server import app
+
+    yield TestClient(app=app)
 
 
 def test_model_availability(api_client: TestClient):
