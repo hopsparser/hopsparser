@@ -17,8 +17,10 @@ def test_model_availability(api_client: TestClient):
     }
 
 
-def process(api_client: TestClient, raw_text: pathlib.Path):
-    response = api_client.post("/process", data={"data": raw_text.read_text()})
+def test_server_processing(api_client: TestClient, raw_text: pathlib.Path):
+    response = api_client.post(
+        "/process", json={"data": raw_text.read_text(), "input": "horizontal"}
+    )
     assert response.status_code == 200
     assert response.json() == {
         "model": util.Any(),

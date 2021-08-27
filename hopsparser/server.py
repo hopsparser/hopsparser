@@ -73,6 +73,7 @@ async def get_models():
 
 @app.post("/process", summary="Parse data.", response_model=ParseResponse)
 async def process(req: ParseRequest) -> ParseResponse:
+    open("/home/lgrobol/zegion.log", "w").write("parsing ok")
     model_name = req.model if req.model is not None else next(iter(models.keys()))
     parser = models.get(model_name)
     if parser is None:
@@ -88,4 +89,4 @@ async def process(req: ParseRequest) -> ParseResponse:
             )
         ]
     )
-    return ParseResponse(model=model_name, acknowledgements=[""], result=parsed)
+    return ParseResponse(model=model_name, acknowledgements=[""], data=parsed)
