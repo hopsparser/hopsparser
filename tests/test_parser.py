@@ -57,7 +57,7 @@ def parser_and_reload(
 
 
 @pytest.mark.parametrize("device", devices)
-@settings(deadline=1000)
+@settings(deadline=2000)
 # FIXME: should we really skip control characters and whitespaces? We do now because most 🤗
 # tokenizers strip them out instead of rendering them as unk (see also test_lexers)
 @given(
@@ -76,8 +76,8 @@ def test_save_load_idempotency(
     parser = parser.to(device)
     reloaded = reloaded.to(device)
     test_sent_as_batch = [" ".join(test_text)]
-    original_parse = parser.parse(test_sent_as_batch, raw=True, strict=True)
+    original_parse = parser.parse(test_sent_as_batch, raw=True)
     original_parsed_conll = "\n\n".join(t.to_conllu() for t in original_parse)
-    reloaded_parse = reloaded.parse(test_sent_as_batch, raw=True, strict=True)
+    reloaded_parse = reloaded.parse(test_sent_as_batch, raw=True)
     reloaded_parsed_conll = "\n\n".join(t.to_conllu() for t in reloaded_parse)
     assert reloaded_parsed_conll == original_parsed_conll

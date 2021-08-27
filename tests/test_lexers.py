@@ -45,7 +45,7 @@ def test_char_rnn_create_save_load(
     assert torch.equal(orig_encoding, reloaded_encoding)
 
 
-@settings(deadline=500)
+@settings(deadline=1000)
 @given(
     special_tokens=st.lists(st.text(min_size=2), max_size=8),
     train_text=st.lists(st.lists(st.text(min_size=1), min_size=1), min_size=1),
@@ -204,7 +204,12 @@ def test_bert_embeddings_create_save_load(
     # TODO: there must be a better way to deal with roots
     test_text = ["", *test_text]
     lexer.eval()
-    orig_encoding = lexer(lexer.make_batch([lexer.encode(test_text)]))
     reloaded.eval()
-    reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
-    assert torch.equal(orig_encoding, reloaded_encoding)
+    try:
+        orig_encoding = lexer(lexer.make_batch([lexer.encode(test_text)]))
+    except lexers.LexingError:
+        with pytest.raises(lexers.LexingError):
+            reloaded.encode(test_text)
+    else:
+        reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
+        assert torch.equal(orig_encoding, reloaded_encoding)
