@@ -679,6 +679,7 @@ class BertLexer(nn.Module):
         # FIXME: this loop is embarassingly parallel, there must be a way to parallelize it
         for sent_n, alignment in enumerate(inpt.subword_alignments):
             # TODO: If we revise the alignment format, this could probably be made faster using
+            # <https://pytorch.org/docs/stable/generated/torch.scatter.htmlW or
             # <https://pytorch-scatter.readthedocs.io/en/latest/functions/scatter.html>
             # The word indices start at 1 because word 0 is the root token, for which we have no
             # bert embedding so we use the average of all subword embeddings

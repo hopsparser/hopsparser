@@ -176,25 +176,14 @@ class DependencyBatch(NamedTuple):
 
     ## Attributes
 
+    - `sentences` The sentences as a `SentenceBatch`
     - `trees` The sentences as `DepGraph`s for rich attribute access.
-    - `chars` Encoded chars as a sequence of `LongTensor`. `chars[i][j, k]` is the k-th character of
-      the i-th word of the j-th sentence in the batch.
-    - `subwords` Encoded FastText subwords as a sequence of `LongTensor`. As with `chars`,
-      `subwords[i][j, k]` is the k-th subword of the i-th word of the j-th sentence in the batch.
-    - `encoded_words` The words of the sentences, encoded and batched by a lexer and meant to be
-      consumed by it directly. The details stay opaque at this level, see the relevant lexer
-      instead.
     - `tags` The gold POS tags (if any) as a `LongTensor` with shape `(batch_size,
       max_sentence_length)`
     - `heads` The gold heads (if any) as a `LongTensor` with shape `(batch_size,
       max_sentence_length)`
     - `labels` The gold dependency labels (if any) as a `LongTensor` with shape `(batch_size,
       max_sentence_length)`
-    - `sent_length` The lengths of the sentences in the batch as `LongTensor` with shape
-      `(batch_size,)`
-    - `content_mask` A `BoolTensor` mask of shape `(batch_size, max_sentence_length)` such that
-      `content_mask[i, j]` is true iff the j-th word of the i-th sentence in the batch is neither
-      padding not the root (i.e. iff `1 <= j < sent_length[i]`).
     """
 
     trees: Sequence[DepGraph]
@@ -403,7 +392,7 @@ class BiAffineParser(nn.Module):
 
     def eval_model(
         self, dev_set: "DependencyDataset", batch_size: Optional[int] = None
-    ):
+    ) -> Tuple[float, float, float, float]:
         if batch_size is None:
             batch_size = self.default_batch_size
 
