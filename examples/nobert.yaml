@@ -1,8 +1,4 @@
 # Layer dimensions
-word_embedding_size: 128
-charlstm_output_size: 128
-char_embedding_size: 64
-freeze_fasttext: false
 mlp_input: 512
 mlp_tag_hidden: 16
 mlp_arc_hidden: 512
@@ -11,8 +7,15 @@ mlp_lab_hidden: 128
 encoder_dropout: 0.6
 mlp_dropout: 0.5
 word_dropout: 0.6
+freeze_fasttext: false
 batch_size: 32
 epochs: 128
-lr: 0.001
-# Word embeddings
-lexer: "default"
+lr:
+  base: 0.001
+lexers:
+  words:
+    embedding_size: 128
+  chars:
+    embedding_size: 64
+    lstm_output_size: 128
+  fasttext: {}

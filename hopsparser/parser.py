@@ -26,6 +26,7 @@ from typing import (
 )
 
 import numpy as np
+import pydantic
 import torch
 import transformers
 import yaml
@@ -865,31 +866,33 @@ class BiAffineParser(nn.Module):
 
         corpus_words = [word for tree in treebank for word in tree.words[1:]]
         lexer: Union[WordEmbeddingsLexer, BertBaseLexer]
+        words_lexer_config = config["lexers"]["words"]
         words_lexer = WordEmbeddingsLexer.from_words(
-            embeddings_dim=config["word_embedding_size"],
+            embeddings_dim=words_lexer_config["embedding_size"],
             unk_word=cls.UNK_WORD,
             word_dropout=config["word_dropout"],
             words=(DepGraph.ROOT_TOKEN, cls.UNK_WORD, *corpus_words),
             words_padding_idx=cls.PAD_IDX,
         )
-        if config["lexer"] == "default":
-            lexer = words_lexer
-        else:
-            bert_layers = config.get("bert_layers", "*")
+        if (bert_lexer_config := config["lexers"].get("bert")) is not None:
+            bert_layers = config.get("layers", "*")
             if bert_layers == "*":
                 bert_layers = None
             bert_lexer = BertLexer.from_pretrained(
-                model_name_or_path=config["lexer"],
+                model_name_or_path=bert_lexer_config["model"],
                 layers=bert_layers,
-                subwords_reduction=config.get(bert_subwords_reduction="first"),
-                weight_layers=config.get("bert_weighted", False),
+                subwords_reduction=bert_lexer_config.get("subwords_reduction", "first"),
+                weight_layers=bert_lexer_config.get("weighted", False),
             )
             lexer = BertBaseLexer(words_lexer=words_lexer, bert_lexer=bert_lexer)
+        else:
+            lexer = words_lexer
+        chars_lexer_config = config["lexers"]["chars"]
         chars_lexer = CharRNNLexer.from_chars(
             chars=(c for word in corpus_words for c in word),
             special_tokens=[DepGraph.ROOT_TOKEN],
-            char_embeddings_dim=config["char_embedding_size"],
-            output_dim=config["charlstm_output_size"],
+            char_embeddings_dim=chars_lexer_config["embedding_size"],
+            output_dim=chars_lexer_config["lstm_output_size"],
         )
 
         itolab = gen_labels(treebank)
@@ -1068,12 +1071,13 @@ def train(
     else:
         devset = None
 
+    lr_config = hp["lr"]
     parser.train_model(
         batch_size=hp["batch_size"],
         dev_set=devset,
         epochs=hp["epochs"],
-        lr=hp["lr"],
-        lr_schedule=hp.get("lr_schedule", {"shape": "exponential", "warmup_steps": 0}),
+        lr=lr_config["base"],
+        lr_schedule=lr_config.get("schedule", {"shape": "exponential", "warmup_steps": 0}),
         model_path=model_path,
         train_set=trainset,
     )
