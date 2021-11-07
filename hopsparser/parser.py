@@ -950,11 +950,14 @@ class BiAffineParser(nn.Module):
 
         chars_lexer = CharRNNLexer.load(lexers_path / "chars_lexer")
         fasttext_lexer = FastTextLexer.load(lexers_path / "fasttext_lexer")
+        lexers = {
+            "words": lexer,
+            "chars": chars_lexer,
+            "fasttext": fasttext_lexer
+        }
 
         parser = cls(
-            chars_lexer=chars_lexer,
-            fasttext_lexer=fasttext_lexer,
-            lexer=lexer,
+            lexers=lexers,
             **config,
         )
         weights_file = model_path / "weights.pt"
