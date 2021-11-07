@@ -865,36 +865,26 @@ class BiAffineParser(nn.Module):
 
         corpus_words = [word for tree in treebank for word in tree.words[1:]]
         lexer: Union[WordEmbeddingsLexer, BertBaseLexer]
+        words_lexer = WordEmbeddingsLexer.from_words(
+            embeddings_dim=config["word_embedding_size"],
+            unk_word=cls.UNK_WORD,
+            word_dropout=config["word_dropout"],
+            words=(DepGraph.ROOT_TOKEN, cls.UNK_WORD, *corpus_words),
+            words_padding_idx=cls.PAD_IDX,
+        )
         if config["lexer"] == "default":
-            lexer = WordEmbeddingsLexer.from_words(
-                embeddings_dim=config["word_embedding_size"],
-                unk_word=cls.UNK_WORD,
-                word_dropout=config["word_dropout"],
-                words=(DepGraph.ROOT_TOKEN, cls.UNK_WORD, *corpus_words),
-                words_padding_idx=cls.PAD_IDX,
-            )
+            lexer = words_lexer
         else:
             bert_layers = config.get("bert_layers", "*")
             if bert_layers == "*":
                 bert_layers = None
-            lexer = BertBaseLexer.from_pretrained_and_words(
+            bert_lexer = BertLexer.from_pretrained(
                 model_name_or_path=config["lexer"],
-                bert_config={
-                    "layers": bert_layers,
-                    "subwords_reduction": config.get(
-                        "bert_subwords_reduction", "first"
-                    ),
-                    "weight_layers": config.get("bert_weighted", False),
-                },
-                words=(DepGraph.ROOT_TOKEN, cls.UNK_WORD, *corpus_words),
-                words_config={
-                    "embeddings_dim": config["word_embedding_size"],
-                    "unk_word": cls.UNK_WORD,
-                    "word_dropout": config["word_dropout"],
-                    "words_padding_idx": cls.PAD_IDX,
-                },
+                layers=bert_layers,
+                subwords_reduction=config.get(bert_subwords_reduction="first"),
+                weight_layers=config.get("bert_weighted", False),
             )
-
+            lexer = BertBaseLexer(words_lexer=words_lexer, bert_lexer=bert_lexer)
         chars_lexer = CharRNNLexer.from_chars(
             chars=(c for word in corpus_words for c in word),
             special_tokens=[DepGraph.ROOT_TOKEN],

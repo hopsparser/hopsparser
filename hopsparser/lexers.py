@@ -903,18 +903,3 @@ class BertBaseLexer(nn.Module):
         words_lexer = WordEmbeddingsLexer.load(model_path / "words")
         bert_lexer = BertLexer.load(model_path / "bert")
         return cls(words_lexer=words_lexer, bert_lexer=bert_lexer)
-
-    @classmethod
-    def from_pretrained_and_words(
-        cls: Type[_T_BertBaseLexer],
-        bert_config: Dict[str, Any],
-        model_name_or_path: Union[str, pathlib.Path],
-        words: Iterable[str],
-        words_config: Dict[str, Any],
-    ) -> _T_BertBaseLexer:
-        words_lexer = WordEmbeddingsLexer.from_words(words, **words_config)
-        bert_lexer = BertLexer.from_pretrained(
-            model_name_or_path=model_name_or_path,
-            **bert_config,
-        )
-        return cls(words_lexer=words_lexer, bert_lexer=bert_lexer)
