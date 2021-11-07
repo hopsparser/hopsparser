@@ -213,6 +213,12 @@ class LRSchedule(TypedDict):
 _T_BiAffineParser = TypeVar("_T_BiAffineParser", bound="BiAffineParser")
 
 
+class LexersParam(TypedDict):
+    words: Union[WordEmbeddingsLexer, BertBaseLexer]
+    chars: CharRNNLexer
+    fasttext: FastTextLexer
+
+
 class BiAffineParser(nn.Module):
     """Biaffine Dependency Parser."""
 
@@ -228,12 +234,10 @@ class BiAffineParser(nn.Module):
     def __init__(
         self,
         biased_biaffine: bool,
-        chars_lexer: CharRNNLexer,
         default_batch_size: int,
         encoder_dropout: float,  # lstm dropout
-        fasttext_lexer: FastTextLexer,
         labels: Sequence[str],
-        lexer: Union[WordEmbeddingsLexer, BertBaseLexer],
+        lexers: LexersParam,
         mlp_input: int,
         mlp_tag_hidden: int,
         mlp_arc_hidden: int,
@@ -256,12 +260,14 @@ class BiAffineParser(nn.Module):
         self.mlp_lab_hidden = mlp_lab_hidden
         self.mlp_dropout = mlp_dropout
 
-        self.lexer = lexer
-        self.chars_lexer = chars_lexer
-        self.fasttext_lexer = fasttext_lexer
+        self.lexer = lexers["words"]
+        self.chars_lexer = lexers["chars"]
+        self.fasttext_lexer = lexers["fasttext"]
 
         self.dep_rnn = nn.LSTM(
-            self.lexer.output_dim + chars_lexer.output_dim + fasttext_lexer.output_dim,
+            self.lexer.output_dim
+            + self.chars_lexer.output_dim
+            + self.fasttext_lexer.output_dim,
             mlp_input,
             3,
             batch_first=True,
@@ -894,15 +900,18 @@ class BiAffineParser(nn.Module):
             char_embeddings_dim=chars_lexer_config["embedding_size"],
             output_dim=chars_lexer_config["lstm_output_size"],
         )
+        lexers = {
+            "words": lexer,
+            "chars": chars_lexer,
+            "fasttext": fasttext_lexer
+        }
 
         itolab = gen_labels(treebank)
         itotag = gen_tags(treebank)
 
         return cls(
-            chars_lexer=chars_lexer,
-            fasttext_lexer=fasttext_lexer,
             labels=itolab,
-            lexer=lexer,
+            lexers=lexers,
             tagset=itotag,
             biased_biaffine=config["biased_biaffine"],
             default_batch_size=config["batch_size"],
@@ -1077,7 +1086,9 @@ def train(
         dev_set=devset,
         epochs=hp["epochs"],
         lr=lr_config["base"],
-        lr_schedule=lr_config.get("schedule", {"shape": "exponential", "warmup_steps": 0}),
+        lr_schedule=lr_config.get(
+            "schedule", {"shape": "exponential", "warmup_steps": 0}
+        ),
         model_path=model_path,
         train_set=trainset,
     )
