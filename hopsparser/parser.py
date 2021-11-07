@@ -876,7 +876,7 @@ class BiAffineParser(nn.Module):
         words_lexer = WordEmbeddingsLexer.from_words(
             embeddings_dim=words_lexer_config["embedding_size"],
             unk_word=cls.UNK_WORD,
-            word_dropout=config["word_dropout"],
+            word_dropout=words_lexer_config["word_dropout"],
             words=(DepGraph.ROOT_TOKEN, cls.UNK_WORD, *corpus_words),
             words_padding_idx=cls.PAD_IDX,
         )

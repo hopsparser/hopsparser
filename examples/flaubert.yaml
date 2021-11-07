@@ -6,7 +6,6 @@ mlp_lab_hidden: 128
 # Training hyperparameters
 encoder_dropout: 0.5
 mlp_dropout: 0.5
-word_dropout: 0.5
 batch_size: 8
 epochs: 64
 lr:
@@ -17,6 +16,7 @@ lr:
 lexers:
   words:
     embedding_size: 256
+    word_dropout: 0.5
   bert:
     model: "flaubert/flaubert_base_cased"
     layers: "*"

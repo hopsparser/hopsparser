@@ -6,7 +6,6 @@ mlp_lab_hidden: 128
 # Training hyperparameters
 encoder_dropout: 0.6
 mlp_dropout: 0.5
-word_dropout: 0.6
 freeze_fasttext: false
 batch_size: 32
 epochs: 128
@@ -15,6 +14,7 @@ lr:
 lexers:
   words:
     embedding_size: 128
+    word_dropout: 0.6
   chars:
     embedding_size: 64
     lstm_output_size: 128
