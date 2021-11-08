@@ -26,7 +26,6 @@ from typing import (
 )
 
 import numpy as np
-import pydantic
 import torch
 import transformers
 import yaml
@@ -43,6 +42,7 @@ from hopsparser.lexers import (
     BertLexer,
     BertLexerBatch,
     CharRNNLexer,
+    SupportsTo,
     WordEmbeddingsLexer,
     FastTextLexer,
     freeze_module,
@@ -123,12 +123,7 @@ class SentencesBatch(NamedTuple):
     ## Attributes
 
     - `words` The word forms for every sentence in the batch
-    - `encoded_words` The words of the sentences, encoded and batched by a lexer and meant to be consumed by
-      it directly. The details stay opaque at this level, see the relevant lexer instead.
-    - `subwords` Encoded FastText subwords as a sequence of `LongTensor`. As with `chars`,
-      `subwords[i][j, k]` is the k-th subword of the i-th word of the j-th sentence in the batch.
-    - `chars` Encoded chars as a sequence of `LongTensor`. `chars[i][j, k]` is the k-th character of
-      the i-th word of the j-th sentence in the batch.
+    - `encodings` A dict mapping a lexer name to the correponding encoding of the batch of sentences
     - `tags` The gold POS tags (if any) as a `LongTensor` with shape `(batch_size,
       max_sentence_length)`
     - `heads` The gold heads (if any) as a `LongTensor` with shape `(batch_size,
@@ -143,9 +138,7 @@ class SentencesBatch(NamedTuple):
     """
 
     words: Sequence[Sequence[str]]
-    encoded_words: Union[torch.Tensor, BertLexerBatch]
-    subwords: torch.Tensor
-    chars: torch.Tensor
+    encodings: Dict[str, SupportsTo]
     sent_lengths: torch.Tensor
     content_mask: torch.Tensor
 
@@ -154,9 +147,10 @@ class SentencesBatch(NamedTuple):
     ) -> _T_SentencesBatch:
         return type(self)(
             words=self.words,
-            encoded_words=self.encoded_words.to(device),
-            chars=self.chars.to(device),
-            subwords=self.subwords.to(device),
+            encodings={
+                lexer_name: encoded_batch.to(device)
+                for lexer_name, encoded_batch in self.encodings.items()
+            },
             sent_lengths=self.sent_lengths,
             content_mask=self.content_mask.to(device),
         )
@@ -177,7 +171,7 @@ class DependencyBatch(NamedTuple):
 
     ## Attributes
 
-    - `sentences` The sentences as a `SentenceBatch`
+    - `sentences` The sentences as a `SentencesBatch`
     - `trees` The sentences as `DepGraph`s for rich attribute access.
     - `tags` The gold POS tags (if any) as a `LongTensor` with shape `(batch_size,
       max_sentence_length)`
@@ -423,9 +417,9 @@ class BiAffineParser(nn.Module):
 
                 # preds
                 tagger_scores, arc_scores, lab_scores = self(
-                    batch.sentences.encoded_words,
-                    batch.sentences.chars,
-                    batch.sentences.subwords,
+                    batch.sentences.encodings["words"],
+                    batch.sentences.encodings["chars"],
+                    batch.sentences.encodings["fasttext"],
                     batch.sentences.sent_lengths,
                 )
 
@@ -532,9 +526,9 @@ class BiAffineParser(nn.Module):
 
                 # FORWARD
                 tagger_scores, arc_scores, lab_scores = self(
-                    batch.sentences.encoded_words,
-                    batch.sentences.chars,
-                    batch.sentences.subwords,
+                    batch.sentences.encodings["words"],
+                    batch.sentences.encodings["chars"],
+                    batch.sentences.encodings["fasttext"],
                     batch.sentences.sent_lengths,
                 )
 
@@ -607,7 +601,9 @@ class BiAffineParser(nn.Module):
             [sent.encoded_words for sent in sentences]
         )
         chars = self.chars_lexer.make_batch([sent.chars for sent in sentences])
-        subwords = self.fasttext_lexer.make_batch([sent.subwords for sent in sentences])
+        fasttext = self.fasttext_lexer.make_batch([sent.subwords for sent in sentences])
+
+        encodings = {"words": encoded_words, "chars": chars, "fasttext": fasttext}
 
         sent_lengths = torch.tensor(
             [sent.sent_len for sent in sentences], dtype=torch.long
@@ -623,9 +619,7 @@ class BiAffineParser(nn.Module):
 
         return SentencesBatch(
             words=words,
-            encoded_words=encoded_words,
-            chars=chars,
-            subwords=subwords,
+            encodings=encodings,
             content_mask=content_mask,
             sent_lengths=sent_lengths,
         )
@@ -705,9 +699,9 @@ class BiAffineParser(nn.Module):
                     batch_sentences = batch
                 # batch prediction
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = self(
-                    batch_sentences.encoded_words,
-                    batch_sentences.chars,
-                    batch_sentences.subwords,
+                    batch_sentences.encodings["words"],
+                    batch_sentences.encodings["chars"],
+                    batch_sentences.encodings["fasttext"],
                     batch_sentences.sent_lengths,
                 )
                 arc_scores_batch = arc_scores_batch.cpu()
@@ -813,23 +807,23 @@ class BiAffineParser(nn.Module):
                 out_stream,
             )
         parser_lexers: Dict[str, lexers.Lexer] = {
-            "chars_lexer": self.chars_lexer,
-            "fasttext_lexer": self.fasttext_lexer,
+            "chars": self.chars_lexer,
+            "fasttext": self.fasttext_lexer,
         }
         lexers_path = model_path / "lexers"
         for lexer_name, lexer in parser_lexers.items():
             lexer.save(model_path=lexers_path / lexer_name, save_weights=False)
         if isinstance(self.lexer, lexers.BertBaseLexer):
             self.lexer.words_lexer.save(
-                model_path=lexers_path / "word_embeddings_lexer",
+                model_path=lexers_path / "words",
                 save_weights=False,
             )
             self.lexer.bert_lexer.save(
-                model_path=lexers_path / "bert_lexer", save_weights=False
+                model_path=lexers_path / "bert", save_weights=False
             )
         else:
             self.lexer.save(
-                model_path=lexers_path / "word_embeddings_lexer",
+                model_path=lexers_path / "words",
                 save_weights=False,
             )
 
@@ -900,11 +894,7 @@ class BiAffineParser(nn.Module):
             char_embeddings_dim=chars_lexer_config["embedding_size"],
             output_dim=chars_lexer_config["lstm_output_size"],
         )
-        lexers = {
-            "words": lexer,
-            "chars": chars_lexer,
-            "fasttext": fasttext_lexer
-        }
+        lexers = {"words": lexer, "chars": chars_lexer, "fasttext": fasttext_lexer}
 
         itolab = gen_labels(treebank)
         itotag = gen_tags(treebank)
@@ -937,10 +927,8 @@ class BiAffineParser(nn.Module):
         lexers_path = model_path / "lexers"
 
         lexer: Union[WordEmbeddingsLexer, BertBaseLexer]
-        word_embeddings_lexer = WordEmbeddingsLexer.load(
-            lexers_path / "word_embeddings_lexer"
-        )
-        if (bert_lexer_path := lexers_path / "bert_lexer").exists():
+        word_embeddings_lexer = WordEmbeddingsLexer.load(lexers_path / "words")
+        if (bert_lexer_path := lexers_path / "bert").exists():
             bert_lexer = BertLexer.load(bert_lexer_path)
             lexer = BertBaseLexer(
                 bert_lexer=bert_lexer, words_lexer=word_embeddings_lexer
@@ -948,13 +936,9 @@ class BiAffineParser(nn.Module):
         else:
             lexer = word_embeddings_lexer
 
-        chars_lexer = CharRNNLexer.load(lexers_path / "chars_lexer")
-        fasttext_lexer = FastTextLexer.load(lexers_path / "fasttext_lexer")
-        lexers = {
-            "words": lexer,
-            "chars": chars_lexer,
-            "fasttext": fasttext_lexer
-        }
+        chars_lexer = CharRNNLexer.load(lexers_path / "chars")
+        fasttext_lexer = FastTextLexer.load(lexers_path / "fasttext")
+        lexers = {"words": lexer, "chars": chars_lexer, "fasttext": fasttext_lexer}
 
         parser = cls(
             lexers=lexers,

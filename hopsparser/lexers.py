@@ -44,6 +44,15 @@ def integer_dropout(t: torch.Tensor, fill_value: int, p: float) -> torch.Tensor:
     return t.masked_fill(mask, fill_value)
 
 
+_T_SupportsTo = TypeVar("_T_SupportsTo", bound="SupportsTo")
+
+
+class SupportsTo(Protocol):
+    @abstractmethod
+    def to(self: _T_SupportsTo, device: Union[str, torch.device]) -> _T_SupportsTo:
+        raise NotImplementedError
+
+
 _T_LEXER_SENT = TypeVar("_T_LEXER_SENT")
 _T_LEXER_BATCH = TypeVar("_T_LEXER_BATCH")
 
@@ -168,7 +177,10 @@ class CharRNNLexer(nn.Module):
         return torch.tensor(res, dtype=torch.long)
 
     def encode(self, tokens_sequence: Sequence[str]) -> torch.Tensor:
-        """Map word tokens to integer indices."""
+        """Map word tokens to integer indices.
+
+        Returns a tensor of shape `sentence_len×max_word_len`
+        """
         subword_indices = [self.word2charcodes(token) for token in tokens_sequence]
         # shape: sentence_length×num_chars_in_longest_word
         return pad_sequence(
@@ -176,7 +188,10 @@ class CharRNNLexer(nn.Module):
         )
 
     def make_batch(self, batch: Sequence[torch.Tensor]) -> torch.Tensor:
-        """Pad a batch of sentences."""
+        """Pad a batch of sentences.
+
+        Returns a tensor of shape `batch_size×max_sentence_len×max_word_len`
+        """
         # We need to pad manually because `pad_sequence` only accepts tensors that have all the same
         # dimensions except for one and we differ both in the sentence lengths dimension and in the
         # word length dimension
@@ -300,7 +315,10 @@ class FastTextLexer(nn.Module):
         return self.subwords_idxes(token)
 
     def encode(self, tokens_sequence: Sequence[str]) -> torch.Tensor:
-        """Map word tokens to integer indices."""
+        """Map word tokens to integer indices.
+
+        Returns a tensor of shape `sentence_len×max_num_subwords`
+        """
         subword_indices = [self.word2subcodes(token) for token in tokens_sequence]
         # shape: sentence_length×num_subwords_in_longest_word
         return pad_sequence(
@@ -308,7 +326,10 @@ class FastTextLexer(nn.Module):
         )
 
     def make_batch(self, batch: Sequence[torch.Tensor]) -> torch.Tensor:
-        """Pad a batch of sentences."""
+        """Pad a batch of sentences.
+
+        Returns a tensor of shape `batch_size×max_sentence_len×max_num_subwords`
+        """
         # We need to pad manually because `pad_sequence` only accepts tensors that have all the same
         # dimensions except for one and we differ both in the sentence lengths dimension and in the
         # word length dimension
