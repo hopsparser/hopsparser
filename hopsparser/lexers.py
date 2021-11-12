@@ -362,7 +362,8 @@ class FastTextLexer(nn.Module):
         # so if you want to save the model you should still use save_weights) but nice: set the
         # FastText model weights to the fine-tuned ones
         self.fasttext_model.set_matrices(
-            self.embeddings.weight[:-2].numpy(), self.fasttext_model.get_output_matrix()
+            self.embeddings.weight[:-2].cpu().numpy(),
+            self.fasttext_model.get_output_matrix(),
         )
         self.fasttext_model.save_model(str(model_path / "fasttext_model.bin"))
         if save_weights:

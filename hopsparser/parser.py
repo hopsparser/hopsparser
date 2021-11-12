@@ -705,7 +705,7 @@ class BiAffineParser(nn.Module):
                     lab_scores_batch,
                 ):
                     # Predict heads
-                    probs = arc_scores.numpy().T
+                    probs = arc_scores.cpu().numpy().T
                     batch_width = probs.shape[0]
                     mst_heads_np = (
                         np.argmax(probs[:length, :length], axis=1)
