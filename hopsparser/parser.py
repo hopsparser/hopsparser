@@ -6,6 +6,7 @@ import random
 import shutil
 import warnings
 from typing import (
+    Any,
     Dict,
     IO,
     BinaryIO,
@@ -40,7 +41,6 @@ from hopsparser.deptree import DepGraph
 from hopsparser.lexers import (
     BertBaseLexer,
     BertLexer,
-    BertLexerBatch,
     CharRNNLexer,
     SupportsTo,
     WordEmbeddingsLexer,
@@ -108,9 +108,7 @@ class BiAffine(nn.Module):
 
 class EncodedSentence(NamedTuple):
     words: Sequence[str]
-    encoded_words: Union[torch.Tensor, lexers.BertLexerSentence]
-    subwords: torch.Tensor
-    chars: torch.Tensor
+    encodings: Dict[str, SupportsTo]
     sent_len: int
 
 
@@ -255,6 +253,7 @@ class BiAffineParser(nn.Module):
         self.mlp_dropout = mlp_dropout
 
         self.lexers = nn.ModuleDict(lexers)
+        self.lexers_order = sorted(self.lexers.keys())
 
         self.dep_rnn = nn.LSTM(
             self.lexers["words"].output_dim
@@ -300,9 +299,7 @@ class BiAffineParser(nn.Module):
 
     def forward(
         self,
-        words: Union[torch.Tensor, BertLexerBatch],
-        chars: torch.Tensor,
-        ft_subwords: torch.Tensor,
+        encodings: Dict[str, Any],
         sent_lengths: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Predict POS, heads and deprel scores.
@@ -315,12 +312,11 @@ class BiAffineParser(nn.Module):
         - `arc_scores`: $`batch_size×max_sent_length×max_sent_length`$
         - `label_scores`: $`batch_size×num_deprels×max_sent_length×max_sent_length`$
         """
-        char_embed = self.lexers["chars"](chars)
-        ft_embed = self.lexers["fasttext"](ft_subwords)
-        lex_emb = self.lexers["words"](words)
-
-        # Encodes input for tagging and parsing
-        inpt = torch.cat((lex_emb, char_embed, ft_embed), dim=-1)
+        embeddings = [
+            self.lexers[lexer_name](encodings[lexer_name])
+            for lexer_name in self.lexers_order
+        ]
+        inpt = torch.cat(embeddings, dim=-1)
         packed_inpt = pack_padded_sequence(
             inpt, sent_lengths, batch_first=True, enforce_sorted=False
         )
@@ -412,9 +408,7 @@ class BiAffineParser(nn.Module):
 
                 # preds
                 tagger_scores, arc_scores, lab_scores = self(
-                    batch.sentences.encodings["words"],
-                    batch.sentences.encodings["chars"],
-                    batch.sentences.encodings["fasttext"],
+                    batch.sentences.encodings,
                     batch.sentences.sent_lengths,
                 )
 
@@ -521,9 +515,7 @@ class BiAffineParser(nn.Module):
 
                 # FORWARD
                 tagger_scores, arc_scores, lab_scores = self(
-                    batch.sentences.encodings["words"],
-                    batch.sentences.encodings["chars"],
-                    batch.sentences.encodings["fasttext"],
+                    batch.sentences.encodings,
                     batch.sentences.sent_lengths,
                 )
 
@@ -571,12 +563,14 @@ class BiAffineParser(nn.Module):
         self, words: Sequence[str], strict: bool = True
     ) -> Optional[EncodedSentence]:
         words_with_root = [DepGraph.ROOT_TOKEN, *words]
+        encodings = {
+            lexer_name: lexer.encode(words_with_root)
+            for lexer_name, lexer in self.lexers.items()
+        }
         try:
             encoded = EncodedSentence(
                 words=words,
-                encoded_words=self.lexers["words"].encode(words_with_root),
-                subwords=self.lexers["fasttext"].encode(words_with_root),
-                chars=self.lexers["chars"].encode(words_with_root),
+                encodings=encodings,
                 sent_len=len(words_with_root),
             )
         except lexers.LexingError as e:
@@ -591,16 +585,12 @@ class BiAffineParser(nn.Module):
 
     def batch_sentences(self, sentences: Sequence[EncodedSentence]) -> SentencesBatch:
         words = [sent.words for sent in sentences]
-        # TODO: fix the typing here
-        encoded_words = self.lexers["words"].make_batch(
-            [sent.encoded_words for sent in sentences]
-        )
-        chars = self.lexers["chars"].make_batch([sent.chars for sent in sentences])
-        fasttext = self.lexers["fasttext"].make_batch(
-            [sent.subwords for sent in sentences]
-        )
-
-        encodings = {"words": encoded_words, "chars": chars, "fasttext": fasttext}
+        encodings = {
+            lexer_name: lexer.make_batch(
+                [sent.encodings[lexer_name] for sent in sentences]
+            )
+            for lexer_name, lexer in self.lexers.items()
+        }
 
         sent_lengths = torch.tensor(
             [sent.sent_len for sent in sentences], dtype=torch.long
@@ -696,9 +686,7 @@ class BiAffineParser(nn.Module):
                     batch_sentences = batch
                 # batch prediction
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = self(
-                    batch_sentences.encodings["words"],
-                    batch_sentences.encodings["chars"],
-                    batch_sentences.encodings["fasttext"],
+                    batch_sentences.encodings,
                     batch_sentences.sent_lengths,
                 )
                 arc_scores_batch = arc_scores_batch.cpu()
