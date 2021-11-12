@@ -492,7 +492,7 @@ class BiAffineParser(nn.Module):
                 epochs * math.ceil(len(train_set) / batch_size) + 1,
             )
         elif lr_schedule["shape"] == "constant":
-            scheduler = transformers.get_linear_constant_with_warmup(
+            scheduler = transformers.get_constant_schedule_with_warmup(
                 optimizer, lr_schedule["warmup_steps"]
             )
         else:
