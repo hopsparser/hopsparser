@@ -1026,15 +1026,11 @@ def train(
             fasttext=fasttext,
         )
     parser = parser.to(device)
-    if hp.get("freeze_fasttext", False):
-        freeze_module(parser.fasttext_lexer)
-    if hp.get("freeze_bert", False):
-        if isinstance(parser.lexer, lexers.BertBaseLexer):
-            freeze_module(parser.lexer.bert_lexer.model)
+    for lexer_to_freeze_name in hp.get("freeze", []):
+        if (lexer := parser.lexers.get(lexer_to_freeze_name)) is not None:
+            freeze_module(lexer)
         else:
-            warnings.warn(
-                "A non-BERT lexer has no BERT to freeze, ignoring `freeze_bert` hyperparameter"
-            )
+            warnings.warn(f"I can't freeze a {lexer_to_freeze_name!r} lexer that does not exist")
     parser.save(model_path)
 
     trainset = DependencyDataset(
