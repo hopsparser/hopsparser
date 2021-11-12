@@ -23,6 +23,7 @@ from typing import (
     TypedDict,
     TypeVar,
     Union,
+    cast,
     overload,
 )
 
@@ -39,9 +40,9 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_se
 from hopsparser import deptree, lexers
 from hopsparser.deptree import DepGraph
 from hopsparser.lexers import (
-    BertBaseLexer,
     BertLexer,
     CharRNNLexer,
+    Lexer,
     SupportsTo,
     WordEmbeddingsLexer,
     FastTextLexer,
@@ -205,12 +206,6 @@ class LRSchedule(TypedDict):
 _T_BiAffineParser = TypeVar("_T_BiAffineParser", bound="BiAffineParser")
 
 
-class LexersParam(TypedDict):
-    words: Union[WordEmbeddingsLexer, BertBaseLexer]
-    chars: CharRNNLexer
-    fasttext: FastTextLexer
-
-
 class BiAffineParser(nn.Module):
     """Biaffine Dependency Parser."""
 
@@ -229,7 +224,7 @@ class BiAffineParser(nn.Module):
         default_batch_size: int,
         encoder_dropout: float,  # lstm dropout
         labels: Sequence[str],
-        lexers: LexersParam,
+        lexers: Dict[str, lexers.Lexer],
         mlp_input: int,
         mlp_tag_hidden: int,
         mlp_arc_hidden: int,
@@ -252,13 +247,20 @@ class BiAffineParser(nn.Module):
         self.mlp_lab_hidden = mlp_lab_hidden
         self.mlp_dropout = mlp_dropout
 
-        self.lexers = nn.ModuleDict(lexers)
+        # TODO: fix typing here, casting works but it's inelegant
+        # The issue is `Lexer` is a protocol and we can't require them to be torch Modules (which is
+        # a concrete class and you can't ask a protocol to subclass a concrete class or ask for the
+        # intersection of a protocol and a concrete class), but we do need them to be torch Modules
+        # since the have to wrap them in a `ModuleDict` here`. Also we really don't want to separate
+        # lexers that wouldn't be torch Modules since that's really never going to happen in
+        # practice.
+        self.lexers = cast(
+            Dict[str, Lexer], nn.ModuleDict(cast(Dict[str, nn.Module], lexers))
+        )
         self.lexers_order = sorted(self.lexers.keys())
 
         self.dep_rnn = nn.LSTM(
-            self.lexers["words"].output_dim
-            + self.lexers["chars"].output_dim
-            + self.lexers["fasttext"].output_dim,
+            sum(lex.output_dim for lex in self.lexers.values()),
             mlp_input,
             3,
             batch_first=True,
@@ -563,16 +565,11 @@ class BiAffineParser(nn.Module):
         self, words: Sequence[str], strict: bool = True
     ) -> Optional[EncodedSentence]:
         words_with_root = [DepGraph.ROOT_TOKEN, *words]
-        encodings = {
-            lexer_name: lexer.encode(words_with_root)
-            for lexer_name, lexer in self.lexers.items()
-        }
         try:
-            encoded = EncodedSentence(
-                words=words,
-                encodings=encodings,
-                sent_len=len(words_with_root),
-            )
+            encodings = {
+                lexer_name: lexer.encode(words_with_root)
+                for lexer_name, lexer in self.lexers.items()
+            }
         except lexers.LexingError as e:
             if strict:
                 raise e
@@ -581,6 +578,11 @@ class BiAffineParser(nn.Module):
                     f"Skipping sentence {e.sentence} due to lexing error '{e.message}'.",
                 )
                 return None
+        encoded = EncodedSentence(
+            words=words,
+            encodings=encodings,
+            sent_len=len(words_with_root),
+        )
         return encoded
 
     def batch_sentences(self, sentences: Sequence[EncodedSentence]) -> SentencesBatch:
@@ -791,26 +793,9 @@ class BiAffineParser(nn.Module):
                 },
                 out_stream,
             )
-        parser_lexers: Dict[str, lexers.Lexer] = {
-            lexer_name: self.lexers[lexer_name] for lexer_name in ("chars", "fasttext")
-        }
         lexers_path = model_path / "lexers"
-        for lexer_name, lexer in parser_lexers.items():
+        for lexer_name, lexer in self.lexers.items():
             lexer.save(model_path=lexers_path / lexer_name, save_weights=False)
-        if isinstance(self.lexers["words"], lexers.BertBaseLexer):
-            self.lexers["words"].words_lexer.save(
-                model_path=lexers_path / "words",
-                save_weights=False,
-            )
-            self.lexers["words"].bert_lexer.save(
-                model_path=lexers_path / "bert", save_weights=False
-            )
-        else:
-            self.lexers["words"].save(
-                model_path=lexers_path / "words",
-                save_weights=False,
-            )
-
         if save_weights:
             torch.save(self.state_dict(), model_path / "weights.pt")
 
@@ -849,7 +834,6 @@ class BiAffineParser(nn.Module):
             raise ValueError(f"{fasttext} not found")
 
         corpus_words = [word for tree in treebank for word in tree.words[1:]]
-        lexer: Union[WordEmbeddingsLexer, BertBaseLexer]
         words_lexer_config = config["lexers"]["words"]
         words_lexer = WordEmbeddingsLexer.from_words(
             embeddings_dim=words_lexer_config["embedding_size"],
@@ -858,6 +842,19 @@ class BiAffineParser(nn.Module):
             words=(DepGraph.ROOT_TOKEN, cls.UNK_WORD, *corpus_words),
             words_padding_idx=cls.PAD_IDX,
         )
+        chars_lexer_config = config["lexers"]["chars"]
+        chars_lexer = CharRNNLexer.from_chars(
+            chars=(c for word in corpus_words for c in word),
+            special_tokens=[DepGraph.ROOT_TOKEN],
+            char_embeddings_dim=chars_lexer_config["embedding_size"],
+            output_dim=chars_lexer_config["lstm_output_size"],
+        )
+        lexers: Dict[str, Lexer] = {
+            "words": words_lexer,
+            "chars": chars_lexer,
+            "fasttext": fasttext_lexer,
+        }
+
         if (bert_lexer_config := config["lexers"].get("bert")) is not None:
             bert_layers = config.get("layers", "*")
             if bert_layers == "*":
@@ -868,17 +865,7 @@ class BiAffineParser(nn.Module):
                 subwords_reduction=bert_lexer_config.get("subwords_reduction", "first"),
                 weight_layers=bert_lexer_config.get("weighted", False),
             )
-            lexer = BertBaseLexer(words_lexer=words_lexer, bert_lexer=bert_lexer)
-        else:
-            lexer = words_lexer
-        chars_lexer_config = config["lexers"]["chars"]
-        chars_lexer = CharRNNLexer.from_chars(
-            chars=(c for word in corpus_words for c in word),
-            special_tokens=[DepGraph.ROOT_TOKEN],
-            char_embeddings_dim=chars_lexer_config["embedding_size"],
-            output_dim=chars_lexer_config["lstm_output_size"],
-        )
-        lexers = {"words": lexer, "chars": chars_lexer, "fasttext": fasttext_lexer}
+            lexers["bert"] = bert_lexer
 
         itolab = gen_labels(treebank)
         itotag = gen_tags(treebank)
@@ -910,19 +897,18 @@ class BiAffineParser(nn.Module):
 
         lexers_path = model_path / "lexers"
 
-        lexer: Union[WordEmbeddingsLexer, BertBaseLexer]
-        word_embeddings_lexer = WordEmbeddingsLexer.load(lexers_path / "words")
-        if (bert_lexer_path := lexers_path / "bert").exists():
-            bert_lexer = BertLexer.load(bert_lexer_path)
-            lexer = BertBaseLexer(
-                bert_lexer=bert_lexer, words_lexer=word_embeddings_lexer
-            )
-        else:
-            lexer = word_embeddings_lexer
-
+        words_lexer = WordEmbeddingsLexer.load(lexers_path / "words")
         chars_lexer = CharRNNLexer.load(lexers_path / "chars")
         fasttext_lexer = FastTextLexer.load(lexers_path / "fasttext")
-        lexers = {"words": lexer, "chars": chars_lexer, "fasttext": fasttext_lexer}
+        lexers: Dict[str, Lexer] = {
+            "words": words_lexer,
+            "chars": chars_lexer,
+            "fasttext": fasttext_lexer,
+        }
+
+        if (bert_lexer_path := lexers_path / "bert").exists():
+            bert_lexer = BertLexer.load(bert_lexer_path)
+            lexers["bert"] = bert_lexer
 
         parser = cls(
             lexers=lexers,
@@ -1028,7 +1014,8 @@ def train(
     parser = parser.to(device)
     for lexer_to_freeze_name in hp.get("freeze", []):
         if (lexer := parser.lexers.get(lexer_to_freeze_name)) is not None:
-            freeze_module(lexer)
+            # TODO: remove the cast once we've figured out how to require our lexers to be modules
+            freeze_module(cast(nn.Module, lexer))
         else:
             warnings.warn(f"I can't freeze a {lexer_to_freeze_name!r} lexer that does not exist")
     parser.save(model_path)

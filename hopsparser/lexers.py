@@ -58,6 +58,9 @@ _T_Lexer = TypeVar("_T_Lexer", bound="Lexer")
 
 
 class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH]):
+
+    output_dim: int
+
     @abstractmethod
     def encode(self, tokens_sequence: Sequence[str]) -> _T_LEXER_SENT:
         raise NotImplementedError
@@ -572,7 +575,6 @@ class BertLexerBatch(NamedTuple):
 
 
 class BertLexerSentence(NamedTuple):
-    word_indices: torch.Tensor
     encoding: BatchEncoding
     subwords_alignments: Sequence[TokenSpan]
 
@@ -739,7 +741,7 @@ class BertLexer(nn.Module):
     def encode(self, tokens_sequence: Sequence[str]) -> BertLexerSentence:
         # The root token is remved here since the BERT model has no reason to know of it
         # FIXME: this means that this lexer is not really reusable, we should find a better way to
-        # get a represetations for ROOT
+        # get a representations for ROOT
         unrooted_tok_sequence = tokens_sequence[1:]
         # NOTE: for now the 🤗 tokenizer interface is not unified between fast and non-fast
         # tokenizers AND not all tokenizers support the fast mode, so we have to do this little
@@ -794,7 +796,7 @@ class BertLexer(nn.Module):
                 bert_encoding["special_tokens_mask"],
             )
 
-        return BertLexerSentence([], bert_encoding, alignments)
+        return BertLexerSentence(bert_encoding, alignments)
 
     def save(self, model_path: pathlib.Path, save_weights: bool = True):
         model_path.mkdir(exist_ok=True, parents=True)
@@ -858,67 +860,3 @@ class BertLexer(nn.Module):
             )
 
         return cls(model=model, tokenizer=tokenizer, **kwargs)
-
-
-_T_BertBaseLexer = TypeVar("_T_BertBaseLexer", bound="BertBaseLexer")
-
-
-class BertBaseLexer(nn.Module):
-    """
-    This Lexer performs tokenization and embedding mapping with BERT style models. It concatenates a
-    standard embedding with a BERT embedding.
-    """
-
-    def __init__(
-        self,
-        bert_lexer: BertLexer,
-        words_lexer: WordEmbeddingsLexer,
-    ):
-
-        super().__init__()
-        self.words_lexer = words_lexer
-        self.bert_lexer = bert_lexer
-
-        self.output_dim = self.words_lexer.output_dim + self.bert_lexer.output_dim
-
-    def encode(self, tokens_sequence: Sequence[str]) -> BertLexerSentence:
-        """
-        This maps word tokens to integer indexes.
-        Args:
-           tok_sequence: a sequence of strings
-        """
-        word_idxes = self.words_lexer.encode(tokens_sequence)
-        bert_sent = self.bert_lexer.encode(tokens_sequence)
-
-        return BertLexerSentence(
-            word_idxes, bert_sent.encoding, bert_sent.subwords_alignments
-        )
-
-    def make_batch(
-        self,
-        batch: Sequence[BertLexerSentence],
-    ) -> BertLexerBatch:
-        """Pad a batch of sentences."""
-        words_batch = self.words_lexer.make_batch([sent.word_indices for sent in batch])
-        bert_batch = self.bert_lexer.make_batch(batch)
-        return BertLexerBatch(
-            words_batch,
-            bert_batch.encoding,
-            bert_batch.subword_alignments,
-        )
-
-    def forward(self, inpt: BertLexerBatch) -> torch.Tensor:
-        word_embeddings = self.words_lexer(inpt.word_indices)
-        bert_embeddings = self.bert_lexer(inpt)
-        return torch.cat((word_embeddings, bert_embeddings), dim=2)
-
-    def save(self, model_path: pathlib.Path, save_weights: bool = True):
-        model_path.mkdir(exist_ok=True, parents=True)
-        self.words_lexer.save(model_path / "words", save_weights=save_weights)
-        self.bert_lexer.save(model_path / "bert", save_weights=save_weights)
-
-    @classmethod
-    def load(cls: Type[_T_BertBaseLexer], model_path: pathlib.Path) -> _T_BertBaseLexer:
-        words_lexer = WordEmbeddingsLexer.load(model_path / "words")
-        bert_lexer = BertLexer.load(model_path / "bert")
-        return cls(words_lexer=words_lexer, bert_lexer=bert_lexer)
