@@ -164,7 +164,7 @@ def train(
     train_file: pathlib.Path,
 ):
     model_path = output_dir / "model"
-    model_path.mkdir(exists_ok=True, parents=True)
+    model_path.mkdir(exist_ok=True, parents=True)
     shutil.copy(config_file, output_dir / config_file.name)
     parser.train(
         config_file=config_file,
