@@ -254,14 +254,12 @@ class BiAffineParser(nn.Module):
         self.mlp_lab_hidden = mlp_lab_hidden
         self.mlp_dropout = mlp_dropout
 
-        self.lexer = lexers["words"]
-        self.chars_lexer = lexers["chars"]
-        self.fasttext_lexer = lexers["fasttext"]
+        self.lexers = nn.ModuleDict(lexers)
 
         self.dep_rnn = nn.LSTM(
-            self.lexer.output_dim
-            + self.chars_lexer.output_dim
-            + self.fasttext_lexer.output_dim,
+            self.lexers["words"].output_dim
+            + self.lexers["chars"].output_dim
+            + self.lexers["fasttext"].output_dim,
             mlp_input,
             3,
             batch_first=True,
@@ -317,12 +315,9 @@ class BiAffineParser(nn.Module):
         - `arc_scores`: $`batch_size×max_sent_length×max_sent_length`$
         - `label_scores`: $`batch_size×num_deprels×max_sent_length×max_sent_length`$
         """
-        # Computes char embeddings
-        char_embed = self.chars_lexer(chars)
-        # Computes fasttext embeddings
-        ft_embed = self.fasttext_lexer(ft_subwords)
-        # Computes word embeddings
-        lex_emb = self.lexer(words)
+        char_embed = self.lexers["chars"](chars)
+        ft_embed = self.lexers["fasttext"](ft_subwords)
+        lex_emb = self.lexers["words"](words)
 
         # Encodes input for tagging and parsing
         inpt = torch.cat((lex_emb, char_embed, ft_embed), dim=-1)
@@ -579,9 +574,9 @@ class BiAffineParser(nn.Module):
         try:
             encoded = EncodedSentence(
                 words=words,
-                encoded_words=self.lexer.encode(words_with_root),
-                subwords=self.fasttext_lexer.encode(words_with_root),
-                chars=self.chars_lexer.encode(words_with_root),
+                encoded_words=self.lexers["words"].encode(words_with_root),
+                subwords=self.lexers["fasttext"].encode(words_with_root),
+                chars=self.lexers["chars"].encode(words_with_root),
                 sent_len=len(words_with_root),
             )
         except lexers.LexingError as e:
@@ -597,11 +592,13 @@ class BiAffineParser(nn.Module):
     def batch_sentences(self, sentences: Sequence[EncodedSentence]) -> SentencesBatch:
         words = [sent.words for sent in sentences]
         # TODO: fix the typing here
-        encoded_words = self.lexer.make_batch(
+        encoded_words = self.lexers["words"].make_batch(
             [sent.encoded_words for sent in sentences]
         )
-        chars = self.chars_lexer.make_batch([sent.chars for sent in sentences])
-        fasttext = self.fasttext_lexer.make_batch([sent.subwords for sent in sentences])
+        chars = self.lexers["chars"].make_batch([sent.chars for sent in sentences])
+        fasttext = self.lexers["fasttext"].make_batch(
+            [sent.subwords for sent in sentences]
+        )
 
         encodings = {"words": encoded_words, "chars": chars, "fasttext": fasttext}
 
@@ -807,22 +804,21 @@ class BiAffineParser(nn.Module):
                 out_stream,
             )
         parser_lexers: Dict[str, lexers.Lexer] = {
-            "chars": self.chars_lexer,
-            "fasttext": self.fasttext_lexer,
+            lexer_name: self.lexers[lexer_name] for lexer_name in ("chars", "fasttext")
         }
         lexers_path = model_path / "lexers"
         for lexer_name, lexer in parser_lexers.items():
             lexer.save(model_path=lexers_path / lexer_name, save_weights=False)
-        if isinstance(self.lexer, lexers.BertBaseLexer):
-            self.lexer.words_lexer.save(
+        if isinstance(self.lexers["words"], lexers.BertBaseLexer):
+            self.lexers["words"].words_lexer.save(
                 model_path=lexers_path / "words",
                 save_weights=False,
             )
-            self.lexer.bert_lexer.save(
+            self.lexers["words"].bert_lexer.save(
                 model_path=lexers_path / "bert", save_weights=False
             )
         else:
-            self.lexer.save(
+            self.lexers["words"].save(
                 model_path=lexers_path / "words",
                 save_weights=False,
             )
