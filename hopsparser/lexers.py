@@ -4,7 +4,6 @@ import pathlib
 from abc import abstractmethod
 import tempfile
 from typing import (
-    Dict,
     Final,
     Iterable,
     List,
@@ -864,10 +863,11 @@ class BertLexer(nn.Module):
         return cls(model=model, tokenizer=tokenizer, **kwargs)
 
 
-LEXER_TYPES: OneToOne[str, Type[Lexer]] = OneToOne(
+# TODO: change this to OneToOne[str, Type[Lexer]] as soon as we dop py38
+LEXER_TYPES: OneToOne = OneToOne.unique(
     {
         "bert": BertLexer,
-        "chars": CharRNNLexer,
+        "chars_rnn": CharRNNLexer,
         "fasttext": FastTextLexer,
         "words": WordEmbeddingsLexer,
     }
