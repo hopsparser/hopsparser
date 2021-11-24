@@ -783,13 +783,13 @@ class BiAffineParser(nn.Module):
                     "biased_biaffine": self.arc_biaffine.bias,
                     "default_batch_size": self.default_batch_size,
                     "encoder_dropout": self.dep_rnn.dropout,
-                    "labels": self.labels,
+                    "labels": [self.labels.inverse[i] for i in range(len(self.labels))],
                     "mlp_input": self.mlp_input,
                     "mlp_tag_hidden": self.mlp_tag_hidden,
                     "mlp_arc_hidden": self.mlp_arc_hidden,
                     "mlp_lab_hidden": self.mlp_lab_hidden,
                     "mlp_dropout": self.mlp_dropout,
-                    "tagset": self.tagset,
+                    "tagset": [self.tagset.inverse[i] for i in range(len(self.tagset))],
                     "lexers": {
                         lexer_name: lexers.LEXER_TYPES.inverse[type(lexer)]
                         for lexer_name, lexer in self.lexers.items()
