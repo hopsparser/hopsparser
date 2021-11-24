@@ -816,60 +816,57 @@ class BiAffineParser(nn.Module):
         config.setdefault("biased_biaffine", True)
         config.setdefault("batch_size", 1)
 
-        if fasttext is None:
-            logger.info("Generating a FastText model from the treebank")
-            fasttext_lexer = FastTextLexer.from_sents(
-                [tree.words[1:] for tree in treebank],
-                special_tokens=[DepGraph.ROOT_TOKEN],
-            )
-        elif fasttext.exists():
-            try:
-                # ugly, but we have no better way of checking if a file is a valid model
-                fasttext_lexer = FastTextLexer.from_fasttext_model(
-                    fasttext, special_tokens=[DepGraph.ROOT_TOKEN]
-                )
-            except ValueError:
-                # FastText couldn't load it, so it should be raw text
-                logger.info(f"Generating a FastText model from {fasttext}")
-                fasttext_lexer = FastTextLexer.from_raw(
-                    fasttext, special_tokens=[DepGraph.ROOT_TOKEN]
-                )
-        else:
-            raise ValueError(f"{fasttext} not found")
-
         corpus_words = [word for tree in treebank for word in tree.words[1:]]
-        words_lexer_config = config["lexers"]["words"]
-        words_lexer = WordEmbeddingsLexer.from_words(
-            embeddings_dim=words_lexer_config["embedding_size"],
-            unk_word=cls.UNK_WORD,
-            word_dropout=words_lexer_config["word_dropout"],
-            words=(DepGraph.ROOT_TOKEN, cls.UNK_WORD, *corpus_words),
-            words_padding_idx=cls.PAD_IDX,
-        )
-        chars_lexer_config = config["lexers"]["chars"]
-        chars_lexer = CharRNNLexer.from_chars(
-            chars=(c for word in corpus_words for c in word),
-            special_tokens=[DepGraph.ROOT_TOKEN],
-            char_embeddings_dim=chars_lexer_config["embedding_size"],
-            output_dim=chars_lexer_config["lstm_output_size"],
-        )
-        parser_lexers: Dict[str, Lexer] = {
-            "words": words_lexer,
-            "chars": chars_lexer,
-            "fasttext": fasttext_lexer,
-        }
-
-        if (bert_lexer_config := config["lexers"].get("bert")) is not None:
-            bert_layers = config.get("layers", "*")
-            if bert_layers == "*":
-                bert_layers = None
-            bert_lexer = BertLexer.from_pretrained(
-                model_name_or_path=bert_lexer_config["model"],
-                layers=bert_layers,
-                subwords_reduction=bert_lexer_config.get("subwords_reduction", "first"),
-                weight_layers=bert_lexer_config.get("weighted", False),
-            )
-            parser_lexers["bert"] = bert_lexer
+        parser_lexers: Dict[str, Lexer] = dict()
+        lexer: Lexer
+        for lexer_config in config["lexers"]:
+            if lexer_config["type"] == "words":
+                lexer = WordEmbeddingsLexer.from_words(
+                    embeddings_dim=lexer_config["embedding_size"],
+                    unk_word=cls.UNK_WORD,
+                    word_dropout=lexer_config["word_dropout"],
+                    words=(DepGraph.ROOT_TOKEN, cls.UNK_WORD, *corpus_words),
+                    words_padding_idx=cls.PAD_IDX,
+                )
+            elif lexer_config["type"] == "chars_rnn":
+                lexer = CharRNNLexer.from_chars(
+                    chars=(c for word in corpus_words for c in word),
+                    special_tokens=[DepGraph.ROOT_TOKEN],
+                    char_embeddings_dim=lexer_config["embedding_size"],
+                    output_dim=lexer_config["lstm_output_size"],
+                )
+            elif lexer_config["type"] == "bert":
+                bert_layers = lexer_config.get("layers", "*")
+                if bert_layers == "*":
+                    bert_layers = None
+                lexer = BertLexer.from_pretrained(
+                    model_name_or_path=lexer_config["model"],
+                    layers=bert_layers,
+                    subwords_reduction=lexer_config.get("subwords_reduction", "first"),
+                    weight_layers=lexer_config.get("weighted", False),
+                )
+            elif lexer_config["type"] == "fasttext":
+                if fasttext is None:
+                    logger.info("Generating a FastText model from the treebank")
+                    lexer = FastTextLexer.from_sents(
+                        [tree.words[1:] for tree in treebank],
+                        special_tokens=[DepGraph.ROOT_TOKEN],
+                    )
+                elif fasttext.exists():
+                    try:
+                        # ugly, but we have no better way of checking if a file is a valid model
+                        lexer = FastTextLexer.from_fasttext_model(
+                            fasttext, special_tokens=[DepGraph.ROOT_TOKEN]
+                        )
+                    except ValueError:
+                        # FastText couldn't load it, so it should be raw text
+                        logger.info(f"Generating a FastText model from {fasttext}")
+                        lexer = FastTextLexer.from_raw(
+                            fasttext, special_tokens=[DepGraph.ROOT_TOKEN]
+                        )
+                else:
+                    raise ValueError(f"{fasttext} not found")
+            parser_lexers[lexer_config["name"]] = lexer
 
         itolab = gen_labels(treebank)
         itotag = gen_tags(treebank)

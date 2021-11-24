@@ -12,10 +12,13 @@ epochs: 2
 lr:
   base: 0.001
 lexers:
-  words:
+  - name: word_embeddings
+    type: words
     embedding_size: 128
     word_dropout: 0.6
-  chars:
+  - name: char_level_embeddings
+    type: chars_rnn
     embedding_size: 64
     lstm_output_size: 128
-  fasttext: {}
+  - name: fasttext
+    type: fasttext

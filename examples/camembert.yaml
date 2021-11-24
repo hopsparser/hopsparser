@@ -5,17 +5,21 @@ mlp_arc_hidden: 512
 mlp_lab_hidden: 128
 # Lexers
 lexers:
-  words:
+  - name: word_embeddings
+    type: words
     embedding_size: 256
     word_dropout: 0.5
-  bert:
+  - name: char_level_embeddings
+    type: chars_rnn
+    embedding_size: 64
+    lstm_output_size: 128
+  - name: fasttext
+    type: fasttext
+  - name: camembert_base
+    type: bert
     model: "camembert-base"
     layers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     subwords_reduction: "mean"
-  chars:
-    embedding_size: 64
-    lstm_output_size: 128
-  fasttext: {}
 # Training hyperparameters
 encoder_dropout: 0.5
 mlp_dropout: 0.5

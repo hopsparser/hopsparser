@@ -5,13 +5,16 @@ mlp_arc_hidden: 512
 mlp_lab_hidden: 128
 # Lexers
 lexers:
-  words:
+  - name: word_embeddings
+    type: words
     embedding_size: 128
     word_dropout: 0.6
-  chars:
+  - name: char_level_embeddings
+    type: chars_rnn
     embedding_size: 64
     lstm_output_size: 128
-  fasttext: {}
+  - name: fasttext
+    type: fasttext
 # Training hyperparameters
 encoder_dropout: 0.6
 mlp_dropout: 0.5

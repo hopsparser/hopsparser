@@ -14,14 +14,18 @@ lr:
     shape: linear
     warmup_steps: 100
 lexers:
-  words:
+  - name: word_embeddings
+    type: words
     embedding_size: 256
     word_dropout: 0.5
-  bert:
+  - name: char_level_embeddings
+    type: chars_rnn
+    embedding_size: 64
+    lstm_output_size: 128
+  - name: fasttext
+    type: fasttext
+  - name: flaubert_minuscule
+    type: bert
     model: "lgrobol/flaubert-minuscule"
     layers: "*"
     subwords_reduction: "mean"
-  chars:
-    embedding_size: 64
-    lstm_output_size: 128
-  fasttext: {}
