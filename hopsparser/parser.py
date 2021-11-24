@@ -820,7 +820,8 @@ class BiAffineParser(nn.Module):
         parser_lexers: Dict[str, Lexer] = dict()
         lexer: Lexer
         for lexer_config in config["lexers"]:
-            if lexer_config["type"] == "words":
+            lexer_type = lexer_config["type"]
+            if lexer_type == "words":
                 lexer = WordEmbeddingsLexer.from_words(
                     embeddings_dim=lexer_config["embedding_size"],
                     unk_word=cls.UNK_WORD,
@@ -866,6 +867,8 @@ class BiAffineParser(nn.Module):
                         )
                 else:
                     raise ValueError(f"{fasttext} not found")
+            else:
+                raise ValueError(f"Unknown lexer type: {lexer_type!r}")
             parser_lexers[lexer_config["name"]] = lexer
 
         itolab = gen_labels(treebank)
