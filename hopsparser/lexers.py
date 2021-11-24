@@ -4,6 +4,7 @@ import pathlib
 from abc import abstractmethod
 import tempfile
 from typing import (
+    Dict,
     Final,
     Iterable,
     List,
@@ -861,3 +862,13 @@ class BertLexer(nn.Module):
             )
 
         return cls(model=model, tokenizer=tokenizer, **kwargs)
+
+
+LEXER_TYPES: OneToOne[str, Type[Lexer]] = OneToOne(
+    {
+        "bert": BertLexer,
+        "chars": CharRNNLexer,
+        "fasttext": FastTextLexer,
+        "words": WordEmbeddingsLexer,
+    }
+)

@@ -381,7 +381,7 @@ class BiAffineParser(nn.Module):
         lab_loss = marginal_loss(lab_scoresL, labelsL)
 
         # TODO: see if other loss combination functions wouldn't help here, e.g.
-        # <https://arxiv.org/abs/1805.06334>
+        # <https://arxiv.org/abs/1805.06334> or <https://arxiv.org/abs/1209.2784>
         return tagger_loss + arc_loss + lab_loss
 
     def eval_model(
@@ -790,6 +790,10 @@ class BiAffineParser(nn.Module):
                     "mlp_lab_hidden": self.mlp_lab_hidden,
                     "mlp_dropout": self.mlp_dropout,
                     "tagset": self.tagset,
+                    "lexers": {
+                        lexer_name: lexers.LEXER_TYPES.inv[type(lexer)]
+                        for lexer_name, lexer in self.lexers.items()
+                    },
                 },
                 out_stream,
             )
@@ -849,7 +853,7 @@ class BiAffineParser(nn.Module):
             char_embeddings_dim=chars_lexer_config["embedding_size"],
             output_dim=chars_lexer_config["lstm_output_size"],
         )
-        lexers: Dict[str, Lexer] = {
+        parser_lexers: Dict[str, Lexer] = {
             "words": words_lexer,
             "chars": chars_lexer,
             "fasttext": fasttext_lexer,
@@ -865,14 +869,14 @@ class BiAffineParser(nn.Module):
                 subwords_reduction=bert_lexer_config.get("subwords_reduction", "first"),
                 weight_layers=bert_lexer_config.get("weighted", False),
             )
-            lexers["bert"] = bert_lexer
+            parser_lexers["bert"] = bert_lexer
 
         itolab = gen_labels(treebank)
         itotag = gen_tags(treebank)
 
         return cls(
             labels=itolab,
-            lexers=lexers,
+            lexers=parser_lexers,
             tagset=itotag,
             biased_biaffine=config["biased_biaffine"],
             default_batch_size=config["batch_size"],
@@ -897,23 +901,13 @@ class BiAffineParser(nn.Module):
 
         lexers_path = model_path / "lexers"
 
-        words_lexer = WordEmbeddingsLexer.load(lexers_path / "words")
-        chars_lexer = CharRNNLexer.load(lexers_path / "chars")
-        fasttext_lexer = FastTextLexer.load(lexers_path / "fasttext")
-        lexers: Dict[str, Lexer] = {
-            "words": words_lexer,
-            "chars": chars_lexer,
-            "fasttext": fasttext_lexer,
-        }
+        parser_lexers: Dict[str, Lexer] = dict()
+        for lexer_name, lexer_type in config["lexers"].items():
+            lexer_class = lexers.LEXER_TYPES[lexer_type]
+            parser_lexers[lexer_name] = lexer_class.load(lexers_path / lexer_name)
+        config["lexers"] = parser_lexers
 
-        if (bert_lexer_path := lexers_path / "bert").exists():
-            bert_lexer = BertLexer.load(bert_lexer_path)
-            lexers["bert"] = bert_lexer
-
-        parser = cls(
-            lexers=lexers,
-            **config,
-        )
+        parser = cls(**config)
         weights_file = model_path / "weights.pt"
         if weights_file.exists():
             parser.load_params(str(weights_file))
@@ -921,6 +915,7 @@ class BiAffineParser(nn.Module):
         return parser
 
 
+# FIXME: why are we not requiring a sequence for treelist again?
 class DependencyDataset:
     def __init__(
         self,
@@ -1017,7 +1012,9 @@ def train(
             # TODO: remove the cast once we've figured out how to require our lexers to be modules
             freeze_module(cast(nn.Module, lexer))
         else:
-            warnings.warn(f"I can't freeze a {lexer_to_freeze_name!r} lexer that does not exist")
+            warnings.warn(
+                f"I can't freeze a {lexer_to_freeze_name!r} lexer that does not exist"
+            )
     parser.save(model_path)
 
     trainset = DependencyDataset(
