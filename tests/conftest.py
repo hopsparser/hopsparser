@@ -27,10 +27,13 @@ def fasttext_model_path(test_data_dir: pathlib.Path) -> pathlib.Path:
 
 @pytest.fixture(
     params=[
-        "toy_nobert",
-        "toy_fast_flaubert",
         "toy_bert_fasttok",
-        # pytest.param("toy_flaubert", marks=pytest.mark.slow),
+        "toy_everylexer",
+        "toy_fast_flaubert",
+        "toy_flaubert",
+        "toy_onlychars",
+        "toy_onlyfasttext",
+        "toy_onlywords",
     ],
     scope="session",
 )

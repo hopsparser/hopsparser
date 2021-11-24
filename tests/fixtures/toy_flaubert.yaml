@@ -14,16 +14,6 @@ lr:
     shape: linear
     warmup_steps: 100
 lexers:
-  - name: word_embeddings
-    type: words
-    embedding_size: 256
-    word_dropout: 0.5
-  - name: char_level_embeddings
-    type: chars_rnn
-    embedding_size: 64
-    lstm_output_size: 128
-  - name: fasttext
-    type: fasttext
   - name: flaubert_small
     type: bert
     model: "flaubert/flaubert_small_cased"
