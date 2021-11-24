@@ -22,7 +22,7 @@ import fasttext
 import torch
 import torch.jit
 import transformers
-from boltons.dictutils import OneToOne
+from bidict import bidict, BidirectionalMapping
 from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence
@@ -116,7 +116,7 @@ class CharRNNLexer(nn.Module):
         """
         super().__init__()
         try:
-            self.vocabulary: OneToOne[str, int] = OneToOne.unique(
+            self.vocabulary: BidirectionalMapping[str, int] = bidict(
                 (c, i) for i, c in enumerate(charset)
             )
         except ValueError as e:
@@ -219,7 +219,7 @@ class CharRNNLexer(nn.Module):
                     "output_dim": self.output_dim,
                     "special_tokens": list(self.special_tokens),
                     "charset": [
-                        self.vocabulary.inv[i] for i in range(len(self.vocabulary))
+                        self.vocabulary.inverse[i] for i in range(len(self.vocabulary))
                     ],
                 },
                 out_stream,
@@ -441,7 +441,7 @@ class WordEmbeddingsLexer(nn.Module):
         """
         super().__init__()
         try:
-            self.vocabulary: OneToOne[str, int] = OneToOne.unique(
+            self.vocabulary: BidirectionalMapping[str, int] = bidict(
                 (c, i) for i, c in enumerate(vocabulary)
             )
         except ValueError as e:
@@ -495,9 +495,9 @@ class WordEmbeddingsLexer(nn.Module):
             json.dump(
                 {
                     "embeddings_dim": self.output_dim,
-                    "unk_word": self.vocabulary.inv[self.unk_word_idx],
+                    "unk_word": self.vocabulary.inverse[self.unk_word_idx],
                     "vocabulary": [
-                        self.vocabulary.inv[i] for i in range(len(self.vocabulary))
+                        self.vocabulary.inverse[i] for i in range(len(self.vocabulary))
                     ],
                     "word_dropout": self.word_dropout,
                     "words_padding_idx": self.embedding.padding_idx,
@@ -863,8 +863,7 @@ class BertLexer(nn.Module):
         return cls(model=model, tokenizer=tokenizer, **kwargs)
 
 
-# TODO: change this to OneToOne[str, Type[Lexer]] as soon as we dop py38
-LEXER_TYPES: OneToOne = OneToOne.unique(
+LEXER_TYPES: BidirectionalMapping[str, Type[Lexer]] = bidict(
     {
         "bert": BertLexer,
         "chars_rnn": CharRNNLexer,

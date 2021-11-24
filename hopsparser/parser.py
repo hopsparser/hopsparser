@@ -791,7 +791,7 @@ class BiAffineParser(nn.Module):
                     "mlp_dropout": self.mlp_dropout,
                     "tagset": self.tagset,
                     "lexers": {
-                        lexer_name: lexers.LEXER_TYPES.inv[type(lexer)]
+                        lexer_name: lexers.LEXER_TYPES.inverse[type(lexer)]
                         for lexer_name, lexer in self.lexers.items()
                     },
                 },
