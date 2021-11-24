@@ -31,8 +31,8 @@ import numpy as np
 import torch
 import transformers
 import yaml
+from bidict import bidict, BidirectionalMapping
 from boltons import iterutils as itu
-from boltons.dictutils import OneToOne
 from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
@@ -235,10 +235,10 @@ class BiAffineParser(nn.Module):
 
         super(BiAffineParser, self).__init__()
         self.default_batch_size = default_batch_size
-        self.tagset: OneToOne[str, int] = OneToOne.unique(
+        self.tagset: BidirectionalMapping[str, int] = bidict(
             (t, i) for i, t in enumerate(tagset)
         )
-        self.labels: OneToOne[str, int] = OneToOne.unique(
+        self.labels: BidirectionalMapping[str, int] = bidict(
             (l, i) for i, l in enumerate(labels)
         )
         self.mlp_arc_hidden = mlp_arc_hidden
@@ -718,7 +718,7 @@ class BiAffineParser(nn.Module):
 
                     # Predict tags
                     tag_idxes = tagger_scores.argmax(dim=1)
-                    pos_tags = [self.tagset.inv[idx] for idx in tag_idxes.tolist()]
+                    pos_tags = [self.tagset.inverse[idx] for idx in tag_idxes.tolist()]
                     # Predict labels
                     select = mst_heads.unsqueeze(0).expand(lab_scores.size(0), -1)
                     selected = torch.gather(lab_scores, 1, select.unsqueeze(1)).squeeze(
@@ -726,7 +726,7 @@ class BiAffineParser(nn.Module):
                     )
                     mst_labels = selected.argmax(dim=0)
                     edges = [
-                        deptree.Edge(head, self.labels.inv[lbl], dep)
+                        deptree.Edge(head, self.labels.inverse[lbl], dep)
                         for (dep, lbl, head) in zip(
                             list(range(length)), mst_labels.tolist(), mst_heads.tolist()
                         )
