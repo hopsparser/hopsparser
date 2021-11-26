@@ -28,6 +28,7 @@ from typing import (
 )
 
 import numpy as np
+import pydantic
 import torch
 import transformers
 import yaml
@@ -201,6 +202,20 @@ class DependencyBatch(NamedTuple):
 class LRSchedule(TypedDict):
     shape: Literal["exponential", "linear", "constant"]
     warmup_steps: int
+
+
+class BiAffineParserConfig(pydantic.BaseModel):
+    mlp_input: int
+    mlp_tag_hidden: int
+    mlp_arc_hidden: int
+    mlp_lab_hidden: int
+    biased_biaffine: bool
+    default_batch_size: int
+    encoder_dropout: float
+    labels: List[str]
+    mlp_dropout: float
+    tagset: List[str]
+    lexers: Dict[str, str]
 
 
 _T_BiAffineParser = TypeVar("_T_BiAffineParser", bound="BiAffineParser")
@@ -776,27 +791,25 @@ class BiAffineParser(nn.Module):
 
     def save(self, model_path: pathlib.Path, save_weights: bool = True):
         model_path.mkdir(exist_ok=True, parents=True)
+        config = BiAffineParserConfig(
+            biased_biaffine=self.arc_biaffine.bias,
+            default_batch_size=self.default_batch_size,
+            encoder_dropout=self.dep_rnn.dropout,
+            labels=[self.labels.inverse[i] for i in range(len(self.labels))],
+            mlp_input=self.mlp_input,
+            mlp_tag_hidden=self.mlp_tag_hidden,
+            mlp_arc_hidden=self.mlp_arc_hidden,
+            mlp_lab_hidden=self.mlp_lab_hidden,
+            mlp_dropout=self.mlp_dropout,
+            tagset=[self.tagset.inverse[i] for i in range(len(self.tagset))],
+            lexers={
+                lexer_name: lexers.LEXER_TYPES.inverse[type(lexer)]
+                for lexer_name, lexer in self.lexers.items()
+            },
+        )
         config_file = model_path / "config.json"
         with open(config_file, "w") as out_stream:
-            json.dump(
-                {
-                    "biased_biaffine": self.arc_biaffine.bias,
-                    "default_batch_size": self.default_batch_size,
-                    "encoder_dropout": self.dep_rnn.dropout,
-                    "labels": [self.labels.inverse[i] for i in range(len(self.labels))],
-                    "mlp_input": self.mlp_input,
-                    "mlp_tag_hidden": self.mlp_tag_hidden,
-                    "mlp_arc_hidden": self.mlp_arc_hidden,
-                    "mlp_lab_hidden": self.mlp_lab_hidden,
-                    "mlp_dropout": self.mlp_dropout,
-                    "tagset": [self.tagset.inverse[i] for i in range(len(self.tagset))],
-                    "lexers": {
-                        lexer_name: lexers.LEXER_TYPES.inverse[type(lexer)]
-                        for lexer_name, lexer in self.lexers.items()
-                    },
-                },
-                out_stream,
-            )
+            json.dump(config.dict(), out_stream)
         lexers_path = model_path / "lexers"
         for lexer_name, lexer in self.lexers.items():
             lexer.save(model_path=lexers_path / lexer_name, save_weights=False)
@@ -897,17 +910,30 @@ class BiAffineParser(nn.Module):
         config_path = model_path / "config.json"
 
         with open(config_path) as in_stream:
-            config = json.load(in_stream)
+            config_dict = json.load(in_stream)
+        config = BiAffineParserConfig.parse_obj(config_dict)
 
         lexers_path = model_path / "lexers"
 
         parser_lexers: Dict[str, Lexer] = dict()
-        for lexer_name, lexer_type in config["lexers"].items():
+        for lexer_name, lexer_type in config.lexers.items():
             lexer_class = lexers.LEXER_TYPES[lexer_type]
             parser_lexers[lexer_name] = lexer_class.load(lexers_path / lexer_name)
-        config["lexers"] = parser_lexers
+        parser_lexers
 
-        parser = cls(**config)
+        parser = cls(
+            biased_biaffine=config.biased_biaffine,
+            default_batch_size=config.default_batch_size,
+            encoder_dropout=config.encoder_dropout,
+            labels=config.labels,
+            lexers=parser_lexers,
+            mlp_arc_hidden=config.mlp_arc_hidden,
+            mlp_dropout=config.mlp_dropout,
+            mlp_input=config.mlp_input,
+            mlp_lab_hidden=config.mlp_lab_hidden,
+            mlp_tag_hidden=config.mlp_tag_hidden,
+            tagset=config.tagset,
+        )
         weights_file = model_path / "weights.pt"
         if weights_file.exists():
             parser.load_params(str(weights_file))
