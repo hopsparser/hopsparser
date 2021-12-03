@@ -364,15 +364,15 @@ class BiAffineParser(nn.Module):
     ) -> torch.Tensor:
         # ARC LOSS
         # [batch, sent_len, sent_len]
-        arc_scoresL = arc_scores.transpose(-1, -2)
+        arc_scores_tr_flat = arc_scores.transpose(-1, -2)
         # [batch*sent_len, sent_len]
-        arc_scoresL = arc_scoresL.reshape(-1, arc_scoresL.size(-1))
+        arc_scores_tr_flat = arc_scores_tr_flat.reshape(-1, arc_scores_tr_flat.size(-1))
         # [batch*sent_len]
-        arc_loss = marginal_loss(arc_scoresL, batch.heads.view(-1))
+        arc_loss = marginal_loss(arc_scores_tr_flat, batch.heads.view(-1))
 
         # TAGGER_LOSS
-        tagger_scoresB = tagger_scores.view(-1, tagger_scores.size(-1))
-        tagger_loss = marginal_loss(tagger_scoresB, batch.tags.view(-1))
+        tagger_scores_flat = tagger_scores.view(-1, tagger_scores.size(-1))
+        tagger_loss = marginal_loss(tagger_scores_flat, batch.tags.view(-1))
 
         # LABEL LOSS
         # We will select the labels for the true heads, so we have to give a true head to
@@ -382,18 +382,22 @@ class BiAffineParser(nn.Module):
             batch.sentences.content_mask.logical_not(), 0
         )
         # [batch, 1, 1, sent_len]
-        headsL = positive_heads.unsqueeze(1).unsqueeze(2)
+        heads_selection = positive_heads.unsqueeze(1).unsqueeze(2)
         # [batch, n_labels, 1, sent_len]
-        headsL = headsL.expand(-1, lab_scores.size(1), -1, -1)
+        heads_selection = heads_selection.expand(-1, lab_scores.size(1), -1, -1)
         # [batch, n_labels, sent_len]
-        lab_scoresL = torch.gather(lab_scores, 2, headsL).squeeze(2)
+        predicted_labels_scores = torch.gather(lab_scores, 2, heads_selection).squeeze(
+            2
+        )
         # [batch, sent_len, n_labels]
-        lab_scoresL = lab_scoresL.transpose(-1, -2)
+        predicted_labels_scores = predicted_labels_scores.transpose(-1, -2)
         # [batch*sent_len, n_labels]
-        lab_scoresL = lab_scoresL.reshape(-1, lab_scoresL.size(-1))
+        predicted_labels_scores = predicted_labels_scores.reshape(
+            -1, predicted_labels_scores.size(-1)
+        )
         # [batch*sent_len]
         labelsL = batch.labels.view(-1)
-        lab_loss = marginal_loss(lab_scoresL, labelsL)
+        lab_loss = marginal_loss(predicted_labels_scores, labelsL)
 
         # TODO: see if other loss combination functions wouldn't help here, e.g.
         # <https://arxiv.org/abs/1805.06334> or <https://arxiv.org/abs/1209.2784>
