@@ -2,17 +2,18 @@ HOPS, an honest parser of sentences
 ===================================
 
 [![Latest PyPI version](https://img.shields.io/pypi/v/hopsparser.svg)](https://pypi.org/project/hopsparser)
-[![Build Status](https://github.com/bencrabbe/npdependency/actions/workflows/ci.yml/badge.svg)](https://github.com/bencrabbe/npdependency/actions?query=workflow%3ACI)
+[![Build Status](https://github.com/hopsparser/npdependency/actions/workflows/ci.yml/badge.svg)](https://github.com/bencrabbe/npdependency/actions?query=workflow%3ACI)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+> It ain't much but it's honest work.
 
 This is a graph-based dependency parser inspired by [Dozat and Manning
 (2017)](https://nlp.stanford.edu/pubs/dozat2017deep.pdf)'s biaffine graph parser. Contrary to Dozat,
 the parser performs its own tagging and can use several lexers such as FastText, BERT and others. It
 has been originally designed within the [FlauBERT](https://github.com/getalp/Flaubert) initiative.
 
-I advise to have a GPU with at least 12GB graphical memory. With smaller GPUs, using a BERT
-preprocessor will become difficult. The parser comes with pretrained models ready for parsing
-French, but it might be trained for other languages without difficulties.
+The parser comes with pretrained models ready for parsing French, but it might be trained for other
+languages without difficulties.
 
 ## Installation
 
@@ -23,21 +24,10 @@ dependencies and install the console entry points
 pip install hopsparser
 ```
 
-If you want a development install (so you can modify the code locally and directly run it), you can
-install it in editable mode after cloning the repository
+## Inference
 
-```sh
-git clone https://github.com/bencrabbe/npdependency
-cd npdependency
-pip install -e .
-```
-
-In that case, you can run the smoketests with `tox` to ensure that everything works on your end.
-
-## Parsing task
-
-The parsing task (or prediction task) assumes you have an already trained model in the directory
-MODEL. You can parse a file INPUT_FILE in truncated CONLL-U format with the command:
+This assumes you have an already trained model in the directory MODEL. You can parse a file
+INPUT_FILE using.
 
 ```sh
 hopsparser parse MODEL INPUT_FILE OUTPUT_FILE
@@ -82,7 +72,7 @@ We provide some pretrained models, see the list in [models.md](https://github.co
 
 Instead of using a pretrained model, one can train their own model. Training a model with BERT
 definitely requires a GPU. Unless you have a GPU with a large amount of onboard memory, using small
-batch sizes (2, 4, 8, 16, 32, 64) for training is probably a good idea. Otherwise you are likely to
+batch sizes (2, 4, 8, 16, 32, 64) for training is probably a good idea. Otherwise, you are likely to
 run out of memory.
 
 Training can be performed with the following steps:
@@ -118,6 +108,18 @@ repository useful, please cite the following paper
 }
 ```
 
+## Development
+
+If you want a development install (so you can modify the code locally and directly run it), you can
+install it in editable mode with the tests extras after cloning the repository
+
+```sh
+git clone https://github.com/hopsparser/npdependency
+cd npdependency
+pip install -e .[tests]
+```
+
+In that case, you can run the smoke tests with `tox` to ensure that everything works on your end.
 
 ## Licence
 
