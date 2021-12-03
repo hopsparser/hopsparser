@@ -121,6 +121,8 @@ pip install -e .[tests]
 
 In that case, you can run the smoke tests with `tox` to ensure that everything works on your end.
 
+Note that using the editable mode requires `pip >= 21.3.1`.
+
 ## Licence
 
 This software is released under the MIT Licence, with some files released under compatible free
