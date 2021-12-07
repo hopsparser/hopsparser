@@ -870,26 +870,29 @@ class BiAffineParser(nn.Module):
                     weight_layers=lexer_config.get("weighted", False),
                 )
             elif lexer_config["type"] == "fasttext":
-                if fasttext is None:
+                fasttext_model_path = lexer_config.get("source", fasttext)
+                if fasttext_model_path is None:
                     logger.info("Generating a FastText model from the treebank")
                     lexer = FastTextLexer.from_sents(
                         [tree.words[1:] for tree in treebank],
                         special_tokens=[DepGraph.ROOT_TOKEN],
                     )
-                elif fasttext.exists():
+                elif fasttext_model_path.exists():
                     try:
                         # ugly, but we have no better way of checking if a file is a valid model
                         lexer = FastTextLexer.from_fasttext_model(
-                            fasttext, special_tokens=[DepGraph.ROOT_TOKEN]
+                            fasttext_model_path, special_tokens=[DepGraph.ROOT_TOKEN]
                         )
                     except ValueError:
                         # FastText couldn't load it, so it should be raw text
-                        logger.info(f"Generating a FastText model from {fasttext}")
+                        logger.info(
+                            f"Generating a FastText model from {fasttext_model_path}"
+                        )
                         lexer = FastTextLexer.from_raw(
-                            fasttext, special_tokens=[DepGraph.ROOT_TOKEN]
+                            fasttext_model_path, special_tokens=[DepGraph.ROOT_TOKEN]
                         )
                 else:
-                    raise ValueError(f"{fasttext} not found")
+                    raise ValueError(f"{fasttext_model_path} not found")
             else:
                 raise ValueError(f"Unknown lexer type: {lexer_type!r}")
             parser_lexers[lexer_config["name"]] = lexer
