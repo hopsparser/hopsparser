@@ -326,8 +326,8 @@ class BiAffineParser(nn.Module):
         `tag_scores, arc_scores, lab_scores` with shapes
 
         - `tag_score`: $`batch_size×max_sent_length×num_pos_tags`$
-        - `arc_scores`: $`batch_size×max_sent_length×max_sent_length`$
-        - `label_scores`: $`batch_size×num_deprels×max_sent_length×max_sent_length`$
+        - `arc_scores`: $`batch_size×n_possible_heads×n_deps`$
+        - `label_scores`: $`batch_size×num_deprels×n_possible_heads×n_deps`$
         """
         embeddings = [
             self.lexers[lexer_name](encodings[lexer_name])
