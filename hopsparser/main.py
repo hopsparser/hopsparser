@@ -124,11 +124,6 @@ def parse(
     help="A CoNLL-U treebank to use as a development dataset.",
 )
 @click.option(
-    "--fasttext",
-    type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
-    help="The path to either an existing FastText model or a raw text file to train one. If this option is absent, a model will be trained from the parsing train set.",
-)
-@click.option(
     "--max-tree-length",
     type=int,
     help="The maximum length for trees to be taken into account in the training dataset.",
@@ -153,7 +148,6 @@ def train(
     config_file: pathlib.Path,
     dev_file: Optional[pathlib.Path],
     device: str,
-    fasttext: Optional[pathlib.Path],
     max_tree_length: Optional[int],
     output_dir: pathlib.Path,
     overwrite: bool,
@@ -169,7 +163,6 @@ def train(
         dev_file=dev_file,
         device=device,
         train_file=train_file,
-        fasttext=fasttext,
         max_tree_length=max_tree_length,
         model_path=model_path,
         overwrite=overwrite,
