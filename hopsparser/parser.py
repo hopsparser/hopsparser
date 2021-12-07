@@ -870,7 +870,10 @@ class BiAffineParser(nn.Module):
                     weight_layers=lexer_config.get("weighted", False),
                 )
             elif lexer_config["type"] == "fasttext":
-                fasttext_model_path = lexer_config.get("source", fasttext)
+                if (fasttext_model_path := lexer_config.get("source")) is not None:
+                    fasttext_model_path = config_path.parent / fasttext_model_path
+                else:
+                    fasttext_model_path = fasttext
                 if fasttext_model_path is None:
                     logger.info("Generating a FastText model from the treebank")
                     lexer = FastTextLexer.from_sents(

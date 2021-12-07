@@ -65,7 +65,7 @@ def test_fasttext_train_create_save_load(
         model = fasttext.train_unsupervised(
             str(train_txt_path),
             model="skipgram",
-            minCount=1,
+            minCount=0,
             epoch=1,
             ws=1,
             neg=1,

@@ -24,6 +24,7 @@ lexers:
     lstm_output_size: 128
   - name: fasttext
     type: fasttext
+    source: fasttext_model.bin
   - name: roberta_minuscule
     type: bert
     model: "lgrobol/roberta-minuscule"
