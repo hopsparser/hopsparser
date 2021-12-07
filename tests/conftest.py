@@ -20,11 +20,6 @@ def raw_text(test_data_dir: pathlib.Path) -> pathlib.Path:
     return test_data_dir / "raw.txt"
 
 
-@pytest.fixture(scope="session")
-def fasttext_model_path(test_data_dir: pathlib.Path) -> pathlib.Path:
-    return test_data_dir / "fasttext_model.bin"
-
-
 @pytest.fixture(
     params=[
         "toy_bert_fasttok",
@@ -43,7 +38,6 @@ def train_config(test_data_dir: pathlib.Path, request) -> pathlib.Path:
 
 @pytest.fixture
 def model_path(
-    fasttext_model_path: pathlib.Path,
     tmp_path: pathlib.Path,
     train_config: pathlib.Path,
     treebank: pathlib.Path,
@@ -52,7 +46,7 @@ def model_path(
     with open(treebank) as in_stream:
         trees = list(deptree.DepGraph.read_conll(in_stream))
     model = parser.BiAffineParser.initialize(
-        config_path=train_config, fasttext=fasttext_model_path, treebank=trees
+        config_path=train_config, treebank=trees
     )
     model.save(model_path)
     return model_path
