@@ -872,7 +872,9 @@ class BiAffineParser(nn.Module):
                 if (fasttext_model_path := lexer_config.get("source")) is not None:
                     fasttext_model_path = pathlib.Path(fasttext_model_path)
                     if not fasttext_model_path.is_absolute():
-                        fasttext_model_path = (config_path.parent / fasttext_model_path).resolve()
+                        fasttext_model_path = (
+                            config_path.parent / fasttext_model_path
+                        ).resolve()
                 if fasttext_model_path is None:
                     logger.info("Generating a FastText model from the treebank")
                     lexer = FastTextLexer.from_sents(
