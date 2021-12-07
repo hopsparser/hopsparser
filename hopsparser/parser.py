@@ -831,7 +831,6 @@ class BiAffineParser(nn.Module):
         cls: Type[_T_BiAffineParser],
         config_path: pathlib.Path,
         treebank: List[DepGraph],
-        fasttext: Optional[pathlib.Path] = None,
     ) -> _T_BiAffineParser:
         logger.info(f"Initializing a parser from {config_path}")
         with open(config_path) as in_stream:
@@ -871,9 +870,9 @@ class BiAffineParser(nn.Module):
                 )
             elif lexer_config["type"] == "fasttext":
                 if (fasttext_model_path := lexer_config.get("source")) is not None:
-                    fasttext_model_path = config_path.parent / fasttext_model_path
-                else:
-                    fasttext_model_path = fasttext
+                    fasttext_model_path = pathlib.Path(fasttext_model_path)
+                    if not fasttext_model_path.is_absolute():
+                        fasttext_model_path = (config_path.parent / fasttext_model_path).resolve()
                 if fasttext_model_path is None:
                     logger.info("Generating a FastText model from the treebank")
                     lexer = FastTextLexer.from_sents(
@@ -1014,7 +1013,6 @@ def train(
     model_path: pathlib.Path,
     train_file: pathlib.Path,
     device: Union[str, torch.device] = "cpu",
-    fasttext: Optional[pathlib.Path] = None,
     max_tree_length: Optional[int] = None,
     overwrite: bool = False,
     rand_seed: Optional[int] = None,
@@ -1046,7 +1044,6 @@ def train(
         parser = BiAffineParser.initialize(
             config_path=config_file,
             treebank=traintrees,
-            fasttext=fasttext,
         )
     parser = parser.to(device)
     for lexer_to_freeze_name in hp.get("freeze", []):
