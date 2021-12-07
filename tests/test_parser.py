@@ -7,7 +7,6 @@ import torch.cuda
 import hypothesis.strategies as st
 import pytest
 from hypothesis import given, settings
-from pytest_lazyfixture import lazy_fixture
 
 from hopsparser.parser import BiAffineParser
 from hopsparser.deptree import DepGraph
@@ -17,20 +16,13 @@ if torch.cuda.is_available():
     devices.append("cuda:0")
 
 
-# FIXME: we can't generate a ft model from the test treebank because of our currently hardcoded word
-# frequencies cutoff (it returns an empty vocabulary)
-@pytest.mark.parametrize(
-    "fasttext", [lazy_fixture("fasttext_model_path")]
-)
 def test_initialize_save_load(
-    fasttext: Optional[pathlib.Path],
     train_config: pathlib.Path,
     treebank: pathlib.Path,
 ):
     parser = BiAffineParser.initialize(
         config_path=train_config,
         treebank=list(DepGraph.read_conll(open(treebank))),
-        fasttext=fasttext,
     )
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = pathlib.Path(tmp_dir)
@@ -40,14 +32,12 @@ def test_initialize_save_load(
 
 @pytest.fixture(scope="session")
 def parser_and_reload(
-    fasttext_model_path: pathlib.Path,
     train_config: pathlib.Path,
     treebank: pathlib.Path,
 ):
     parser = BiAffineParser.initialize(
         config_path=train_config,
         treebank=list(DepGraph.read_conll(open(treebank))),
-        fasttext=fasttext_model_path,
     )
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = pathlib.Path(tmp_dir)
@@ -71,7 +61,7 @@ def test_save_load_idempotency(
     parser_and_reload: Tuple[BiAffineParser, BiAffineParser],
     test_text: List[str],
 ):
-    
+
     parser, reloaded = parser_and_reload
     parser = parser.to(device)
     reloaded = reloaded.to(device)
