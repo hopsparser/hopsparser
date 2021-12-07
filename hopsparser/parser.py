@@ -344,6 +344,9 @@ class BiAffineParser(nn.Module):
         tag_scores = self.pos_tagger(dep_embeddings)
 
         # Compute the score matrices for the arcs and labels.
+        # TODO: don't compute embeddings for the root token as head
+        # This slightly reduces the computations and makes the matrice non-square
+        # making it easier to differentiate between head and dep roles
         arc_h = self.arc_mlp_h(dep_embeddings)
         arc_d = self.arc_mlp_d(dep_embeddings)
         lab_h = self.lab_mlp_h(dep_embeddings)
@@ -354,6 +357,9 @@ class BiAffineParser(nn.Module):
 
         return tag_scores, arc_scores, lab_scores
 
+    # TODO: make this an independent function
+    # TODO: hardcode the marginal loss for now
+    # TODO: JIT this
     def parser_loss(
         self,
         tagger_scores: torch.Tensor,
