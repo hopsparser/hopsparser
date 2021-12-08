@@ -5,12 +5,13 @@ import shutil
 import subprocess
 import sys
 import warnings
-from typing import Dict, Literal, Optional
+from typing import Literal, Optional
 
 import click
 import click_pathlib
 from rich.console import Console
 from rich.table import Table
+from rich import box
 
 from hopsparser import conll2018_eval as evaluator
 from hopsparser import parser
@@ -28,15 +29,6 @@ verbose_opt = click.option(
     is_flag=True,
     help="How much info should we dump to the console",
 )
-
-
-def make_metrics_table(metrics: Dict[str, float]) -> Table:
-    table = Table()
-    keys, values = zip(*metrics.items())
-    for k in keys:
-        table.add_column(k, justify="center")
-    table.add_row(*(f"{100*v:05.2f}" for v in values))
-    return table
 
 
 @click.group(help="A graph dependency parser")
@@ -163,7 +155,7 @@ def train(
         overwrite=overwrite,
         rand_seed=rand_seed,
     )
-    metrics_table = Table()
+    metrics_table = Table(box=box.HORIZONTALS)
     metrics_table.add_column("Split")
     metrics = ("UPOS", "UAS", "LAS")
     for m in metrics:
@@ -238,7 +230,7 @@ def evaluate(
     metrics = evaluator.evaluate(gold_set, syst_set)
     metrics_names = ("UPOS", "UAS", "LAS")
     if out_format == "md":
-        metrics_table = Table()
+        metrics_table = Table(box=box.HORIZONTALS)
         for m in metrics_names:
             metrics_table.add_column(m, justify="center")
         metrics_table.add_row(*(f"{100*metrics[m].f1:.2f}" for m in metrics_names))
