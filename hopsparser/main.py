@@ -9,6 +9,8 @@ from typing import Dict, Literal, Optional
 
 import click
 import click_pathlib
+from rich.console import Console
+from rich.table import Table
 
 from hopsparser import conll2018_eval as evaluator
 from hopsparser import parser
@@ -29,12 +31,12 @@ verbose_opt = click.option(
 
 
 def make_metrics_table(metrics: Dict[str, float]) -> str:
-    column_width = max(7, *(len(k) for k in metrics.keys()))
+    table = Table()
     keys, values = zip(*metrics.items())
-    headers = "|".join(k.center(column_width) for k in keys)
-    midrule = "|".join([f":{'-'*(column_width-2)}:"] * len(keys))
-    row = "|".join(f"{100*v:05.2f}".center(column_width) for v in values)
-    return "\n".join(f"|{r}|" for r in (headers, midrule, row))
+    for k in keys:
+        table.add_column(k, justify="center")
+    table.add_row(*(f"{100*v:05.2f}" for v in values))
+    return table
 
 
 @click.group(help="A graph dependency parser")
@@ -181,7 +183,8 @@ def train(
             output_metrics[f"{m} (test)"] = test_metrics[m].f1
 
     if output_metrics:
-        click.echo(make_metrics_table(output_metrics))
+        console = Console()
+        console.print(make_metrics_table(output_metrics))
 
 
 @cli.command(help="Evaluate a trained model")
@@ -229,7 +232,8 @@ def evaluate(
     metrics = evaluator.evaluate(gold_set, syst_set)
     if out_format == "md":
         output_metrics = {n: metrics[n].f1 for n in ("UPOS", "UAS", "LAS")}
-        click.echo(make_metrics_table(output_metrics))
+        console = Console()
+        console.print(make_metrics_table(output_metrics))
     elif out_format == "json":
         json.dump({m: metrics[m].f1 for m in ("UPOS", "UAS", "LAS")}, sys.stdout)
     else:
