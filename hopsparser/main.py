@@ -1,19 +1,18 @@
-import contextlib
 import json
 import os
 import pathlib
 import shutil
 import subprocess
 import sys
-import tempfile
 import warnings
-from typing import Dict, Generator, Literal, Optional, Union
+from typing import Dict, Literal, Optional
 
 import click
 import click_pathlib
 
 from hopsparser import conll2018_eval as evaluator
 from hopsparser import parser
+from hopsparser.utils import dir_manager
 
 device_opt = click.option(
     "--device",
@@ -30,21 +29,6 @@ def make_metrics_table(metrics: Dict[str, float]) -> str:
     midrule = "|".join([f":{'-'*(column_width-2)}:"] * len(keys))
     row = "|".join(f"{100*v:05.2f}".center(column_width) for v in values)
     return "\n".join(f"|{r}|" for r in (headers, midrule, row))
-
-
-@contextlib.contextmanager
-def dir_manager(
-    path: Optional[Union[pathlib.Path, str]] = None
-) -> Generator[pathlib.Path, None, None]:
-    """A context manager to deal with a directory, default to a self-destruct temp one."""
-    if path is None:
-        with tempfile.TemporaryDirectory() as tempdir:
-            d_path = pathlib.Path(tempdir)
-            yield d_path
-    else:
-        d_path = pathlib.Path(path).resolve()
-        d_path.mkdir(parents=True, exist_ok=True)
-        yield d_path
 
 
 @click.group(help="A graph dependency parser")

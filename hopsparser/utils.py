@@ -1,6 +1,8 @@
 import contextlib
 import pathlib
 import sys
+import tempfile
+from typing import IO, Generator, Optional, Union, cast
 from typing import IO, Generator, Union, cast
 
 
@@ -35,3 +37,18 @@ def smart_open(
                 fh.close()
             except AttributeError:
                 pass
+
+
+@contextlib.contextmanager
+def dir_manager(
+    path: Optional[Union[pathlib.Path, str]] = None
+) -> Generator[pathlib.Path, None, None]:
+    """A context manager to deal with a directory, default to a self-destruct temp one."""
+    if path is None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            d_path = pathlib.Path(tempdir)
+            yield d_path
+    else:
+        d_path = pathlib.Path(path).resolve()
+        d_path.mkdir(parents=True, exist_ok=True)
+        yield d_path
