@@ -1,9 +1,10 @@
 import contextlib
+import logging
 import pathlib
 import sys
 import tempfile
 from typing import IO, Generator, Optional, Union, cast
-from typing import IO, Generator, Union, cast
+from loguru import logger
 
 
 @contextlib.contextmanager
@@ -52,3 +53,42 @@ def dir_manager(
         d_path = pathlib.Path(path).resolve()
         d_path.mkdir(parents=True, exist_ok=True)
         yield d_path
+
+
+def setup_logging(verbose: bool, logfile: Optional[pathlib.Path] = None):
+    appname = "hops"
+
+    if verbose:
+        log_level = "DEBUG"
+        log_fmt = (
+            f"[{appname}]"
+            " <green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> |"
+            " <level>{message}</level>"
+        )
+    else:
+        logging.getLogger(None).setLevel(logging.CRITICAL)
+        log_level = "INFO"
+        log_fmt = (
+            f"[{appname}]"
+            " <green>{time:YYYY-MM-DD}T{time:HH:mm:ss}</green> {level}: "
+            " <level>{message}</level>"
+        )
+
+    logger.add(
+        sys.stderr,
+        level=log_level,
+        format=log_fmt,
+        colorize=True,
+    )
+
+    if logfile:
+        logger.add(
+            logfile,
+            level="DEBUG",
+            format=(
+                f"[{appname}]"
+                " {time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} |"
+                " {message}"
+            ),
+            colorize=False,
+        )

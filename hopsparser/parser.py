@@ -1100,7 +1100,6 @@ def parse(
 ):
     parser = BiAffineParser.load(model_path)
     parser = parser.to(device)
-    logger.info("Parsing")
     with smart_open(in_file) as in_stream, smart_open(out_file, "w") as ostream:
         for tree in parser.parse(
             inpt=in_stream, batch_size=batch_size, raw=raw, strict=strict

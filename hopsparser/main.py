@@ -12,13 +12,19 @@ import click_pathlib
 
 from hopsparser import conll2018_eval as evaluator
 from hopsparser import parser
-from hopsparser.utils import dir_manager
+from hopsparser.utils import dir_manager, setup_logging
 
 device_opt = click.option(
     "--device",
     default="cpu",
     help="The device to use for the parsing model. (cpu, gpu:0, …).",
     show_default=True,
+)
+
+verbose_opt = click.option(
+    "--verbose",
+    is_flag=True,
+    help="How much info should we dump to the console",
 )
 
 
@@ -128,6 +134,7 @@ def parse(
     help="If a model already in the output directory, restart training from scratch instead of continuing.",
 )
 @device_opt
+@verbose_opt
 def train(
     config_file: pathlib.Path,
     dev_file: Optional[pathlib.Path],
@@ -138,8 +145,10 @@ def train(
     rand_seed: int,
     test_file: Optional[pathlib.Path],
     train_file: pathlib.Path,
+    verbose: bool,
 ):
     output_dir.mkdir(exist_ok=True, parents=True)
+    setup_logging(verbose=verbose, logfile=output_dir / "train.log")
     model_path = output_dir / "model"
     shutil.copy(config_file, output_dir / config_file.name)
     parser.train(
