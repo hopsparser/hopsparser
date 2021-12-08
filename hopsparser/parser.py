@@ -567,6 +567,9 @@ class BiAffineParser(nn.Module):
                 )
 
                 if dev_arc_acc > best_arc_acc:
+                    logger.info(
+                        f"New best model: arc accuracy {dev_arc_acc:.2%} > {best_arc_acc:.2%}"
+                    )
                     self.save_params(weights_file)
                     best_arc_acc = dev_arc_acc
             else:
