@@ -30,7 +30,7 @@ verbose_opt = click.option(
 )
 
 
-def make_metrics_table(metrics: Dict[str, float]) -> str:
+def make_metrics_table(metrics: Dict[str, float]) -> Table:
     table = Table()
     keys, values = zip(*metrics.items())
     for k in keys:
@@ -163,15 +163,20 @@ def train(
         overwrite=overwrite,
         rand_seed=rand_seed,
     )
-    output_metrics = dict()
+    metrics_table = Table()
+    metrics_table.add_column("Split")
+    metrics = ("UPOS", "UAS", "LAS")
+    for m in metrics:
+        metrics_table.add_column(m, justify="center")
     if dev_file is not None:
         parsed_devset_path = output_dir / f"{dev_file.stem}.parsed.conllu"
         parser.parse(model_path, dev_file, parsed_devset_path, device=device)
         gold_devset = evaluator.load_conllu_file(dev_file)
         syst_devset = evaluator.load_conllu_file(parsed_devset_path)
         dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
-        for m in ("UPOS", "LAS"):
-            output_metrics[f"{m} (dev)"] = dev_metrics[m].f1
+        metrics_table.add_row(
+            "Dev", *(f"{100*dev_metrics[m].f1:.2f}" for m in metrics)
+        )
 
     if test_file is not None:
         parsed_testset_path = output_dir / f"{test_file.stem}.parsed.conllu"
@@ -179,12 +184,13 @@ def train(
         gold_testset = evaluator.load_conllu_file(test_file)
         syst_testset = evaluator.load_conllu_file(parsed_testset_path)
         test_metrics = evaluator.evaluate(gold_testset, syst_testset)
-        for m in ("UPOS", "LAS"):
-            output_metrics[f"{m} (test)"] = test_metrics[m].f1
+        metrics_table.add_row(
+            "Test", *(f"{100*test_metrics[m].f1:.2f}" for m in metrics)
+        )
 
-    if output_metrics:
+    if metrics_table.rows:
         console = Console()
-        console.print(make_metrics_table(output_metrics))
+        console.print(metrics_table)
 
 
 @cli.command(help="Evaluate a trained model")
@@ -230,12 +236,16 @@ def evaluate(
         gold_set = evaluator.load_conllu_file(str(input_file))
         syst_set = evaluator.load_conllu_file(str(output_file))
     metrics = evaluator.evaluate(gold_set, syst_set)
+    metrics_names = ("UPOS", "UAS", "LAS")
     if out_format == "md":
-        output_metrics = {n: metrics[n].f1 for n in ("UPOS", "UAS", "LAS")}
+        metrics_table = Table()
+        for m in metrics_names:
+            metrics_table.add_column(m, justify="center")
+        metrics_table.add_row(*(f"{100*metrics[m].f1:.2f}" for m in metrics_names))
         console = Console()
-        console.print(make_metrics_table(output_metrics))
+        console.print(metrics_table)
     elif out_format == "json":
-        json.dump({m: metrics[m].f1 for m in ("UPOS", "UAS", "LAS")}, sys.stdout)
+        json.dump({m: metrics[m].f1 for m in metrics_names}, sys.stdout)
     else:
         raise ValueError(f"Unkown format {out_format!r}.")
 
