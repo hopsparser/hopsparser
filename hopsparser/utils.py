@@ -56,6 +56,7 @@ def dir_manager(
 
 
 def setup_logging(verbose: bool, logfile: Optional[pathlib.Path] = None):
+    logger.remove(0)  # Remove the default logger
     appname = "hops"
 
     if verbose:
