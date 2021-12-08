@@ -525,9 +525,9 @@ class BiAffineParser(nn.Module):
         else:
             raise ValueError(f"Unkown lr schedule shape {lr_schedule['shape']!r}")
 
+        best_arc_acc = 0.0
         for e in range(epochs):
             train_loss = 0.0
-            best_arc_acc = 0.0
             overall_size = 0
             train_batches = train_set.make_batches(
                 batch_size,
