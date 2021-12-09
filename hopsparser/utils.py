@@ -3,7 +3,7 @@ import logging
 import pathlib
 import sys
 import tempfile
-from typing import IO, Generator, Optional, Union, cast
+from typing import IO, Dict, Generator, Optional, Union, cast
 from loguru import logger
 
 
@@ -53,6 +53,15 @@ def dir_manager(
         d_path = pathlib.Path(path).resolve()
         d_path.mkdir(parents=True, exist_ok=True)
         yield d_path
+
+
+def make_markdown_metrics_table(metrics: Dict[str, float]) -> str:
+    column_width = max(7, *(len(k) for k in metrics.keys()))
+    keys, values = zip(*metrics.items())
+    headers = "|".join(k.center(column_width) for k in keys)
+    midrule = "|".join([f":{'-'*(column_width-2)}:"] * len(keys))
+    row = "|".join(f"{100*v:05.2f}".center(column_width) for v in values)
+    return "\n".join(f"|{r}|" for r in (headers, midrule, row))
 
 
 def setup_logging(verbose: bool, logfile: Optional[pathlib.Path] = None):

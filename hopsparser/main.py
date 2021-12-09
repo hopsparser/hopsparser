@@ -15,7 +15,7 @@ from rich import box
 
 from hopsparser import conll2018_eval as evaluator
 from hopsparser import parser
-from hopsparser.utils import dir_manager, setup_logging
+from hopsparser.utils import dir_manager, make_markdown_metrics_table, setup_logging
 
 device_opt = click.option(
     "--device",
@@ -166,9 +166,7 @@ def train(
         gold_devset = evaluator.load_conllu_file(dev_file)
         syst_devset = evaluator.load_conllu_file(parsed_devset_path)
         dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
-        metrics_table.add_row(
-            "Dev", *(f"{100*dev_metrics[m].f1:.2f}" for m in metrics)
-        )
+        metrics_table.add_row("Dev", *(f"{100*dev_metrics[m].f1:.2f}" for m in metrics))
 
     if test_file is not None:
         parsed_testset_path = output_dir / f"{test_file.stem}.parsed.conllu"
@@ -203,8 +201,8 @@ def train(
 @click.option(
     "--to",
     "out_format",
-    type=click.Choice(("md", "json")),
-    default="md",
+    type=click.Choice(("json", "md", "terminal")),
+    default="terminal",
     help="The output format for the scores",
     show_default=True,
 )
@@ -212,7 +210,7 @@ def evaluate(
     device: str,
     intermediary_dir: str,
     model_path: pathlib.Path,
-    out_format: Literal["md", "json"],
+    out_format: Literal["json", "md", "terminal"],
     treebank_path: str,
 ):
     input_file: pathlib.Path
@@ -230,6 +228,9 @@ def evaluate(
     metrics = evaluator.evaluate(gold_set, syst_set)
     metrics_names = ("UPOS", "UAS", "LAS")
     if out_format == "md":
+        output_metrics = {n: metrics[n].f1 for n in metrics_names}
+        click.echo(make_markdown_metrics_table(output_metrics))
+    elif out_format == "terminal":
         metrics_table = Table(box=box.HORIZONTALS)
         for m in metrics_names:
             metrics_table.add_column(m, justify="center")
