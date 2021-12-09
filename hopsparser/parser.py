@@ -561,14 +561,17 @@ class BiAffineParser(nn.Module):
                     dev_set, batch_size=batch_size
                 )
                 logger.info(
-                    f"Epoch {e} train mean loss {train_loss / overall_size}"
-                    f" valid mean loss {dev_loss} valid tag acc {dev_tag_acc} valid arc acc {dev_arc_acc} valid label acc {dev_lab_acc}"
-                    f" Base LR {scheduler.get_last_lr()[0]}"
+                    f"Epoch {e}"
+                    f" train loss {train_loss / overall_size:.4f}"
+                    f" dev loss {dev_loss:.4f}"
+                    f" dev tag acc {dev_tag_acc:.2%}"
+                    f" dev head acc {dev_arc_acc:.2%}"
+                    f" dev deprel acc {dev_lab_acc:.2%}"
                 )
 
                 if dev_arc_acc > best_arc_acc:
                     logger.info(
-                        f"New best model: arc accuracy {dev_arc_acc:.2%} > {best_arc_acc:.2%}"
+                        f"New best model: head accuracy {dev_arc_acc:.2%} > {best_arc_acc:.2%}"
                     )
                     self.save_params(weights_file)
                     best_arc_acc = dev_arc_acc
