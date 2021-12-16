@@ -90,7 +90,19 @@ class MLP(nn.Module):
 
 # Note: This is the biaffine layer used in Qi et al. (2018) and Dozat and Manning (2017).
 class BiAffine(nn.Module):
-    """Biaffine attention layer."""
+    """Biaffine attention layer.
+
+    Inputs
+    ------
+
+    - `d` a tensor of shape `batch_size×num_dependents×input_dim
+    - `h` a tensor of shape `batch_size×num_heads×input_dim
+
+    Outputs
+    -------
+
+    A tensor of shape `batch_size×output_dim×num_dependents×num_heads`.
+    """
 
     def __init__(self, input_dim: int, output_dim: int, bias: bool):
         super(BiAffine, self).__init__()
@@ -101,11 +113,11 @@ class BiAffine(nn.Module):
         self.weight = nn.Parameter(torch.empty(output_dim, weight_input, weight_input))
         nn.init.xavier_uniform_(self.weight)
 
-    def forward(self, h: torch.Tensor, d: torch.Tensor) -> torch.Tensor:
+    def forward(self, d: torch.Tensor, h: torch.Tensor) -> torch.Tensor:
         if self.bias:
-            h = torch.cat((h, h.new_ones((*h.shape[:-1], 1))), dim=-1)
             d = torch.cat((d, d.new_ones((*d.shape[:-1], 1))), dim=-1)
-        return torch.einsum("bxi,oij,byj->boxy", h, self.weight, d)
+            h = torch.cat((h, h.new_ones((*h.shape[:-1], 1))), dim=-1)
+        return torch.einsum("bxi,oij,byj->boxy", d, self.weight, h)
 
 
 class EncodedSentence(NamedTuple):
@@ -256,10 +268,10 @@ class BiAffineParser(nn.Module):
         self.labels: BidirectionalMapping[str, int] = bidict(
             (l, i) for i, l in enumerate(labels)
         )
-        self.mlp_arc_hidden = mlp_arc_hidden
-        self.mlp_input = mlp_input
-        self.mlp_tag_hidden = mlp_tag_hidden
-        self.mlp_lab_hidden = mlp_lab_hidden
+        self.mlp_arc_hidden: Final[int] = mlp_arc_hidden
+        self.mlp_input: Final[int] = mlp_input
+        self.mlp_tag_hidden: Final[int] = mlp_tag_hidden
+        self.mlp_lab_hidden: Final[int] = mlp_lab_hidden
         self.mlp_dropout = mlp_dropout
 
         # TODO: fix typing here, casting works but it's inelegant
@@ -337,29 +349,27 @@ class BiAffineParser(nn.Module):
         packed_inpt = pack_padded_sequence(
             inpt, sent_lengths, batch_first=True, enforce_sorted=False
         )
+        # TODO: everything after this point could be jitted
+        # maybe use an auxilary private module?
         packed_dep_embeddings, _ = self.dep_rnn(packed_inpt)
         dep_embeddings, _ = pad_packed_sequence(packed_dep_embeddings, batch_first=True)
 
         # Tagging
         tag_scores = self.pos_tagger(dep_embeddings)
 
-        # Compute the score matrices for the arcs and labels.
-        # TODO: don't compute embeddings for the root token as head
-        # This slightly reduces the computations and makes the matrice non-square
-        # making it easier to differentiate between head and dep roles
         arc_h = self.arc_mlp_h(dep_embeddings)
         arc_d = self.arc_mlp_d(dep_embeddings)
         lab_h = self.lab_mlp_h(dep_embeddings)
         lab_d = self.lab_mlp_d(dep_embeddings)
 
-        arc_scores = self.arc_biaffine(arc_h, arc_d).squeeze(1)
-        lab_scores = self.lab_biaffine(lab_h, lab_d)
+        arc_scores = self.arc_biaffine(arc_d, arc_h).squeeze(1)
+        lab_scores = self.lab_biaffine(lab_d, lab_h)
 
         return tag_scores, arc_scores, lab_scores
 
     # TODO: make this an independent function
     # TODO: hardcode the marginal loss for now
-    # TODO: JIT this
+    # TODO: JIT this (or split it and jit the marginals?)
     def parser_loss(
         self,
         tagger_scores: torch.Tensor,
@@ -369,12 +379,10 @@ class BiAffineParser(nn.Module):
         marginal_loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
     ) -> torch.Tensor:
         # ARC LOSS
-        # [batch, sent_len, sent_len]
-        arc_scores_tr_flat = arc_scores.transpose(-1, -2)
         # [batch*sent_len, sent_len]
-        arc_scores_tr_flat = arc_scores_tr_flat.reshape(-1, arc_scores_tr_flat.size(-1))
+        arc_scores_flat = arc_scores.reshape(-1, arc_scores.size(-1))
         # [batch*sent_len]
-        arc_loss = marginal_loss(arc_scores_tr_flat, batch.heads.view(-1))
+        arc_loss = marginal_loss(arc_scores_flat, batch.heads.view(-1))
 
         # TAGGER_LOSS
         tagger_scores_flat = tagger_scores.view(-1, tagger_scores.size(-1))
@@ -387,16 +395,15 @@ class BiAffineParser(nn.Module):
         positive_heads = batch.heads.masked_fill(
             batch.sentences.content_mask.logical_not(), 0
         )
-        # [batch, 1, 1, sent_len]
-        heads_selection = positive_heads.unsqueeze(1).unsqueeze(2)
-        # [batch, n_labels, 1, sent_len]
+        # [batch, 1, n_dependents, 1]
+        heads_selection = positive_heads.unsqueeze(1).unsqueeze(-1)
+        # [batch, n_labels, n_dependents, 1]
         heads_selection = heads_selection.expand(-1, lab_scores.size(1), -1, -1)
-        # [batch, n_labels, sent_len]
-        predicted_labels_scores = torch.gather(lab_scores, 2, heads_selection).squeeze(
-            2
+        # [batch, n_dependents, n_labels]
+        predicted_labels_scores = (
+            torch.gather(lab_scores, -1, heads_selection).squeeze(-1).transpose(-1, -2)
         )
-        # [batch, sent_len, n_labels]
-        predicted_labels_scores = predicted_labels_scores.transpose(-1, -2)
+
         # [batch*sent_len, n_labels]
         predicted_labels_scores = predicted_labels_scores.reshape(
             -1, predicted_labels_scores.size(-1)
@@ -407,6 +414,7 @@ class BiAffineParser(nn.Module):
 
         # TODO: see if other loss combination functions wouldn't help here, e.g.
         # <https://arxiv.org/abs/1805.06334> or <https://arxiv.org/abs/1209.2784>
+        # tracked at <https://github.com/hopsparser/npdependency/issues/59>
         return tagger_loss + arc_loss + lab_loss
 
     def eval_model(
@@ -444,7 +452,7 @@ class BiAffineParser(nn.Module):
                 ).item()
 
                 # greedy arc accuracy (without parsing)
-                arc_pred = arc_scores.argmax(dim=-2)
+                arc_pred = arc_scores.argmax(dim=-1)
                 arc_accuracy = (
                     arc_pred.eq(batch.heads)
                     .logical_and(batch.sentences.content_mask)
@@ -453,7 +461,7 @@ class BiAffineParser(nn.Module):
                 arc_acc += arc_accuracy.item()
 
                 # tagger accuracy
-                tag_pred = tagger_scores.argmax(dim=2)
+                tag_pred = tagger_scores.argmax(dim=-1)
                 tag_accuracy = (
                     tag_pred.eq(batch.tags)
                     .logical_and(batch.sentences.content_mask)
@@ -465,11 +473,11 @@ class BiAffineParser(nn.Module):
                 lab_pred = lab_scores.argmax(dim=1)
                 lab_pred = torch.gather(
                     lab_pred,
-                    1,
+                    -1,
                     batch.heads.masked_fill(
                         batch.sentences.content_mask.logical_not(), 0
-                    ).unsqueeze(1),
-                ).squeeze(1)
+                    ).unsqueeze(-1),
+                ).squeeze(-1)
                 lab_accuracy = (
                     lab_pred.eq(batch.labels)
                     .logical_and(batch.sentences.content_mask)
@@ -736,7 +744,7 @@ class BiAffineParser(nn.Module):
                     lab_scores_batch,
                 ):
                     # Predict heads
-                    probs = arc_scores.cpu().numpy().T
+                    probs = arc_scores.cpu().numpy()
                     batch_width = probs.shape[0]
                     mst_heads_np = (
                         np.argmax(probs[:length, :length], axis=1)
@@ -752,9 +760,9 @@ class BiAffineParser(nn.Module):
                     pos_tags = [self.tagset.inverse[idx] for idx in tag_idxes.tolist()]
                     # Predict labels
                     select = mst_heads.unsqueeze(0).expand(lab_scores.size(0), -1)
-                    selected = torch.gather(lab_scores, 1, select.unsqueeze(1)).squeeze(
-                        1
-                    )
+                    selected = torch.gather(
+                        lab_scores, -1, select.unsqueeze(-1)
+                    ).squeeze(-1)
                     mst_labels = selected.argmax(dim=0)
                     edges = [
                         deptree.Edge(head, self.labels.inverse[lbl], dep)
