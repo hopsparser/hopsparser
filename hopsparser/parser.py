@@ -101,7 +101,7 @@ class BiAffine(nn.Module):
     Outputs
     -------
 
-    A tensor of shape `batch_size×output_dim×num_dependents×num_heads`.
+    A tensor of shape `batch_size×num_dependents×num_heads×output_dim`.
     """
 
     def __init__(self, input_dim: int, output_dim: int, bias: bool):
@@ -117,7 +117,7 @@ class BiAffine(nn.Module):
         if self.bias:
             d = torch.cat((d, d.new_ones((*d.shape[:-1], 1))), dim=-1)
             h = torch.cat((h, h.new_ones((*h.shape[:-1], 1))), dim=-1)
-        return torch.einsum("bxi,oij,byj->boxy", d, self.weight, h)
+        return torch.einsum("bxi,oij,byj->bxyo", d, self.weight, h)
 
 
 class EncodedSentence(NamedTuple):
@@ -338,8 +338,8 @@ class BiAffineParser(nn.Module):
         `tag_scores, arc_scores, lab_scores` with shapes
 
         - `tag_score`: $`batch_size×max_sent_length×num_pos_tags`$
-        - `arc_scores`: $`batch_size×n_possible_heads×n_deps`$
-        - `label_scores`: $`batch_size×num_deprels×n_possible_heads×n_deps`$
+        - `arc_scores`: $`batch_size×n_deps×n_possible_heads`$
+        - `label_scores`: $`batch_size×n_deps×n_possible_heads×num_deprels`$
         """
         embeddings = [
             self.lexers[lexer_name](encodings[lexer_name])
@@ -362,7 +362,7 @@ class BiAffineParser(nn.Module):
         lab_h = self.lab_mlp_h(dep_embeddings)
         lab_d = self.lab_mlp_d(dep_embeddings)
 
-        arc_scores = self.arc_biaffine(arc_d, arc_h).squeeze(1)
+        arc_scores = self.arc_biaffine(arc_d, arc_h).squeeze(-1)
         lab_scores = self.lab_biaffine(lab_d, lab_h)
 
         return tag_scores, arc_scores, lab_scores
@@ -378,13 +378,16 @@ class BiAffineParser(nn.Module):
         batch: DependencyBatch,
         marginal_loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
     ) -> torch.Tensor:
+        batch_size = batch.heads.shape[0]
+        num_padded_deps = batch.heads.shape[1]
+        num_deprels = lab_scores.shape[-1]
         # ARC LOSS
-        # [batch*sent_len, sent_len]
-        arc_scores_flat = arc_scores.reshape(-1, arc_scores.size(-1))
-        # [batch*sent_len]
+        # [batch×num_deps, num_heads]
+        arc_scores_flat = arc_scores.view(-1, arc_scores.size(-1))
         arc_loss = marginal_loss(arc_scores_flat, batch.heads.view(-1))
 
         # TAGGER_LOSS
+        # [batch×sent_length, num_tags]
         tagger_scores_flat = tagger_scores.view(-1, tagger_scores.size(-1))
         tagger_loss = marginal_loss(tagger_scores_flat, batch.tags.view(-1))
 
@@ -395,22 +398,17 @@ class BiAffineParser(nn.Module):
         positive_heads = batch.heads.masked_fill(
             batch.sentences.content_mask.logical_not(), 0
         )
-        # [batch, 1, n_dependents, 1]
-        heads_selection = positive_heads.unsqueeze(1).unsqueeze(-1)
-        # [batch, n_labels, n_dependents, 1]
-        heads_selection = heads_selection.expand(-1, lab_scores.size(1), -1, -1)
-        # [batch, n_dependents, n_labels]
-        predicted_labels_scores = (
-            torch.gather(lab_scores, -1, heads_selection).squeeze(-1).transpose(-1, -2)
+        heads_selection = positive_heads.view(batch_size, num_padded_deps, 1, 1)
+        # [batch, n_dependents, 1, n_labels]
+        heads_selection = heads_selection.expand(
+            batch_size, num_padded_deps, 1, num_deprels
         )
+        # [batch, n_dependents, 1, n_labels]
+        predicted_labels_scores = torch.gather(lab_scores, -2, heads_selection)
 
-        # [batch*sent_len, n_labels]
-        predicted_labels_scores = predicted_labels_scores.reshape(
-            -1, predicted_labels_scores.size(-1)
-        )
-        # [batch*sent_len]
-        labelsL = batch.labels.view(-1)
-        lab_loss = marginal_loss(predicted_labels_scores, labelsL)
+        # [batch×sent_len, n_labels]
+        predicted_labels_scores_flat = predicted_labels_scores.view(-1, num_deprels)
+        lab_loss = marginal_loss(predicted_labels_scores_flat, batch.labels.view(-1))
 
         # TODO: see if other loss combination functions wouldn't help here, e.g.
         # <https://arxiv.org/abs/1805.06334> or <https://arxiv.org/abs/1209.2784>
@@ -470,7 +468,8 @@ class BiAffineParser(nn.Module):
                 tag_acc += tag_accuracy.item()
 
                 # greedy label accuracy (without parsing)
-                lab_pred = lab_scores.argmax(dim=1)
+                # shape: num_padded_deps×num_padded_heads
+                lab_pred = lab_scores.argmax(dim=-1)
                 lab_pred = torch.gather(
                     lab_pred,
                     -1,
@@ -726,6 +725,11 @@ class BiAffineParser(nn.Module):
                 else:
                     batch_sentences = batch
                 # batch prediction
+                # workaround since the design of torch modules makes it hard
+                # for static analyzer to find out their return type
+                tagger_scores_batch: torch.Tensor
+                arc_scores_batch: torch.Tensor
+                lab_scores_batch: torch.Tensor
                 tagger_scores_batch, arc_scores_batch, lab_scores_batch = self(
                     batch_sentences.encodings,
                     batch_sentences.sent_lengths,
@@ -736,43 +740,60 @@ class BiAffineParser(nn.Module):
                     trees = batch.trees
                 else:
                     trees = [DepGraph.from_words(words) for words in batch.words]
-                for (tree, length, tagger_scores, arc_scores, lab_scores) in zip(
+                for (
+                    tree,
+                    sentence_length,
+                    tagger_scores,
+                    arc_scores,
+                    lab_scores,
+                ) in zip(
                     trees,
                     batch_sentences.sent_lengths,
                     tagger_scores_batch,
                     arc_scores_batch,
                     lab_scores_batch,
                 ):
+                    tagger_scores = tagger_scores[:sentence_length, :]
+                    arc_scores = arc_scores[:sentence_length, :sentence_length]
+                    lab_scores = lab_scores[:sentence_length, :sentence_length, :]
                     # Predict heads
                     probs = arc_scores.cpu().numpy()
-                    batch_width = probs.shape[0]
                     mst_heads_np = (
-                        np.argmax(probs[:length, :length], axis=1)
-                        if greedy
-                        else chuliu_edmonds(probs[:length, :length])
+                        np.argmax(probs, axis=1) if greedy else chuliu_edmonds(probs)
                     )
-                    mst_heads = torch.from_numpy(
-                        np.pad(mst_heads_np, (0, batch_width - length))
-                    ).to(device)
+                    # shape: num_deps
+                    mst_heads = torch.from_numpy(mst_heads_np).to(device)
 
                     # Predict tags
                     tag_idxes = tagger_scores.argmax(dim=1)
-                    pos_tags = [self.tagset.inverse[idx] for idx in tag_idxes.tolist()]
                     # Predict labels
-                    select = mst_heads.unsqueeze(0).expand(lab_scores.size(0), -1)
-                    selected = torch.gather(
-                        lab_scores, -1, select.unsqueeze(-1)
-                    ).squeeze(-1)
-                    mst_labels = selected.argmax(dim=0)
+                    # shape: num_deps×1×num_deprel
+                    select = mst_heads.view(-1, 1, 1).expand(-1, 1, lab_scores.size(-1))
+                    # shape: num_deps×num_deprel
+                    selected = torch.gather(lab_scores, 1, select).view(
+                        sentence_length, -1
+                    )
+                    mst_labels = selected.argmax(dim=-1)
+
+                    # `[1:]` to ignore the root node's tag
+                    pos_tags = [
+                        self.tagset.inverse[idx] for idx in tag_idxes[1:].tolist()
+                    ]
+                    # `[1:]` to ignore the root node's head
+                    heads = mst_heads[1:].tolist()
+                    # `[1:]` to ignore the root node's deprel
+                    deprels = [
+                        self.labels.inverse[lbl] for lbl in mst_labels[1:].tolist()
+                    ]
                     edges = [
-                        deptree.Edge(head, self.labels.inverse[lbl], dep)
-                        for (dep, lbl, head) in zip(
-                            list(range(length)), mst_labels.tolist(), mst_heads.tolist()
+                        deptree.Edge(head_idx, lbl, dep_idx)
+                        for dep_idx, (head_idx, lbl) in enumerate(
+                            zip(heads, deprels), start=1
                         )
                     ]
                     result_tree = tree.replace(
-                        edges=edges[1:],
-                        pos_tags=pos_tags[1:],
+                        edges=edges,
+                        pos_tags=pos_tags,
                     )
                     yield result_tree
 
