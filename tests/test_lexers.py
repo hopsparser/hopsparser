@@ -48,7 +48,15 @@ def test_char_rnn_create_save_load(
 @settings(deadline=1000)
 @given(
     special_tokens=st.lists(st.text(min_size=2), max_size=8),
-    train_text=st.lists(st.lists(st.text(min_size=1), min_size=1), min_size=1),
+    train_text=st.lists(
+        st.lists(
+            st.text(
+                alphabet=st.characters(blacklist_categories=["Zs", "C"]), min_size=1
+            ),
+            min_size=1,
+        ),
+        min_size=1,
+    ),
     test_text=st.lists(st.text(min_size=1), min_size=1),
 )
 def test_fasttext_train_create_save_load(
