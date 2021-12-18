@@ -439,7 +439,11 @@ class BiAffineParser(nn.Module):
 
                 batch = batch.to(device)
 
-                # preds
+                # workaround since the design of torch modules makes it hard
+                # for static analyzer to find out their return type
+                tagger_scores: torch.Tensor
+                arc_scores: torch.Tensor
+                lab_scores: torch.Tensor
                 tagger_scores, arc_scores, lab_scores = self(
                     batch.sentences.encodings,
                     batch.sentences.sent_lengths,
@@ -456,7 +460,7 @@ class BiAffineParser(nn.Module):
                     .logical_and(batch.sentences.content_mask)
                     .sum()
                 )
-                arc_acc += arc_accuracy.item()
+                arc_acc += cast(int, arc_accuracy.item())
 
                 # tagger accuracy
                 tag_pred = tagger_scores.argmax(dim=-1)
@@ -465,24 +469,32 @@ class BiAffineParser(nn.Module):
                     .logical_and(batch.sentences.content_mask)
                     .sum()
                 )
-                tag_acc += tag_accuracy.item()
+                tag_acc += cast(int, tag_accuracy.item())
 
                 # greedy label accuracy (without parsing)
-                # shape: num_padded_deps×num_padded_heads
-                lab_pred = lab_scores.argmax(dim=-1)
-                lab_pred = torch.gather(
-                    lab_pred,
-                    -1,
+                gold_heads_select = (
                     batch.heads.masked_fill(
                         batch.sentences.content_mask.logical_not(), 0
-                    ).unsqueeze(-1),
-                ).squeeze(-1)
+                    )
+                    .view(batch.heads.shape[0], batch.heads.shape[1], 1, 1)
+                    .expand(
+                        batch.heads.shape[0],
+                        batch.heads.shape[1],
+                        1,
+                        lab_scores.shape[-1],
+                    )
+                )
+                # shape: num_padded_deps×num_padded_heads
+                gold_head_lab_scores = torch.gather(
+                    lab_scores, -2, gold_heads_select
+                ).squeeze(-2)
+                lab_pred = gold_head_lab_scores.argmax(dim=-1)
                 lab_accuracy = (
                     lab_pred.eq(batch.labels)
                     .logical_and(batch.sentences.content_mask)
                     .sum()
                 )
-                lab_acc += lab_accuracy.item()
+                lab_acc += cast(int, lab_accuracy.item())
 
         return (
             gloss / overall_size,
