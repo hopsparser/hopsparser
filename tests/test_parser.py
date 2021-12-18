@@ -47,7 +47,7 @@ def parser_and_reload(
 
 
 @pytest.mark.parametrize("device", devices)
-@settings(deadline=6000)
+@settings(deadline=8192)
 # FIXME: should we really skip control characters and whitespaces? We do now because most 🤗
 # tokenizers strip them out instead of rendering them as unk (see also test_lexers)
 @given(
