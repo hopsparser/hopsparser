@@ -416,7 +416,7 @@ class BiAffineParser(nn.Module):
         return tagger_loss + arc_loss + lab_loss
 
     def eval_model(
-        self, dev_set: "DependencyDataset", batch_size: Optional[int] = None
+        self, dev_set: Iterable[DependencyBatch], batch_size: Optional[int] = None
     ) -> Tuple[float, float, float, float]:
         if batch_size is None:
             batch_size = self.default_batch_size
@@ -425,17 +425,17 @@ class BiAffineParser(nn.Module):
 
         self.eval()
         device = next(self.parameters()).device
-        dev_batches = dev_set.make_batches(
-            batch_size, shuffle_batches=False, shuffle_data=False
-        )
         # NOTE: the accuracy scoring is approximative and cannot be interpreted as an UAS/LAS score
         # NOTE: fun project: track the correlation between them
-        tag_acc, arc_acc, lab_acc, gloss = 0, 0, 0, 0.0
-        overall_size = 0
+        tag_tp = torch.zeros(1, dtype=torch.long, device=device)
+        arc_tp = torch.zeros(1, dtype=torch.long, device=device)
+        lab_tp = torch.zeros(1, dtype=torch.long, device=device)
+        overall_size = torch.zeros(1, dtype=torch.long, device=device)
+        gloss = torch.zeros(1, dtype=torch.float, device=device)
 
         with torch.no_grad():
-            for batch in dev_batches:
-                overall_size += int(batch.sentences.content_mask.sum().item())
+            for batch in dev_set:
+                overall_size += batch.sentences.content_mask.sum()
 
                 batch = batch.to(device)
 
@@ -451,7 +451,7 @@ class BiAffineParser(nn.Module):
 
                 gloss += self.parser_loss(
                     tagger_scores, arc_scores, lab_scores, batch, loss_fnc
-                ).item()
+                )
 
                 # greedy arc accuracy (without parsing)
                 arc_pred = arc_scores.argmax(dim=-1)
@@ -460,7 +460,7 @@ class BiAffineParser(nn.Module):
                     .logical_and(batch.sentences.content_mask)
                     .sum()
                 )
-                arc_acc += cast(int, arc_accuracy.item())
+                arc_tp += arc_accuracy
 
                 # tagger accuracy
                 tag_pred = tagger_scores.argmax(dim=-1)
@@ -469,7 +469,7 @@ class BiAffineParser(nn.Module):
                     .logical_and(batch.sentences.content_mask)
                     .sum()
                 )
-                tag_acc += cast(int, tag_accuracy.item())
+                tag_tp += tag_accuracy
 
                 # greedy label accuracy (without parsing)
                 gold_heads_select = (
@@ -494,13 +494,13 @@ class BiAffineParser(nn.Module):
                     .logical_and(batch.sentences.content_mask)
                     .sum()
                 )
-                lab_acc += cast(int, lab_accuracy.item())
+                lab_tp += lab_accuracy.item()
 
         return (
-            gloss / overall_size,
-            tag_acc / overall_size,
-            arc_acc / overall_size,
-            lab_acc / overall_size,
+            gloss.true_divide(overall_size).item(),
+            tag_tp.true_divide(overall_size).item(),
+            arc_tp.true_divide(overall_size).item(),
+            lab_tp.true_divide(overall_size).item(),
         )
 
     def train_model(
@@ -546,8 +546,8 @@ class BiAffineParser(nn.Module):
 
         best_arc_acc = 0.0
         for e in range(epochs):
-            train_loss = 0.0
-            overall_size = 0
+            train_loss = torch.zeros(1, dtype=torch.float, device=device)
+            overall_size = torch.zeros(1, dtype=torch.long, device=device)
             train_batches = train_set.make_batches(
                 batch_size,
                 shuffle_batches=True,
@@ -555,7 +555,7 @@ class BiAffineParser(nn.Module):
             )
             self.train()
             for batch in train_batches:
-                overall_size += int(batch.sentences.content_mask.sum().item())
+                overall_size += batch.sentences.content_mask.sum()
 
                 batch = batch.to(device)
 
@@ -568,7 +568,9 @@ class BiAffineParser(nn.Module):
                 loss = self.parser_loss(
                     tagger_scores, arc_scores, lab_scores, batch, loss_fnc
                 )
-                train_loss += loss.item()
+
+                with torch.no_grad():
+                    train_loss += loss
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -577,11 +579,14 @@ class BiAffineParser(nn.Module):
 
             if dev_set is not None:
                 dev_loss, dev_tag_acc, dev_arc_acc, dev_lab_acc = self.eval_model(
-                    dev_set, batch_size=batch_size
+                    dev_set.make_batches(
+                        batch_size, shuffle_batches=False, shuffle_data=False
+                    ),
+                    batch_size=batch_size,
                 )
                 logger.info(
                     f"Epoch {e}"
-                    f" train loss {train_loss / overall_size:.4f}"
+                    f" train loss {train_loss.true_divide(overall_size).item():.4f}"
                     f" dev loss {dev_loss:.4f}"
                     f" dev tag acc {dev_tag_acc:.2%}"
                     f" dev head acc {dev_arc_acc:.2%}"
@@ -809,7 +814,7 @@ class BiAffineParser(nn.Module):
                     )
                     yield result_tree
 
-    # FIXME: this is awkward when parsing pre-tokenize input: we should accept something like `inpt:
+    # FIXME: this is awkward when parsing pre-tokenized input: we should accept something like `inpt:
     # Iterable[Sequence[str]]`
     def parse(
         self,
@@ -1005,6 +1010,7 @@ class BiAffineParser(nn.Module):
         return parser
 
 
+# TODO: replace this by a torch Dataset+Dataloader (or datapipe?)
 # FIXME: why are we not requiring a sequence for treelist again?
 class DependencyDataset:
     def __init__(
