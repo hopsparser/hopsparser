@@ -12,6 +12,8 @@ import click
 import click_pathlib
 import pandas as pd
 
+from loguru import logger
+
 from hopsparser import conll2018_eval as evaluator
 
 
@@ -78,10 +80,10 @@ def worker(device_queue, name, kwargs) -> Tuple[str, TrainResults]:
     # works.
     device = device_queue.get(block=False)
     kwargs["device"] = device
-    print(f"Start training {name} on {device}", file=sys.stderr)
+    logger.info(f"Start training {name} on {device}", file=sys.stderr)
     res = train_single_model(**kwargs)
     device_queue.put(device)
-    print(f"Run {name} finished with results {res}", file=sys.stderr)
+    logger.info(f"Run {name} finished with results {res}", file=sys.stderr)
     return (name, res)
 
 
@@ -114,6 +116,25 @@ def parse_args_callback(
         name, values = v.split("=", maxsplit=1)
         res.append((name, values.split(",")))
     return res
+
+
+def setup_logging():
+    logger.remove(0)  # Remove the default logger
+    appname = "hops_trainer"
+
+    log_level = "INFO"
+    log_fmt = (
+        f"[{appname}]"
+        " <green>{time:YYYY-MM-DD}T{time:HH:mm:ss}</green> {level}: "
+        " <level>{message}</level>"
+    )
+
+    logger.add(
+        sys.stderr,
+        level=log_level,
+        format=log_fmt,
+        colorize=True,
+    )
 
 
 @click.command()
@@ -169,14 +190,18 @@ def main(
     rand_seeds: Optional[List[int]],
     treebanks_dir: pathlib.Path,
 ):
+    setup_logging()
     out_dir.mkdir(parents=True, exist_ok=True)
     treebanks = [train.parent for train in treebanks_dir.glob("**/*train.conllu")]
+    logger.info(f"Training on {len(treebanks)} treebanks.")
     configs = list(configs_dir.glob("*.yaml"))
+    logger.info(f"Training using {len(configs)} configs.")
     if rand_seeds is not None:
         args = [
             ("rand-seed", [str(s) for s in rand_seeds]),
             *(args if args is not None else []),
         ]
+        logger.info(f"Training with {len(rand_seeds)} rand seeds.")
     additional_args_combinations: List[Dict[str, str]]
     if args:
         args_names, all_args_values = map(list, zip(*args))
@@ -222,6 +247,7 @@ def main(
                         },
                     ),
                 )
+    logger.info(f"Starting {len(runs)} runs.")
     res = run_multi(runs, devices)
 
     runs_dict = dict(runs)
