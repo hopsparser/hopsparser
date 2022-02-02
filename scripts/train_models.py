@@ -235,7 +235,7 @@ def main(
                     run_out_dir = run_out_root_dir / args_combination_str
                     run_name = f"{run_base_name}+{args_combination_str}"
                 if run_out_dir.exists():
-                    print(f"{run_out_dir} already exists, skipping this run.")
+                    logger.warning(f"{run_out_dir} already exists, skipping this run.")
                     continue
                 runs.append(
                     (
