@@ -170,7 +170,7 @@ def main(
     treebanks_dir: pathlib.Path,
 ):
     out_dir.mkdir(parents=True, exist_ok=True)
-    treebanks = [train.parent for train in treebanks_dir.glob("**/train.conllu")]
+    treebanks = [train.parent for train in treebanks_dir.glob("**/*train.conllu")]
     configs = list(configs_dir.glob("*.yaml"))
     if rand_seeds is not None:
         args = [
@@ -191,9 +191,9 @@ def main(
     for t in treebanks:
         for c in configs:
             common_params = {
-                "train_file": t / "train.conllu",
-                "dev_file": t / "dev.conllu",
-                "test_file": t / "test.conllu",
+                "train_file": next(t.glob("*train.conllu")),
+                "dev_file": next(t.glob("*dev.conllu")),
+                "test_file": next(t.glob("*test.conllu")),
                 "config_path": c,
             }
             run_base_name = f"{prefix}{t.name}-{c.stem}"
