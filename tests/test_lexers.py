@@ -166,7 +166,7 @@ def transformer_model(
     data=st.data(),
     subwords_reduction=st.one_of([st.just("first"), st.just("mean")]),
     test_text=st.lists(
-        st.text(alphabet=st.characters(blacklist_categories=["Zs", "C"]), min_size=1),
+        st.text(alphabet=st.characters(), min_size=1),
         min_size=1,
     ),
     weight_layers=st.booleans(),

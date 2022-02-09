@@ -770,15 +770,27 @@ class BertLexer(nn.Module):
                     str(unrooted_tok_sequence),
                 )
         else:
+            # NOTE: this might different results than tokenizing the whole sentence
+            # with some tokenizers (e.g. sentencepiece) but as far as I know, all of
+            # these have fast version, so they shouldn't land in this branch anyway.
             bert_tokens = [
                 self.tokenizer.tokenize(token) for token in unrooted_tok_sequence
             ]
             i = next((i for i, s in enumerate(bert_tokens) if not s), None)
             if i is not None:
-                raise LexingError(
-                    f"Unencodable token {unrooted_tok_sequence[i]!r} at {i}",
-                    str(unrooted_tok_sequence),
-                )
+                if self.tokenizer.unk_token is None:
+                    raise LexingError(
+                        f"Unencodable token {unrooted_tok_sequence[i]!r} at {i}",
+                        str(unrooted_tok_sequence),
+                    )
+                else:
+                    logger.warning(
+                        f"Replacing empty words by  {self.tokenizer.unk_token} in {unrooted_tok_sequence}"
+                    )
+                    bert_tokens = [
+                        tokens if tokens else [self.tokenizer.unk_token]
+                        for tokens in bert_tokens
+                    ]
             subtokens_sequence = [
                 subtoken for token in bert_tokens for subtoken in token
             ]
