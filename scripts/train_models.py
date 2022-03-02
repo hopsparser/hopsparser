@@ -215,7 +215,7 @@ def main(
         args_names = []
         additional_args_combinations = [{}]
     runs: List[Tuple[str, Dict[str, Any]]] = []
-    skipped_res: List[TrainResults] = []
+    skipped_res: List[Tuple[str, TrainResults]] = []
     for t in treebanks:
         for c in configs:
             train_file = next(t.glob("*train.conllu"))
@@ -259,8 +259,8 @@ def main(
                         test_upos=test_metrics["UPOS"].f1,
                         test_las=test_metrics["LAS"].f1,
                     )
-                    skipped_res.append(skip_res)
-                    logger.warning(
+                    skipped_res.append((run_name, skip_res))
+                    logger.info(
                         f"{run_out_dir} already exists, skipping this run. Results were {skip_res}"
                     )
                     continue
