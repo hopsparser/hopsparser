@@ -61,7 +61,9 @@ def train_single_model(
     dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
 
     gold_testset = evaluator.load_conllu_file(test_file)
-    syst_testset = evaluator.load_conllu_file(out_dir / f"{test_file.stem}.parsed.conllu")
+    syst_testset = evaluator.load_conllu_file(
+        out_dir / f"{test_file.stem}.parsed.conllu"
+    )
     test_metrics = evaluator.evaluate(gold_testset, syst_testset)
 
     return TrainResults(
@@ -213,12 +215,16 @@ def main(
         args_names = []
         additional_args_combinations = [{}]
     runs: List[Tuple[str, Dict[str, Any]]] = []
+    skipped_res: List[TrainResults] = []
     for t in treebanks:
         for c in configs:
+            train_file = next(t.glob("*train.conllu"))
+            dev_file = next(t.glob("*dev.conllu"))
+            test_file = next(t.glob("*test.conllu"))
             common_params = {
-                "train_file": next(t.glob("*train.conllu")),
-                "dev_file": next(t.glob("*dev.conllu")),
-                "test_file": next(t.glob("*test.conllu")),
+                "train_file": train_file,
+                "dev_file": dev_file,
+                "test_file": test_file,
                 "config_path": c,
             }
             run_base_name = f"{prefix}{t.name}-{c.stem}"
@@ -235,7 +241,28 @@ def main(
                     run_out_dir = run_out_root_dir / args_combination_str
                     run_name = f"{run_base_name}+{args_combination_str}"
                 if run_out_dir.exists():
-                    logger.warning(f"{run_out_dir} already exists, skipping this run.")
+                    gold_devset = evaluator.load_conllu_file(dev_file)
+                    syst_devset = evaluator.load_conllu_file(
+                        out_dir / f"{dev_file.stem}.parsed.conllu"
+                    )
+                    dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
+
+                    gold_testset = evaluator.load_conllu_file(test_file)
+                    syst_testset = evaluator.load_conllu_file(
+                        out_dir / f"{test_file.stem}.parsed.conllu"
+                    )
+                    test_metrics = evaluator.evaluate(gold_testset, syst_testset)
+
+                    skip_res = TrainResults(
+                        dev_upos=dev_metrics["UPOS"].f1,
+                        dev_las=dev_metrics["LAS"].f1,
+                        test_upos=test_metrics["UPOS"].f1,
+                        test_las=test_metrics["LAS"].f1,
+                    )
+                    skipped_res.append(skip_res)
+                    logger.warning(
+                        f"{run_out_dir} already exists, skipping this run. Results were {skip_res}"
+                    )
                     continue
                 runs.append(
                     (
@@ -306,7 +333,9 @@ def main(
                 "| Model name | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download |\n"
                 "|:-----------|:----------:|:---------:|:-----------:|:----------:|:--------:|\n"
             )
-            for run_name, report in sorted(df.loc[grouped["dev_las"].idxmax()].iterrows()):
+            for run_name, report in sorted(
+                df.loc[grouped["dev_las"].idxmax()].iterrows()
+            ):
                 shutil.copytree(
                     report["out_dir"], best_dir / run_name, dirs_exist_ok=True
                 )
