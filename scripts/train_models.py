@@ -243,13 +243,13 @@ def main(
                 if run_out_dir.exists():
                     gold_devset = evaluator.load_conllu_file(dev_file)
                     syst_devset = evaluator.load_conllu_file(
-                        out_dir / f"{dev_file.stem}.parsed.conllu"
+                        run_out_dir / f"{dev_file.stem}.parsed.conllu"
                     )
                     dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
 
                     gold_testset = evaluator.load_conllu_file(test_file)
                     syst_testset = evaluator.load_conllu_file(
-                        out_dir / f"{test_file.stem}.parsed.conllu"
+                        run_out_dir / f"{test_file.stem}.parsed.conllu"
                     )
                     test_metrics = evaluator.evaluate(gold_testset, syst_testset)
 
