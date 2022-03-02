@@ -215,6 +215,7 @@ def main(
         args_names = []
         additional_args_combinations = [{}]
     runs: List[Tuple[str, Dict[str, Any]]] = []
+    runs_dict: Dict[str, Dict] = dict()
     skipped_res: List[Tuple[str, TrainResults]] = []
     for t in treebanks:
         for c in configs:
@@ -240,6 +241,12 @@ def main(
                     )
                     run_out_dir = run_out_root_dir / args_combination_str
                     run_name = f"{run_base_name}+{args_combination_str}"
+                run_args = {
+                    **common_params,
+                    "additional_args": additional_args,
+                    "out_dir": run_out_dir,
+                }
+                runs_dict[run_name] = run_args
                 if run_out_dir.exists():
                     gold_devset = evaluator.load_conllu_file(dev_file)
                     syst_devset = evaluator.load_conllu_file(
@@ -261,24 +268,15 @@ def main(
                     )
                     skipped_res.append((run_name, skip_res))
                     logger.info(
-                        f"{run_out_dir} already exists, skipping this run. Results were {skip_res}"
+                        f"{run_out_dir} already exists, skipping run {run_name}. Results were {skip_res}"
                     )
                     continue
-                runs.append(
-                    (
-                        run_name,
-                        {
-                            **common_params,
-                            "additional_args": additional_args,
-                            "out_dir": run_out_dir,
-                        },
-                    ),
-                )
+                runs.append((run_name, run_args))
+
     logger.info(f"Starting {len(runs)} runs.")
     res = run_multi(runs, devices)
     res.extend(skipped_res)
 
-    runs_dict = dict(runs)
     report_file = out_dir / "full_report.json"
     if report_file.exists():
         with open(report_file) as in_stream:
