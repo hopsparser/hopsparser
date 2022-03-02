@@ -276,6 +276,7 @@ def main(
                 )
     logger.info(f"Starting {len(runs)} runs.")
     res = run_multi(runs, devices)
+    res.extend(skipped_res)
 
     runs_dict = dict(runs)
     report_file = out_dir / "full_report.json"
