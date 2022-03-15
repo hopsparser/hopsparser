@@ -843,7 +843,10 @@ class BertLexer(nn.Module):
             bert_model_path, use_fast=True
         )
         # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
-        if isinstance(tokenizer, transformers.GPT2TokenizerFast):
+        if isinstance(
+            tokenizer,
+            (transformers.GPT2TokenizerFast, transformers.RobertaTokenizerFast),
+        ):
             tokenizer = transformers.AutoTokenizer.from_pretrained(
                 bert_model_path, use_fast=True, add_prefix_space=True
             )
@@ -867,7 +870,10 @@ class BertLexer(nn.Module):
             model_name_or_path, use_fast=True
         )
         # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
-        if isinstance(tokenizer, transformers.GPT2TokenizerFast):
+        if isinstance(
+            tokenizer,
+            (transformers.GPT2TokenizerFast, transformers.RobertaTokenizerFast),
+        ):
             tokenizer = transformers.AutoTokenizer.from_pretrained(
                 model_name_or_path, use_fast=True, add_prefix_space=True
             )
