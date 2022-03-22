@@ -41,7 +41,7 @@ jobs:
                   flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
                   # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
                   flake8 . --count --exit-zero --statistics
-    broken-links:
+    broken_links:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v3
@@ -123,7 +123,7 @@ jobs:
               with:
                   path: dist/*.tar.gz
     upload_pypi:
-        needs: [build_wheels, build_sdist]
+        needs: [build_wheels, build_sdist, broken_links]
         runs-on: ubuntu-latest
         if: >
             (github.event_name == 'release' && github.event.action == 'published') ||
