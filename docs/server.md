@@ -18,8 +18,11 @@ hopsparser serve MODEL_PATH
 ```
 
 will start a server providing a [FastAPI](https://fastapi.tiangolo.com) REST endpoint on port 8000
-(configurable with --port). The API documentation will then be available at
+(configurable with --port).
+<!-- markdown-link-check-disable -->
+The API documentation will then be available at
 <http://127.0.0.1:8000/docs>. There will only be one model loaded with the name `default`.
+<!-- markdown-link-check-enable -->
 
 You can also use a different device using the `--device` option.
 
@@ -29,7 +32,9 @@ You can also use a different device using the `--device` option.
 
 The `models` method is called with a `GET` request and enumerate the available models.
 
+<!-- markdown-link-check-disable -->
 Example: <http://127.0.0.1:8000/models>
+<!-- markdown-link-check-enable -->
 
 ### `process`
 
