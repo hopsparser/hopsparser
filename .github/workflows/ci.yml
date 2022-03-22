@@ -1,15 +1,15 @@
 name: Continuous integration
 
 on:
-  push:
-  release:
-    types: [ published ]
-  workflow_dispatch:
-    inputs:
-      deploy_trigger:
-        description: Force a deployment to PyPI
-        default: "false"
-        required: true
+    push:
+    release:
+        types: [published]
+    workflow_dispatch:
+        inputs:
+            deploy_trigger:
+                description: Force a deployment to PyPI
+                default: "false"
+                required: true
 
 jobs:
     lint:
@@ -23,13 +23,13 @@ jobs:
             - name: Get pip cache
               id: pip-cache
               run: |
-                python -c "from pip._internal.locations import USER_CACHE_DIR; print('::set-output name=dir::' + USER_CACHE_DIR)"
+                  python -c "from pip._internal.locations import USER_CACHE_DIR; print('::set-output name=dir::' + USER_CACHE_DIR)"
             - uses: actions/cache@v2
               with:
-                path: ${{ steps.pip-cache.outputs.dir }}
-                key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.cfg') }}
-                restore-keys: |
-                  ${{ runner.os }}-pip-
+                  path: ${{ steps.pip-cache.outputs.dir }}
+                  key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.cfg') }}
+                  restore-keys: |
+                      ${{ runner.os }}-pip-
             - name: Install dependencies
               run: |
                   python -m pip install --upgrade pip wheel setuptools
@@ -42,8 +42,10 @@ jobs:
                   # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
                   flake8 . --count --exit-zero --statistics
     broken-links:
-      - uses: actions/checkout@v3
-      - uses: gaurav-nelson/github-action-markdown-link-check@v1
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v3
+            - uses: gaurav-nelson/github-action-markdown-link-check@v1
     test:
         needs: lint
         runs-on: ubuntu-latest
@@ -60,35 +62,35 @@ jobs:
             - name: Get pip cache
               id: pip-cache
               run: |
-                python -c "from pip._internal.locations import USER_CACHE_DIR; print('::set-output name=dir::' + USER_CACHE_DIR)"
+                  python -c "from pip._internal.locations import USER_CACHE_DIR; print('::set-output name=dir::' + USER_CACHE_DIR)"
             - uses: actions/cache@v2
               with:
-                path: ${{ steps.pip-cache.outputs.dir }}
-                key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.cfg') }}
-                restore-keys: |
-                  ${{ runner.os }}-pip-
+                  path: ${{ steps.pip-cache.outputs.dir }}
+                  key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.cfg') }}
+                  restore-keys: |
+                      ${{ runner.os }}-pip-
             - name: Install dependencies
               run: |
                   python -m pip install --upgrade pip wheel setuptools
             - name: Get transformers and cache
               id: transfo-install
               run: |
-                python -m pip install --upgrade transformers
-                python -c "from transformers.file_utils import TRANSFORMERS_CACHE; print('::set-output name=dir::' + TRANSFORMERS_CACHE)"
+                  python -m pip install --upgrade transformers
+                  python -c "from transformers.file_utils import TRANSFORMERS_CACHE; print('::set-output name=dir::' + TRANSFORMERS_CACHE)"
             - uses: actions/cache@v2
               with:
-                path: ${{ steps.transfo-install.outputs.dir }}
-                key: ${{ runner.os }}-transformers-${{ hashFiles('**/setup.cfg') }}
-                restore-keys: |
-                  ${{ runner.os }}-transformers-
+                  path: ${{ steps.transfo-install.outputs.dir }}
+                  key: ${{ runner.os }}-transformers-${{ hashFiles('**/setup.cfg') }}
+                  restore-keys: |
+                      ${{ runner.os }}-transformers-
             - name: Run tox with tox-gh-actions
               uses: ymyzk/run-tox-gh-actions@main
     build_wheels:
         name: Build wheels on ${{ matrix.os }}
         runs-on: ${{ matrix.os }}
         strategy:
-          matrix:
-            os: [ubuntu-latest]
+            matrix:
+                os: [ubuntu-latest]
         needs: test
         steps:
             - uses: actions/checkout@v3
@@ -124,8 +126,9 @@ jobs:
         needs: [build_wheels, build_sdist]
         runs-on: ubuntu-latest
         if: >
-          (github.event_name == 'release' && github.event.action == 'published')
-          || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_trigger == 'true')
+            (github.event_name == 'release' && github.event.action == 'published') ||
+            (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_trigger ==
+            'true')
         steps:
             - uses: actions/download-artifact@v2
               with:
