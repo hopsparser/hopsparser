@@ -1,10 +1,19 @@
 import filecmp
 import pathlib
 
+import torch.cuda
+
+import pytest
 import pytest_console_scripts
 
+devices = ["cpu"]
+if torch.cuda.is_available():
+    devices.append("cuda:0")
 
+
+@pytest.mark.parametrize("device", devices)
 def test_train_parse(
+    device: str,
     raw_text: pathlib.Path,
     script_runner: pytest_console_scripts.ScriptRunner,
     tmp_path: pathlib.Path,
@@ -14,6 +23,8 @@ def test_train_parse(
     ret = script_runner.run(
         "hopsparser",
         "train",
+        "--device",
+        device,
         str(train_config),
         str(treebank),
         str(tmp_path),
@@ -24,8 +35,18 @@ def test_train_parse(
     )
     assert ret.success
     ret = script_runner.run(
+        "eval_parse",
+        "-v",
+        str(tmp_path / f"{treebank.stem}.parsed.conllu"),
+        str(treebank),
+    )
+    assert ret.success
+    assert ret.success
+    ret = script_runner.run(
         "hopsparser",
         "parse",
+        "--device",
+        device,
         str(tmp_path / "model"),
         str(treebank),
         str(tmp_path / f"{treebank.stem}.parsed2.conllu"),
@@ -39,6 +60,8 @@ def test_train_parse(
     ret = script_runner.run(
         "hopsparser",
         "parse",
+        "--device",
+        device,
         "--raw",
         str(tmp_path / "model"),
         str(raw_text),
@@ -48,6 +71,8 @@ def test_train_parse(
     ret = script_runner.run(
         "hopsparser",
         "parse",
+        "--device",
+        device,
         str(tmp_path / "model"),
         str(tmp_path / f"{raw_text.stem}.parsed.conllu"),
         str(tmp_path / f"{raw_text.stem}.reparsed.conllu"),
@@ -58,27 +83,6 @@ def test_train_parse(
         str(tmp_path / f"{raw_text.stem}.reparsed.conllu"),
         shallow=False,
     )
-
-
-def test_graph_parser(
-    train_config: pathlib.Path,
-    treebank: pathlib.Path,
-    script_runner: pytest_console_scripts.ScriptRunner,
-    tmp_path: pathlib.Path,
-):
-    ret = script_runner.run(
-        "graph_parser",
-        str(train_config),
-        "--train_file",
-        str(treebank),
-        "--dev_file",
-        str(treebank),
-        "--pred_file",
-        str(treebank),
-        "--out_dir",
-        str(tmp_path),
-    )
-    assert ret.success
 
 
 def test_gold_evaluation(

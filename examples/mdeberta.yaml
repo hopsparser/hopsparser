@@ -3,19 +3,20 @@ mlp_input: 1024
 mlp_tag_hidden: 16
 mlp_arc_hidden: 512
 mlp_lab_hidden: 128
+# Lexers
+lexers:
+  - name: mdeberta_base
+    type: bert
+    model: "microsoft/mdeberta-v3-base"
+    layers: "*"
+    subwords_reduction: "mean"
 # Training hyperparameters
 encoder_dropout: 0.5
 mlp_dropout: 0.5
 batch_size: 8
-epochs: 2
+epochs: 64
 lr:
   base: 0.00003
   schedule:
     shape: linear
     warmup_steps: 100
-lexers:
-  - name: flaubert_small
-    type: bert
-    model: "flaubert/flaubert_small_cased"
-    layers: "*"
-    subwords_reduction: "mean"

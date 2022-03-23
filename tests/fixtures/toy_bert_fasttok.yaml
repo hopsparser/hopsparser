@@ -14,8 +14,8 @@ lr:
     shape: linear
     warmup_steps: 100
 lexers:
-  - name: flaubert_small
+  - name: roberta_minuscule
     type: bert
-    model: "flaubert/flaubert_small_cased"
+    model: "lgrobol/roberta-minuscule"
     layers: "*"
     subwords_reduction: "mean"

@@ -18,8 +18,11 @@ hopsparser serve MODEL_PATH
 ```
 
 will start a server providing a [FastAPI](https://fastapi.tiangolo.com) REST endpoint on port 8000
-(configurable with --port). The API documentation will then be available at
+(configurable with --port).
+<!-- markdown-link-check-disable -->
+The API documentation will then be available at
 <http://127.0.0.1:8000/docs>. There will only be one model loaded with the name `default`.
+<!-- markdown-link-check-enable -->
 
 You can also use a different device using the `--device` option.
 
@@ -29,7 +32,9 @@ You can also use a different device using the `--device` option.
 
 The `models` method is called with a `GET` request and enumerate the available models.
 
+<!-- markdown-link-check-disable -->
 Example: <http://127.0.0.1:8000/models>
+<!-- markdown-link-check-enable -->
 
 ### `process`
 
@@ -59,8 +64,8 @@ Where `processed_output` is the output of parser in the requested output format.
 
 ## Going further
 
-`hopsparser serve` is actually a very thin wrapper for running `npdependency.server:app` in
-[Uvicorn](https://www.uvicorn.org). `npdependency.server:app` uses the
+`hopsparser serve` is actually a very thin wrapper for running `hopsparser.server:app` in
+[Uvicorn](https://www.uvicorn.org). `hopsparser.server:app` uses the
 [ASGI](https://asgi.readthedocs.io/en/latest/) interface and you can use it directly for fun and
 profits. For instance you could
 

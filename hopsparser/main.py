@@ -1,25 +1,21 @@
-import contextlib
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
-import tempfile
-from typing import Dict, Generator, Optional, Union
 import warnings
+from typing import Literal, Optional
 
 import click
 import click_pathlib
+from rich.console import Console
+from rich.table import Table
+from rich import box
 
-from npdependency import graph_parser
-from npdependency import conll2018_eval as evaluator
-
-# Python 3.7 shim
-try:
-    from typing import Literal
-except ImportError:
-    from typing_extensions import Literal  # type: ignore[misc]
-
+from hopsparser import conll2018_eval as evaluator
+from hopsparser import parser
+from hopsparser.utils import dir_manager, make_markdown_metrics_table, setup_logging
 
 device_opt = click.option(
     "--device",
@@ -28,29 +24,11 @@ device_opt = click.option(
     show_default=True,
 )
 
-
-def make_metrics_table(metrics: Dict[str, float]) -> str:
-    column_width = max(7, *(len(k) for k in metrics.keys()))
-    keys, values = zip(*metrics.items())
-    headers = "|".join(k.center(column_width) for k in keys)
-    midrule = "|".join([f":{'-'*(column_width-2)}:"] * len(keys))
-    row = "|".join(f"{100*v:05.2f}".center(column_width) for v in values)
-    return "\n".join(f"|{r}|" for r in (headers, midrule, row))
-
-
-@contextlib.contextmanager
-def dir_manager(
-    path: Optional[Union[pathlib.Path, str]] = None
-) -> Generator[pathlib.Path, None, None]:
-    """A context manager to deal with a directory, default to a self-destruct temp one."""
-    if path is None:
-        with tempfile.TemporaryDirectory() as tempdir:
-            d_path = pathlib.Path(tempdir)
-            yield d_path
-    else:
-        d_path = pathlib.Path(path).resolve()
-        d_path.mkdir(parents=True, exist_ok=True)
-        yield d_path
+verbose_opt = click.option(
+    "--verbose",
+    is_flag=True,
+    help="How much info should we dump to the console",
+)
 
 
 @click.group(help="A graph dependency parser")
@@ -65,11 +43,11 @@ def cli():
 )
 @click.argument(
     "input_path",
-    type=click.Path(resolve_path=True, exists=True, dir_okay=False, allow_dash=True),
+    type=click.File("r"),
 )
 @click.argument(
     "output_path",
-    type=click.Path(resolve_path=True, dir_okay=False, writable=True, allow_dash=True),
+    type=click.File("w"),
     default="-",
 )
 @device_opt
@@ -100,12 +78,12 @@ def parse(
     if ignore_unencodable and not raw:
         warnings.warn("--ignore-unencodable is only meaningful in raw mode")
 
-    graph_parser.parse(
+    parser.parse(
         batch_size=batch_size,
+        device=device,
         in_file=input_path,
         model_path=model_path,
         out_file=output_path,
-        overrides={"device": device},
         raw=raw,
         strict=not ignore_unencodable,
     )
@@ -130,11 +108,6 @@ def parse(
     help="A CoNLL-U treebank to use as a development dataset.",
 )
 @click.option(
-    "--fasttext",
-    type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
-    help="The path to either an existing FastText model or a raw text file to train one. If this option is absent, a model will be trained from the parsing train set.",
-)
-@click.option(
     "--max-tree-length",
     type=int,
     help="The maximum length for trees to be taken into account in the training dataset.",
@@ -155,55 +128,59 @@ def parse(
     help="If a model already in the output directory, restart training from scratch instead of continuing.",
 )
 @device_opt
+@verbose_opt
 def train(
     config_file: pathlib.Path,
     dev_file: Optional[pathlib.Path],
     device: str,
-    fasttext: Optional[pathlib.Path],
     max_tree_length: Optional[int],
     output_dir: pathlib.Path,
     overwrite: bool,
     rand_seed: int,
     test_file: Optional[pathlib.Path],
     train_file: pathlib.Path,
+    verbose: bool,
 ):
+    output_dir.mkdir(exist_ok=True, parents=True)
+    setup_logging(verbose=verbose, logfile=output_dir / "train.log")
     model_path = output_dir / "model"
-    graph_parser.train(
+    shutil.copy(config_file, output_dir / config_file.name)
+    parser.train(
         config_file=config_file,
         dev_file=dev_file,
+        device=device,
         train_file=train_file,
-        fasttext=fasttext,
         max_tree_length=max_tree_length,
         model_path=model_path,
-        overrides={"device": device},
         overwrite=overwrite,
         rand_seed=rand_seed,
     )
-    output_metrics = dict()
+    metrics_table = Table(box=box.HORIZONTALS)
+    metrics_table.add_column("Split")
+    metrics = ("UPOS", "UAS", "LAS")
+    for m in metrics:
+        metrics_table.add_column(m, justify="center")
     if dev_file is not None:
         parsed_devset_path = output_dir / f"{dev_file.stem}.parsed.conllu"
-        graph_parser.parse(
-            model_path, dev_file, parsed_devset_path, overrides={"device": device}
-        )
+        parser.parse(model_path, dev_file, parsed_devset_path, device=device)
         gold_devset = evaluator.load_conllu_file(dev_file)
         syst_devset = evaluator.load_conllu_file(parsed_devset_path)
         dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
-        for m in ("UPOS", "LAS"):
-            output_metrics[f"{m} (dev)"] = dev_metrics[m].f1
+        metrics_table.add_row("Dev", *(f"{100*dev_metrics[m].f1:.2f}" for m in metrics))
 
     if test_file is not None:
         parsed_testset_path = output_dir / f"{test_file.stem}.parsed.conllu"
-        graph_parser.parse(
-            model_path, test_file, parsed_testset_path, overrides={"device": device}
-        )
+        parser.parse(model_path, test_file, parsed_testset_path, device=device)
         gold_testset = evaluator.load_conllu_file(test_file)
         syst_testset = evaluator.load_conllu_file(parsed_testset_path)
         test_metrics = evaluator.evaluate(gold_testset, syst_testset)
-        for m in ("UPOS", "LAS"):
-            output_metrics[f"{m} (test)"] = test_metrics[m].f1
+        metrics_table.add_row(
+            "Test", *(f"{100*test_metrics[m].f1:.2f}" for m in metrics)
+        )
 
-    if output_metrics:
-        click.echo(make_metrics_table(output_metrics))
+    if metrics_table.rows:
+        console = Console()
+        console.print(metrics_table)
 
 
 @cli.command(help="Evaluate a trained model")
@@ -224,8 +201,8 @@ def train(
 @click.option(
     "--to",
     "out_format",
-    type=click.Choice(("md", "json")),
-    default="md",
+    type=click.Choice(("json", "md", "terminal")),
+    default="terminal",
     help="The output format for the scores",
     show_default=True,
 )
@@ -233,7 +210,7 @@ def evaluate(
     device: str,
     intermediary_dir: str,
     model_path: pathlib.Path,
-    out_format: Literal["md", "json"],
+    out_format: Literal["json", "md", "terminal"],
     treebank_path: str,
 ):
     input_file: pathlib.Path
@@ -245,19 +222,23 @@ def evaluate(
             input_file = pathlib.Path(treebank_path)
 
         output_file = intermediary_path / "parsed.conllu"
-        graph_parser.parse(
-            model_path, input_file, output_file, overrides={"device": device}
-        )
+        parser.parse(model_path, input_file, output_file, device=device)
         gold_set = evaluator.load_conllu_file(str(input_file))
         syst_set = evaluator.load_conllu_file(str(output_file))
     metrics = evaluator.evaluate(gold_set, syst_set)
+    metrics_names = ("UPOS", "UAS", "LAS")
     if out_format == "md":
-        output_metrics = {n: metrics[n].f1 for n in ("UPOS", "UAS", "LAS")}
-        click.echo(
-            make_metrics_table(output_metrics)
-        )
+        output_metrics = {n: metrics[n].f1 for n in metrics_names}
+        click.echo(make_markdown_metrics_table(output_metrics))
+    elif out_format == "terminal":
+        metrics_table = Table(box=box.HORIZONTALS)
+        for m in metrics_names:
+            metrics_table.add_column(m, justify="center")
+        metrics_table.add_row(*(f"{100*metrics[m].f1:.2f}" for m in metrics_names))
+        console = Console()
+        console.print(metrics_table)
     elif out_format == "json":
-        json.dump({m: metrics[m].f1 for m in ("UPOS", "UAS", "LAS")}, sys.stdout)
+        json.dump({m: metrics[m].f1 for m in metrics_names}, sys.stdout)
     else:
         raise ValueError(f"Unkown format {out_format!r}.")
 
@@ -286,7 +267,7 @@ def serve(
     port: int,
 ):
     subprocess.run(
-        ["uvicorn", "npdependency.server:app", "--port", str(port)],
+        ["uvicorn", "hopsparser.server:app", "--port", str(port)],
         env={
             "models": json.dumps({"default": str(model_path)}),
             "device": device,

@@ -1,23 +1,35 @@
 name: Continuous integration
 
 on:
-  push:
-  workflow_dispatch:
-    inputs:
-      deploy_trigger:
-        description: Force a deployment to PyPI
-        default: "false"
-        required: true
+    push:
+    release:
+        types: [published]
+    workflow_dispatch:
+        inputs:
+            deploy_trigger:
+                description: Force a deployment to PyPI
+                default: "false"
+                required: true
 
 jobs:
     lint:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v2
-            - name: Set up Python 3.9
-              uses: actions/setup-python@v2
+            - uses: actions/checkout@v3
+            - name: Set up Python 3.10
+              uses: actions/setup-python@v3
               with:
-                  python-version: 3.9
+                  python-version: "3.10"
+            - name: Get pip cache
+              id: pip-cache
+              run: |
+                  python -c "from pip._internal.locations import USER_CACHE_DIR; print('::set-output name=dir::' + USER_CACHE_DIR)"
+            - uses: actions/cache@v2
+              with:
+                  path: ${{ steps.pip-cache.outputs.dir }}
+                  key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.cfg') }}
+                  restore-keys: |
+                      ${{ runner.os }}-pip-
             - name: Install dependencies
               run: |
                   python -m pip install --upgrade pip wheel setuptools
@@ -29,58 +41,63 @@ jobs:
                   flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
                   # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
                   flake8 . --count --exit-zero --statistics
+    broken_links:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v3
+            - uses: gaurav-nelson/github-action-markdown-link-check@v1
     test:
         needs: lint
         runs-on: ubuntu-latest
         strategy:
             max-parallel: 4
             matrix:
-                python-version: [3.7, 3.8, 3.9]
+                python-version: ["3.8", "3.9", "3.10"]
         steps:
-            - uses: actions/checkout@v2
+            - uses: actions/checkout@v3
             - name: Set up Python ${{ matrix.python-version }}
-              uses: actions/setup-python@v2
+              uses: actions/setup-python@v3
               with:
                   python-version: ${{ matrix.python-version }}
             - name: Get pip cache
               id: pip-cache
               run: |
-                python -c "from pip._internal.locations import USER_CACHE_DIR; print('::set-output name=dir::' + USER_CACHE_DIR)"
+                  python -c "from pip._internal.locations import USER_CACHE_DIR; print('::set-output name=dir::' + USER_CACHE_DIR)"
             - uses: actions/cache@v2
               with:
-                path: ${{ steps.pip-cache.outputs.dir }}
-                key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.cfg') }}
-                restore-keys: |
-                  ${{ runner.os }}-pip-
+                  path: ${{ steps.pip-cache.outputs.dir }}
+                  key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.cfg') }}
+                  restore-keys: |
+                      ${{ runner.os }}-pip-
             - name: Install dependencies
               run: |
                   python -m pip install --upgrade pip wheel setuptools
             - name: Get transformers and cache
               id: transfo-install
               run: |
-                python -m pip install --upgrade transformers
-                python -c "from transformers.file_utils import TRANSFORMERS_CACHE; print('::set-output name=dir::' + TRANSFORMERS_CACHE)"
+                  python -m pip install --upgrade transformers
+                  python -c "from transformers.file_utils import TRANSFORMERS_CACHE; print('::set-output name=dir::' + TRANSFORMERS_CACHE)"
             - uses: actions/cache@v2
               with:
-                path: ${{ steps.transfo-install.outputs.dir }}
-                key: ${{ runner.os }}-transformers-${{ hashFiles('**/setup.cfg') }}
-                restore-keys: |
-                  ${{ runner.os }}-transformers-
+                  path: ${{ steps.transfo-install.outputs.dir }}
+                  key: ${{ runner.os }}-transformers-${{ hashFiles('**/setup.cfg') }}
+                  restore-keys: |
+                      ${{ runner.os }}-transformers-
             - name: Run tox with tox-gh-actions
               uses: ymyzk/run-tox-gh-actions@main
     build_wheels:
         name: Build wheels on ${{ matrix.os }}
         runs-on: ${{ matrix.os }}
         strategy:
-          matrix:
-            os: [ubuntu-latest]
+            matrix:
+                os: [ubuntu-latest]
         needs: test
         steps:
-            - uses: actions/checkout@v2
+            - uses: actions/checkout@v3
             - name: Install Python
-              uses: actions/setup-python@v2
+              uses: actions/setup-python@v3
               with:
-                  python-version: "3.9"
+                  python-version: "3.10"
             - name: Install dependencies
               run: python -m pip install --upgrade pip setuptools wheel build
             - name: Build wheels
@@ -93,11 +110,11 @@ jobs:
         runs-on: ubuntu-latest
         needs: test
         steps:
-            - uses: actions/checkout@v2
-            - uses: actions/setup-python@v2
+            - uses: actions/checkout@v3
+            - uses: actions/setup-python@v3
               name: Install Python
               with:
-                  python-version: "3.9"
+                  python-version: "3.10"
             - name: Install dependencies
               run: python -m pip install --upgrade pip setuptools wheel build
             - name: Build wheels
@@ -106,11 +123,12 @@ jobs:
               with:
                   path: dist/*.tar.gz
     upload_pypi:
-        needs: [build_wheels, build_sdist]
+        needs: [build_wheels, build_sdist, broken_links]
         runs-on: ubuntu-latest
         if: >
-          (github.event_name == 'release' && github.event.action == 'published')
-          || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_trigger == 'true')
+            (github.event_name == 'release' && github.event.action == 'published') ||
+            (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_trigger ==
+            'true')
         steps:
             - uses: actions/download-artifact@v2
               with:

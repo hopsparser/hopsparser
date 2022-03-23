@@ -1,7 +1,9 @@
 from typing import List, Tuple, cast
+
 import numpy as np
 
 
+# FIXME: we don't actually need this in CLE: we only need one critical cycle
 def tarjan(tree: np.ndarray) -> List[np.ndarray]:
     """Use Tarjan's SCC algorithm to find cycles in a tree
 
@@ -64,7 +66,7 @@ def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
 
     ## Input
 
-    - `scores`: A 2d numeric array such that `scores[i][j]` is the weight of the `$i→j$` edge in the
+    - `scores`: A 2d numeric array such that `scores[i][j]` is the weight of the `$j→i$` edge in the
       graph and the 0-th node is the root.
 
     ## Output
@@ -89,7 +91,7 @@ def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
         # scores of cycle in original tree; (c) in R
         cycle_scores = scores[cycle, cycle_subtree]
         # total score of cycle; () in R
-        cycle_score = cycle_scores.sum()
+        total_cycle_score = cycle_scores.sum()
 
         # locations of noncycle; (t) in [0,1]
         noncycle = np.logical_not(cycle)
@@ -98,7 +100,7 @@ def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
 
         # scores of cycle's potential heads; (c x n) - (c) + () -> (n x c) in R
         metanode_head_scores = (
-            scores[cycle][:, noncycle] - cycle_scores[:, None] + cycle_score
+            scores[cycle][:, noncycle] - cycle_scores[:, np.newaxis] + total_cycle_score
         )
         # scores of cycle's potential dependents; (n x c) in R
         metanode_dep_scores = scores[noncycle][:, cycle]
@@ -109,7 +111,7 @@ def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
 
         # scores of noncycle graph; (n x n) in R
         subscores = scores[noncycle][:, noncycle]
-        # pad to contracted graph; (n+1 x n+1) in R
+        # expand to make space for the metanode (n+1 x n+1) in R
         subscores = np.pad(subscores, ((0, 1), (0, 1)), "constant")
         # set the contracted graph scores of cycle's potential heads; (c x n)[:, (n) in n] in R -> (n) in R
         subscores[-1, :-1] = metanode_head_scores[
@@ -156,7 +158,7 @@ def chuliu_edmonds_one_root(scores: np.ndarray) -> np.ndarray:
 
     ## Input
 
-    - `scores`: A 2d numeric array such that `scores[i][j]` is the weight of the `$i→j$` edge in the
+    - `scores`: A 2d numeric array such that `scores[i][j]` is the weight of the `$j→i$` edge in the
       graph and the 0-th node is the root.
 
     ## Output

@@ -12,7 +12,9 @@ import click
 import click_pathlib
 import pandas as pd
 
-from npdependency import conll2018_eval as evaluator
+from loguru import logger
+
+from hopsparser import conll2018_eval as evaluator
 
 
 class TrainResults(NamedTuple):
@@ -59,7 +61,9 @@ def train_single_model(
     dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
 
     gold_testset = evaluator.load_conllu_file(test_file)
-    syst_testset = evaluator.load_conllu_file(out_dir / f"{test_file.stem}.parsed.conllu")
+    syst_testset = evaluator.load_conllu_file(
+        out_dir / f"{test_file.stem}.parsed.conllu"
+    )
     test_metrics = evaluator.evaluate(gold_testset, syst_testset)
 
     return TrainResults(
@@ -78,10 +82,10 @@ def worker(device_queue, name, kwargs) -> Tuple[str, TrainResults]:
     # works.
     device = device_queue.get(block=False)
     kwargs["device"] = device
-    print(f"Start training {name} on {device}", file=sys.stderr)
+    logger.info(f"Start training {name} on {device}", file=sys.stderr)
     res = train_single_model(**kwargs)
     device_queue.put(device)
-    print(f"Run {name} finished with results {res}", file=sys.stderr)
+    logger.info(f"Run {name} finished with results {res}", file=sys.stderr)
     return (name, res)
 
 
@@ -114,6 +118,25 @@ def parse_args_callback(
         name, values = v.split("=", maxsplit=1)
         res.append((name, values.split(",")))
     return res
+
+
+def setup_logging():
+    logger.remove(0)  # Remove the default logger
+    appname = "hops_trainer"
+
+    log_level = "INFO"
+    log_fmt = (
+        f"[{appname}]"
+        " <green>{time:YYYY-MM-DD}T{time:HH:mm:ss}</green> {level}: "
+        " <level>{message}</level>"
+    )
+
+    logger.add(
+        sys.stderr,
+        level=log_level,
+        format=log_fmt,
+        colorize=True,
+    )
 
 
 @click.command()
@@ -169,14 +192,18 @@ def main(
     rand_seeds: Optional[List[int]],
     treebanks_dir: pathlib.Path,
 ):
+    setup_logging()
     out_dir.mkdir(parents=True, exist_ok=True)
-    treebanks = [train.parent for train in treebanks_dir.glob("**/train.conllu")]
+    treebanks = [train.parent for train in treebanks_dir.glob("**/*train.conllu")]
+    logger.info(f"Training on {len(treebanks)} treebanks.")
     configs = list(configs_dir.glob("*.yaml"))
+    logger.info(f"Training using {len(configs)} configs.")
     if rand_seeds is not None:
         args = [
             ("rand-seed", [str(s) for s in rand_seeds]),
             *(args if args is not None else []),
         ]
+        logger.info(f"Training with {len(rand_seeds)} rand seeds.")
     additional_args_combinations: List[Dict[str, str]]
     if args:
         args_names, all_args_values = map(list, zip(*args))
@@ -188,12 +215,17 @@ def main(
         args_names = []
         additional_args_combinations = [{}]
     runs: List[Tuple[str, Dict[str, Any]]] = []
+    runs_dict: Dict[str, Dict] = dict()
+    skipped_res: List[Tuple[str, TrainResults]] = []
     for t in treebanks:
         for c in configs:
+            train_file = next(t.glob("*train.conllu"))
+            dev_file = next(t.glob("*dev.conllu"))
+            test_file = next(t.glob("*test.conllu"))
             common_params = {
-                "train_file": t / "train.conllu",
-                "dev_file": t / "dev.conllu",
-                "test_file": t / "test.conllu",
+                "train_file": train_file,
+                "dev_file": dev_file,
+                "test_file": test_file,
                 "config_path": c,
             }
             run_base_name = f"{prefix}{t.name}-{c.stem}"
@@ -209,22 +241,42 @@ def main(
                     )
                     run_out_dir = run_out_root_dir / args_combination_str
                     run_name = f"{run_base_name}+{args_combination_str}"
+                run_args = {
+                    **common_params,
+                    "additional_args": additional_args,
+                    "out_dir": run_out_dir,
+                }
+                runs_dict[run_name] = run_args
                 if run_out_dir.exists():
-                    print(f"{run_out_dir} already exists, skipping this run.")
-                    continue
-                runs.append(
-                    (
-                        run_name,
-                        {
-                            **common_params,
-                            "additional_args": additional_args,
-                            "out_dir": run_out_dir,
-                        },
-                    ),
-                )
-    res = run_multi(runs, devices)
+                    gold_devset = evaluator.load_conllu_file(dev_file)
+                    syst_devset = evaluator.load_conllu_file(
+                        run_out_dir / f"{dev_file.stem}.parsed.conllu"
+                    )
+                    dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
 
-    runs_dict = dict(runs)
+                    gold_testset = evaluator.load_conllu_file(test_file)
+                    syst_testset = evaluator.load_conllu_file(
+                        run_out_dir / f"{test_file.stem}.parsed.conllu"
+                    )
+                    test_metrics = evaluator.evaluate(gold_testset, syst_testset)
+
+                    skip_res = TrainResults(
+                        dev_upos=dev_metrics["UPOS"].f1,
+                        dev_las=dev_metrics["LAS"].f1,
+                        test_upos=test_metrics["UPOS"].f1,
+                        test_las=test_metrics["LAS"].f1,
+                    )
+                    skipped_res.append((run_name, skip_res))
+                    logger.info(
+                        f"{run_out_dir} already exists, skipping run {run_name}. Results were {skip_res}"
+                    )
+                    continue
+                runs.append((run_name, run_args))
+
+    logger.info(f"Starting {len(runs)} runs.")
+    res = run_multi(runs, devices)
+    res.extend(skipped_res)
+
     report_file = out_dir / "full_report.json"
     if report_file.exists():
         with open(report_file) as in_stream:
@@ -280,7 +332,9 @@ def main(
                 "| Model name | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download |\n"
                 "|:-----------|:----------:|:---------:|:-----------:|:----------:|:--------:|\n"
             )
-            for run_name, report in sorted(df.loc[grouped["dev_las"].idxmax()].iterrows()):
+            for run_name, report in sorted(
+                df.loc[grouped["dev_las"].idxmax()].iterrows()
+            ):
                 shutil.copytree(
                     report["out_dir"], best_dir / run_name, dirs_exist_ok=True
                 )
