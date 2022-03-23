@@ -9,7 +9,6 @@ import sys
 from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple, Union
 
 import click
-import click_pathlib
 import pandas as pd
 
 from loguru import logger
@@ -142,11 +141,11 @@ def setup_logging():
 @click.command()
 @click.argument(
     "configs_dir",
-    type=click_pathlib.Path(resolve_path=True, exists=True, file_okay=False),
+    type=click.Path(resolve_path=True, exists=True, file_okay=False, path_type=pathlib.Path),
 )
 @click.argument(
     "treebanks_dir",
-    type=click_pathlib.Path(resolve_path=True, exists=True, file_okay=False),
+    type=click.Path(resolve_path=True, exists=True, file_okay=False, path_type=pathlib.Path),
 )
 @click.option(
     "--args",
@@ -168,7 +167,7 @@ def setup_logging():
 @click.option(
     "--out-dir",
     default=".",
-    type=click_pathlib.Path(resolve_path=True, exists=False, file_okay=False),
+    type=click.Path(resolve_path=True, exists=False, file_okay=False, path_type=pathlib.Path),
 )
 @click.option("--prefix", default="", help="A custom prefix to prepend to run names.")
 @click.option(
