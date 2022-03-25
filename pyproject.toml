@@ -1,5 +1,49 @@
 [project]
+authors = [
+    {name = "Benoît Crabbé", email = "benoit.crabbe@univ-paris-diderot.fr"},
+    {name = "Loïc Grobol", email = "lgrobol@parisnanterre.fr"},
+]
+dependencies = [
+    "bidict",
+    "boltons",
+    "click",
+    "click_pathlib",
+    "fastapi",
+    "fasttext ~= 0.9",
+    "loguru",
+    "protobuf",
+    "pydantic",
+    "pyyaml",
+    "rich",
+    "sentencepiece",
+    "torch >= 1.8.1, < 1.12.0, != 1.10.0",
+    "transformers >= 4.12.2, < 5.0.0",
+    "uvicorn",
+]
+keywords = [
+    "nlp",
+    "parsing",
+]
+license = {file = "LICENCE.md"}
+name = "hopsparser"
+readme = "README.md"
 requires-python = ">=3.8"
+urls = {repository = "https://github.com/hopsparser/hopsparser"}
+version = "0.4.1"
+
+[options.optional_dependencies]
+traintools = ["pandas"]
+tests = [
+    "hypothesis",
+    "pytest",
+    "pytest-assert-utils",
+    "pytest-console-scripts",
+    "pytest-lazy-fixture",
+]
+
+[project.scripts]
+hopsparser = "hopsparser.main:cli"
+eval_parse = "hopsparser.conll2018_eval:main"
 
 [build-system]
 requires = ["setuptools>=54", "wheel"]
