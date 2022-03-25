@@ -1,7 +1,7 @@
 [project]
 authors = [
-    {author: "Benoît Crabbé", author_email: "benoit.crabbe@univ-paris-diderot.fr"},
-    {author: "Loïc Grobol", author_email: "lgrobol@parisnanterre.fr"},
+    {author = "Benoît Crabbé", author_email = "benoit.crabbe@univ-paris-diderot.fr"},
+    {author = "Loïc Grobol", author_email = "lgrobol@parisnanterre.fr"},
 ]
 dependencies = [
     "bidict",
@@ -28,7 +28,7 @@ license = "MIT"
 name = "hopsparser"
 readme = "README.md"
 requires-python = ">=3.8"
-urls = {repository: "https://github.com/hopsparser/hopsparser"}
+urls = {repository = "https://github.com/hopsparser/hopsparser"}
 version = "0.4.1"
 
 [options.optional_dependencies]
