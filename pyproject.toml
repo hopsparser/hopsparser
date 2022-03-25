@@ -1,7 +1,7 @@
 [project]
 authors = [
-    {author = "Benoît Crabbé", author_email = "benoit.crabbe@univ-paris-diderot.fr"},
-    {author = "Loïc Grobol", author_email = "lgrobol@parisnanterre.fr"},
+    {name = "Benoît Crabbé", email = "benoit.crabbe@univ-paris-diderot.fr"},
+    {name = "Loïc Grobol", email = "lgrobol@parisnanterre.fr"},
 ]
 dependencies = [
     "bidict",
