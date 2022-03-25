@@ -8,7 +8,6 @@ import warnings
 from typing import Literal, Optional
 
 import click
-import click_pathlib
 from rich.console import Console
 from rich.table import Table
 from rich import box
@@ -39,7 +38,7 @@ def cli():
 @cli.command(help="Parse a raw or tokenized file")
 @click.argument(
     "model_path",
-    type=click_pathlib.Path(resolve_path=True, exists=True),
+    type=click.Path(resolve_path=True, exists=True, path_type=pathlib.Path),
 )
 @click.argument(
     "input_path",
@@ -92,19 +91,27 @@ def parse(
 @cli.command(help="Train a parsing model")
 @click.argument(
     "config_file",
-    type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
+    type=click.Path(
+        resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path
+    ),
 )
 @click.argument(
     "train_file",
-    type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
+    type=click.Path(
+        resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path
+    ),
 )
 @click.argument(
     "output_dir",
-    type=click_pathlib.Path(resolve_path=True, file_okay=False, writable=True),
+    type=click.Path(
+        resolve_path=True, file_okay=False, writable=True, path_type=pathlib.Path
+    ),
 )
 @click.option(
     "--dev-file",
-    type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
+    type=click.Path(
+        resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path
+    ),
     help="A CoNLL-U treebank to use as a development dataset.",
 )
 @click.option(
@@ -119,7 +126,9 @@ def parse(
 )
 @click.option(
     "--test-file",
-    type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
+    type=click.Path(
+        resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path
+    ),
     help="A CoNLL-U treebank to use as a test dataset.",
 )
 @click.option(
@@ -186,7 +195,7 @@ def train(
 @cli.command(help="Evaluate a trained model")
 @click.argument(
     "model_path",
-    type=click_pathlib.Path(resolve_path=True, exists=True),
+    type=click.Path(resolve_path=True, exists=True, path_type=pathlib.Path),
 )
 @click.argument(
     "treebank_path",
@@ -195,7 +204,9 @@ def train(
 @device_opt
 @click.option(
     "--intermediary-dir",
-    type=click_pathlib.Path(resolve_path=True, file_okay=False, writable=True),
+    type=click.Path(
+        resolve_path=True, file_okay=False, writable=True, path_type=pathlib.Path
+    ),
     help="A directory where the parsed data will be stored, defaults to a temp dir",
 )
 @click.option(
@@ -246,7 +257,7 @@ def evaluate(
 @cli.command(help="Start a parsing server")
 @click.argument(
     "model_path",
-    type=click_pathlib.Path(resolve_path=True, exists=True),
+    type=click.Path(resolve_path=True, exists=True, path_type=pathlib.Path),
 )
 @click.option(
     "--device",
