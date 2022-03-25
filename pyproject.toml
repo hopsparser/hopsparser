@@ -24,7 +24,7 @@ keywords = [
     "nlp",
     "parsing",
 ]
-license = "MIT"
+license = {file = "LICENCE.md"}
 name = "hopsparser"
 readme = "README.md"
 requires-python = ">=3.8"
