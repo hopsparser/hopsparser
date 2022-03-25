@@ -20,5 +20,5 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [0.4.0] — 2022-03-23
 
-[0.4.0]: https://github.com/hopsparser/hopsparser/compare/v0.3.0...v0.4.0
+[0.4.0]: https://github.com/hopsparser/hopsparser/compare/v0.3.2...v0.4.0
 
