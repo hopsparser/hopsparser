@@ -1,6 +1,7 @@
 import pathlib
 import tempfile
 from typing import List, Tuple
+from numpy import source
 
 import torch.cuda
 
@@ -16,18 +17,30 @@ if torch.cuda.is_available():
     devices.append("cuda:0")
 
 
+@pytest.mark.parametrize("source_device", devices)
+@pytest.mark.parametrize("target_device", devices)
 def test_initialize_save_load(
+    source_device: str,
+    target_device: str,
     train_config: pathlib.Path,
     treebank: pathlib.Path,
 ):
+    source_device_d = torch.device(source_device)
+    target_device_d = torch.device(target_device)
     parser = BiAffineParser.initialize(
         config_path=train_config,
         treebank=list(DepGraph.read_conll(open(treebank))),
     )
+    parser.to(source_device_d)
+    for _, p in parser.named_parameters():
+        assert p.device == source_device_d
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = pathlib.Path(tmp_dir)
         parser.save(tmp_path, save_weights=True)
         _ = BiAffineParser.load(tmp_path)
+    parser.to(target_device_d)
+    for _, p in parser.named_parameters():
+        assert p.device == target_device_d
 
 
 @pytest.fixture(scope="session")
