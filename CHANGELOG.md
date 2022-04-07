@@ -8,7 +8,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-[Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.4.2...HEAD
+
+## [0.4.2] — 2022-04-08
+
+[0.4.2]: https://github.com/hopsparser/hopsparser/compare/v0.4.1...v0.4.2
 
 ### Fixed
 
