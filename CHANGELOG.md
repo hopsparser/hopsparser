@@ -10,15 +10,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 [Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.4.1...HEAD
 
+### Fixed
+
+- Model cross-device loading (e.g. loading on CPU a model trained on GPU) works now ([#65](https://github.com/hopsparser/hopsparser/issues/65))
+
 ## [0.4.1] — 2022-03-24
 
 [0.4.1]: https://github.com/hopsparser/hopsparser/compare/v0.4.0...v0.4.1
 
-## Changed
+### Changed
 
 - Remove the dependency on `click_pathlib` ([#63](https://github.com/hopsparser/hopsparser/pull/63))
 
-## Fixed
+### Fixed
 
 - Compatibility with setuptools 61 parsing of PEP 621 specs
 

@@ -323,7 +323,7 @@ class BiAffineParser(nn.Module):
         torch.save(self.state_dict(), path)
 
     def load_params(self, path: Union[str, pathlib.Path, BinaryIO]):
-        state_dict = torch.load(path)
+        state_dict = torch.load(path, map_location="cpu")
         self.load_state_dict(state_dict)
 
     def forward(

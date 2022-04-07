@@ -234,7 +234,7 @@ class CharRNNLexer(nn.Module):
         res = cls(**config)
         weight_file = model_path / "weights.pt"
         if weight_file.exists():
-            res.load_state_dict(torch.load(weight_file))
+            res.load_state_dict(torch.load(weight_file, map_location="cpu"))
         return res
 
     @classmethod
@@ -379,7 +379,7 @@ class FastTextLexer(nn.Module):
         res = cls.from_fasttext_model(model_path / "fasttext_model.bin", **config)
         weight_file = model_path / "weights.pt"
         if weight_file.exists():
-            res.load_state_dict(torch.load(weight_file))
+            res.load_state_dict(torch.load(weight_file, map_location="cpu"))
         return res
 
     @classmethod
@@ -516,7 +516,7 @@ class WordEmbeddingsLexer(nn.Module):
         res = cls(**config)
         weight_file = model_path / "weights.pt"
         if weight_file.exists():
-            res.load_state_dict(torch.load(weight_file))
+            res.load_state_dict(torch.load(weight_file, map_location="cpu"))
         return res
 
     @classmethod
@@ -853,7 +853,7 @@ class BertLexer(nn.Module):
         res = cls(model=model, tokenizer=tokenizer, **config)
         weight_file = model_path / "weights.pt"
         if weight_file.exists():
-            res.load_state_dict(torch.load(weight_file))
+            res.load_state_dict(torch.load(weight_file, map_location="cpu"))
         return res
 
     @classmethod
