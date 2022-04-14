@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 [Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.4.2...HEAD
 
+### Changed
+
+- Minimal Pytorch version is now `1.9.0`
+- Use `torch.inference_mode` instead of `toch.no_grad` over all the parser methods.
+
+
 ## [0.4.2] — 2022-04-08
 
 [0.4.2]: https://github.com/hopsparser/hopsparser/compare/v0.4.1...v0.4.2

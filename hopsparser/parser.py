@@ -433,7 +433,7 @@ class BiAffineParser(nn.Module):
         overall_size = torch.zeros(1, dtype=torch.long, device=device)
         gloss = torch.zeros(1, dtype=torch.float, device=device)
 
-        with torch.no_grad():
+        with torch.inference_mode():
             for batch in dev_set:
                 overall_size += batch.sentences.content_mask.sum()
 
@@ -569,7 +569,7 @@ class BiAffineParser(nn.Module):
                     tagger_scores, arc_scores, lab_scores, batch, loss_fnc
                 )
 
-                with torch.no_grad():
+                with torch.inference_mode():
                     train_loss += loss
 
                 optimizer.zero_grad()
@@ -733,7 +733,7 @@ class BiAffineParser(nn.Module):
         self.eval()
         device = next(self.parameters()).device
 
-        with torch.no_grad():
+        with torch.inference_mode():
             for batch in batch_lst:
                 batch = batch.to(device)
 
