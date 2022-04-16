@@ -110,7 +110,6 @@ def test_word_embeddings_create_save_load(
     lexer = lexers.WordEmbeddingsLexer.from_words(
         embeddings_dim=embeddings_dim,
         word_dropout=word_dropout,
-        words_padding_idx=0,
         words=words,
         unk_word=words[0],
     )

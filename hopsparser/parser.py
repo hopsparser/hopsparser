@@ -236,7 +236,6 @@ _T_BiAffineParser = TypeVar("_T_BiAffineParser", bound="BiAffineParser")
 class BiAffineParser(nn.Module):
     """Biaffine Dependency Parser."""
 
-    PAD_IDX: Final[int] = 0
     PAD_TOKEN: Final[str] = "<pad>"
     UNK_WORD: Final[str] = "<unk>"
     # Labels that are -100 are ignored in torch crossentropy (we still set it explicitely)
@@ -901,7 +900,6 @@ class BiAffineParser(nn.Module):
                     unk_word=cls.UNK_WORD,
                     word_dropout=lexer_config["word_dropout"],
                     words=(DepGraph.ROOT_TOKEN, cls.UNK_WORD, *corpus_words),
-                    words_padding_idx=cls.PAD_IDX,
                 )
             elif lexer_config["type"] == "chars_rnn":
                 lexer = CharRNNLexer.from_chars(

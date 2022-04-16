@@ -429,25 +429,24 @@ class WordEmbeddingsLexer(nn.Module):
         vocabulary: Sequence[str],
         embeddings_dim: int,
         word_dropout: float,
-        words_padding_idx: int,
         unk_word: str,
     ):
         """Create a new WordEmbeddingsLexer.
 
-        `vocabulary` should not have any duplicates. Note also that the elements at `pad_idx` and
-        `special_tokens idx` will have a special meaning. Building a new `WordEmbeddingsLexer` is
-        preferably done via `from_words`, which takes care of deduplicating and inserting special
+        `vocabulary` should not have any duplicates. Building a new `WordEmbeddingsLexer` is
+        preferably done via `from_words`, which takes care of deduplicating and sorting special
         tokens.
         """
         super().__init__()
+        # Starting at 1 because 0 will be the padding index
         try:
             self.vocabulary: BidirectionalMapping[str, int] = bidict(
-                (c, i) for i, c in enumerate(vocabulary)
+                (c, i) for i, c in enumerate(vocabulary, start=1)
             )
         except ValueError as e:
             raise ValueError("Duplicated words in vocabulary") from e
         self.embedding = nn.Embedding(
-            len(self.vocabulary), embeddings_dim, padding_idx=words_padding_idx
+            len(self.vocabulary) + 1, embeddings_dim, padding_idx=0
         )
         self.output_dim = embeddings_dim
         self.unk_word_idx = self.vocabulary[unk_word]
@@ -481,26 +480,23 @@ class WordEmbeddingsLexer(nn.Module):
         return torch.tensor(word_idxes)
 
     def make_batch(self, batch: Sequence[torch.Tensor]) -> torch.Tensor:
-        """Pad a batch of sentences."""
-        return pad_sequence(
-            batch,
-            padding_value=self.embedding.padding_idx,
-            batch_first=True,
-        )
+        """Pad a batch of sentences with zeros."""
+        return pad_sequence(batch, padding_value=0, batch_first=True)
 
     def save(self, model_path: pathlib.Path, save_weights: bool = True):
         model_path.mkdir(exist_ok=True, parents=True)
         config_file = model_path / "config.json"
         with open(config_file, "w") as out_stream:
+            # FIXME: range(1, len())… here is inelegant and is unnecessary if the inverse has ordered values
             json.dump(
                 {
                     "embeddings_dim": self.output_dim,
                     "unk_word": self.vocabulary.inverse[self.unk_word_idx],
                     "vocabulary": [
-                        self.vocabulary.inverse[i] for i in range(len(self.vocabulary))
+                        self.vocabulary.inverse[i]
+                        for i in range(1, len(self.vocabulary) + 1)
                     ],
                     "word_dropout": self.word_dropout,
-                    "words_padding_idx": self.embedding.padding_idx,
                 },
                 out_stream,
             )
