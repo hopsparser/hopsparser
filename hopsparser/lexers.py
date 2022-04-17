@@ -13,6 +13,7 @@ from typing import (
     Protocol,
     Sequence,
     Set,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -25,7 +26,7 @@ import transformers
 from bidict import bidict, BidirectionalMapping
 from loguru import logger
 from torch import nn
-from torch.nn.utils.rnn import pad_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 from transformers.tokenization_utils_base import BatchEncoding, TokenSpan
 
 
@@ -83,6 +84,24 @@ class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH]):
         raise NotImplementedError
 
 
+_T_CharRNNLexerBatch = TypeVar("_T_CharRNNLexerBatch", bound="CharRNNLexerBatch")
+
+
+class CharRNNLexerBatch(NamedTuple):
+    encoding: torch.Tensor
+    sent_lengths: List[int]
+    word_lengths: torch.Tensor
+
+    def to(
+        self: _T_CharRNNLexerBatch, device: Union[str, torch.device]
+    ) -> _T_CharRNNLexerBatch:
+        return type(self)(
+            encoding=self.encoding.to(device=device),
+            sent_lengths=self.sent_lengths,
+            word_lengths=self.word_lengths,
+        )
+
+
 _T_CharRNNLexer = TypeVar("_T_CharRNNLexer", bound="CharRNNLexer")
 
 
@@ -130,7 +149,7 @@ class CharRNNLexer(nn.Module):
         self.embedding = nn.Embedding(
             len(self.vocabulary), self.char_embeddings_dim, padding_idx=self.pad_idx
         )
-        # FIXME: this supposes an even output dim
+        # FIXME: this assumes an even output dim
         self.char_bilstm = nn.LSTM(
             batch_first=True,
             bidirectional=True,
@@ -139,21 +158,26 @@ class CharRNNLexer(nn.Module):
             num_layers=1,
         )
 
-    def forward(self, inpt: torch.Tensor) -> torch.Tensor:
+    def forward(self, inpt: CharRNNLexerBatch) -> torch.Tensor:
         """
         Predicts the word embedding from the token characters.
         :param inpt: is a tensor of char indexes encoding a batch of tokens *×token_len
         :return: a word embedding tensor
         """
-        # FIXME: there is probably a better way to do this since this results in tokens that are
-        # full padding We need them of course (they will be cat to other padding embeddings in
-        # graph_parser), but running the RNN on them is frustrating
-        flattened_inputs = inpt.view(-1, inpt.shape[-1])
-        embeddings = self.embedding(flattened_inputs)
-        # ! FIXME: this does not take the padding into account
-        _, (_, cembedding) = self.char_bilstm(embeddings)
-        # TODO: why use the cell state and not the output state here?
-        result = cembedding.view(*inpt.shape[:-1], self.output_dim)
+        embeddings = self.embedding(inpt.encoding)
+        packed_embeddings = pack_padded_sequence(
+            embeddings,
+            lengths=inpt.word_lengths,
+            batch_first=True,
+            enforce_sorted=False,
+        )
+        _, (hn, _) = self.char_bilstm(packed_embeddings)
+        by_sents = (
+            hn.transpose(0, 1)
+            .reshape(inpt.word_lengths.shape[0], self.output_dim)
+            .split(inpt.sent_lengths, dim=0)
+        )
+        result = pad_sequence(by_sents, batch_first=True)
         return result
 
     def word2charcodes(self, token: str) -> torch.Tensor:
@@ -177,37 +201,29 @@ class CharRNNLexer(nn.Module):
                 res = [self.pad_idx]
         return torch.tensor(res, dtype=torch.long)
 
-    def encode(self, tokens_sequence: Sequence[str]) -> torch.Tensor:
+    def encode(self, tokens_sequence: Sequence[str]) -> List[torch.Tensor]:
         """Map word tokens to integer indices.
 
         Returns a tensor of shape `sentence_len×max_word_len`
         """
         subword_indices = [self.word2charcodes(token) for token in tokens_sequence]
-        # shape: sentence_length×num_chars_in_longest_word
-        return pad_sequence(
-            subword_indices, padding_value=self.pad_idx, batch_first=True
-        )
+        return subword_indices
 
-    def make_batch(self, batch: Sequence[torch.Tensor]) -> torch.Tensor:
+    def make_batch(self, batch: Sequence[Sequence[torch.Tensor]]) -> CharRNNLexerBatch:
         """Pad a batch of sentences.
 
-        Returns a tensor of shape `batch_size×max_sentence_len×max_word_len`
+        Returns a `CharRNNLexerBatch` containing flattened, padded encodings (shape:
+        `(batch*max_sent_length, max_word_length)` and a shape to rebuild the per-sentence+per-word
+        encodings.
         """
-        # We need to pad manually because `pad_sequence` only accepts tensors that have all the same
-        # dimensions except for one and we differ both in the sentence lengths dimension and in the
-        # word length dimension
-        res = torch.full(
-            (
-                len(batch),
-                max(t.shape[0] for t in batch),
-                max(t.shape[1] for t in batch),
-            ),
-            fill_value=self.pad_idx,
-            dtype=torch.long,
+        flattened = [encoding for sent in batch for encoding in sent]
+        sent_lengths = [len(sent) for sent in batch]
+        words_lengths = torch.tensor([encoding.shape[0] for encoding in flattened])
+        encoding = pad_sequence(flattened, batch_first=True, padding_value=self.pad_idx)
+
+        return CharRNNLexerBatch(
+            encoding=encoding, sent_lengths=sent_lengths, word_lengths=words_lengths
         )
-        for i, sent in enumerate(batch):
-            res[i, : sent.shape[0], : sent.shape[1]] = sent
-        return res
 
     def save(self, model_path: pathlib.Path, save_weights: bool = True):
         model_path.mkdir(exist_ok=True, parents=True)
@@ -438,7 +454,9 @@ class WordEmbeddingsLexer(nn.Module):
         tokens.
         """
         super().__init__()
-        # Starting at 1 because 0 will be the padding index
+        # Starting at 1 because 0 will be the padding index This is a bit awkward but we can't
+        # really inject a pad token (like `pad` in the char lexer) because any such token might be a
+        # legitimate word so we do this instead.
         try:
             self.vocabulary: BidirectionalMapping[str, int] = bidict(
                 (c, i) for i, c in enumerate(vocabulary, start=1)
