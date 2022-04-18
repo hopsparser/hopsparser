@@ -19,6 +19,7 @@ dependencies = [
     "transformers >= 4.12.2, < 5.0.0",
     "uvicorn",
 ]
+description = "A graph dependency parser to tinker with"
 keywords = [
     "nlp",
     "parsing",
