@@ -749,7 +749,6 @@ class BertLexer(nn.Module):
         encoding = self.tokenizer.pad(encodings_lst)
         encoding.convert_to_tensors("pt")
         return BertLexerBatch(
-            torch.zeros((1,)),
             encoding,
             subwords_alignments,
         )
