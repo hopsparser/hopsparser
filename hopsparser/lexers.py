@@ -682,6 +682,7 @@ class BertLexer(nn.Module):
     def forward(self, inpt: BertLexerBatch) -> torch.Tensor:
         layers = self.model(
             input_ids=inpt.encoding["input_ids"],
+            attention_mask=inpt.encoding["attention_mask"],
             return_dict=True,
             output_hidden_states=True,
         ).hidden_states
