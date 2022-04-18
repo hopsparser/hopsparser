@@ -26,6 +26,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - The root token embedding coming from BERT lexers is now an average of non-padding words'
   embeddings
 - FastText embeddings are now computed by averaging over non-padding subwords' embeddings.
+- In server mode, models are now correctly in eval mode and processing is done
+  in `torch.inference_mode`.
 
 ## [0.4.2] — 2022-04-08
 
