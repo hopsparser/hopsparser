@@ -16,11 +16,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   not run on padding anymore.
 - Minimal Pytorch version is now `1.9.0`
 - Use `torch.inference_mode` instead of `toch.no_grad` over all the parser methods.
+- BERT lexer batches no longer have an obsolete, always zero `word_indices` attribute
 
 ### Fixed
 
 - The first word in the word embeddings lexer vocabulary is not used as padding anymore and has a
   real embedding.
+- BERT embeddings are now correctly computed with an attention mask to ignore padding.
+- The root token embedding coming from BERT lexers is now an average of non-padding words'
+  embeddings
+- FastText embeddings are now computed by averaging over non-padding subwords' embeddings.
 
 ## [0.4.2] — 2022-04-08
 
