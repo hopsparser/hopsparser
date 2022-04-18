@@ -2,6 +2,7 @@ from typing import Dict, List, Literal, Optional
 
 import fastapi
 import pydantic
+import torch
 
 from hopsparser import __version__, parser
 
@@ -15,7 +16,7 @@ settings = Settings()
 
 
 models = {
-    model_name: parser.BiAffineParser.load(config_path).to(settings.device)
+    model_name: parser.BiAffineParser.load(config_path).to(settings.device).eval()
     for model_name, config_path in settings.models.items()
 }
 default_model = next(iter(models.keys()))
@@ -80,12 +81,13 @@ async def process(req: ParseRequest) -> ParseResponse:
             status_code=404,
             detail="Requested model not loaded",
         )
-    parsed = "".join(
-        [
-            f"{tree.to_conllu()}\n\n"
-            for tree in parser.parse(
-                req.data.splitlines(), raw=req.input == "horizontal"
-            )
-        ]
-    )
+    with torch.inference_mode():
+        parsed = "".join(
+            [
+                f"{tree.to_conllu()}\n\n"
+                for tree in parser.parse(
+                    req.data.splitlines(), raw=req.input == "horizontal"
+                )
+            ]
+        )
     return ParseResponse(model=model_name, acknowledgements=[""], data=parsed)
