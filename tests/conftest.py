@@ -24,7 +24,6 @@ def raw_text(test_data_dir: pathlib.Path) -> pathlib.Path:
     params=[
         "toy_bert_fasttok",
         "toy_everylexer",
-        "toy_fast_flaubert",
         "toy_flaubert",
         "toy_onlychars",
         "toy_onlyfasttext",
