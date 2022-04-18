@@ -321,9 +321,9 @@ class FastTextLexer(nn.Module):
         # instead of using the *sum* of *unspecified* (either input or output) vectors as per the
         # original FastText paper (“Enriching Word Vectors with Subword Information”, Bojanowski et
         # al., 2017)
-        # Keepdim here to allow broadcast
-        word_lengths = inpt.ne(self.pad_idx).sum(dim=-1, keepdim=True)
-        return self.embeddings(inpt).mean(dim=-2) / word_lengths
+        # Keepdim here to allow broadcast, clamp to avoid 0/0 for full padding tokens
+        word_lengths = inpt.ne(self.pad_idx).sum(dim=-1, keepdim=True).clamp(min=1)
+        return self.embeddings(inpt).sum(dim=-2) / word_lengths
 
     def word2subcodes(self, token: str) -> torch.Tensor:
         """
