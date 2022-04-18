@@ -572,7 +572,6 @@ _T_BertLexerBatch = TypeVar("_T_BertLexerBatch", bound="BertLexerBatch")
 
 
 class BertLexerBatch(NamedTuple):
-    word_indices: torch.Tensor
     encoding: BatchEncoding
     subword_alignments: Sequence[Sequence[TokenSpan]]
 
@@ -580,7 +579,6 @@ class BertLexerBatch(NamedTuple):
         self: _T_BertLexerBatch, device: Union[str, torch.device]
     ) -> _T_BertLexerBatch:
         return type(self)(
-            self.word_indices.to(device=device),
             self.encoding.to(device=device),
             self.subword_alignments,
         )
