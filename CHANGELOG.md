@@ -12,9 +12,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- The CharRNN lexer now represent words with last hidden (instead of cell) state of the LSTM and do
+  not run on padding anymore.
 - Minimal Pytorch version is now `1.9.0`
 - Use `torch.inference_mode` instead of `toch.no_grad` over all the parser methods.
 
+### Fixed
+
+- The first word in the word embeddings lexer vocabulary is not used as padding anymore and has a
+  real embedding.
 
 ## [0.4.2] — 2022-04-08
 
