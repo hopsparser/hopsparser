@@ -1018,13 +1018,6 @@ class DependencyDataset:
     ):
         self.parser = parser
         self.treelist = treelist
-
-        self.itolab = self.parser.labels
-        self.labtoi = {label: idx for idx, label in enumerate(self.itolab)}
-
-        self.itotag = self.parser.tagset
-        self.tagtoi = {tag: idx for idx, tag in enumerate(self.itotag)}
-
         self.encoded_trees: List[EncodedTree] = []
 
     def encode(self):

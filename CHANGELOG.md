@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Minimal Pytorch version is now `1.9.0`
 - Use `torch.inference_mode` instead of `toch.no_grad` over all the parser methods.
 - BERT lexer batches no longer have an obsolete, always zero `word_indices` attribute
+- `DependencyDataset` does not have lexicon attributes (`ito(lab|tag` and their inverse) since we
+  don't need these anymore.
 
 ### Fixed
 
