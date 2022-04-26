@@ -262,14 +262,14 @@ def main(
                             syst_devset = evaluator.load_conllu_file(parsed_test)
                             dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
                         except evaluator.UDError as e:
-                            raise ValueError("Corrupted parsed dev file for {run_out_dir}") from e
+                            raise ValueError(f"Corrupted parsed dev file for {run_out_dir}") from e
 
                         try:
                             gold_testset = evaluator.load_conllu_file(test_file)
                             syst_testset = evaluator.load_conllu_file(parsed_test)
                             test_metrics = evaluator.evaluate(gold_testset, syst_testset)
                         except evaluator.UDError as e:
-                            raise ValueError("Corrupted parsed test file for {run_out_dir}") from e
+                            raise ValueError(f"Corrupted parsed test file for {run_out_dir}") from e
 
                         skip_res = TrainResults(
                             dev_upos=dev_metrics["UPOS"].f1,
