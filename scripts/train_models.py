@@ -259,7 +259,7 @@ def main(
                     if parsed_dev.exists() and parsed_test.exists():
                         try:
                             gold_devset = evaluator.load_conllu_file(dev_file)
-                            syst_devset = evaluator.load_conllu_file(parsed_test)
+                            syst_devset = evaluator.load_conllu_file(parsed_dev)
                             dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
                         except evaluator.UDError as e:
                             raise ValueError(f"Corrupted parsed dev file for {run_out_dir}") from e
