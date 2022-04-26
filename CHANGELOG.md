@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - BERT lexer batches no longer have an obsolete, always zero `word_indices` attribute
 - `DependencyDataset` does not have lexicon attributes (`ito(lab|tag` and their inverse) since we
   don't need these anymore.
+- The `train_model` script now skips incomplete runs with a warning.
 
 ### Fixed
 
