@@ -141,11 +141,15 @@ def setup_logging():
 @click.command()
 @click.argument(
     "configs_dir",
-    type=click.Path(resolve_path=True, exists=True, file_okay=False, path_type=pathlib.Path),
+    type=click.Path(
+        resolve_path=True, exists=True, file_okay=False, path_type=pathlib.Path
+    ),
 )
 @click.argument(
     "treebanks_dir",
-    type=click.Path(resolve_path=True, exists=True, file_okay=False, path_type=pathlib.Path),
+    type=click.Path(
+        resolve_path=True, exists=True, file_okay=False, path_type=pathlib.Path
+    ),
 )
 @click.option(
     "--args",
@@ -167,7 +171,9 @@ def setup_logging():
 @click.option(
     "--out-dir",
     default=".",
-    type=click.Path(resolve_path=True, exists=False, file_okay=False, path_type=pathlib.Path),
+    type=click.Path(
+        resolve_path=True, exists=False, file_okay=False, path_type=pathlib.Path
+    ),
 )
 @click.option("--prefix", default="", help="A custom prefix to prepend to run names.")
 @click.option(
@@ -247,29 +253,35 @@ def main(
                 }
                 runs_dict[run_name] = run_args
                 if run_out_dir.exists():
-                    gold_devset = evaluator.load_conllu_file(dev_file)
-                    syst_devset = evaluator.load_conllu_file(
-                        run_out_dir / f"{dev_file.stem}.parsed.conllu"
-                    )
-                    dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
+                    parsed_dev = run_out_dir / f"{dev_file.stem}.parsed.conllu"
+                    parsed_test = run_out_dir / f"{test_file.stem}.parsed.conllu"
 
-                    gold_testset = evaluator.load_conllu_file(test_file)
-                    syst_testset = evaluator.load_conllu_file(
-                        run_out_dir / f"{test_file.stem}.parsed.conllu"
-                    )
-                    test_metrics = evaluator.evaluate(gold_testset, syst_testset)
+                    if parsed_dev.exists() and parsed_test.exists():
+                        gold_devset = evaluator.load_conllu_file(dev_file)
+                        syst_devset = evaluator.load_conllu_file(parsed_test)
+                        dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
 
-                    skip_res = TrainResults(
-                        dev_upos=dev_metrics["UPOS"].f1,
-                        dev_las=dev_metrics["LAS"].f1,
-                        test_upos=test_metrics["UPOS"].f1,
-                        test_las=test_metrics["LAS"].f1,
-                    )
-                    skipped_res.append((run_name, skip_res))
-                    logger.info(
-                        f"{run_out_dir} already exists, skipping run {run_name}. Results were {skip_res}"
-                    )
-                    continue
+                        gold_testset = evaluator.load_conllu_file(test_file)
+                        syst_testset = evaluator.load_conllu_file(parsed_test)
+                        test_metrics = evaluator.evaluate(gold_testset, syst_testset)
+
+                        skip_res = TrainResults(
+                            dev_upos=dev_metrics["UPOS"].f1,
+                            dev_las=dev_metrics["LAS"].f1,
+                            test_upos=test_metrics["UPOS"].f1,
+                            test_las=test_metrics["LAS"].f1,
+                        )
+                        skipped_res.append((run_name, skip_res))
+                        logger.info(
+                            f"{run_out_dir} already exists, skipping run {run_name}. Results were {skip_res}"
+                        )
+                        continue
+                    else:
+                        logger.warning(
+                            f"Incomplete run in {run_out_dir}, skipping it. You will probably want to delete it and rerun."
+                        )
+                        continue
+
                 runs.append((run_name, run_args))
 
     logger.info(f"Starting {len(runs)} runs.")
