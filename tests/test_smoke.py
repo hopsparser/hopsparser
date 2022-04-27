@@ -95,3 +95,21 @@ def test_gold_evaluation(
         str(treebank),
     )
     assert ret.success
+
+
+def test_train_script(
+    script_runner: pytest_console_scripts.ScriptRunner,
+    test_data_dir: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    ret = script_runner.run(
+        "python",
+        "scripts/train_models.py",
+        str(test_data_dir / "train_script" / "configs"),
+        str(test_data_dir / "train_script" / "treebanks"),
+        "--devices",
+        "cpu,cpu",
+        "--out-dir",
+        str(tmp_path / "train_script_output"),
+    )
+    assert ret.success

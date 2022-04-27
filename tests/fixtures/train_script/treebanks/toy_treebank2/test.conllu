@@ -1,0 +1,1057 @@
+# text = Carles li reis nostre emperere magnes Set anz tuz pleins ad estet en Espaigne
+# newdoc id = Roland_1100_verse
+# sent_id = 0
+1	Carles	_	PROPN	NOMpro	_	12	nsubj	_	_
+2	li	_	DET	DETdef	Definite=Def|PronType=Art	3	det	_	_
+3	reis	_	NOUN	NOMcom	_	1	appos	_	_
+4	nostre	_	DET	DETpos	Poss=Yes	5	det	_	_
+5	emperere	_	NOUN	NOMcom	_	1	appos	_	_
+6	magnes	_	ADJ	ADJqua	_	5	amod	_	_
+7	Set	_	NUM	DETcar	NumType=Card	8	nummod	_	_
+8	anz	_	NOUN	NOMcom	_	12	obl	_	_
+9	tuz	_	ADV	ADVgen	_	10	advmod	_	_
+10	pleins	_	ADJ	ADJqua	_	8	amod	_	_
+11	ad	_	AUX	VERcjg	VerbForm=Fin	12	aux	_	_
+12	estet	_	VERB	VERppe	Tense=Past|VerbForm=Part	0	root	_	_
+13	en	_	ADP	PRE	_	14	case	_	_
+14	Espaigne	_	PROPN	NOMpro	_	12	obl	_	_
+
+# sent_id = fr-ud-dev_00007
+# text = Elle lutte pour échapper aux tueurs à ses trousses.
+1	Elle	il	PRON	_	Gender=Fem|Number=Sing|Person=3|PronType=Prs	2	nsubj	_	wordform=elle
+2	lutte	lutter	VERB	_	Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin	0	root	_	_
+3	pour	pour	ADP	_	_	4	mark	_	_
+4	échapper	échapper	VERB	_	VerbForm=Inf	2	advcl	_	_
+5-6	aux	_	_	_	_	_	_	_	_
+5	à	à	ADP	_	_	7	case	_	_
+6	les	le	DET	_	Definite=Def|Gender=Masc|Number=Plur|PronType=Art	7	det	_	_
+7	tueurs	tueur	NOUN	_	Gender=Masc|Number=Plur	4	obl:arg	_	_
+8	à	à	ADP	_	_	10	case	_	_
+9	ses	son	DET	_	Gender=Fem|Number=Plur|Poss=Yes|PronType=Prs	10	det	_	_
+10	trousses	trousses	NOUN	_	Gender=Fem|Number=Plur	4	obl:mod	_	SpaceAfter=No
+11	.	.	PUNCT	_	_	2	punct	_	_
+
+# text = Tresqu' en la mer cunquist la tere altaigne
+# newdoc id = Roland_1100_verse
+# sent_id = 1
+1	Tresqu'	_	ADV	ADVgen	_	4	mark	_	_
+2	en	_	ADP	PRE	_	4	case	_	_
+3	la	_	DET	DETdef	Definite=Def|PronType=Art	4	det	_	_
+4	mer	_	NOUN	NOMcom	_	5	obl	_	_
+5	cunquist	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+6	la	_	DET	DETdef	Definite=Def|PronType=Art	7	det	_	_
+7	tere	_	NOUN	NOMcom	_	5	obj	_	_
+8	altaigne	_	ADJ	ADJqua	_	7	amod	_	_
+
+# text = N' i ad castel ki devant lui remaigne
+# newdoc id = Roland_1100_verse
+# sent_id = 2
+1	N'	_	ADV	ADVneg	Polarity=Neg	3	advmod	_	_
+2	i	_	ADV	PROadv	PronType=Dem	3	obl	_	_
+3	ad	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+4	castel	_	NOUN	NOMcom	_	3	obj	_	_
+5	ki	_	PRON	PROrel	PronType=Prs,Rel	8	nsubj	_	_
+6	devant	_	ADP	PRE	_	7	case	_	_
+7	lui	_	PRON	PROper	PronType=Prs	8	obl	_	_
+8	remaigne	_	VERB	VERcjg	VerbForm=Fin	4	acl:relcl	_	_
+
+# text = Mur ne citet n' i est remés a fraindre Fors Sarraguce ki est en une muntaigne
+# newdoc id = Roland_1100_verse
+# sent_id = 3
+1	Mur	_	NOUN	NOMcom	_	7	nsubj	_	_
+2	ne	_	CCONJ	CONcoo	_	3	cc	_	_
+3	citet	_	NOUN	NOMcom	_	1	conj	_	_
+4	n'	_	ADV	ADVneg	Polarity=Neg	7	advmod	_	_
+5	i	_	ADV	PROadv	PronType=Dem	7	obl	_	_
+6	est	_	AUX	VERcjg	VerbForm=Fin	7	aux	_	_
+7	remés	_	VERB	VERppe	Tense=Past|VerbForm=Part	0	root	_	_
+8	a	_	ADP	PRE	_	9	mark	_	_
+9	fraindre	_	VERB	VERinf	VerbForm=Inf	7	xcomp	_	_
+10	Fors	_	ADP	PRE	_	11	case	_	_
+11	Sarraguce	_	PROPN	NOMpro	_	1	conj	_	_
+12	ki	_	PRON	PROrel	PronType=Prs,Rel	13	nsubj	_	_
+13	est	_	VERB	VERcjg	VerbForm=Fin	11	acl:relcl	_	_
+14	en	_	ADP	PRE	_	16	case	_	_
+15	une	_	DET	DETndf	Definite=Ind|PronType=Art	16	det	_	_
+16	muntaigne	_	NOUN	NOMcom	_	13	obl	_	_
+
+# text = Li reis Marsilie la tient ki Deu nen aimet
+# newdoc id = Roland_1100_verse
+# sent_id = 4
+1	Li	_	DET	DETdef	Definite=Def|PronType=Art	2	det	_	_
+2	reis	_	NOUN	NOMcom	_	5	nsubj	_	_
+3	Marsilie	_	PROPN	NOMpro	_	2	flat	_	_
+4	la	_	PRON	PROper	PronType=Prs	5	obj	_	_
+5	tient	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+6	ki	_	PRON	PROrel	PronType=Prs,Rel	9	nsubj	_	_
+7	Deu	_	PROPN	NOMpro	_	9	obj	_	_
+8	nen	_	ADV	ADVgen.PROper	_	9	advmod	_	_
+9	aimet	_	VERB	VERcjg	VerbForm=Fin	2	acl:relcl	_	_
+
+# text = Mahumet sert
+# newdoc id = Roland_1100_verse
+# sent_id = 5
+1	Mahumet	_	PROPN	NOMpro	_	2	obj	_	_
+2	sert	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+
+# text = e Apollin recleimet
+# newdoc id = Roland_1100_verse
+# sent_id = 6
+1	e	_	CCONJ	CONcoo	_	3	cc:nc	_	_
+2	Apollin	_	PROPN	NOMpro	_	3	obj	_	_
+3	recleimet	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+
+# text = Nes poet guarder que mals ne l' i ateignet
+# newdoc id = Roland_1100_verse
+# sent_id = 7
+1	Nes	_	PRON	ADVneg.PROper	Polarity=Neg|PronType=Prs	3	expl	_	_
+2	poet	_	AUX	VERcjg	VerbForm=Fin	3	aux	_	_
+3	guarder	_	VERB	VERinf	VerbForm=Inf	0	root	_	_
+4	que	_	SCONJ	CONsub	_	9	mark	_	_
+5	mals	_	ADP	PRE	_	9	nsubj	_	_
+6	ne	_	ADV	ADVneg	Polarity=Neg	9	advmod	_	_
+7	l'	_	PRON	PROper	PronType=Prs	9	obj	_	_
+8	i	_	ADV	PROadv	PronType=Dem	9	obl	_	_
+9	ateignet	_	VERB	VERcjg	VerbForm=Fin	3	ccomp	_	_
+
+# text = Li reis Marsilie esteit en Sarraguce
+# newdoc id = Roland_1100_verse
+# sent_id = 8
+1	Li	_	DET	DETdef	Definite=Def|PronType=Art	2	det	_	_
+2	reis	_	NOUN	NOMcom	_	4	nsubj	_	_
+3	Marsilie	_	PROPN	NOMpro	_	2	flat	_	_
+4	esteit	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+5	en	_	ADP	PRE	_	6	case	_	_
+6	Sarraguce	_	PROPN	NOMpro	_	4	obl	_	_
+
+# text = Alez en est en un verger suz l' umbre
+# newdoc id = Roland_1100_verse
+# sent_id = 9
+1	Alez	_	VERB	VERppe	Tense=Past|VerbForm=Part	0	root	_	_
+2	en	_	ADV	PROadv	PronType=Dem	1	obl	_	_
+3	est	_	AUX	VERcjg	VerbForm=Fin	1	aux	_	_
+4	en	_	ADP	PRE	_	6	case	_	_
+5	un	_	DET	DETndf	Definite=Ind|PronType=Art	6	det	_	_
+6	verger	_	NOUN	NOMcom	_	1	obl	_	_
+7	suz	_	ADP	PRE	_	9	case	_	_
+8	l'	_	DET	DETdef	Definite=Def|PronType=Art	9	det	_	_
+9	umbre	_	NOUN	NOMcom	_	1	obl	_	_
+
+# text = Sur un perrun de marbre bloi se culchet
+# newdoc id = Roland_1100_verse
+# sent_id = 10
+1	Sur	_	ADP	PRE	_	3	case	_	_
+2	un	_	DET	DETndf	Definite=Ind|PronType=Art	3	det	_	_
+3	perrun	_	NOUN	NOMcom	_	8	obl	_	_
+4	de	_	ADP	PRE	_	5	case	_	_
+5	marbre	_	NOUN	NOMcom	_	3	nmod	_	_
+6	bloi	_	ADJ	ADJqua	_	5	amod	_	_
+7	se	_	PRON	PROper	PronType=Prs	8	obj	_	_
+8	culchet	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+
+# text = Il en apelet e ses dux e ses cuntes
+# newdoc id = Roland_1100_verse
+# sent_id = 11
+1	Il	_	PRON	PROper	PronType=Prs	3	nsubj	_	_
+2	en	_	ADV	PROadv	PronType=Dem	3	obl:advmod	_	_
+3	apelet	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+4	e	_	CCONJ	CONcoo	_	6	cc	_	_
+5	ses	_	DET	DETpos	Poss=Yes	6	det	_	_
+6	dux	_	NOUN	NOMcom	_	3	obj	_	_
+7	e	_	CCONJ	CONcoo	_	9	cc	_	_
+8	ses	_	DET	DETpos	Poss=Yes	9	det	_	_
+9	cuntes	_	NOUN	NOMcom	_	6	conj	_	_
+
+# text = Oez seignurs quel pecchet nus encumbret
+# newdoc id = Roland_1100_verse
+# sent_id = 12
+1	Oez	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+2	seignurs	_	NOUN	NOMcom	_	1	vocative	_	_
+3	quel	_	DET	DETint	PronType=Int	4	det	_	_
+4	pecchet	_	NOUN	NOMcom	_	6	nsubj	_	_
+5	nus	_	PRON	PROper	PronType=Prs	6	obj	_	_
+6	encumbret	_	VERB	VERcjg	VerbForm=Fin	1	ccomp	_	_
+
+# text = Li empereres Carles de France dulce En cest païs nos est venuz cunfundre
+# newdoc id = Roland_1100_verse
+# sent_id = 13
+1	Li	_	DET	DETdef	Definite=Def|PronType=Art	2	det	_	_
+2	empereres	_	NOUN	NOMcom	_	12	nsubj	_	_
+3	Carles	_	PROPN	NOMpro	_	2	flat	_	_
+4	de	_	ADP	PRE	_	5	case	_	_
+5	France	_	PROPN	NOMpro	_	2	flat	_	_
+6	dulce	_	ADJ	ADJqua	_	5	amod	_	_
+7	En	_	ADP	PRE	_	9	case	_	_
+8	cest	_	DET	DETdem	PronType=Dem	9	det	_	_
+9	païs	_	NOUN	NOMcom	_	12	obl	_	_
+10	nos	_	PRON	PROper	PronType=Prs	13	obj	_	_
+11	est	_	AUX	VERcjg	VerbForm=Fin	12	aux	_	_
+12	venuz	_	VERB	VERppe	Tense=Past|VerbForm=Part	0	root	_	_
+13	cunfundre	_	VERB	VERinf	VerbForm=Inf	12	xcomp	_	_
+
+# text = Jo nen ai ost qui bataille li dunne
+# newdoc id = Roland_1100_verse
+# sent_id = 14
+1	Jo	_	PRON	PROper	PronType=Prs	3	nsubj	_	_
+2	nen	_	ADV	ADVgen.PROper	_	3	advmod	_	_
+3	ai	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+4	ost	_	NOUN	NOMcom	_	3	obj	_	_
+5	qui	_	PRON	PROrel	PronType=Prs,Rel	8	nsubj	_	_
+6	bataille	_	NOUN	NOMcom	_	8	obj	_	_
+7	li	_	PRON	PROper	PronType=Prs	8	iobj	_	_
+8	dunne	_	VERB	VERcjg	VerbForm=Fin	4	acl:relcl	_	_
+
+# text = Ne n' ai tel gent ki la sue derumpet
+# newdoc id = Roland_1100_verse
+# sent_id = 15
+1	Ne	_	CCONJ	CONcoo	_	3	cc:nc	_	_
+2	n'	_	ADV	ADVneg	Polarity=Neg	3	advmod	_	_
+3	ai	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+4	tel	_	DET	DETind	PronType=Ind	5	det	_	_
+5	gent	_	NOUN	NOMcom	_	3	obj	_	_
+6	ki	_	PRON	PROrel	PronType=Prs,Rel	9	nsubj	_	_
+7	la	_	DET	DETdef	Definite=Def|PronType=Art	8	det	_	_
+8	sue	_	PRON	PROpos	Poss=Yes|PronType=Prs	9	obj	_	_
+9	derumpet	_	VERB	VERcjg	VerbForm=Fin	5	acl:relcl	_	_
+
+# text = Conseilez mei cume mi savie hume
+# newdoc id = Roland_1100_verse
+# sent_id = 16
+1	Conseilez	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+2	mei	_	PRON	PROper	PronType=Prs	1	obj	_	_
+3	cume	_	SCONJ	CONsub	_	6	mark	_	_
+4	mi	_	DET	DETpos	Poss=Yes	6	det	_	_
+5	savie	_	ADJ	ADJqua	_	6	amod	_	_
+6	hume	_	NOUN	NOMcom	_	1	obl	_	_
+
+# text = Si me guarisez e de mort e de hunte
+# newdoc id = Roland_1100_verse
+# sent_id = 17
+1	Si	_	ADV	ADVgen	_	3	advmod	_	_
+2	me	_	PRON	PROper	PronType=Prs	3	obj	_	_
+3	guarisez	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+4	e	_	CCONJ	CONcoo	_	6	cc	_	_
+5	de	_	ADP	PRE	_	6	case	_	_
+6	mort	_	NOUN	NOMcom	_	3	obl	_	_
+7	e	_	CCONJ	CONcoo	_	9	cc	_	_
+8	de	_	ADP	PRE	_	9	case	_	_
+9	hunte	_	NOUN	NOMcom	_	6	conj	_	_
+
+# text = N' i ad paien ki un sul mot respundet Fors Blancandrins de Castel de Valfunde
+# newdoc id = Roland_1100_verse
+# sent_id = 18
+1	N'	_	ADV	ADVneg	Polarity=Neg	3	advmod	_	_
+2	i	_	ADV	PROadv	PronType=Dem	3	obl	_	_
+3	ad	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+4	paien	_	NOUN	NOMcom	_	3	obj	_	_
+5	ki	_	PRON	PROrel	PronType=Prs,Rel	9	nsubj	_	_
+6	un	_	DET	DETndf	Definite=Ind|PronType=Art	8	det	_	_
+7	sul	_	ADJ	ADJqua	_	8	amod	_	_
+8	mot	_	NOUN	NOMcom	_	9	obj	_	_
+9	respundet	_	VERB	VERcjg	VerbForm=Fin	4	acl:relcl	_	_
+10	Fors	_	ADP	PRE	_	11	case	_	_
+11	Blancandrins	_	PROPN	NOMpro	_	4	flat	_	_
+12	de	_	ADP	PRE	_	13	case	_	_
+13	Castel	_	NOUN	NOMcom	_	11	nmod	_	_
+14	de	_	ADP	PRE	_	15	case	_	_
+15	Valfunde	_	PROPN	NOMpro	_	13	nmod	_	_
+
+# text = Blancandrins fut des plus saives paiens
+# newdoc id = Roland_1100_verse
+# sent_id = 19
+1	Blancandrins	_	PROPN	NOMpro	_	2	nsubj	_	_
+2	fut	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+3	des	_	ADP	PRE.DETdef	Definite=Def|PronType=Art	6	case:det	_	_
+4	plus	_	ADV	ADVgen	_	5	advmod	_	_
+5	saives	_	ADJ	ADJqua	_	6	amod	_	_
+6	paiens	_	NOUN	NOMcom	_	2	obl	_	_
+
+# text = De vasselage fut asez chevaler
+# newdoc id = Roland_1100_verse
+# sent_id = 20
+1	De	_	ADP	PRE	_	2	case	_	_
+2	vasselage	_	NOUN	NOMcom	_	5	obl	_	_
+3	fut	_	AUX	VERcjg	VerbForm=Fin	5	cop	_	_
+4	asez	_	ADV	ADVgen	_	5	advmod	_	_
+5	chevaler	_	NOUN	NOMcom	_	0	root	_	_
+
+# text = Prozdom i out pur sun seignur aider
+# newdoc id = Roland_1100_verse
+# sent_id = 21
+1	Prozdom	_	NOUN	NOMcom	_	3	obj	_	_
+2	i	_	ADV	PROadv	PronType=Dem	3	obl	_	_
+3	out	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+4	pur	_	ADP	PRE	_	7	mark	_	_
+5	sun	_	DET	DETpos	Poss=Yes	6	det	_	_
+6	seignur	_	NOUN	NOMcom	_	7	obj	_	_
+7	aider	_	VERB	VERinf	VerbForm=Inf	3	advcl	_	_
+
+# text = E dist al rei
+# newdoc id = Roland_1100_verse
+# sent_id = 22
+1	E	_	CCONJ	CONcoo	_	2	cc:nc	_	_
+2	dist	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+3	al	_	ADP	PRE.DETdef	Definite=Def|PronType=Art	4	case:det	_	_
+4	rei	_	NOUN	NOMcom	_	2	obl	_	_
+
+# text = Ore ne vus esmaiez
+# newdoc id = Roland_1100_verse
+# sent_id = 23
+1	Ore	_	ADV	ADVgen	_	4	advmod	_	_
+2	ne	_	ADV	ADVneg	Polarity=Neg	4	advmod	_	_
+3	vus	_	PRON	PROper	PronType=Prs	4	obj	_	_
+4	esmaiez	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+
+# text = Mandez Carlun a l' orguillus e al fier Fedeilz servises e mult granz amistez
+# newdoc id = Roland_1100_verse
+# sent_id = 24
+1	Mandez	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+2	Carlun	_	PROPN	NOMpro	_	1	obl	_	_
+3	a	_	ADP	PRE	_	5	case	_	_
+4	l'	_	DET	DETdef	Definite=Def|PronType=Art	5	det	_	_
+5	orguillus	_	NOUN	NOMcom	_	2	nmod	_	_
+6	e	_	CCONJ	CONcoo	_	8	cc	_	_
+7	al	_	ADP	PRE.DETdef	Definite=Def|PronType=Art	8	case:det	_	_
+8	fier	_	NOUN	NOMcom	_	2	conj	_	_
+9	Fedeilz	_	ADJ	ADJqua	_	10	amod	_	_
+10	servises	_	NOUN	NOMcom	_	1	obj	_	_
+11	e	_	CCONJ	CONcoo	_	14	cc	_	_
+12	mult	_	ADV	ADVgen	_	13	advmod	_	_
+13	granz	_	ADJ	ADJqua	_	14	amod	_	_
+14	amistez	_	NOUN	NOMcom	_	10	conj	_	_
+
+# text = Vos li durrez urs e leons e chens Set cenz camelz e mil hosturs muers D' or e d' argent .IIII.C. muls cargez Cinquante carre qu' en ferat carïer
+# newdoc id = Roland_1100_verse
+# sent_id = 25
+1	Vos	_	PRON	PROper	PronType=Prs	3	nsubj	_	_
+2	li	_	PRON	PROper	PronType=Prs	3	iobj	_	_
+3	durrez	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+4	urs	_	NOUN	NOMcom	_	3	obj	_	_
+5	e	_	CCONJ	CONcoo	_	6	cc	_	_
+6	leons	_	NOUN	NOMcom	_	4	conj	_	_
+7	e	_	CCONJ	CONcoo	_	8	cc	_	_
+8	chens	_	NOUN	NOMcom	_	4	conj	_	_
+9	Set	_	NUM	DETcar	NumType=Card	10	nummod	_	_
+10	cenz	_	NUM	DETcar	NumType=Card	11	nummod	_	_
+11	camelz	_	NOUN	NOMcom	_	4	conj	_	_
+12	e	_	CCONJ	CONcoo	_	14	cc	_	_
+13	mil	_	NUM	DETcar	NumType=Card	14	nummod	_	_
+14	hosturs	_	NOUN	NOMcom	_	4	conj	_	_
+15	muers	_	ADJ	ADJqua	Morph=VPar	14	amod	_	_
+16	D'	_	ADP	PRE	_	17	case	_	_
+17	or	_	NOUN	NOMcom	_	23	obl	_	_
+18	e	_	CCONJ	CONcoo	_	20	cc	_	_
+19	d'	_	ADP	PRE	_	20	case	_	_
+20	argent	_	NOUN	NOMcom	_	17	conj	_	_
+21	.IIII.C.	_	NUM	DETcar	NumType=Card	22	nummod	_	_
+22	muls	_	NOUN	NOMcom	_	4	conj	_	_
+23	cargez	_	VERB	VERppe	Tense=Past|VerbForm=Part	22	acl	_	_
+24	Cinquante	_	NUM	DETcar	NumType=Card	25	nummod	_	_
+25	carre	_	NOUN	NOMcom	_	4	conj	_	_
+26	qu'	_	PRON	PROrel	PronType=Prs,Rel	29	obj	_	_
+27	en	_	ADV	PROadv	PronType=Dem	29	obl	_	_
+28	ferat	_	VERB	VERcjg	VerbForm=Fin	25	acl	_	_
+29	carïer	_	VERB	VERinf	VerbForm=Inf	28	xcomp	_	_
+
+# text = Ben en purrat luer ses soldeiers
+# newdoc id = Roland_1100_verse
+# sent_id = 26
+1	Ben	_	ADV	ADVgen	_	4	advmod	_	_
+2	en	_	ADV	PROadv	PronType=Dem	4	obl	_	_
+3	purrat	_	AUX	VERcjg	VerbForm=Fin	4	aux	_	_
+4	luer	_	VERB	VERinf	VerbForm=Inf	0	root	_	_
+5	ses	_	DET	DETpos	Poss=Yes	6	det	_	_
+6	soldeiers	_	NOUN	NOMcom	_	4	obj	_	_
+
+# text = En ceste tere ad asez osteiet
+# newdoc id = Roland_1100_verse
+# sent_id = 27
+1	En	_	ADP	PRE	_	3	case	_	_
+2	ceste	_	DET	DETdem	PronType=Dem	3	det	_	_
+3	tere	_	NOUN	NOMcom	_	6	obl	_	_
+4	ad	_	AUX	VERcjg	VerbForm=Fin	6	aux	_	_
+5	asez	_	ADV	ADVgen	_	6	advmod	_	_
+6	osteiet	_	VERB	VERppe	Tense=Past|VerbForm=Part	0	root	_	_
+
+# text = En France ad Ais s' en deit ben repairer
+# newdoc id = Roland_1100_verse
+# sent_id = 28
+1	En	_	ADP	PRE	_	2	case	_	_
+2	France	_	PROPN	NOMpro	_	9	obl	_	_
+3	ad	_	ADP	PRE	_	4	case	_	_
+4	Ais	_	PROPN	NOMpro	_	9	obl	_	_
+5	s'	_	PRON	PROper	PronType=Prs	9	expl	_	_
+6	en	_	ADV	PROadv	PronType=Dem	9	obl	_	_
+7	deit	_	AUX	VERcjg	VerbForm=Fin	9	aux	_	_
+8	ben	_	ADV	ADVgen	_	9	advmod	_	_
+9	repairer	_	VERB	VERinf	VerbForm=Inf	0	root	_	_
+
+# text = Vos le sivrez a la feste seint Michel
+# newdoc id = Roland_1100_verse
+# sent_id = 29
+1	Vos	_	PRON	PROper	PronType=Prs	3	nsubj	_	_
+2	le	_	PRON	PROper	PronType=Prs	3	obj	_	_
+3	sivrez	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+4	a	_	ADP	PRE	_	6	case	_	_
+5	la	_	DET	DETdef	Definite=Def|PronType=Art	6	det	_	_
+6	feste	_	NOUN	NOMcom	_	3	obl	_	_
+7	seint	_	ADJ	ADJqua	_	8	amod	_	_
+8	Michel	_	PROPN	NOMpro	_	6	nmod	_	_
+
+# text = Si recevrez la lei de chrestïens
+# newdoc id = Roland_1100_verse
+# sent_id = 30
+1	Si	_	ADV	ADVgen	_	2	advmod	_	_
+2	recevrez	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+3	la	_	DET	DETdef	Definite=Def|PronType=Art	4	det	_	_
+4	lei	_	NOUN	NOMcom	_	2	obj	_	_
+5	de	_	ADP	PRE	_	6	case	_	_
+6	chrestïens	_	NOUN	NOMcom	_	4	nmod	_	_
+
+# text = Serez ses hom par honur e par ben
+# newdoc id = Roland_1100_verse
+# sent_id = 31
+1	Serez	_	AUX	VERcjg	VerbForm=Fin	3	cop	_	_
+2	ses	_	DET	DETpos	Poss=Yes	3	det	_	_
+3	hom	_	NOUN	NOMcom	_	0	root	_	_
+4	par	_	ADP	PRE	_	5	case	_	_
+5	honur	_	NOUN	NOMcom	_	3	obl	_	_
+6	e	_	CCONJ	CONcoo	_	8	cc	_	_
+7	par	_	ADP	PRE	_	8	case	_	_
+8	ben	_	NOUN	NOMcom	_	5	conj	_	_
+
+# text = S' en volt ostages e vos l' en enveiez U dis u vint pur lui afïancer
+# newdoc id = Roland_1100_verse
+# sent_id = 32
+1	S'	_	SCONJ	CONsub	_	3	mark	_	_
+2	en	_	ADV	PROadv	PronType=Dem	4	advmod	_	_
+3	volt	_	VERB	VERcjg	VerbForm=Fin	9	advcl	_	_
+4	ostages	_	NOUN	NOMcom	_	3	obj	_	_
+5	e	_	CCONJ	CONcoo	_	9	cc:nc	_	_
+6	vos	_	PRON	PROper	PronType=Prs	9	nsubj	_	_
+7	l'	_	PRON	PROper	PronType=Prs	9	iobj	_	_
+8	en	_	ADV	PROadv	PronType=Dem	11	advmod	_	_
+9	enveiez	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+10	U	_	CCONJ	CONcoo	_	11	cc	_	_
+11	dis	_	PRON	PROcar	NumType=Card	9	obj	_	_
+12	u	_	CCONJ	CONcoo	_	13	cc	_	_
+13	vint	_	PRON	PROcar	NumType=Card	11	conj	_	_
+14	pur	_	ADP	PRE	_	16	mark	_	_
+15	lui	_	PRON	PROper	PronType=Prs	16	iobj	_	_
+16	afïancer	_	VERB	VERinf	VerbForm=Inf	9	advcl	_	_
+
+# text = Enveiuns i les filz de noz muillers
+# newdoc id = Roland_1100_verse
+# sent_id = 33
+1	Enveiuns	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+2	i	_	ADV	PROadv	PronType=Dem	1	obl	_	_
+3	les	_	DET	DETdef	Definite=Def|PronType=Art	4	det	_	_
+4	filz	_	NOUN	NOMcom	_	1	obj	_	_
+5	de	_	ADP	PRE	_	7	case	_	_
+6	noz	_	DET	DETpos	Poss=Yes	7	det	_	_
+7	muillers	_	NOUN	NOMcom	_	4	nmod	_	_
+
+# text = Par num d' ocire i enveierai le men
+# newdoc id = Roland_1100_verse
+# sent_id = 34
+1	Par	_	ADP	PRE	_	2	case	_	_
+2	num	_	NOUN	NOMcom	_	6	obl	_	_
+3	d'	_	ADP	PRE	_	4	mark	_	_
+4	ocire	_	VERB	VERinf	VerbForm=Inf	2	acl	_	_
+5	i	_	ADV	PROadv	PronType=Dem	6	obl	_	_
+6	enveierai	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+7	le	_	DET	DETdef	Definite=Def|PronType=Art	8	det	_	_
+8	men	_	PRON	PROpos	Poss=Yes|PronType=Prs	6	obj	_	_
+
+# text = Asez est melz qu' il i perdent lé chefs Que nus perduns l' onur ne la deintet Ne nus seiuns cunduiz a mendeier
+# newdoc id = Roland_1100_verse
+# sent_id = 35
+1	Asez	_	ADV	ADVgen	_	3	advmod	_	_
+2	est	_	AUX	VERcjg	VerbForm=Fin	3	cop	_	_
+3	melz	_	ADV	ADVgen	_	0	root	_	_
+4	qu'	_	SCONJ	CONsub	_	7	mark	_	_
+5	il	_	PRON	PROper	PronType=Prs	7	nsubj	_	_
+6	i	_	ADV	PROadv	PronType=Dem	7	obl	_	_
+7	perdent	_	VERB	VERcjg	VerbForm=Fin	3	csubj	_	_
+8	lé	_	DET	DETdef	Definite=Def|PronType=Art	9	det	_	_
+9	chefs	_	NOUN	NOMcom	_	7	obj	_	_
+10	Que	_	SCONJ	CONsub	_	12	mark	_	_
+11	nus	_	PRON	PROper	PronType=Prs	12	nsubj	_	_
+12	perduns	_	VERB	VERcjg	VerbForm=Fin	3	advcl	_	_
+13	l'	_	DET	DETdef	Definite=Def|PronType=Art	14	det	_	_
+14	onur	_	NOUN	NOMcom	_	12	obj	_	_
+15	ne	_	CCONJ	CONcoo	_	17	cc	_	_
+16	la	_	DET	DETdef	Definite=Def|PronType=Art	17	det	_	_
+17	deintet	_	NOUN	NOMcom	_	14	conj	_	_
+18	Ne	_	CCONJ	CONcoo	_	21	cc	_	_
+19	nus	_	PRON	PROper	PronType=Prs	21	nsubj	_	_
+20	seiuns	_	AUX	VERcjg	VerbForm=Fin	21	aux:pass	_	_
+21	cunduiz	_	VERB	VERppe	Tense=Past|VerbForm=Part	12	conj	_	_
+22	a	_	ADP	PRE	_	23	mark	_	_
+23	mendeier	_	VERB	VERinf	VerbForm=Inf	21	xcomp	_	_
+
+# text = Dist Blancandrins
+# newdoc id = Roland_1100_verse
+# sent_id = 36
+1	Dist	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+2	Blancandrins	_	PROPN	NOMpro	_	1	nsubj	_	_
+
+# text = Pa ceste meie destre E par la barbe ki al piz me ventelet L' ost des Franceis verrez sempres desfere
+# newdoc id = Roland_1100_verse
+# sent_id = 37
+1	Pa	_	ADP	PRE	_	4	case	_	_
+2	ceste	_	DET	DETdem	PronType=Dem	4	det	_	_
+3	meie	_	ADJ	ADJpos	Poss=Yes	4	amod	_	_
+4	destre	_	NOUN	NOMcom	_	18	obl	_	_
+5	E	_	CCONJ	CONcoo	_	8	cc	_	_
+6	par	_	ADP	PRE	_	8	case	_	_
+7	la	_	DET	DETdef	Definite=Def|PronType=Art	8	det	_	_
+8	barbe	_	NOUN	NOMcom	_	4	conj	_	_
+9	ki	_	PRON	PROrel	PronType=Prs,Rel	13	nsubj	_	_
+10	al	_	ADP	PRE.DETdef	Definite=Def|PronType=Art	11	case:det	_	_
+11	piz	_	NOUN	NOMcom	_	13	obl	_	_
+12	me	_	PRON	PROper	PronType=Prs	13	iobj	_	_
+13	ventelet	_	VERB	VERcjg	VerbForm=Fin	8	acl:relcl	_	_
+14	L'	_	DET	DETdef	Definite=Def|PronType=Art	15	det	_	_
+15	ost	_	NOUN	NOMcom	_	18	obj	_	_
+16	des	_	ADP	PRE.DETdef	Definite=Def|PronType=Art	17	case:det	_	_
+17	Franceis	_	PROPN	NOMpro	_	15	nmod	_	_
+18	verrez	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+19	sempres	_	ADV	ADVgen	_	18	advmod	_	_
+20	desfere	_	VERB	VERinf	VerbForm=Inf	18	xcomp	_	_
+
+# text = Francs s' en irunt en France la lur tere
+# newdoc id = Roland_1100_verse
+# sent_id = 38
+1	Francs	_	PROPN	NOMpro	_	4	nsubj	_	_
+2	s'	_	PRON	PROper	PronType=Prs	4	expl	_	_
+3	en	_	ADV	PROadv	PronType=Dem	4	obl	_	_
+4	irunt	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+5	en	_	ADP	PRE	_	6	case	_	_
+6	France	_	PROPN	NOMpro	_	4	obl	_	_
+7	la	_	DET	DETdef	Definite=Def|PronType=Art	9	det	_	_
+8	lur	_	ADJ	ADJpos	Poss=Yes	9	amod	_	_
+9	tere	_	NOUN	NOMcom	_	6	appos	_	_
+
+# text = Quant cascuns ert a sun meillor repaire Carles serat ad Ais a sa capele
+# newdoc id = Roland_1100_verse
+# sent_id = 39
+1	Quant	_	SCONJ	CONsub	_	3	mark	_	_
+2	cascuns	_	PRON	PROind	PronType=Ind	3	nsubj	_	_
+3	ert	_	VERB	VERcjg	VerbForm=Fin	9	advcl	_	_
+4	a	_	ADP	PRE	_	7	case	_	_
+5	sun	_	DET	DETpos	Poss=Yes	7	det	_	_
+6	meillor	_	ADJ	ADJqua	_	7	amod	_	_
+7	repaire	_	NOUN	NOMcom	_	3	obl	_	_
+8	Carles	_	PROPN	NOMpro	_	9	nsubj	_	_
+9	serat	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+10	ad	_	ADP	PRE	_	11	case	_	_
+11	Ais	_	PROPN	NOMpro	_	9	obl	_	_
+12	a	_	ADP	PRE	_	14	case	_	_
+13	sa	_	DET	DETpos	Poss=Yes	14	det	_	_
+14	capele	_	NOUN	NOMcom	_	9	obl	_	_
+
+# text = A seint Michel tendrat mult halte feste
+# newdoc id = Roland_1100_verse
+# sent_id = 40
+1	A	_	ADP	PRE	_	3	case	_	_
+2	seint	_	ADJ	ADJqua	_	3	amod	_	_
+3	Michel	_	PROPN	NOMpro	_	4	obl	_	_
+4	tendrat	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+5	mult	_	ADV	ADVgen	_	6	advmod	_	_
+6	halte	_	ADJ	ADJqua	_	7	amod	_	_
+7	feste	_	NOUN	NOMcom	_	4	obj	_	_
+
+# text = Vendrat li jurz
+# newdoc id = Roland_1100_verse
+# sent_id = 41
+1	Vendrat	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+2	li	_	DET	DETdef	Definite=Def|PronType=Art	3	det	_	_
+3	jurz	_	NOUN	NOMcom	_	1	nsubj	_	_
+
+# text = si passerat li termes
+# newdoc id = Roland_1100_verse
+# sent_id = 42
+1	si	_	ADV	ADVgen	_	2	advmod	_	_
+2	passerat	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+3	li	_	DET	DETdef	Definite=Def|PronType=Art	4	det	_	_
+4	termes	_	NOUN	NOMcom	_	2	nsubj	_	_
+
+# text = N' orrat de nos paroles ne nuveles
+# newdoc id = Roland_1100_verse
+# sent_id = 43
+1	N'	_	ADV	ADVneg	Polarity=Neg	2	advmod	_	_
+2	orrat	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+3	de	_	ADP	PRE	_	4	case	_	_
+4	nos	_	PRON	PROper	PronType=Prs	2	iobj	_	_
+5	paroles	_	NOUN	NOMcom	_	2	obj	_	_
+6	ne	_	CCONJ	CONcoo	_	7	cc	_	_
+7	nuveles	_	NOUN	NOMcom	_	5	conj	_	_
+
+# text = Li reis est fiers e sis curages pesmes
+# newdoc id = Roland_1100_verse
+# sent_id = 44
+1	Li	_	DET	DETdef	Definite=Def|PronType=Art	2	det	_	_
+2	reis	_	NOUN	NOMcom	_	4	nsubj	_	_
+3	est	_	AUX	VERcjg	VerbForm=Fin	4	cop	_	_
+4	fiers	_	ADJ	ADJqua	_	0	root	_	_
+5	e	_	CCONJ	CONcoo	_	8	cc	_	_
+6	sis	_	DET	DETpos	Poss=Yes	7	det	_	_
+7	curages	_	NOUN	NOMcom	_	2	conj	_	_
+8	pesmes	_	ADJ	ADJqua	_	4	conj	_	_
+
+# text = De noz ostages ferat trecher les testes
+# newdoc id = Roland_1100_verse
+# sent_id = 45
+1	De	_	ADP	PRE	_	3	case	_	_
+2	noz	_	DET	DETpos	Poss=Yes	3	det	_	_
+3	ostages	_	NOUN	NOMcom	_	7	nmod	_	_
+4	ferat	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+5	trecher	_	VERB	VERinf	VerbForm=Inf	4	xcomp	_	_
+6	les	_	DET	DETdef	Definite=Def|PronType=Art	7	det	_	_
+7	testes	_	NOUN	NOMcom	_	5	obj	_	_
+
+# text = Asez est mielz qu' il i perdent les testes Que nus perduns clere Espaigne la bele Ne nus aiuns les mals ne les suffraites
+# newdoc id = Roland_1100_verse
+# sent_id = 46
+1	Asez	_	ADV	ADVgen	_	3	advmod	_	_
+2	est	_	AUX	VERcjg	VerbForm=Fin	3	cop	_	_
+3	mielz	_	ADV	ADVgen	_	0	root	_	_
+4	qu'	_	SCONJ	CONsub	_	7	mark	_	_
+5	il	_	PRON	PROper	PronType=Prs	7	nsubj	_	_
+6	i	_	ADV	PROadv	PronType=Dem	7	obl	_	_
+7	perdent	_	VERB	VERcjg	VerbForm=Fin	3	csubj	_	_
+8	les	_	DET	DETdef	Definite=Def|PronType=Art	9	det	_	_
+9	testes	_	NOUN	NOMcom	_	7	obj	_	_
+10	Que	_	SCONJ	CONsub	_	12	mark	_	_
+11	nus	_	PRON	PROper	PronType=Prs	12	nsubj	_	_
+12	perduns	_	VERB	VERcjg	VerbForm=Fin	3	advcl	_	_
+13	clere	_	ADJ	ADJqua	_	14	amod	_	_
+14	Espaigne	_	PROPN	NOMpro	_	12	obj	_	_
+15	la	_	DET	DETdef	Definite=Def|PronType=Art	16	det	_	_
+16	bele	_	NOUN	NOMcom	_	14	appos	_	_
+17	Ne	_	CCONJ	CONcoo	_	19	cc	_	_
+18	nus	_	PRON	PROper	PronType=Prs	19	nsubj	_	_
+19	aiuns	_	VERB	VERcjg	VerbForm=Fin	12	conj	_	_
+20	les	_	DET	DETdef	Definite=Def|PronType=Art	21	det	_	_
+21	mals	_	NOUN	NOMcom	_	19	obj	_	_
+22	ne	_	CCONJ	CONcoo	_	24	cc	_	_
+23	les	_	DET	DETdef	Definite=Def|PronType=Art	24	det	_	_
+24	suffraites	_	NOUN	NOMcom	_	21	conj	_	_
+
+# text = Dient paien
+# newdoc id = Roland_1100_verse
+# sent_id = 47
+1	Dient	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+2	paien	_	NOUN	NOMcom	_	1	nsubj	_	_
+
+# text = Issi poet il ben estre
+# newdoc id = Roland_1100_verse
+# sent_id = 48
+1	Issi	_	ADV	ADVgen	_	0	root	_	_
+2	poet	_	AUX	VERcjg	VerbForm=Fin	1	aux	_	_
+3	il	_	PRON	PROper	PronType=Prs	1	expl	_	_
+4	ben	_	ADV	ADVgen	_	1	advmod	_	_
+5	estre	_	AUX	VERinf	VerbForm=Inf	1	cop	_	_
+
+# text = Li reis Marsilie out sun cunseill finet
+# newdoc id = Roland_1100_verse
+# sent_id = 49
+1	Li	_	DET	DETdef	Definite=Def|PronType=Art	2	det	_	_
+2	reis	_	NOUN	NOMcom	_	7	nsubj	_	_
+3	Marsilie	_	PROPN	NOMpro	_	2	flat	_	_
+4	out	_	AUX	VERcjg	VerbForm=Fin	7	aux	_	_
+5	sun	_	DET	DETpos	Poss=Yes	6	det	_	_
+6	cunseill	_	NOUN	NOMcom	_	7	obj	_	_
+7	finet	_	VERB	VERppe	Tense=Past|VerbForm=Part	0	root	_	_
+
+# text = Sin apelat Clarin de Balaguet Estamarin e Eudropin sun per E Priamun e Guarlan le barbet E Machiner e sun uncle Maheu E Joüner e Malbien d' ultremer E Blancandrins por la raisun cunter
+# newdoc id = Roland_1100_verse
+# sent_id = 50
+1	Sin	_	ADV	ADVgen.PROper	_	2	advmod	_	_
+2	apelat	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+3	Clarin	_	PROPN	NOMpro	_	2	obj	_	_
+4	de	_	ADP	PRE	_	3	flat	_	_
+5	Balaguet	_	PROPN	NOMpro	_	3	flat	_	_
+6	Estamarin	_	PROPN	NOMpro	_	3	conj	_	_
+7	e	_	CCONJ	CONcoo	_	8	cc	_	_
+8	Eudropin	_	PROPN	NOMpro	_	3	conj	_	_
+9	sun	_	DET	DETpos	Poss=Yes	10	det	_	_
+10	per	_	NOUN	NOMcom	_	8	appos	_	_
+11	E	_	CCONJ	CONcoo	_	12	cc	_	_
+12	Priamun	_	PROPN	NOMpro	_	3	conj	_	_
+13	e	_	CCONJ	CONcoo	_	14	cc	_	_
+14	Guarlan	_	PROPN	NOMpro	_	3	conj	_	_
+15	le	_	DET	DETdef	Definite=Def|PronType=Art	16	det	_	_
+16	barbet	_	NOUN	NOMcom	_	14	appos	_	_
+17	E	_	CCONJ	CONcoo	_	18	cc	_	_
+18	Machiner	_	PROPN	NOMpro	_	3	conj	_	_
+19	e	_	CCONJ	CONcoo	_	21	cc	_	_
+20	sun	_	DET	DETpos	Poss=Yes	21	det	_	_
+21	uncle	_	NOUN	NOMcom	_	3	conj	_	_
+22	Maheu	_	PROPN	NOMpro	_	21	flat	_	_
+23	E	_	CCONJ	CONcoo	_	24	cc	_	_
+24	Joüner	_	PROPN	NOMpro	_	3	conj	_	_
+25	e	_	CCONJ	CONcoo	_	26	cc	_	_
+26	Malbien	_	PROPN	NOMpro	_	3	conj	_	_
+27	d'	_	ADP	PRE	_	28	case	_	_
+28	ultremer	_	NOUN	NOMcom	_	26	nmod	_	_
+29	E	_	CCONJ	CONcoo	_	30	cc	_	_
+30	Blancandrins	_	PROPN	NOMpro	_	3	conj	_	_
+31	por	_	ADP	PRE	_	34	mark	_	_
+32	la	_	DET	DETdef	Definite=Def|PronType=Art	33	det	_	_
+33	raisun	_	NOUN	NOMcom	_	34	obj	_	_
+34	cunter	_	VERB	VERinf	VerbForm=Inf	2	advcl	_	_
+
+# text = Des plus feluns dis en ad apelez
+# newdoc id = Roland_1100_verse
+# sent_id = 51
+1	Des	_	ADP	PRE.DETdef	Definite=Def|PronType=Art	3	case:det	_	_
+2	plus	_	ADV	ADVgen	_	3	advmod	_	_
+3	feluns	_	ADJ	ADJqua	_	4	nmod	_	_
+4	dis	_	PRON	PROcar	NumType=Card	7	obj	_	_
+5	en	_	ADV	PROadv	PronType=Dem	4	advmod	_	_
+6	ad	_	AUX	VERcjg	VerbForm=Fin	7	aux	_	_
+7	apelez	_	VERB	VERppe	Tense=Past|VerbForm=Part	0	root	_	_
+
+# text = Seignurs baruns a Carlemagne irez
+# newdoc id = Roland_1100_verse
+# sent_id = 52
+1	Seignurs	_	NOUN	NOMcom	_	5	vocative	_	_
+2	baruns	_	NOUN	NOMcom	_	1	flat	_	_
+3	a	_	ADP	PRE	_	4	case	_	_
+4	Carlemagne	_	PROPN	NOMpro	_	5	obl	_	_
+5	irez	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+
+# text = Il est al siege a Cordres la citet
+# newdoc id = Roland_1100_verse
+# sent_id = 53
+1	Il	_	PRON	PROper	PronType=Prs	2	nsubj	_	_
+2	est	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+3	al	_	ADP	PRE.DETdef	Definite=Def|PronType=Art	4	case:det	_	_
+4	siege	_	NOUN	NOMcom	_	2	obl	_	_
+5	a	_	ADP	PRE	_	6	case	_	_
+6	Cordres	_	PROPN	NOMpro	_	2	obl	_	_
+7	la	_	DET	DETdef	Definite=Def|PronType=Art	8	det	_	_
+8	citet	_	NOUN	NOMcom	_	6	appos	_	_
+
+# text = Branches d' olive en voz mains portereiz
+# newdoc id = Roland_1100_verse
+# sent_id = 54
+1	Branches	_	NOUN	NOMcom	_	7	obj	_	_
+2	d'	_	ADP	PRE	_	3	case	_	_
+3	olive	_	NOUN	NOMcom	_	1	nmod	_	_
+4	en	_	ADP	PRE	_	6	case	_	_
+5	voz	_	DET	DETpos	Poss=Yes	6	det	_	_
+6	mains	_	NOUN	NOMcom	_	7	obl	_	_
+7	portereiz	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+
+# text = Ço senefiet pais e humilitet
+# newdoc id = Roland_1100_verse
+# sent_id = 55
+1	Ço	_	PRON	PROdem	PronType=Dem	2	nsubj	_	_
+2	senefiet	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+3	pais	_	NOUN	NOMcom	_	2	obj	_	_
+4	e	_	CCONJ	CONcoo	_	5	cc	_	_
+5	humilitet	_	NOUN	NOMcom	_	3	conj	_	_
+
+# text = Par voz saveirs sem puëz acorder Jo vos durrai or e argent asez Teres e fiez tant cum vos en vuldrez
+# newdoc id = Roland_1100_verse
+# sent_id = 56
+1	Par	_	ADP	PRE	_	3	case	_	_
+2	voz	_	DET	DETpos	Poss=Yes	3	det	_	_
+3	saveirs	_	NOUN	NOMcom	_	6	obl	_	_
+4	sem	_	PRON	CONsub.PROper	_	6	obj	_	_
+5	puëz	_	AUX	VERcjg	VerbForm=Fin	6	aux	_	_
+6	acorder	_	VERB	VERinf	VerbForm=Inf	9	advcl	_	_
+7	Jo	_	PRON	PROper	PronType=Prs	9	nsubj	_	_
+8	vos	_	PRON	PROper	PronType=Prs	9	iobj	_	_
+9	durrai	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+10	or	_	NOUN	NOMcom	_	9	obj	_	_
+11	e	_	CCONJ	CONcoo	_	12	cc	_	_
+12	argent	_	NOUN	NOMcom	_	10	conj	_	_
+13	asez	_	ADV	ADVgen	_	12	advmod	_	_
+14	Teres	_	NOUN	NOMcom	_	10	conj	_	_
+15	e	_	CCONJ	CONcoo	_	16	cc	_	_
+16	fiez	_	NOUN	NOMcom	_	10	conj	_	_
+17	tant	_	ADV	ADVgen	_	16	advmod	_	_
+18	cum	_	SCONJ	CONsub	_	21	mark	_	_
+19	vos	_	PRON	PROper	PronType=Prs	21	nsubj	_	_
+20	en	_	ADV	PROadv	PronType=Dem	21	obj	_	_
+21	vuldrez	_	VERB	VERcjg	VerbForm=Fin	16	advcl	_	_
+
+# text = Dient paien
+# newdoc id = Roland_1100_verse
+# sent_id = 57
+1	Dient	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+2	paien	_	NOUN	NOMcom	_	1	nsubj	_	_
+
+# text = De ço avun nus asez
+# newdoc id = Roland_1100_verse
+# sent_id = 58
+1	De	_	ADP	PRE	_	2	case	_	_
+2	ço	_	PRON	PROdem	PronType=Dem	5	nmod	_	_
+3	avun	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+4	nus	_	PRON	PROper	PronType=Prs	3	nsubj	_	_
+5	asez	_	ADV	ADVgen	_	3	obj	_	_
+
+# text = Li reis Marsilie out finet sun cunseill
+# newdoc id = Roland_1100_verse
+# sent_id = 59
+1	Li	_	DET	DETdef	Definite=Def|PronType=Art	2	det	_	_
+2	reis	_	NOUN	NOMcom	_	5	nsubj	_	_
+3	Marsilie	_	PROPN	NOMpro	_	2	flat	_	_
+4	out	_	AUX	VERcjg	VerbForm=Fin	5	aux	_	_
+5	finet	_	VERB	VERppe	Tense=Past|VerbForm=Part	0	root	_	_
+6	sun	_	DET	DETpos	Poss=Yes	7	det	_	_
+7	cunseill	_	NOUN	NOMcom	_	5	obj	_	_
+
+# text = Dist a ses humes
+# newdoc id = Roland_1100_verse
+# sent_id = 60
+1	Dist	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+2	a	_	ADP	PRE	_	4	case	_	_
+3	ses	_	DET	DETpos	Poss=Yes	4	det	_	_
+4	humes	_	NOUN	NOMcom	_	1	obl	_	_
+
+# text = Seignurs vos en ireiz
+# newdoc id = Roland_1100_verse
+# sent_id = 61
+1	Seignurs	_	NOUN	NOMcom	_	4	vocative	_	_
+2	vos	_	PRON	PROper	PronType=Prs	4	nsubj	_	_
+3	en	_	ADV	PROadv	PronType=Dem	4	obl	_	_
+4	ireiz	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+
+# text = Branches d' olive en voz mains portereiz
+# newdoc id = Roland_1100_verse
+# sent_id = 62
+1	Branches	_	NOUN	NOMcom	_	7	obj	_	_
+2	d'	_	ADP	PRE	_	3	case	_	_
+3	olive	_	NOUN	NOMcom	_	1	nmod	_	_
+4	en	_	ADP	PRE	_	6	case	_	_
+5	voz	_	DET	DETpos	Poss=Yes	6	det	_	_
+6	mains	_	NOUN	NOMcom	_	7	obl	_	_
+7	portereiz	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+
+# text = Si me direz a Carlemagne le rei Pur le soen Deu qu' il ait mercit de mei
+# newdoc id = Roland_1100_verse
+# sent_id = 63
+1	Si	_	ADV	ADVgen	_	3	advmod	_	_
+2	me	_	PRON	PROper	PronType=Prs	3	iobj	_	_
+3	direz	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+4	a	_	ADP	PRE	_	5	case	_	_
+5	Carlemagne	_	PROPN	NOMpro	_	3	obl	_	_
+6	le	_	DET	DETdef	Definite=Def|PronType=Art	7	det	_	_
+7	rei	_	NOUN	NOMcom	_	5	appos	_	_
+8	Pur	_	ADP	PRE	_	11	case	_	_
+9	le	_	DET	DETdef	Definite=Def|PronType=Art	11	det	_	_
+10	soen	_	ADJ	ADJpos	Poss=Yes	11	amod	_	_
+11	Deu	_	PROPN	NOMpro	_	3	obl	_	_
+12	qu'	_	SCONJ	CONsub	_	14	mark	_	_
+13	il	_	PRON	PROper	PronType=Prs	14	nsubj	_	_
+14	ait	_	VERB	VERcjg	VerbForm=Fin	3	ccomp	_	_
+15	mercit	_	NOUN	NOMcom	_	14	obj	_	_
+16	de	_	ADP	PRE	_	17	case	_	_
+17	mei	_	PRON	PROper	PronType=Prs	15	nmod	_	_
+
+# text = Ja einz ne verrat passer cest premer meis Que jel sivrai od mil de mes fedeilz
+# newdoc id = Roland_1100_verse
+# sent_id = 64
+1	Ja	_	ADV	ADVgen	_	4	advmod	_	_
+2	einz	_	ADV	ADVgen	_	4	advmod	_	_
+3	ne	_	ADV	ADVneg	Polarity=Neg	4	advmod	_	_
+4	verrat	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+5	passer	_	VERB	VERinf	VerbForm=Inf	4	xcomp	_	_
+6	cest	_	DET	DETdem	PronType=Dem	8	det	_	_
+7	premer	_	NUM	ADJcar	NumType=Card	8	nummod	_	_
+8	meis	_	NOUN	NOMcom	_	4	obj	_	_
+9	Que	_	SCONJ	CONsub	_	11	mark	_	_
+10	jel	_	PRON	PROper.PROper	PronType=Prs	11	nsubj:obj	_	_
+11	sivrai	_	VERB	VERcjg	VerbForm=Fin	4	advcl	_	_
+12	od	_	ADP	PRE	_	13	case	_	_
+13	mil	_	PRON	PROcar	NumType=Card	11	obl	_	_
+14	de	_	ADP	PRE	_	16	case	_	_
+15	mes	_	DET	DETpos	Poss=Yes	16	det	_	_
+16	fedeilz	_	NOUN	NOMcom	_	13	nmod	_	_
+
+# text = Si recevrai la chrestïene lei
+# newdoc id = Roland_1100_verse
+# sent_id = 65
+1	Si	_	ADV	ADVgen	_	2	advmod	_	_
+2	recevrai	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+3	la	_	DET	DETdef	Definite=Def|PronType=Art	5	det	_	_
+4	chrestïene	_	ADJ	ADJqua	_	5	amod	_	_
+5	lei	_	NOUN	NOMcom	_	2	obj	_	_
+
+# text = Serai ses hom par amur e par feid
+# newdoc id = Roland_1100_verse
+# sent_id = 66
+1	Serai	_	AUX	VERcjg	VerbForm=Fin	3	cop	_	_
+2	ses	_	DET	DETpos	Poss=Yes	3	det	_	_
+3	hom	_	NOUN	NOMcom	_	0	root	_	_
+4	par	_	ADP	PRE	_	5	case	_	_
+5	amur	_	NOUN	NOMcom	_	3	obl	_	_
+6	e	_	CCONJ	CONcoo	_	8	cc	_	_
+7	par	_	ADP	PRE	_	8	case	_	_
+8	feid	_	NOUN	NOMcom	_	5	conj	_	_
+
+# text = S' il voelt ostages il en avrat par veir
+# newdoc id = Roland_1100_verse
+# sent_id = 67
+1	S'	_	SCONJ	CONsub	_	3	mark	_	_
+2	il	_	PRON	PROper	PronType=Prs	3	nsubj	_	_
+3	voelt	_	VERB	VERcjg	VerbForm=Fin	7	advcl	_	_
+4	ostages	_	NOUN	NOMcom	_	3	obj	_	_
+5	il	_	PRON	PROper	PronType=Prs	7	nsubj	_	_
+6	en	_	ADV	PROadv	PronType=Dem	7	obj	_	_
+7	avrat	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+8	par	_	ADP	PRE	_	9	case	_	_
+9	veir	_	NOUN	NOMcom	_	7	obl	_	_
+
+# text = Dist Blancandrins
+# newdoc id = Roland_1100_verse
+# sent_id = 68
+1	Dist	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+2	Blancandrins	_	PROPN	NOMpro	_	1	nsubj	_	_
+
+# text = Mult bon plait en avreiz
+# newdoc id = Roland_1100_verse
+# sent_id = 69
+1	Mult	_	ADV	ADVgen	_	2	advmod	_	_
+2	bon	_	ADJ	ADJqua	_	3	amod	_	_
+3	plait	_	NOUN	NOMcom	_	5	obj	_	_
+4	en	_	ADV	PROadv	PronType=Dem	5	obl	_	_
+5	avreiz	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+
+# text = Dis blanches mules fist amener Marsilies Que li tramist li reis de Suatilie
+# newdoc id = Roland_1100_verse
+# sent_id = 70
+1	Dis	_	NUM	DETcar	NumType=Card	3	nummod	_	_
+2	blanches	_	ADJ	ADJqua	_	3	amod	_	_
+3	mules	_	NOUN	NOMcom	_	5	obj	_	_
+4	fist	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+5	amener	_	VERB	VERinf	VerbForm=Inf	4	xcomp	_	_
+6	Marsilies	_	PROPN	NOMpro	_	4	nsubj	_	_
+7	Que	_	PRON	PROrel	PronType=Prs,Rel	9	obj	_	_
+8	li	_	PRON	PROper	PronType=Prs	9	iobj	_	_
+9	tramist	_	VERB	VERcjg	VerbForm=Fin	3	acl:relcl	_	_
+10	li	_	DET	DETdef	Definite=Def|PronType=Art	11	det	_	_
+11	reis	_	NOUN	NOMcom	_	9	nsubj	_	_
+12	de	_	ADP	PRE	_	13	case	_	_
+13	Suatilie	_	PROPN	NOMpro	_	11	flat	_	_
+
+# text = Li frein sunt d' or les seles d' argent mises
+# newdoc id = Roland_1100_verse
+# sent_id = 71
+1	Li	_	DET	DETdef	Definite=Def|PronType=Art	2	det	_	_
+2	frein	_	NOUN	NOMcom	_	3	nsubj	_	_
+3	sunt	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+4	d'	_	ADP	PRE	_	5	case	_	_
+5	or	_	NOUN	NOMcom	_	3	obl	_	_
+6	les	_	DET	DETdef	Definite=Def|PronType=Art	7	det	_	_
+7	seles	_	NOUN	NOMcom	_	2	conj	_	_
+8	d'	_	ADP	PRE	_	9	case	_	_
+9	argent	_	NOUN	NOMcom	_	10	obl	_	_
+10	mises	_	VERB	VERppe	Tense=Past|VerbForm=Part	3	conj	_	_
+
+# text = Cil sunt muntez ki le message firent
+# newdoc id = Roland_1100_verse
+# sent_id = 72
+1	Cil	_	PRON	PROdem	PronType=Dem	3	nsubj	_	_
+2	sunt	_	AUX	VERcjg	VerbForm=Fin	3	aux	_	_
+3	muntez	_	VERB	VERppe	Tense=Past|VerbForm=Part	0	root	_	_
+4	ki	_	PRON	PROrel	PronType=Prs,Rel	7	nsubj	_	_
+5	le	_	DET	DETdef	Definite=Def|PronType=Art	6	det	_	_
+6	message	_	NOUN	NOMcom	_	7	obj	_	_
+7	firent	_	VERB	VERcjg	VerbForm=Fin	1	acl:relcl	_	_
+
+# text = Enz en lur mains portent branches d' olive
+# newdoc id = Roland_1100_verse
+# sent_id = 73
+1	Enz	_	ADV	ADVgen	_	4	advmod	_	_
+2	en	_	ADP	PRE	_	4	case	_	_
+3	lur	_	DET	DETpos	Poss=Yes	4	det	_	_
+4	mains	_	NOUN	NOMcom	_	5	obl	_	_
+5	portent	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+6	branches	_	NOUN	NOMcom	_	5	obj	_	_
+7	d'	_	ADP	PRE	_	8	case	_	_
+8	olive	_	NOUN	NOMcom	_	6	nmod	_	_
+
+# text = Vindrent a Charles ki France ad en baillie
+# newdoc id = Roland_1100_verse
+# sent_id = 74
+1	Vindrent	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+2	a	_	ADP	PRE	_	3	case	_	_
+3	Charles	_	PROPN	NOMpro	_	1	obl	_	_
+4	ki	_	PRON	PROrel	PronType=Prs,Rel	6	nsubj	_	_
+5	France	_	PROPN	NOMpro	_	6	obj	_	_
+6	ad	_	VERB	VERcjg	VerbForm=Fin	3	acl:relcl	_	_
+7	en	_	ADP	PRE	_	8	case	_	_
+8	baillie	_	NOUN	NOMcom	_	6	xcomp	_	_
+
+# text = Nes poet guarder que alques ne l' engignent
+# newdoc id = Roland_1100_verse
+# sent_id = 75
+1	Nes	_	PRON	ADVneg.PROper	Polarity=Neg|PronType=Prs	3	expl	_	_
+2	poet	_	AUX	VERcjg	VerbForm=Fin	3	aux	_	_
+3	guarder	_	VERB	VERinf	VerbForm=Inf	0	root	_	_
+4	que	_	SCONJ	CONsub	_	8	mark	_	_
+5	alques	_	ADV	ADVgen	_	8	advmod	_	_
+6	ne	_	ADV	ADVneg	Polarity=Neg	8	advmod	_	_
+7	l'	_	PRON	PROper	PronType=Prs	8	obj	_	_
+8	engignent	_	VERB	VERcjg	VerbForm=Fin	3	xcomp	_	_
+
+# text = Li empereres se fait e balz e liez
+# newdoc id = Roland_1100_verse
+# sent_id = 76
+1	Li	_	DET	DETdef	Definite=Def|PronType=Art	2	det	_	_
+2	empereres	_	NOUN	NOMcom	_	4	nsubj	_	_
+3	se	_	PRON	PROper	PronType=Prs	4	obj	_	_
+4	fait	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+5	e	_	CCONJ	CONcoo	_	6	cc	_	_
+6	balz	_	ADJ	ADJqua	_	4	xcomp	_	_
+7	e	_	CCONJ	CONcoo	_	8	cc	_	_
+8	liez	_	ADJ	ADJqua	_	6	conj	_	_
+
+# text = Cordres ad prise e les murs peceiez
+# newdoc id = Roland_1100_verse
+# sent_id = 77
+1	Cordres	_	PROPN	NOMpro	_	3	obj	_	_
+2	ad	_	AUX	VERcjg	VerbForm=Fin	3	aux	_	_
+3	prise	_	VERB	VERppe	Tense=Past|VerbForm=Part	0	root	_	_
+4	e	_	CCONJ	CONcoo	_	7	cc	_	_
+5	les	_	DET	DETdef	Definite=Def|PronType=Art	6	det	_	_
+6	murs	_	NOUN	NOMcom	_	1	conj	_	_
+7	peceiez	_	VERB	VERppe	Tense=Past|VerbForm=Part	3	conj	_	_
+
+# text = Od ses cadables les turs en abatied
+# newdoc id = Roland_1100_verse
+# sent_id = 78
+1	Od	_	ADP	PRE	_	3	case	_	_
+2	ses	_	DET	DETpos	Poss=Yes	3	det	_	_
+3	cadables	_	NOUN	NOMcom	_	7	obl	_	_
+4	les	_	DET	DETdef	Definite=Def|PronType=Art	5	det	_	_
+5	turs	_	NOUN	NOMcom	_	7	obj	_	_
+6	en	_	ADV	PROadv	PronType=Dem	5	advmod	_	_
+7	abatied	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+
+# text = Mult grant eschech en unt si chevaler D' or e d' argent e de guarnemenz chers
+# newdoc id = Roland_1100_verse
+# sent_id = 79
+1	Mult	_	ADV	ADVgen	_	2	advmod	_	_
+2	grant	_	ADJ	ADJqua	_	3	amod	_	_
+3	eschech	_	NOUN	NOMcom	_	5	obj	_	_
+4	en	_	ADV	PROadv	PronType=Dem	5	obl	_	_
+5	unt	_	VERB	VERcjg	VerbForm=Fin	0	root	_	_
+6	si	_	DET	DETpos	Poss=Yes	7	det	_	_
+7	chevaler	_	NOUN	NOMcom	_	5	nsubj	_	_
+8	D'	_	ADP	PRE	_	9	case	_	_
+9	or	_	NOUN	NOMcom	_	3	nmod	_	_
+10	e	_	CCONJ	CONcoo	_	12	cc	_	_
+11	d'	_	ADP	PRE	_	12	case	_	_
+12	argent	_	NOUN	NOMcom	_	3	conj	_	_
+13	e	_	CCONJ	CONcoo	_	15	cc	_	_
+14	de	_	ADP	PRE	_	15	case	_	_
+15	guarnemenz	_	NOUN	NOMcom	_	3	conj	_	_
+16	chers	_	ADJ	ADJqua	_	15	amod	_	_
+
