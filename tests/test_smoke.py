@@ -98,13 +98,14 @@ def test_gold_evaluation(
 
 
 def test_train_script(
+    scripts_dir: pathlib.Path,
     script_runner: pytest_console_scripts.ScriptRunner,
     test_data_dir: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
     ret = script_runner.run(
         "python",
-        "scripts/train_models.py",
+        str(scripts_dir / "train_models.py"),
         str(test_data_dir / "train_script" / "configs"),
         str(test_data_dir / "train_script" / "treebanks"),
         "--devices",
