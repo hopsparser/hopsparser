@@ -27,7 +27,7 @@ import pandas as pd
 from loguru import logger
 from rich import box
 from rich.console import Console
-from rich.progress import MofNCompleteColumn, Progress, TaskID
+from rich.progress import MofNCompleteColumn, Progress, TimeElapsedColumn, TaskID
 from rich.table import Table
 import transformers
 import yaml
@@ -175,7 +175,10 @@ def run_multi(
 
 def monitor_process(num_runs: int, queue: multiprocessing.Queue):
     with Progress(
-        *Progress.get_default_columns(), MofNCompleteColumn(), utils.SpeedColumn(),
+        *Progress.get_default_columns(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        utils.SpeedColumn(),
         refresh_per_second=1.0,
         speed_estimate_period=1800,
     ) as progress:
@@ -248,7 +251,9 @@ def setup_logging(sink=sys.stderr, rich_fmt: bool = False):
                 frame = frame.f_back
                 depth += 1
 
-            logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+            logger.opt(depth=depth, exception=record.exc_info).log(
+                level, record.getMessage()
+            )
 
     transformers.utils.logging.disable_default_handler
     transformers.utils.logging.add_handler(InterceptHandler())
