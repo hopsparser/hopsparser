@@ -1,10 +1,15 @@
 import contextlib
+import datetime
 import logging
+import math
 import pathlib
 import sys
 import tempfile
 from typing import IO, Dict, Generator, Optional, Union, cast
+
 from loguru import logger
+import rich.text
+import rich.progress
 
 
 @contextlib.contextmanager
@@ -102,3 +107,20 @@ def setup_logging(verbose: bool, logfile: Optional[pathlib.Path] = None):
             ),
             colorize=False,
         )
+
+
+def log_epoch(epoch_name: str, metrics: Dict[str, str]):
+    metrics_table = "\t".join(f"{k} {v}" for k, v in metrics.items())
+    logger.info(f"Epoch {epoch_name}: {metrics_table}")
+
+
+class SpeedColumn(rich.progress.ProgressColumn):
+    def render(self, task: rich.progress.Task) -> rich.text.Text:
+        if not task.speed:
+            return rich.text.Text("-:--:--")
+        if task.speed >= 1:
+            return rich.text.Text(f"{task.speed:.2f} it/s")
+        else:
+            return rich.text.Text(
+                f"{datetime.timedelta(seconds=math.ceil(1/task.speed))} /it"
+            )

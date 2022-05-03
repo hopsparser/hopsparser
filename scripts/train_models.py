@@ -8,7 +8,17 @@ import os.path
 import pathlib
 import shutil
 import sys
-from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import click
 import pandas as pd
@@ -16,17 +26,21 @@ import pandas as pd
 from loguru import logger
 from rich import box
 from rich.console import Console
-from rich.progress import Progress
+from rich.progress import Progress, TimeRemainingColumn, TaskID
 from rich.table import Table
+import yaml
 
 from hopsparser import parser
+from hopsparser import utils
 from hopsparser import conll2018_eval as evaluator
 
 
 class Messages(enum.Enum):
     CLOSE = enum.auto()
+    EPOCH_END = enum.auto()
     LOG = enum.auto()
     RUN_DONE = enum.auto()
+    RUN_START = enum.auto()
 
 
 class TrainResults(NamedTuple):
@@ -37,22 +51,21 @@ class TrainResults(NamedTuple):
 
 
 def train_single_model(
-    train_file: pathlib.Path,
-    dev_file: pathlib.Path,
-    test_file: pathlib.Path,
-    output_dir: pathlib.Path,
+    additional_args: Dict[str, str],
     config_file: pathlib.Path,
     device: str,
-    additional_args: Dict[str, str],
+    dev_file: pathlib.Path,
+    log_epoch: Callable[[str, Dict[str, str]], Any],
+    output_dir: pathlib.Path,
+    test_file: pathlib.Path,
+    train_file: pathlib.Path,
 ) -> TrainResults:
     output_dir.mkdir(exist_ok=True, parents=True)
     logger.add(
         output_dir / "train.log",
         level="DEBUG",
         format=(
-            "[hops]"
-            " {time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} |"
-            " {message}"
+            "[hops]" " {time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} |" " {message}"
         ),
         colorize=False,
     )
@@ -65,6 +78,7 @@ def train_single_model(
         train_file=train_file,
         model_path=model_path,
         **{k: literal_eval(v) for k, v in additional_args.items()},
+        log_epoch=log_epoch,
     )
     metrics_table = Table(box=box.HORIZONTALS)
     metrics_table.add_column("Split")
@@ -112,10 +126,18 @@ def worker(device_queue, monitor_queue, name, kwargs) -> Tuple[str, TrainResults
     setup_logging(lambda m: monitor_queue.put((Messages.LOG, m)), rich_fmt=True)
     kwargs["device"] = device
     logger.info(f"Start training {name} on {device}")
-    res = train_single_model(**kwargs)
+    with open(kwargs["config_file"]) as in_stream:
+        n_epochs = yaml.load(in_stream, Loader=yaml.SafeLoader)["epochs"]
+    monitor_queue.put((Messages.RUN_START, (name, n_epochs)))
+
+    def log_epoch(*args, **kwargs):
+        utils.log_epoch(*args, **kwargs)
+        monitor_queue.put((Messages.EPOCH_END, name))
+
+    res = train_single_model(**kwargs, log_epoch=log_epoch)
     device_queue.put(device)
     # logger.info(f"Run {name} finished with results {res}")
-    monitor_queue.put((Messages.RUN_DONE, None))
+    monitor_queue.put((Messages.RUN_DONE, name))
     return (name, res)
 
 
@@ -150,20 +172,30 @@ def run_multi(
 
 
 def monitor_process(num_runs: int, queue: multiprocessing.Queue):
-    with Progress() as progress:
+    with Progress(
+        *Progress.get_default_columns(), TimeRemainingColumn(), utils.SpeedColumn()
+    ) as progress:
         setup_logging(lambda m: progress.console.print(m, end=""), rich_fmt=True)
         train_task = progress.add_task("Training", total=num_runs)
+        ongoing: Dict[str, TaskID] = dict()
         while True:
             try:
                 msg_type, msg = queue.get()
             except EOFError:
                 break
+
             if msg_type is Messages.CLOSE:
                 break
+            elif msg_type is Messages.EPOCH_END:
+                progress.advance(ongoing[msg])
             elif msg_type is Messages.LOG:
                 logger.log(msg.record["level"].name, msg.record["message"])
             elif msg_type is Messages.RUN_DONE:
                 progress.advance(train_task)
+                progress.remove_task(ongoing[msg])
+                ongoing.pop(msg)
+            elif msg_type is Messages.RUN_START:
+                ongoing[msg[0]] = progress.add_task(msg[0], total=msg[1])
             else:
                 raise ValueError("Unknown message")
         logger.complete()
