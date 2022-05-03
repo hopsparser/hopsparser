@@ -39,6 +39,7 @@ from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
 
 from hopsparser import deptree, lexers
+from hopsparser import utils
 from hopsparser.deptree import DepGraph
 from hopsparser.lexers import (
     BertLexer,
@@ -504,13 +505,14 @@ class BiAffineParser(nn.Module):
 
     def train_model(
         self,
-        train_set: "DependencyDataset",
         epochs: int,
         lr: float,
         lr_schedule: LRSchedule,
         model_path: Union[str, pathlib.Path],
+        train_set: "DependencyDataset",
         batch_size: Optional[int] = None,
         dev_set: Optional["DependencyDataset"] = None,
+        log_epoch: Callable[[str, Dict[str, str]], Any] = lambda x, y: None,
     ):
         model_path = pathlib.Path(model_path)
         weights_file = model_path / "weights.pt"
@@ -583,13 +585,15 @@ class BiAffineParser(nn.Module):
                     ),
                     batch_size=batch_size,
                 )
-                logger.info(
-                    f"Epoch {e}"
-                    f" train loss {train_loss.true_divide(overall_size).item():.4f}"
-                    f" dev loss {dev_loss:.4f}"
-                    f" dev tag acc {dev_tag_acc:.2%}"
-                    f" dev head acc {dev_arc_acc:.2%}"
-                    f" dev deprel acc {dev_lab_acc:.2%}"
+                log_epoch(
+                    str(e),
+                    {
+                        "train loss": f"{train_loss.true_divide(overall_size).item():.4f}",
+                        "dev loss": f"{dev_loss:.4f}",
+                        "dev tag acc": f"{dev_tag_acc:06.2%}",
+                        "dev head acc": f"{dev_arc_acc:06.2%}",
+                        "dev deprel acc": f"{dev_lab_acc:06.2%}",
+                    },
                 )
 
                 if dev_arc_acc > best_arc_acc:
@@ -1058,11 +1062,12 @@ def train(
     config_file: pathlib.Path,
     model_path: pathlib.Path,
     train_file: pathlib.Path,
+    dev_file: Optional[pathlib.Path] = None,
     device: Union[str, torch.device] = "cpu",
     max_tree_length: Optional[int] = None,
+    log_epoch: Callable[[str, Dict[str, str]], Any] = utils.log_epoch,
     overwrite: bool = False,
     rand_seed: Optional[int] = None,
-    dev_file: Optional[pathlib.Path] = None,
 ):
     if rand_seed is not None:
         random.seed(rand_seed)
@@ -1121,6 +1126,7 @@ def train(
         batch_size=hp["batch_size"],
         dev_set=devset,
         epochs=hp["epochs"],
+        log_epoch=log_epoch,
         lr=lr_config["base"],
         lr_schedule=lr_config.get(
             "schedule", {"shape": "exponential", "warmup_steps": 0}

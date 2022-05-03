@@ -1,19 +1,46 @@
+from ast import literal_eval
+import enum
+from io import StringIO
 import itertools
 import json
 import multiprocessing
 import os.path
 import pathlib
 import shutil
-import subprocess
 import sys
-from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import click
 import pandas as pd
 
 from loguru import logger
+from rich import box
+from rich.console import Console
+from rich.progress import Progress, TimeRemainingColumn, TaskID
+from rich.table import Table
+import yaml
 
+from hopsparser import parser
+from hopsparser import utils
 from hopsparser import conll2018_eval as evaluator
+
+
+class Messages(enum.Enum):
+    CLOSE = enum.auto()
+    EPOCH_END = enum.auto()
+    LOG = enum.auto()
+    RUN_DONE = enum.auto()
+    RUN_START = enum.auto()
 
 
 class TrainResults(NamedTuple):
@@ -24,46 +51,62 @@ class TrainResults(NamedTuple):
 
 
 def train_single_model(
-    train_file: pathlib.Path,
-    dev_file: pathlib.Path,
-    test_file: pathlib.Path,
-    out_dir: pathlib.Path,
-    config_path: pathlib.Path,
-    device: str,
     additional_args: Dict[str, str],
+    config_file: pathlib.Path,
+    device: str,
+    dev_file: pathlib.Path,
+    log_epoch: Callable[[str, Dict[str, str]], Any],
+    output_dir: pathlib.Path,
+    test_file: pathlib.Path,
+    train_file: pathlib.Path,
 ) -> TrainResults:
-    subprocess.run(
-        [
-            "hopsparser",
-            "train",
-            str(config_path),
-            str(train_file),
-            str(out_dir),
-            "--dev-file",
-            str(dev_file),
-            "--test-file",
-            str(test_file),
-            "--device",
-            device,
-            *(
-                a
-                for key, value in additional_args.items()
-                if value
-                for a in (f"--{key}", value)
-            ),
-        ],
-        check=True,
+    output_dir.mkdir(exist_ok=True, parents=True)
+    logger.add(
+        output_dir / "train.log",
+        level="DEBUG",
+        format=(
+            "[hops]" " {time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} |" " {message}"
+        ),
+        colorize=False,
     )
-
-    gold_devset = evaluator.load_conllu_file(dev_file)
-    syst_devset = evaluator.load_conllu_file(out_dir / f"{dev_file.stem}.parsed.conllu")
-    dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
-
-    gold_testset = evaluator.load_conllu_file(test_file)
-    syst_testset = evaluator.load_conllu_file(
-        out_dir / f"{test_file.stem}.parsed.conllu"
+    model_path = output_dir / "model"
+    shutil.copy(config_file, output_dir / config_file.name)
+    parser.train(
+        config_file=config_file,
+        dev_file=dev_file,
+        device=device,
+        train_file=train_file,
+        model_path=model_path,
+        **{k: literal_eval(v) for k, v in additional_args.items()},
+        log_epoch=log_epoch,
     )
-    test_metrics = evaluator.evaluate(gold_testset, syst_testset)
+    metrics_table = Table(box=box.HORIZONTALS)
+    metrics_table.add_column("Split")
+    metrics = ("UPOS", "UAS", "LAS")
+    for m in metrics:
+        metrics_table.add_column(m, justify="center")
+    if dev_file is not None:
+        parsed_devset_path = output_dir / f"{dev_file.stem}.parsed.conllu"
+        parser.parse(model_path, dev_file, parsed_devset_path, device=device)
+        gold_devset = evaluator.load_conllu_file(dev_file)
+        syst_devset = evaluator.load_conllu_file(parsed_devset_path)
+        dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
+        metrics_table.add_row("Dev", *(f"{100*dev_metrics[m].f1:.2f}" for m in metrics))
+
+    if test_file is not None:
+        parsed_testset_path = output_dir / f"{test_file.stem}.parsed.conllu"
+        parser.parse(model_path, test_file, parsed_testset_path, device=device)
+        gold_testset = evaluator.load_conllu_file(test_file)
+        syst_testset = evaluator.load_conllu_file(parsed_testset_path)
+        test_metrics = evaluator.evaluate(gold_testset, syst_testset)
+        metrics_table.add_row(
+            "Test", *(f"{100*test_metrics[m].f1:.2f}" for m in metrics)
+        )
+
+    if metrics_table.rows:
+        out = Console(file=StringIO())
+        out.print(metrics_table)
+        logger.info(f"\n{out.file.getvalue()}")
 
     return TrainResults(
         dev_upos=dev_metrics["UPOS"].f1,
@@ -75,34 +118,87 @@ def train_single_model(
 
 # It would be nice to be able to have this as a closure, but unfortunately it doesn't work since
 # closures are not picklable and multiprocessing can only deal with picklable workers
-def worker(device_queue, name, kwargs) -> Tuple[str, TrainResults]:
+def worker(device_queue, monitor_queue, name, kwargs) -> Tuple[str, TrainResults]:
     # We use no more workers than devices so the queue should never be empty when launching the
     # worker fun so we want to fail early here if the Queue is empty. It does not feel right but it
     # works.
     device = device_queue.get(block=False)
+    setup_logging(lambda m: monitor_queue.put((Messages.LOG, m)), rich_fmt=True)
     kwargs["device"] = device
-    logger.info(f"Start training {name} on {device}", file=sys.stderr)
-    res = train_single_model(**kwargs)
+    logger.info(f"Start training {name} on {device}")
+    with open(kwargs["config_file"]) as in_stream:
+        n_epochs = yaml.load(in_stream, Loader=yaml.SafeLoader)["epochs"]
+    monitor_queue.put((Messages.RUN_START, (name, n_epochs)))
+
+    def log_epoch(*args, **kwargs):
+        utils.log_epoch(*args, **kwargs)
+        monitor_queue.put((Messages.EPOCH_END, name))
+
+    res = train_single_model(**kwargs, log_epoch=log_epoch)
     device_queue.put(device)
-    logger.info(f"Run {name} finished with results {res}", file=sys.stderr)
+    # logger.info(f"Run {name} finished with results {res}")
+    monitor_queue.put((Messages.RUN_DONE, name))
     return (name, res)
 
 
 def run_multi(
-    runs: Iterable[Tuple[str, Dict[str, Any]]], devices: List[str]
+    runs: Sequence[Tuple[str, Dict[str, Any]]],
+    devices: List[str],
 ) -> List[Tuple[str, TrainResults]]:
     with multiprocessing.Manager() as manager:
         device_queue = manager.Queue()
         for d in devices:
             device_queue.put(d)
+        monitor_queue = manager.Queue()
+        monitor = multiprocessing.Process(
+            target=monitor_process,
+            kwargs={
+                "num_runs": len(runs),
+                "queue": monitor_queue,
+            },
+        )
+        monitor.start()
 
         with multiprocessing.Pool(len(devices)) as pool:
             res_future = pool.starmap_async(
                 worker,
-                ((device_queue, *r) for r in runs),
+                ((device_queue, monitor_queue, *r) for r in runs),
             )
             res = res_future.get()
+        monitor_queue.put((Messages.CLOSE, None))
+        monitor.join()
+        monitor.close()
     return res
+
+
+def monitor_process(num_runs: int, queue: multiprocessing.Queue):
+    with Progress(
+        *Progress.get_default_columns(), TimeRemainingColumn(), utils.SpeedColumn()
+    ) as progress:
+        setup_logging(lambda m: progress.console.print(m, end=""), rich_fmt=True)
+        train_task = progress.add_task("Training", total=num_runs)
+        ongoing: Dict[str, TaskID] = dict()
+        while True:
+            try:
+                msg_type, msg = queue.get()
+            except EOFError:
+                break
+
+            if msg_type is Messages.CLOSE:
+                break
+            elif msg_type is Messages.EPOCH_END:
+                progress.advance(ongoing[msg])
+            elif msg_type is Messages.LOG:
+                logger.log(msg.record["level"].name, msg.record["message"])
+            elif msg_type is Messages.RUN_DONE:
+                progress.advance(train_task)
+                progress.remove_task(ongoing[msg])
+                ongoing.pop(msg)
+            elif msg_type is Messages.RUN_START:
+                ongoing[msg[0]] = progress.add_task(msg[0], total=msg[1])
+            else:
+                raise ValueError("Unknown message")
+        logger.complete()
 
 
 def parse_args_callback(
@@ -119,22 +215,25 @@ def parse_args_callback(
     return res
 
 
-def setup_logging():
-    logger.remove(0)  # Remove the default logger
-    appname = "hops_trainer"
+def setup_logging(sink=sys.stderr, rich_fmt: bool = False):
+    appname = "\\[hops_trainer]" if rich_fmt else "[hops_trainer]"
 
     log_level = "INFO"
     log_fmt = (
-        f"[{appname}]"
+        f"{appname}"
         " <green>{time:YYYY-MM-DD}T{time:HH:mm:ss}</green> {level}: "
         " <level>{message}</level>"
     )
+    # FIXME: I hate this but it's the easiest way
+    if rich_fmt:
+        log_fmt = log_fmt.replace("<", "[").replace(">", "]")
 
-    logger.add(
-        sys.stderr,
-        level=log_level,
-        format=log_fmt,
+    return logger.add(
+        sink,
         colorize=True,
+        enqueue=True,
+        format=log_fmt,
+        level=log_level,
     )
 
 
@@ -197,7 +296,8 @@ def main(
     rand_seeds: Optional[List[int]],
     treebanks_dir: pathlib.Path,
 ):
-    setup_logging()
+    logger.remove(0)
+    logging_handler = setup_logging()
     out_dir.mkdir(parents=True, exist_ok=True)
     treebanks = [train.parent for train in treebanks_dir.glob("**/*train.conllu")]
     logger.info(f"Training on {len(treebanks)} treebanks.")
@@ -205,7 +305,7 @@ def main(
     logger.info(f"Training using {len(configs)} configs.")
     if rand_seeds is not None:
         args = [
-            ("rand-seed", [str(s) for s in rand_seeds]),
+            ("rand_seed", [str(s) for s in rand_seeds]),
             *(args if args is not None else []),
         ]
         logger.info(f"Training with {len(rand_seeds)} rand seeds.")
@@ -231,7 +331,7 @@ def main(
                 "train_file": train_file,
                 "dev_file": dev_file,
                 "test_file": test_file,
-                "config_path": c,
+                "config_file": c,
             }
             run_base_name = f"{prefix}{t.name}-{c.stem}"
             run_out_root_dir = out_dir / run_base_name
@@ -249,7 +349,7 @@ def main(
                 run_args = {
                     **common_params,
                     "additional_args": additional_args,
-                    "out_dir": run_out_dir,
+                    "output_dir": run_out_dir,
                 }
                 runs_dict[run_name] = run_args
                 if run_out_dir.exists():
@@ -262,14 +362,20 @@ def main(
                             syst_devset = evaluator.load_conllu_file(parsed_dev)
                             dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
                         except evaluator.UDError as e:
-                            raise ValueError(f"Corrupted parsed dev file for {run_out_dir}") from e
+                            raise ValueError(
+                                f"Corrupted parsed dev file for {run_out_dir}"
+                            ) from e
 
                         try:
                             gold_testset = evaluator.load_conllu_file(test_file)
                             syst_testset = evaluator.load_conllu_file(parsed_test)
-                            test_metrics = evaluator.evaluate(gold_testset, syst_testset)
+                            test_metrics = evaluator.evaluate(
+                                gold_testset, syst_testset
+                            )
                         except evaluator.UDError as e:
-                            raise ValueError(f"Corrupted parsed test file for {run_out_dir}") from e
+                            raise ValueError(
+                                f"Corrupted parsed test file for {run_out_dir}"
+                            ) from e
 
                         skip_res = TrainResults(
                             dev_upos=dev_metrics["UPOS"].f1,
@@ -291,7 +397,10 @@ def main(
                 runs.append((run_name, run_args))
 
     logger.info(f"Starting {len(runs)} runs.")
+    logger.remove(logging_handler)
     res = run_multi(runs, devices)
+    setup_logging()
+    logger.info("Done with training")
     res.extend(skipped_res)
 
     report_file = out_dir / "full_report.json"
@@ -304,8 +413,8 @@ def main(
         run = runs_dict[name]
         report_dict[name] = {
             "additional_args": run["additional_args"],
-            "config": str(run["config_path"]),
-            "out_dir": str(run["out_dir"]),
+            "config": str(run["config_file"]),
+            "output_dir": str(run["output_dir"]),
             "results": scores._asdict(),
             "treebank": run["train_file"].parent.name,
         }
@@ -337,7 +446,7 @@ def main(
         df = pd.DataFrame.from_dict(df_dict, orient="index")
         df.to_csv(out_dir / "full_report.csv")
         grouped = df.groupby(
-            ["config", "treebank", *(a for a in args_names if a != "rand-seed")],
+            ["config", "treebank", *(a for a in args_names if a != "rand_seed")],
         )
         grouped[["dev_upos", "dev_las", "test_upos", "test_las"]].describe().to_csv(
             summary_file
@@ -353,7 +462,7 @@ def main(
                 df.loc[grouped["dev_las"].idxmax()].iterrows()
             ):
                 shutil.copytree(
-                    report["out_dir"], best_dir / run_name, dirs_exist_ok=True
+                    report["output_dir"], best_dir / run_name, dirs_exist_ok=True
                 )
                 model_name = run_name.split("+", maxsplit=1)[0]
                 out_stream.write("| ")

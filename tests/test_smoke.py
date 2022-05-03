@@ -97,7 +97,9 @@ def test_gold_evaluation(
     assert ret.success
 
 
+@pytest.mark.parametrize("device", devices)
 def test_train_script(
+    device: str,
     scripts_dir: pathlib.Path,
     script_runner: pytest_console_scripts.ScriptRunner,
     test_data_dir: pathlib.Path,
@@ -109,7 +111,9 @@ def test_train_script(
         str(test_data_dir / "train_script" / "configs"),
         str(test_data_dir / "train_script" / "treebanks"),
         "--devices",
-        "cpu,cpu",
+        f"{device},{device}",
+        "--rand-seeds",
+        "0,1",
         "--out-dir",
         str(tmp_path / "train_script_output"),
     )

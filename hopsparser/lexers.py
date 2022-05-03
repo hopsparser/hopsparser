@@ -535,6 +535,7 @@ class WordEmbeddingsLexer(nn.Module):
             res.load_state_dict(torch.load(weight_file, map_location="cpu"))
         return res
 
+    # FIXME: probably add thresholds here, at least to filter out hapax?
     @classmethod
     def from_words(
         cls: Type[_T_WordEmbeddingsLexer], words: Iterable[str], **kwargs
