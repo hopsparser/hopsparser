@@ -14,7 +14,6 @@ import pandas as pd
 
 from loguru import logger
 from rich import box
-from rich.logging import RichHandler
 from rich.progress import Progress
 from rich.table import Table
 
@@ -24,6 +23,7 @@ from hopsparser import conll2018_eval as evaluator
 
 class Messages(enum.Enum):
     RUN_DONE = enum.auto()
+    CLOSE = enum.auto()
 
 
 class TrainResults(NamedTuple):
@@ -116,17 +116,20 @@ def worker(device_queue, monitor_queue, name, kwargs) -> Tuple[str, TrainResults
 
 
 def run_multi(
-    runs: Sequence[Tuple[str, Dict[str, Any]]], devices: List[str],
+    runs: Sequence[Tuple[str, Dict[str, Any]]],
+    devices: List[str],
 ) -> List[Tuple[str, TrainResults]]:
     with multiprocessing.Manager() as manager:
         device_queue = manager.Queue()
         for d in devices:
             device_queue.put(d)
         monitor_queue = manager.Queue()
-        terminate_monitor = manager.Event()
         monitor = multiprocessing.Process(
             target=monitor_process,
-            kwargs={"num_runs": len(runs), "queue": monitor_queue, "terminate": terminate_monitor},
+            kwargs={
+                "num_runs": len(runs),
+                "queue": monitor_queue,
+            },
         )
         monitor.start()
 
@@ -136,25 +139,28 @@ def run_multi(
                 ((device_queue, monitor_queue, *r) for r in runs),
             )
             res = res_future.get()
-        terminate_monitor.set()
-        # monitor.terminate()
+        monitor_queue.put((Messages.CLOSE, None))
+        monitor.join()
+        monitor.close()
     return res
 
 
-def monitor_process(num_runs: int, queue: multiprocessing.Queue, terminate):
+def monitor_process(num_runs: int, queue: multiprocessing.Queue):
     with Progress() as progress:
-        # log_handler = RichHandler(console=progress.console)
         setup_logging(lambda m: progress.console.print(m, end=""), rich_fmt=True)
         train_task = progress.add_task("Training", total=num_runs)
-        while not terminate.is_set():
+        while True:
             try:
                 msg_type, msg = queue.get()
             except EOFError:
                 break
             if msg_type is Messages.RUN_DONE:
                 progress.advance(train_task)
+            elif msg_type is Messages.CLOSE:
+                break
             else:
                 raise ValueError("Unknown message")
+        logger.complete()
 
 
 def parse_args_callback(
@@ -171,7 +177,7 @@ def parse_args_callback(
     return res
 
 
-def setup_logging(sink=sys.stderr, rich_fmt:bool=False):
+def setup_logging(sink=sys.stderr, rich_fmt: bool = False):
     appname = "\\[hops_trainer]" if rich_fmt else "[hops_trainer]"
 
     log_level = "INFO"
