@@ -3,6 +3,7 @@ import enum
 from io import StringIO
 import itertools
 import json
+import logging
 import multiprocessing
 import os.path
 import pathlib
@@ -28,6 +29,7 @@ from rich import box
 from rich.console import Console
 from rich.progress import Progress, TimeRemainingColumn, TaskID
 from rich.table import Table
+import transformers
 import yaml
 
 from hopsparser import parser
@@ -227,6 +229,27 @@ def setup_logging(sink=sys.stderr, rich_fmt: bool = False):
     # FIXME: I hate this but it's the easiest way
     if rich_fmt:
         log_fmt = log_fmt.replace("<", "[").replace(">", "]")
+
+    # Deal with stdlib.logging
+
+    class InterceptHandler(logging.Handler):
+        def emit(self, record):
+            # Get corresponding Loguru level if it exists
+            try:
+                level = logger.level(record.levelname).name
+            except ValueError:
+                level = record.levelno
+
+            # Find caller from where originated the logged message
+            frame, depth = logging.currentframe(), 2
+            while frame.f_code.co_filename == logging.__file__:
+                frame = frame.f_back
+                depth += 1
+
+            logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+
+    transformers.utils.logging.disable_default_handler
+    transformers.utils.logging.add_handler(InterceptHandler())
 
     return logger.add(
         sink,
