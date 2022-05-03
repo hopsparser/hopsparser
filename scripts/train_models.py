@@ -1,5 +1,6 @@
 from ast import literal_eval
 import enum
+from io import StringIO
 import itertools
 import json
 import multiprocessing
@@ -14,6 +15,7 @@ import pandas as pd
 
 from loguru import logger
 from rich import box
+from rich.console import Console
 from rich.progress import Progress
 from rich.table import Table
 
@@ -22,8 +24,9 @@ from hopsparser import conll2018_eval as evaluator
 
 
 class Messages(enum.Enum):
-    RUN_DONE = enum.auto()
     CLOSE = enum.auto()
+    LOG = enum.auto()
+    RUN_DONE = enum.auto()
 
 
 class TrainResults(NamedTuple):
@@ -43,6 +46,16 @@ def train_single_model(
     additional_args: Dict[str, str],
 ) -> TrainResults:
     output_dir.mkdir(exist_ok=True, parents=True)
+    logger.add(
+        output_dir / "train.log",
+        level="DEBUG",
+        format=(
+            "[hops]"
+            " {time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} |"
+            " {message}"
+        ),
+        colorize=False,
+    )
     model_path = output_dir / "model"
     shutil.copy(config_file, output_dir / config_file.name)
     parser.train(
@@ -76,20 +89,10 @@ def train_single_model(
             "Test", *(f"{100*test_metrics[m].f1:.2f}" for m in metrics)
         )
 
-    # if metrics_table.rows:
-    #     console.print(metrics_table)
-
-    gold_devset = evaluator.load_conllu_file(dev_file)
-    syst_devset = evaluator.load_conllu_file(
-        output_dir / f"{dev_file.stem}.parsed.conllu"
-    )
-    dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
-
-    gold_testset = evaluator.load_conllu_file(test_file)
-    syst_testset = evaluator.load_conllu_file(
-        output_dir / f"{test_file.stem}.parsed.conllu"
-    )
-    test_metrics = evaluator.evaluate(gold_testset, syst_testset)
+    if metrics_table.rows:
+        out = Console(file=StringIO())
+        out.print(metrics_table)
+        logger.info(f"\n{out.file.getvalue()}")
 
     return TrainResults(
         dev_upos=dev_metrics["UPOS"].f1,
@@ -106,11 +109,12 @@ def worker(device_queue, monitor_queue, name, kwargs) -> Tuple[str, TrainResults
     # worker fun so we want to fail early here if the Queue is empty. It does not feel right but it
     # works.
     device = device_queue.get(block=False)
+    setup_logging(lambda m: monitor_queue.put((Messages.LOG, m)), rich_fmt=True)
     kwargs["device"] = device
     logger.info(f"Start training {name} on {device}")
     res = train_single_model(**kwargs)
     device_queue.put(device)
-    logger.info(f"Run {name} finished with results {res}")
+    # logger.info(f"Run {name} finished with results {res}")
     monitor_queue.put((Messages.RUN_DONE, None))
     return (name, res)
 
@@ -154,10 +158,12 @@ def monitor_process(num_runs: int, queue: multiprocessing.Queue):
                 msg_type, msg = queue.get()
             except EOFError:
                 break
-            if msg_type is Messages.RUN_DONE:
-                progress.advance(train_task)
-            elif msg_type is Messages.CLOSE:
+            if msg_type is Messages.CLOSE:
                 break
+            elif msg_type is Messages.LOG:
+                logger.log(msg.record["level"].name, msg.record["message"])
+            elif msg_type is Messages.RUN_DONE:
+                progress.advance(train_task)
             else:
                 raise ValueError("Unknown message")
         logger.complete()
