@@ -27,7 +27,7 @@ import pandas as pd
 from loguru import logger
 from rich import box
 from rich.console import Console
-from rich.progress import Progress, TimeRemainingColumn, TaskID
+from rich.progress import MofNCompleteColumn, Progress, TaskID
 from rich.table import Table
 import transformers
 import yaml
@@ -175,7 +175,9 @@ def run_multi(
 
 def monitor_process(num_runs: int, queue: multiprocessing.Queue):
     with Progress(
-        *Progress.get_default_columns(), TimeRemainingColumn(), utils.SpeedColumn()
+        *Progress.get_default_columns(), MofNCompleteColumn(), utils.SpeedColumn(),
+        refresh_per_second=1.0,
+        speed_estimate_period=1800,
     ) as progress:
         setup_logging(lambda m: progress.console.print(m, end=""), rich_fmt=True)
         train_task = progress.add_task("Training", total=num_runs)
