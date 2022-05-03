@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - `DependencyDataset` does not have lexicon attributes (`ito(lab|tag` and their inverse) since we
   don't need these anymore.
 - The `train_model` script now skips incomplete runs with a warning.
+-  The `train_model` script has nicer logging, including progress bars to help keep track of the
+   experiments.
 
 ### Fixed
 
