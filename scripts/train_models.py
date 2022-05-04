@@ -125,7 +125,9 @@ def worker(device_queue, monitor_queue, name, kwargs) -> Tuple[str, TrainResults
     # worker fun so we want to fail early here if the Queue is empty. It does not feel right but it
     # works.
     device = device_queue.get(block=False)
-    log_handle = setup_logging(lambda m: monitor_queue.put((Messages.LOG, m)), rich_fmt=True)
+    log_handle = setup_logging(
+        lambda m: monitor_queue.put((Messages.LOG, m)), rich_fmt=True
+    )
     kwargs["device"] = device
     logger.info(f"Start training {name} on {device}")
     with open(kwargs["config_file"]) as in_stream:
@@ -223,22 +225,7 @@ def parse_args_callback(
     return res
 
 
-def setup_logging(sink=sys.stderr, rich_fmt: bool = False):
-    appname = "\\[hops_trainer]" if rich_fmt else "[hops_trainer]"
-
-    log_level = "INFO"
-    log_fmt = (
-        f"{appname}"
-        " <green>{time:YYYY-MM-DD}T{time:HH:mm:ss}</green> {level}: "
-        " <level>{message}</level>"
-    )
-    # FIXME: I hate this but it's the easiest way
-    if rich_fmt:
-        log_fmt = log_fmt.replace("<", "[").replace(">", "]")
-
-    # Deal with stdlib.logging
-
-    class InterceptHandler(logging.Handler):
+class InterceptHandler(logging.Handler):
         def emit(self, record):
             # Get corresponding Loguru level if it exists
             try:
@@ -256,8 +243,31 @@ def setup_logging(sink=sys.stderr, rich_fmt: bool = False):
                 level, record.getMessage()
             )
 
+def setup_logging(sink=sys.stderr, rich_fmt: bool = False):
+    appname = "\\[hops_trainer]" if rich_fmt else "[hops_trainer]"
+
+    log_level = "INFO"
+    log_fmt = (
+        f"{appname}"
+        " <green>{time:YYYY-MM-DD}T{time:HH:mm:ss}</green> {level}: "
+        " <level>{message}</level>"
+    )
+    # FIXME: I hate this but it's the easiest way
+    if rich_fmt:
+        log_fmt = log_fmt.replace("<", "[").replace(">", "]")
+
+    # Deal with stdlib.logging
+
     transformers.utils.logging.disable_default_handler()
-    transformers.utils.logging.add_handler(InterceptHandler())
+    transformers.utils.logging.disable_progress_bar()
+    print(transformers.utils.logging._get_library_root_logger().handlers)
+    # FIXME: I found no easy public way to avoid reaching to the private interaface here
+    # Avoid adding the intercepter multiple times
+    if not any(
+        isinstance(handler, InterceptHandler)
+        for handler in transformers.utils.logging._get_library_root_logger().handlers
+    ):
+        transformers.utils.logging.add_handler(InterceptHandler())
 
     return logger.add(
         sink,
