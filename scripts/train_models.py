@@ -260,7 +260,6 @@ def setup_logging(sink=sys.stderr, rich_fmt: bool = False):
 
     transformers.utils.logging.disable_default_handler()
     transformers.utils.logging.disable_progress_bar()
-    print(transformers.utils.logging._get_library_root_logger().handlers)
     # FIXME: I found no easy public way to avoid reaching to the private interaface here
     # Avoid adding the intercepter multiple times
     if not any(
