@@ -255,7 +255,7 @@ def setup_logging(sink=sys.stderr, rich_fmt: bool = False):
                 level, record.getMessage()
             )
 
-    transformers.utils.logging.disable_default_handler
+    transformers.utils.logging.disable_default_handler()
     transformers.utils.logging.add_handler(InterceptHandler())
 
     return logger.add(
