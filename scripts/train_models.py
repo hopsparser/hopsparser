@@ -125,7 +125,7 @@ def worker(device_queue, monitor_queue, name, kwargs) -> Tuple[str, TrainResults
     # worker fun so we want to fail early here if the Queue is empty. It does not feel right but it
     # works.
     device = device_queue.get(block=False)
-    setup_logging(lambda m: monitor_queue.put((Messages.LOG, m)), rich_fmt=True)
+    log_handle = setup_logging(lambda m: monitor_queue.put((Messages.LOG, m)), rich_fmt=True)
     kwargs["device"] = device
     logger.info(f"Start training {name} on {device}")
     with open(kwargs["config_file"]) as in_stream:
@@ -140,6 +140,7 @@ def worker(device_queue, monitor_queue, name, kwargs) -> Tuple[str, TrainResults
     device_queue.put(device)
     # logger.info(f"Run {name} finished with results {res}")
     monitor_queue.put((Messages.RUN_DONE, name))
+    logger.remove(log_handle)
     return (name, res)
 
 
