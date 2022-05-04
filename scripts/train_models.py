@@ -63,7 +63,7 @@ def train_single_model(
     train_file: pathlib.Path,
 ) -> TrainResults:
     output_dir.mkdir(exist_ok=True, parents=True)
-    logger.add(
+    log_handler = logger.add(
         output_dir / "train.log",
         level="DEBUG",
         format=(
@@ -109,6 +109,8 @@ def train_single_model(
         out = Console(file=StringIO())
         out.print(metrics_table)
         logger.info(f"\n{out.file.getvalue()}")
+    
+    logger.remove(log_handler)
 
     return TrainResults(
         dev_upos=dev_metrics["UPOS"].f1,
@@ -118,8 +120,6 @@ def train_single_model(
     )
 
 
-# It would be nice to be able to have this as a closure, but unfortunately it doesn't work since
-# closures are not picklable and multiprocessing can only deal with picklable workers
 def worker(device_queue, monitor_queue, name, kwargs) -> Tuple[str, TrainResults]:
     # We use no more workers than devices so the queue should never be empty when launching the
     # worker fun so we want to fail early here if the Queue is empty. It does not feel right but it
