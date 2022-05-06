@@ -66,7 +66,8 @@ def upload(
         bucket_url = httpx.URL(deposit_info.json()["links"]["bucket"] + "/")
         deposit_metadata = deposit_info.json()["metadata"]
         click.echo(
-            f"Uploading {len(files)} files to Zenodo deposit {deposit_id}: “{deposit_metadata['title']}”"
+            f"Uploading {len(files)} files to Zenodo deposit {deposit_id}:"
+            f" “{deposit_metadata['title']}” v{deposit_metadata.get('version', '??')}"
         )
         with rich.progress.Progress(
             *rich.progress.Progress.get_default_columns(),
