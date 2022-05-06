@@ -20,7 +20,12 @@ import yaml
     metavar="TOKEN",
     help="A Zenodo API token with upload rights for the targeted deposit",
 )
-@click.option("--config", "config_path", help="A YAML file with an upload config", type=click.Path(readable=True, dir_okay=False, path_type=pathlib.Path))
+@click.option(
+    "--config",
+    "config_path",
+    help="A YAML file with an upload config",
+    type=click.Path(readable=True, dir_okay=False, path_type=pathlib.Path),
+)
 @click.option(
     "--sandbox",
     is_flag=True,
@@ -59,7 +64,15 @@ def upload(
         deposit_info = client.get(deposit_url)
         deposit_info.raise_for_status()
         bucket_url = httpx.URL(deposit_info.json()["links"]["bucket"] + "/")
-        with rich.progress.Progress() as progress:
+        deposit_metadata = deposit_info.json()["metadata"]
+        click.echo(
+            f"Uploading {len(files)} files to Zenodo deposit {deposit_id}: “{deposit_metadata['title']}”"
+        )
+        with rich.progress.Progress(
+            *rich.progress.Progress.get_default_columns(),
+            rich.progress.DownloadColumn(),
+            rich.progress.TransferSpeedColumn(),
+        ) as progress:
             for f in files:
                 with open(f, "rb") as in_stream:
                     with progress.wrap_file(
