@@ -85,7 +85,12 @@ def upload(
                             bucket_url.join(urllib.parse.quote(f.name, safe="")),
                             content=wrapped_stream,
                         )
-                        r.raise_for_status()
+                        try:
+                            r.raise_for_status()
+                        except httpx.HTTPStatusError as e:
+                            click.echo(f"Error with upload of {f.name}")
+                            click.echo(r.json())
+                            raise e
 
 
 if __name__ == "__main__":
