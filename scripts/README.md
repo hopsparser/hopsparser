@@ -1,7 +1,10 @@
 Utility scripts
 ===============
 
-This contains utility scripts that are not part of the parser but make its usage easier.
+This contains utility scripts that are not part of the parser but make its usage easier. They can
+have additional dependencies that you can install using `pip install hopsparser[traintools]`
+
+## `zenodo_upload.py`: upload files to a Zenodo deposit
 
 ## `train_models.py`: training a treebank×configs matrix
 
@@ -39,7 +42,7 @@ this doesn't require access to GPUs.
 For reference, we train our models using
 
 ```console
-python scripts/train_models.py {repo_root}/examples/ {resource_dir}/treebanks --devices "cuda:0,cuda:1,cuda:0,cuda:1" --rand_seeds "0,1,2,3,4,5,6,7,8" --out-dir {output_dir}/newmodels --args "fasttext={resource_dir}/fasttext_model.bin"
+python scripts/train_models.py {repo_root}/examples/ {resource_dir}/treebanks --devices "cuda:0,cuda:1" --rand_seeds "0,1,2,3" --out-dir {output_dir}/newmodels" --args "max_tree_length=150"
 ```
 
 For our contemporary French models, the whole procedure takes around 36h/seed on our machine.
