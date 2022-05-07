@@ -55,8 +55,9 @@ def upload(
         base_url = httpx.URL("https://zenodo.org/api/")
 
     with httpx.Client(
-        params={"access_token": access_token},
         http2=True,
+        params={"access_token": access_token},
+        timeout=None,
     ) as client:
         deposit_url = base_url.join("deposit/depositions/").join(
             urllib.parse.quote(deposit_id, safe="")
