@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 [Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.4.2...HEAD
 
+The performances of the contemporary models in this release are improved, most notably for models
+not using BERT.
+
 ### Added
 
 - The `scripts/zenodo_upload.py` script, a helper for uploading files to a Zenodo deposit.
