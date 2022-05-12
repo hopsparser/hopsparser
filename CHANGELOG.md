@@ -22,6 +22,7 @@ not using BERT.
 - The CharRNN lexer now represent words with last hidden (instead of cell) state of the LSTM and do
   not run on padding anymore.
 - Minimal Pytorch version is now `1.9.0`
+- Minimal Transformers version is now `4.19.0`
 - Use `torch.inference_mode` instead of `toch.no_grad` over all the parser methods.
 - BERT lexer batches no longer have an obsolete, always zero `word_indices` attribute
 - `DependencyDataset` does not have lexicon attributes (`ito(lab|tag` and their inverse) since we
