@@ -8,7 +8,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-[Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.5.0...HEAD
+
+
+## [v0.5.0] — 2022-05-13
+
+[Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.4.2...v0.5.0
 
 The performances of the contemporary models in this release are improved, most notably for models
 not using BERT.
