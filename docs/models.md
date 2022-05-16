@@ -78,10 +78,10 @@ presented in Grobol et al. (2022).
 
 | Model name                                          | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) |                        Download                         |
 | :-------------------------------------------------- | :--------: | :-------: | :---------: | :--------: | :-----------------------------------------------------: |
-| UD_Old_French-SRCMF-2.9-bertrade_base               |   97.30    |   88.52   |    97.23    |   88.88    |        [link](UD_Old_French-SRCMF-bertrade_base)        |
-| UD_Old_French-SRCMF-2.9-bertrade_petit              |   96.88    |   87.23   |    96.93    |   87.87    |       [link](UD_Old_French-SRCMF-bertrade_petit)        |
-| UD_Old_French-SRCMF-2.9-camembert_base+mlm-fro      |   97.78    |   90.42   |    97.63    |   91.30    |   [link](UD_Old_French-SRCMF-camembert_base+mlm-fro)    |
-| UD_Old_French-SRCMF-2.9-flaubert_base_cased+mlm-fro |   97.71    |   91.12   |    97.62    |   91.07    | [link](UD_Old_French-SRCMF-flaubert_base_cased+mlm-fro) |
+| UD_Old_French-SRCMF-2.9-bertrade_base               |   97.30    |   88.52   |    97.23    |   88.88    |        [link][UD_Old_French-SRCMF-bertrade_base]        |
+| UD_Old_French-SRCMF-2.9-bertrade_petit              |   96.88    |   87.23   |    96.93    |   87.87    |       [link][UD_Old_French-SRCMF-bertrade_petit]        |
+| UD_Old_French-SRCMF-2.9-camembert_base+mlm-fro      |   97.78    |   90.42   |    97.63    |   91.30    |   [link][UD_Old_French-SRCMF-camembert_base+mlm-fro]    |
+| UD_Old_French-SRCMF-2.9-flaubert_base_cased+mlm-fro |   97.71    |   91.12   |    97.62    |   91.07    | [link][UD_Old_French-SRCMF-flaubert_base_cased+mlm-fro] |
 
 [UD_Old_French-SRCMF-bertrade_base]:
     https://zenodo.org/record/6542539/files/UD_Old_French-SRCMF-2.9-bertrade_base.tar.xz?download=1
