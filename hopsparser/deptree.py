@@ -24,17 +24,32 @@ class Edge(NamedTuple):
 class DepNode:
     identifier: int
     form: str
-    lemma: str
-    upos: str
-    xpos: str
-    feats: str
-    head: int
-    deprel: str
-    deps: str
-    misc: str
+    lemma: Optional[str]
+    upos: Optional[str]
+    xpos: Optional[str]
+    feats: Optional[str]
+    head: Optional[int]
+    deprel: Optional[str]
+    deps: Optional[str]
+    misc: Optional[str]
 
     def to_conll(self) -> str:
-        return f"{self.identifier}\t{self.form}\t{self.lemma}\t{self.upos}\t{self.xpos}\t{self.feats}\t{self.head}\t{self.deprel}\t{self.deps}\t{self.misc}"
+        row = [
+            str(c) if c is not None else "_"
+            for c in (
+                self.identifier,
+                self.form,
+                self.lemma,
+                self.upos,
+                self.xpos,
+                self.feats,
+                self.head,
+                self.deprel,
+                self.deps,
+                self.misc,
+            )
+        ]
+        return "\t".join(row)
 
 
 _T_DEPGRAPH = TypeVar("_T_DEPGRAPH", bound="DepGraph")
@@ -54,7 +69,7 @@ class DepGraph:
         self.nodes = list(nodes)
 
         govs = {n.identifier: n.head for n in self.nodes}
-        # FIXME: revise these checks to allow partial supervision
+        # FIXME: revise these checks to allow partial supervision
         if 0 not in govs.values():
             raise ValueError("Malformed tree: no root")
         # FIXME: This does not actually ensures that the tree is connex
@@ -72,19 +87,19 @@ class DepGraph:
         return [self.ROOT_TOKEN, *(n.form for n in self.nodes)]
 
     @property
-    def pos_tags(self) -> List[str]:
+    def pos_tags(self) -> List[Optional[str]]:
         """A list where each element list[i] is the upos of the word at position i."""
-        return [self.ROOT_TOKEN, *(n.upos for n in self.nodes)]
+        return [None, *(n.upos for n in self.nodes)]
 
     @property
-    def heads(self) -> List[int]:
+    def heads(self) -> List[Optional[int]]:
         """A list where each element list[i] is the index of the position of the governor of the word at position i."""
-        return [0, *(n.head for n in self.nodes)]
+        return [None, *(n.head for n in self.nodes)]
 
     @property
-    def deprels(self) -> List[str]:
+    def deprels(self) -> List[Optional[str]]:
         """A list where each element list[i] is the dependency label of of the word at position i."""
-        return [self.ROOT_TOKEN, *(n.deprel for n in self.nodes)]
+        return [None, *(n.deprel for n in self.nodes)]
 
     def replace(
         self, edges: Optional[Iterable[Edge]], pos_tags: Optional[Iterable[str]]
@@ -99,9 +114,12 @@ class DepGraph:
         else:
             govs = {e.dep: e.gov for e in edges}
             labels = {e.dep: e.label for e in edges}
+        new_pos_tags: List[Optional[str]]
         if pos_tags is None:
-            pos_tags = self.pos_tags[1:]
-        pos = {i: tag for i, tag in enumerate(pos_tags, start=1)}
+            new_pos_tags = [n.upos for n in self.nodes]
+        else:
+            new_pos_tags = list(pos_tags)
+        pos = {i: tag for i, tag in enumerate(new_pos_tags, start=1)}
         new_nodes = [
             DepNode(
                 identifier=node.identifier,

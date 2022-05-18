@@ -6,11 +6,11 @@ import random
 import shutil
 import warnings
 from typing import (
-    Any,
-    Dict,
     IO,
+    Any,
     BinaryIO,
     Callable,
+    Dict,
     Final,
     Iterable,
     List,
@@ -32,22 +32,21 @@ import pydantic
 import torch
 import transformers
 import yaml
-from bidict import bidict, BidirectionalMapping
+from bidict import BidirectionalMapping, bidict
 from boltons import iterutils as itu
 from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
 
-from hopsparser import deptree, lexers
-from hopsparser import utils
+from hopsparser import deptree, lexers, utils
 from hopsparser.deptree import DepGraph
 from hopsparser.lexers import (
     BertLexer,
     CharRNNLexer,
+    FastTextLexer,
     Lexer,
     SupportsTo,
     WordEmbeddingsLexer,
-    FastTextLexer,
     freeze_module,
 )
 from hopsparser.mst import chuliu_edmonds_one_root as chuliu_edmonds
@@ -55,7 +54,9 @@ from hopsparser.utils import smart_open
 
 
 def gen_tags(treelist: Iterable[DepGraph]) -> List[str]:
-    tagset = set([tag for tree in treelist for tag in tree.pos_tags[1:]])
+    tagset = set(
+        [tag for tree in treelist for tag in tree.pos_tags[1:] if tag is not None]
+    )
     if tagset.intersection((BiAffineParser.PAD_TOKEN, BiAffineParser.UNK_WORD)):
         raise ValueError("Tag conflict: the treebank contains reserved POS tags")
     return [
@@ -67,7 +68,7 @@ def gen_tags(treelist: Iterable[DepGraph]) -> List[str]:
 
 
 def gen_labels(treelist: Iterable[DepGraph]) -> List[str]:
-    labels = set([lbl for tree in treelist for lbl in tree.deprels])
+    labels = set([lbl for tree in treelist for lbl in tree.deprels if lbl is not None])
     if BiAffineParser.PAD_TOKEN in labels:
         raise ValueError("Tag conflict: the treebank contains reserved dep labels")
     return [BiAffineParser.PAD_TOKEN, *sorted(labels)]
@@ -278,7 +279,7 @@ class BiAffineParser(nn.Module):
         # The issue is `Lexer` is a protocol and we can't require them to be torch Modules (which is
         # a concrete class and you can't ask a protocol to subclass a concrete class or ask for the
         # intersection of a protocol and a concrete class), but we do need them to be torch Modules
-        # since the have to wrap them in a `ModuleDict` here`. Also we really don't want to separate
+        # since we have to wrap them in a `ModuleDict` here`. Also we really don't want to separate
         # lexers that wouldn't be torch Modules since that's really never going to happen in
         # practice.
         self.lexers = cast(
@@ -381,22 +382,23 @@ class BiAffineParser(nn.Module):
         batch_size = batch.heads.shape[0]
         num_padded_deps = batch.heads.shape[1]
         num_deprels = lab_scores.shape[-1]
-        # ARC LOSS
-        # [batch×num_deps, num_heads]
-        arc_scores_flat = arc_scores.view(-1, arc_scores.size(-1))
-        arc_loss = marginal_loss(arc_scores_flat, batch.heads.view(-1))
 
         # TAGGER_LOSS
         # [batch×sent_length, num_tags]
         tagger_scores_flat = tagger_scores.view(-1, tagger_scores.size(-1))
         tagger_loss = marginal_loss(tagger_scores_flat, batch.tags.view(-1))
 
-        # LABEL LOSS
-        # We will select the labels for the true heads, so we have to give a true head to
-        # the padding tokens (even if they will be ignored in the crossentropy since the true
-        # label for that head is set to -100) so we give them the root.
+        # ARC LOSS
+        # [batch×num_deps, num_heads]
+        arc_scores_flat = arc_scores.view(-1, arc_scores.size(-1))
+        arc_loss = marginal_loss(arc_scores_flat, batch.heads.view(-1))
+
+        # LABEL LOSS We will select the labels for the gold heads, so we have to provide one when
+        # there is none (either it is absent from the data or this is a padding token) to even if
+        # they will be ignored in the crossentropy since the true label for that head is set to -100
+        # so we give them the root.
         positive_heads = batch.heads.masked_fill(
-            batch.sentences.content_mask.logical_not(), 0
+            batch.heads.eq(self.LABEL_PADDING), 0
         )
         heads_selection = positive_heads.view(batch_size, num_padded_deps, 1, 1)
         # [batch, n_dependents, 1, n_labels]
@@ -453,28 +455,28 @@ class BiAffineParser(nn.Module):
                     tagger_scores, arc_scores, lab_scores, batch, loss_fnc
                 )
 
-                # greedy arc accuracy (without parsing)
-                arc_pred = arc_scores.argmax(dim=-1)
-                arc_accuracy = (
-                    arc_pred.eq(batch.heads)
-                    .logical_and(batch.sentences.content_mask)
-                    .sum()
-                )
-                arc_tp += arc_accuracy
-
                 # tagger accuracy
                 tag_pred = tagger_scores.argmax(dim=-1)
                 tag_accuracy = (
                     tag_pred.eq(batch.tags)
-                    .logical_and(batch.sentences.content_mask)
+                    .logical_and(batch.tags.ne(self.LABEL_PADDING))
                     .sum()
                 )
                 tag_tp += tag_accuracy
 
+                # greedy arc accuracy (without parsing)
+                arc_pred = arc_scores.argmax(dim=-1)
+                arc_accuracy = (
+                    arc_pred.eq(batch.heads)
+                    .logical_and(batch.heads.ne(self.LABEL_PADDING))
+                    .sum()
+                )
+                arc_tp += arc_accuracy
+
                 # greedy label accuracy (without parsing)
                 gold_heads_select = (
                     batch.heads.masked_fill(
-                        batch.sentences.content_mask.logical_not(), 0
+                        batch.heads.eq(self.LABEL_PADDING), 0
                     )
                     .view(batch.heads.shape[0], batch.heads.shape[1], 1, 1)
                     .expand(
@@ -491,7 +493,7 @@ class BiAffineParser(nn.Module):
                 lab_pred = gold_head_lab_scores.argmax(dim=-1)
                 lab_accuracy = (
                     lab_pred.eq(batch.labels)
-                    .logical_and(batch.sentences.content_mask)
+                    .logical_and(batch.labels.ne(self.LABEL_PADDING))
                     .sum()
                 )
                 lab_tp += lab_accuracy.item()
@@ -674,18 +676,28 @@ class BiAffineParser(nn.Module):
     def encode_tree(self, tree: DepGraph) -> EncodedTree:
         sentence = self.encode_sentence(tree.words[1:])
         tag_idxes = torch.tensor(
-            [self.tagset.get(tag, self.LABEL_PADDING) for tag in tree.pos_tags],
+            [
+                self.tagset.get(tag, self.LABEL_PADDING)
+                if tag is not None
+                else self.LABEL_PADDING
+                for tag in tree.pos_tags
+            ],
             dtype=torch.long,
         )
-        tag_idxes[0] = self.LABEL_PADDING
-        heads = torch.tensor(tree.heads, dtype=torch.long)
-        heads[0] = self.LABEL_PADDING
+        heads = torch.tensor(
+            [h if h is not None else self.LABEL_PADDING for h in tree.heads],
+            dtype=torch.long,
+        )
         # FIXME: should unk labels be padding?
         labels = torch.tensor(
-            [self.labels.get(lab, self.LABEL_PADDING) for lab in tree.deprels],
+            [
+                self.labels.get(lab, self.LABEL_PADDING)
+                if lab is not None
+                else self.LABEL_PADDING
+                for lab in tree.deprels
+            ],
             dtype=torch.long,
         )
-        labels[0] = self.LABEL_PADDING
         return EncodedTree(
             sentence=sentence,
             heads=heads,
