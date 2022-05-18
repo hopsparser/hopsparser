@@ -1,8 +1,9 @@
 import itertools
 from dataclasses import dataclass
-from typing import Iterable, List, NamedTuple, Optional, Type, TypeVar
+from typing import Iterable, List, NamedTuple, Optional, Type, TypeVar, cast
 
 from loguru import logger
+from pyparsing import col
 
 
 class MWERange(NamedTuple):
@@ -152,28 +153,31 @@ class DepGraph:
 
         mwe_ranges = []
         nodes = []
-        for cols in conll:
-            if "-" in cols[0]:
-                mwe_start, mwe_end = cols[0].split("-")
-                mwe_ranges.append(MWERange(int(mwe_start), int(mwe_end), cols[1]))
+        # FIXME: this is clunky, maybe write a better parser that does validation?
+        for row in conll:
+            processed_row: List[Optional[str]]
+            if "-" in row[0]:
+                mwe_start, mwe_end = row[0].split("-")
+                mwe_ranges.append(MWERange(int(mwe_start), int(mwe_end), row[1]))
                 continue
-            if len(cols) < 2:
+            if len(row) < 2:
                 raise ValueError("Too few columns to build a DepNode")
-            elif len(cols) < 10:
-                cols = [*cols, *("_" for _ in range(10 - len(cols)))]
-            if cols[6] == "_":
-                cols[6] = "0"
+            elif len(row) < 10:
+                processed_row = [*row, *("_" for _ in range(10 - len(row)))]
+            else:
+                processed_row = list(row)
+            processed_row[2:] = [c if c != "_" else None for c in processed_row[2:]]
             node = DepNode(
-                identifier=int(cols[0]),
-                form=cols[1],
-                lemma=cols[2],
-                upos=cols[3],
-                xpos=cols[4],
-                feats=cols[5],
-                head=int(cols[6]),
-                deprel=cols[7],
-                deps=cols[8],
-                misc=cols[9],
+                identifier=int(cast(str, processed_row[0])),
+                form=cast(str, processed_row[1]),
+                lemma=processed_row[2],
+                upos=processed_row[3],
+                xpos=processed_row[4],
+                feats=processed_row[5],
+                head=int(processed_row[6]) if processed_row[6] is not None else None,
+                deprel=processed_row[7],
+                deps=processed_row[8],
+                misc=processed_row[9],
             )
             nodes.append(node)
         return cls(
@@ -233,14 +237,14 @@ class DepGraph:
                 DepNode(
                     identifier=i,
                     form=w,
-                    lemma="_",
-                    upos="_",
-                    xpos="_",
-                    feats="_",
-                    head=0,
-                    deprel="_",
-                    deps="_",
-                    misc="_",
+                    lemma=None,
+                    upos=None,
+                    xpos=None,
+                    feats=None,
+                    head=None,
+                    deprel=None,
+                    deps=None,
+                    misc=None,
                 )
                 for i, w in enumerate(words, start=1)
             ],
