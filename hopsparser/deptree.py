@@ -69,12 +69,10 @@ class DepGraph:
         self.nodes = list(nodes)
 
         govs = {n.identifier: n.head for n in self.nodes}
-        # FIXME: revise these checks to allow partial supervision
-        if 0 not in govs.values():
+        if 0 not in govs.values() and None not in govs.values():
             raise ValueError("Malformed tree: no root")
-        # FIXME: This does not actually ensures that the tree is connex
-        if len(set(govs.values()).difference(govs.keys())) > 1:
-            raise ValueError("Malformed tree: non-connex")
+        if len(unreachable_heads := set(govs.values()).difference(govs.keys())) > 1:
+            raise ValueError(f"Malformed tree: unreachable heads: {unreachable_heads}")
 
         self.mwe_ranges = [] if mwe_ranges is None else list(mwe_ranges)
         self.metadata = [] if metadata is None else list(metadata)
