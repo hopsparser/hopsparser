@@ -1,5 +1,4 @@
 # Layer dimensions
-freeze_fasttext: false
 mlp_input: 512
 mlp_tag_hidden: 16
 mlp_arc_hidden: 512

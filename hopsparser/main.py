@@ -8,9 +8,9 @@ import warnings
 from typing import Literal, Optional
 
 import click
+from rich import box
 from rich.console import Console
 from rich.table import Table
-from rich import box
 
 from hopsparser import conll2018_eval as evaluator
 from hopsparser import parser
