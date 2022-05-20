@@ -86,7 +86,7 @@ def test_train_parse(
 
 
 def test_gold_evaluation(
-    script_runner: pytest_console_scripts.ScriptRunner, treebank: pathlib.Path
+    script_runner: pytest_console_scripts.ScriptRunner, test_treebank: pathlib.Path
 ):
     ret = script_runner.run(
         "eval_parse",
