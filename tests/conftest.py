@@ -17,7 +17,6 @@ def scripts_dir() -> pathlib.Path:
 
 @pytest.fixture(
     params=[
-        "truncated-sv_talbanken-ud-dev.conllu",
         "truncated-sv_talbanken-ud-dev-partial.conllu",
     ],
     scope="session",
