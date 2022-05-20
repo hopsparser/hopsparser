@@ -91,8 +91,8 @@ def test_gold_evaluation(
     ret = script_runner.run(
         "eval_parse",
         "-v",
-        str(treebank),
-        str(treebank),
+        str(test_treebank),
+        str(test_treebank),
     )
     assert ret.success
 
