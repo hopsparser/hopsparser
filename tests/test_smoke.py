@@ -49,12 +49,12 @@ def test_train_parse(
         device,
         str(tmp_path / "model"),
         str(treebank),
-        str(tmp_path / f"{treebank.stem}.parsed2.conllu"),
+        str(tmp_path / f"{test_treebank.stem}.parsed2.conllu"),
     )
     assert ret.success
     assert filecmp.cmp(
-        tmp_path / f"{treebank.stem}.parsed.conllu",
-        tmp_path / f"{treebank.stem}.parsed2.conllu",
+        tmp_path / f"{test_treebank.stem}.parsed.conllu",
+        tmp_path / f"{test_treebank.stem}.parsed2.conllu",
         shallow=False,
     )
     ret = script_runner.run(
