@@ -72,7 +72,11 @@ class DepGraph:
         govs = {n.identifier: n.head for n in self.nodes}
         if 0 not in govs.values() and None not in govs.values():
             raise ValueError("Malformed tree: no root")
-        if len(unreachable_heads := set(govs.values()).difference(govs.keys())) > 1:
+        if (
+            unreachable_heads := set(govs.values())
+            .difference(govs.keys())
+            .difference((0, None))
+        ):
             raise ValueError(f"Malformed tree: unreachable heads: {unreachable_heads}")
 
         self.mwe_ranges = [] if mwe_ranges is None else list(mwe_ranges)

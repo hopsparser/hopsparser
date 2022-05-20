@@ -1,10 +1,9 @@
 import filecmp
 import pathlib
 
-import torch.cuda
-
 import pytest
 import pytest_console_scripts
+import torch.cuda
 
 devices = ["cpu"]
 if torch.cuda.is_available():
@@ -19,6 +18,7 @@ def test_train_parse(
     tmp_path: pathlib.Path,
     train_config: pathlib.Path,
     treebank: pathlib.Path,
+    test_treebank: pathlib.Path,
 ):
     ret = script_runner.run(
         "hopsparser",
@@ -29,16 +29,16 @@ def test_train_parse(
         str(treebank),
         str(tmp_path),
         "--dev-file",
-        str(treebank),
+        str(test_treebank),
         "--test-file",
-        str(treebank),
+        str(test_treebank),
     )
     assert ret.success
     ret = script_runner.run(
         "eval_parse",
         "-v",
-        str(tmp_path / f"{treebank.stem}.parsed.conllu"),
-        str(treebank),
+        str(tmp_path / f"{test_treebank.stem}.parsed.conllu"),
+        str(test_treebank),
     )
     assert ret.success
     assert ret.success

@@ -2,16 +2,15 @@ import pathlib
 import tempfile
 from typing import List, Tuple
 
-import torch.cuda
-
 import hypothesis.strategies as st
 import pytest
+import torch.cuda
 from hypothesis import assume, given, settings
 from torch.testing import assert_close
 
-from hopsparser.parser import BiAffineParser
 from hopsparser.deptree import DepGraph
 from hopsparser.lexers import LexingError
+from hopsparser.parser import BiAffineParser
 
 devices = ["cpu"]
 if torch.cuda.is_available():
