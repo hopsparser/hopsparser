@@ -2,20 +2,38 @@ import pathlib
 
 import pytest
 
-from hopsparser import parser, deptree
+from hopsparser import deptree, parser
 
 
 @pytest.fixture(scope="session")
 def test_data_dir() -> pathlib.Path:
     return pathlib.Path(__file__).parent / "fixtures"
 
+
 @pytest.fixture(scope="session")
 def scripts_dir() -> pathlib.Path:
     return pathlib.Path(__file__).parent.parent / "scripts"
 
-@pytest.fixture(scope="session")
-def treebank(test_data_dir: pathlib.Path) -> pathlib.Path:
-    return test_data_dir / "truncated-sv_talbanken-ud-dev.conllu"
+
+@pytest.fixture(
+    params=[
+        "truncated-sv_talbanken-ud-dev.conllu",
+        "truncated-sv_talbanken-ud-dev-partial.conllu",
+    ],
+    scope="session",
+)
+def treebank(test_data_dir: pathlib.Path, request) -> pathlib.Path:
+    return test_data_dir / request.param
+
+
+@pytest.fixture(
+    params=[
+        "truncated-sv_talbanken-ud-dev.conllu",
+    ],
+    scope="session",
+)
+def test_treebank(test_data_dir: pathlib.Path, request) -> pathlib.Path:
+    return test_data_dir / request.param
 
 
 @pytest.fixture(scope="session")
