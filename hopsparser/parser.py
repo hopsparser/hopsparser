@@ -397,9 +397,7 @@ class BiAffineParser(nn.Module):
         # there is none (either it is absent from the data or this is a padding token) to even if
         # they will be ignored in the crossentropy since the true label for that head is set to -100
         # so we give them the root.
-        positive_heads = batch.heads.masked_fill(
-            batch.heads.eq(self.LABEL_PADDING), 0
-        )
+        positive_heads = batch.heads.masked_fill(batch.heads.eq(self.LABEL_PADDING), 0)
         heads_selection = positive_heads.view(batch_size, num_padded_deps, 1, 1)
         # [batch, n_dependents, 1, n_labels]
         heads_selection = heads_selection.expand(
@@ -432,12 +430,13 @@ class BiAffineParser(nn.Module):
         tag_tp = torch.zeros(1, dtype=torch.long, device=device)
         arc_tp = torch.zeros(1, dtype=torch.long, device=device)
         lab_tp = torch.zeros(1, dtype=torch.long, device=device)
-        overall_size = torch.zeros(1, dtype=torch.long, device=device)
+        overall_tag_size = torch.zeros(1, dtype=torch.long, device=device)
+        overall_arc_size = torch.zeros(1, dtype=torch.long, device=device)
+        overall_lab_size = torch.zeros(1, dtype=torch.long, device=device)
         gloss = torch.zeros(1, dtype=torch.float, device=device)
 
         with torch.inference_mode():
             for batch in dev_set:
-                overall_size += batch.sentences.content_mask.sum()
 
                 batch = batch.to(device)
 
@@ -457,27 +456,21 @@ class BiAffineParser(nn.Module):
 
                 # tagger accuracy
                 tag_pred = tagger_scores.argmax(dim=-1)
-                tag_accuracy = (
-                    tag_pred.eq(batch.tags)
-                    .logical_and(batch.tags.ne(self.LABEL_PADDING))
-                    .sum()
-                )
+                tags_mask = batch.tags.ne(self.LABEL_PADDING)
+                overall_tag_size += tags_mask.sum()
+                tag_accuracy = tag_pred.eq(batch.tags).logical_and(tags_mask).sum()
                 tag_tp += tag_accuracy
 
                 # greedy arc accuracy (without parsing)
                 arc_pred = arc_scores.argmax(dim=-1)
-                arc_accuracy = (
-                    arc_pred.eq(batch.heads)
-                    .logical_and(batch.heads.ne(self.LABEL_PADDING))
-                    .sum()
-                )
+                arc_mask = batch.heads.ne(self.LABEL_PADDING)
+                overall_arc_size += arc_mask.sum()
+                arc_accuracy = arc_pred.eq(batch.heads).logical_and(arc_mask).sum()
                 arc_tp += arc_accuracy
 
                 # greedy label accuracy (without parsing)
                 gold_heads_select = (
-                    batch.heads.masked_fill(
-                        batch.heads.eq(self.LABEL_PADDING), 0
-                    )
+                    batch.heads.masked_fill(batch.heads.eq(self.LABEL_PADDING), 0)
                     .view(batch.heads.shape[0], batch.heads.shape[1], 1, 1)
                     .expand(
                         batch.heads.shape[0],
@@ -491,18 +484,18 @@ class BiAffineParser(nn.Module):
                     lab_scores, -2, gold_heads_select
                 ).squeeze(-2)
                 lab_pred = gold_head_lab_scores.argmax(dim=-1)
-                lab_accuracy = (
-                    lab_pred.eq(batch.labels)
-                    .logical_and(batch.labels.ne(self.LABEL_PADDING))
-                    .sum()
-                )
+                lab_mask = batch.labels.ne(self.LABEL_PADDING)
+                overall_lab_size += lab_mask.sum()
+                lab_accuracy = lab_pred.eq(batch.labels).logical_and(lab_mask).sum()
                 lab_tp += lab_accuracy.item()
 
         return (
-            gloss.true_divide(overall_size).item(),
-            tag_tp.true_divide(overall_size).item(),
-            arc_tp.true_divide(overall_size).item(),
-            lab_tp.true_divide(overall_size).item(),
+            gloss.true_divide(
+                overall_tag_size + overall_arc_size + overall_lab_size
+            ).item(),
+            tag_tp.true_divide(overall_tag_size).item(),
+            arc_tp.true_divide(overall_arc_size).item(),
+            lab_tp.true_divide(overall_lab_size).item(),
         )
 
     def train_model(
@@ -558,7 +551,11 @@ class BiAffineParser(nn.Module):
             )
             self.train()
             for batch in train_batches:
-                overall_size += batch.sentences.content_mask.sum()
+                overall_size += (
+                    batch.tags.ne(self.LABEL_PADDING).sum()
+                    + batch.heads.ne(self.LABEL_PADDING).sum()
+                    + batch.labels.ne(self.LABEL_PADDING).sum()
+                )
 
                 batch = batch.to(device)
 
@@ -598,10 +595,15 @@ class BiAffineParser(nn.Module):
                     },
                 )
 
+                # FIXME: probably change the logic here, esp. for headless data
                 if dev_arc_acc > best_arc_acc:
                     logger.info(
                         f"New best model: head accuracy {dev_arc_acc:.2%} > {best_arc_acc:.2%}"
                     )
+                    self.save_params(weights_file)
+                    best_arc_acc = dev_arc_acc
+                elif math.isnan(dev_arc_acc):
+                    logger.debug("No head annotations in dev: saving model")
                     self.save_params(weights_file)
                     best_arc_acc = dev_arc_acc
             else:
