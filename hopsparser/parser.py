@@ -146,27 +146,22 @@ class SentencesBatch(NamedTuple):
       max_sentence_length)`
     - `sent_length` The lengths of the sentences in the batch as `LongTensor` with shape
       `(batch_size,)`
-    - `content_mask` A `BoolTensor` mask of shape `(batch_size, max_sentence_length)` such that
-      `content_mask[i, j]` is true iff the j-th word of the i-th sentence in the batch is neither
-      padding not the root (i.e. iff `1 <= j < sent_length[i]`).
     """
 
     words: Sequence[Sequence[str]]
     encodings: Dict[str, SupportsTo]
     sent_lengths: torch.Tensor
-    content_mask: torch.Tensor
 
     def to(
         self: _T_SentencesBatch, device: Union[str, torch.device]
     ) -> _T_SentencesBatch:
         return type(self)(
-            words=self.words,
             encodings={
                 lexer_name: encoded_batch.to(device)
                 for lexer_name, encoded_batch in self.encodings.items()
             },
             sent_lengths=self.sent_lengths,
-            content_mask=self.content_mask.to(device),
+            words=self.words,
         )
 
 
@@ -660,18 +655,9 @@ class BiAffineParser(nn.Module):
             [sent.sent_len for sent in sentences], dtype=torch.long
         )
 
-        content_mask = (
-            torch.arange(sent_lengths.max().item())
-            .unsqueeze(0)
-            .lt(sent_lengths.unsqueeze(1))
-        )
-        # For the root tokens
-        content_mask[:, 0] = False
-
         return SentencesBatch(
             words=words,
             encodings=encodings,
-            content_mask=content_mask,
             sent_lengths=sent_lengths,
         )
 
