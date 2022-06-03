@@ -138,12 +138,6 @@ class SentencesBatch(NamedTuple):
 
     - `words` The word forms for every sentence in the batch
     - `encodings` A dict mapping a lexer name to the correponding encoding of the batch of sentences
-    - `tags` The gold POS tags (if any) as a `LongTensor` with shape `(batch_size,
-      max_sentence_length)`
-    - `heads` The gold heads (if any) as a `LongTensor` with shape `(batch_size,
-      max_sentence_length)`
-    - `labels` The gold dependency labels (if any) as a `LongTensor` with shape `(batch_size,
-      max_sentence_length)`
     - `sent_length` The lengths of the sentences in the batch as `LongTensor` with shape
       `(batch_size,)`
     """
@@ -166,6 +160,18 @@ class SentencesBatch(NamedTuple):
 
 
 class EncodedTree(NamedTuple):
+    """Annotations for an `EncodedSentence`.
+    
+    ## Attributes
+
+    - `sentence`: the sentence in question
+    - `tags` The gold POS tags (if any) as a `LongTensor` with shape `(batch_size,
+      max_sentence_length)`
+    - `heads` The gold heads (if any) as a `LongTensor` with shape `(batch_size,
+      max_sentence_length)`
+    - `labels` The gold dependency labels (if any) as a `LongTensor` with shape `(batch_size,
+      max_sentence_length)`
+    """
     sentence: EncodedSentence
     heads: torch.Tensor
     labels: torch.Tensor
