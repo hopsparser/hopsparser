@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 [Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.5.0...HEAD
 
+### Changed
+
+- We now accept partially annotated CoNLL-U files as input for training: any learnable cell (UPOS,
+  HEAD, DEPREL) for which the value is `_` will not contribute to the loss.
+
 
 ## [v0.5.0] — 2022-05-13
 
