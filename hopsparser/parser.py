@@ -161,7 +161,7 @@ class SentencesBatch(NamedTuple):
 
 class EncodedTree(NamedTuple):
     """Annotations for an `EncodedSentence`.
-    
+
     ## Attributes
 
     - `sentence`: the sentence in question
@@ -172,6 +172,7 @@ class EncodedTree(NamedTuple):
     - `labels` The gold dependency labels (if any) as a `LongTensor` with shape `(batch_size,
       max_sentence_length)`
     """
+
     sentence: EncodedSentence
     heads: torch.Tensor
     labels: torch.Tensor
@@ -782,46 +783,55 @@ class BiAffineParser(nn.Module):
                     tagger_scores = tagger_scores[:sentence_length, :]
                     arc_scores = arc_scores[:sentence_length, :sentence_length]
                     lab_scores = lab_scores[:sentence_length, :sentence_length, :]
-                    # Predict heads
-                    probs = arc_scores.cpu().numpy()
-                    mst_heads_np = (
-                        np.argmax(probs, axis=1) if greedy else chuliu_edmonds(probs)
-                    )
-                    # shape: num_deps
-                    mst_heads = torch.from_numpy(mst_heads_np).to(device)
-
-                    # Predict tags
-                    tag_idxes = tagger_scores.argmax(dim=1)
-                    # Predict labels
-                    # shape: num_deps×1×num_deprel
-                    select = mst_heads.view(-1, 1, 1).expand(-1, 1, lab_scores.size(-1))
-                    # shape: num_deps×num_deprel
-                    selected = torch.gather(lab_scores, 1, select).view(
-                        sentence_length, -1
-                    )
-                    mst_labels = selected.argmax(dim=-1)
-
-                    # `[1:]` to ignore the root node's tag
-                    pos_tags = [
-                        self.tagset.inverse[idx] for idx in tag_idxes[1:].tolist()
-                    ]
-                    # `[1:]` to ignore the root node's head
-                    heads = mst_heads[1:].tolist()
-                    # `[1:]` to ignore the root node's deprel
-                    deprels = [
-                        self.labels.inverse[lbl] for lbl in mst_labels[1:].tolist()
-                    ]
-                    edges = [
-                        deptree.Edge(head_idx, lbl, dep_idx)
-                        for dep_idx, (head_idx, lbl) in enumerate(
-                            zip(heads, deprels), start=1
-                        )
-                    ]
-                    result_tree = tree.replace(
-                        edges=edges,
-                        pos_tags=pos_tags,
+                    result_tree = self._scores_to_tree(
+                        arc_scores=arc_scores,
+                        greedy=greedy,
+                        lab_scores=lab_scores,
+                        tagger_scores=tagger_scores,
+                        tree=tree,
                     )
                     yield result_tree
+
+    def _scores_to_tree(
+        self,
+        arc_scores: torch.Tensor,
+        greedy: bool,
+        lab_scores: torch.Tensor,
+        tagger_scores: torch.Tensor,
+        tree: DepGraph,
+    ):
+        sentence_length = lab_scores.shape[0]
+        # Predict heads
+        probs = arc_scores.cpu().numpy()
+        mst_heads_np = np.argmax(probs, axis=1) if greedy else chuliu_edmonds(probs)
+        # shape: num_deps
+        mst_heads = torch.from_numpy(mst_heads_np).to(lab_scores.device)
+
+        # Predict tags
+        tag_idxes = tagger_scores.argmax(dim=1)
+        # Predict labels
+        # shape: num_deps×1×num_deprel
+        select = mst_heads.view(-1, 1, 1).expand(-1, 1, lab_scores.size(-1))
+        # shape: num_deps×num_deprel
+        selected = torch.gather(lab_scores, 1, select).view(sentence_length, -1)
+        mst_labels = selected.argmax(dim=-1)
+
+        # `[1:]` to ignore the root node's tag
+        pos_tags = [self.tagset.inverse[idx] for idx in tag_idxes[1:].tolist()]
+        # `[1:]` to ignore the root node's head
+        heads = mst_heads[1:].tolist()
+        # `[1:]` to ignore the root node's deprel
+        deprels = [self.labels.inverse[lbl] for lbl in mst_labels[1:].tolist()]
+        edges = [
+            deptree.Edge(head_idx, lbl, dep_idx)
+            for dep_idx, (head_idx, lbl) in enumerate(zip(heads, deprels), start=1)
+        ]
+        result_tree = tree.replace(
+            edges=edges,
+            pos_tags=pos_tags,
+        )
+
+        return result_tree
 
     # FIXME: this is awkward when parsing pre-tokenized input: we should accept something like `inpt:
     # Iterable[Sequence[str]]`
