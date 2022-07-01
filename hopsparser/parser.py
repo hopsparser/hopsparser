@@ -74,6 +74,7 @@ def gen_labels(treelist: Iterable[DepGraph]) -> List[str]:
     return [BiAffineParser.PAD_TOKEN, *sorted(labels)]
 
 
+# FIXME: why does this not have relu in output????
 class MLP(nn.Module):
     def __init__(
         self, input_dim: int, hidden_dim: int, output_dim: int, dropout: float = 0.0

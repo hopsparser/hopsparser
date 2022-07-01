@@ -70,14 +70,16 @@ class DepGraph:
         self.nodes = list(nodes)
 
         govs = {n.identifier: n.head for n in self.nodes}
-        if 0 not in govs.values() and None not in govs.values():
-            raise ValueError("Malformed tree: no root")
-        if (
-            unreachable_heads := set(govs.values())
-            .difference(govs.keys())
-            .difference((0, None))
-        ):
-            raise ValueError(f"Malformed tree: unreachable heads: {unreachable_heads}")
+        # Only do checks on completly annotated trees
+        if None not in govs.values():
+            if 0 not in govs.values():
+                raise ValueError("Malformed tree: no root")
+            if (
+                unreachable_heads := set(govs.values())
+                .difference(govs.keys())
+                .difference((0, None))
+            ):
+                raise ValueError(f"Malformed tree: unreachable heads: {unreachable_heads}")
 
         self.mwe_ranges = [] if mwe_ranges is None else list(mwe_ranges)
         self.metadata = [] if metadata is None else list(metadata)
