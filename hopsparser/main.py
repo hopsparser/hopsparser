@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import sys
 import warnings
-from typing import Literal, Optional
+from typing import Literal, Optional, TextIO
 
 import click
 from rich import box
@@ -201,6 +201,11 @@ def train(
     "treebank_path",
     type=click.Path(resolve_path=True, exists=True, dir_okay=False, allow_dash=True),
 )
+@click.argument(
+    "output",
+    type=click.File(mode="w"),
+    default="-",
+)
 @device_opt
 @click.option(
     "--intermediary-dir",
@@ -222,6 +227,7 @@ def evaluate(
     intermediary_dir: str,
     model_path: pathlib.Path,
     out_format: Literal["json", "md", "terminal"],
+    output: TextIO,
     treebank_path: str,
 ):
     input_file: pathlib.Path
@@ -240,16 +246,16 @@ def evaluate(
     metrics_names = ("UPOS", "UAS", "LAS")
     if out_format == "md":
         output_metrics = {n: metrics[n].f1 for n in metrics_names}
-        click.echo(make_markdown_metrics_table(output_metrics))
+        click.echo(make_markdown_metrics_table(output_metrics), file=output)
     elif out_format == "terminal":
         metrics_table = Table(box=box.HORIZONTALS)
         for m in metrics_names:
             metrics_table.add_column(m, justify="center")
         metrics_table.add_row(*(f"{100*metrics[m].f1:.2f}" for m in metrics_names))
-        console = Console()
+        console = Console(file=output)
         console.print(metrics_table)
     elif out_format == "json":
-        json.dump({m: metrics[m].f1 for m in metrics_names}, sys.stdout)
+        json.dump({m: metrics[m].f1 for m in metrics_names}, output)
     else:
         raise ValueError(f"Unkown format {out_format!r}.")
 
