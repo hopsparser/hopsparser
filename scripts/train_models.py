@@ -1,6 +1,4 @@
-from ast import literal_eval
 import enum
-from io import StringIO
 import itertools
 import json
 import logging
@@ -9,6 +7,9 @@ import os.path
 import pathlib
 import shutil
 import sys
+from ast import literal_eval
+from io import StringIO
+from queue import Queue
 from typing import (
     Any,
     Callable,
@@ -19,22 +20,21 @@ from typing import (
     Sequence,
     Tuple,
     Union,
+    cast,
 )
 
 import click
 import pandas as pd
-
+import transformers
+import yaml
 from loguru import logger
 from rich import box
 from rich.console import Console
-from rich.progress import MofNCompleteColumn, Progress, TimeElapsedColumn, TaskID
+from rich.progress import MofNCompleteColumn, Progress, TaskID, TimeElapsedColumn
 from rich.table import Table
-import transformers
-import yaml
 
-from hopsparser import parser
-from hopsparser import utils
 from hopsparser import conll2018_eval as evaluator
+from hopsparser import parser, utils
 
 
 class Messages(enum.Enum):
@@ -59,6 +59,7 @@ def train_single_model(
     dev_file: pathlib.Path,
     log_epoch: Callable[[str, Dict[str, str]], Any],
     output_dir: pathlib.Path,
+    run_name: str,
     test_file: pathlib.Path,
     train_file: pathlib.Path,
 ) -> TrainResults:
@@ -66,9 +67,7 @@ def train_single_model(
     log_handler = logger.add(
         output_dir / "train.log",
         level="DEBUG",
-        format=(
-            "[hops]" " {time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} |" " {message}"
-        ),
+        format="[hops] {time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {message}",
         colorize=False,
     )
     model_path = output_dir / "model"
@@ -108,8 +107,8 @@ def train_single_model(
     if metrics_table.rows:
         out = Console(file=StringIO())
         out.print(metrics_table)
-        logger.info(f"\n{out.file.getvalue()}")
-    
+        logger.info(f"Metrics for {run_name}\n{cast(StringIO, out.file).getvalue()}")
+
     logger.remove(log_handler)
 
     return TrainResults(
@@ -120,30 +119,36 @@ def train_single_model(
     )
 
 
-def worker(device_queue, monitor_queue, name, kwargs) -> Tuple[str, TrainResults]:
+def worker(
+    device_queue: Queue,
+    monitor_queue: Queue,
+    run_name: str,
+    train_kwargs: Dict[str, Any],
+) -> Tuple[str, TrainResults]:
     # We use no more workers than devices so the queue should never be empty when launching the
     # worker fun so we want to fail early here if the Queue is empty. It does not feel right but it
     # works.
     device = device_queue.get(block=False)
+    # TODO: figure out a way to make the run name bubble up here
     log_handle = setup_logging(
         lambda m: monitor_queue.put((Messages.LOG, m)), rich_fmt=True
     )
-    kwargs["device"] = device
-    logger.info(f"Start training {name} on {device}")
-    with open(kwargs["config_file"]) as in_stream:
+    train_kwargs["device"] = device
+    logger.info(f"Start training {run_name} on {device}")
+    with open(train_kwargs["config_file"]) as in_stream:
         n_epochs = yaml.load(in_stream, Loader=yaml.SafeLoader)["epochs"]
-    monitor_queue.put((Messages.RUN_START, (name, n_epochs)))
+    monitor_queue.put((Messages.RUN_START, (run_name, n_epochs)))
 
     def log_epoch(*args, **kwargs):
         utils.log_epoch(*args, **kwargs)
-        monitor_queue.put((Messages.EPOCH_END, name))
+        monitor_queue.put((Messages.EPOCH_END, run_name))
 
-    res = train_single_model(**kwargs, log_epoch=log_epoch)
+    res = train_single_model(**train_kwargs, log_epoch=log_epoch, run_name=run_name)
     device_queue.put(device)
     # logger.info(f"Run {name} finished with results {res}")
-    monitor_queue.put((Messages.RUN_DONE, name))
+    monitor_queue.put((Messages.RUN_DONE, run_name))
     logger.remove(log_handle)
-    return (name, res)
+    return (run_name, res)
 
 
 def run_multi(
@@ -226,22 +231,23 @@ def parse_args_callback(
 
 
 class InterceptHandler(logging.Handler):
-        def emit(self, record):
-            # Get corresponding Loguru level if it exists
-            try:
-                level = logger.level(record.levelname).name
-            except ValueError:
-                level = record.levelno
+    def emit(self, record):
+        # Get corresponding Loguru level if it exists
+        try:
+            level = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
 
-            # Find caller from where originated the logged message
-            frame, depth = logging.currentframe(), 2
-            while frame.f_code.co_filename == logging.__file__:
-                frame = frame.f_back
-                depth += 1
+        # Find caller from where originated the logged message
+        frame, depth = logging.currentframe(), 2
+        while frame.f_code.co_filename == logging.__file__:
+            frame = frame.f_back
+            depth += 1
 
-            logger.opt(depth=depth, exception=record.exc_info).log(
-                level, record.getMessage()
-            )
+        logger.opt(depth=depth, exception=record.exc_info).log(
+            level, record.getMessage()
+        )
+
 
 def setup_logging(sink=sys.stderr, rich_fmt: bool = False):
     appname = "\\[hops_trainer]" if rich_fmt else "[hops_trainer]"
@@ -358,7 +364,7 @@ def main(
         ]
     else:
         args_names = []
-        additional_args_combinations = [{}]
+        additional_args_combinations = [dict()]
     runs: List[Tuple[str, Dict[str, Any]]] = []
     runs_dict: Dict[str, Dict] = dict()
     skipped_res: List[Tuple[str, TrainResults]] = []
