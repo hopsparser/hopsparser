@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import Iterable, List, NamedTuple, Optional, Type, TypeVar, cast
 
 from loguru import logger
-from pyparsing import col
 
 
 class MWERange(NamedTuple):

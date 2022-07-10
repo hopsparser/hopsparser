@@ -20,10 +20,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - We now accept partially annotated CoNLL-U files as input for training: any learnable cell (UPOS,
   HEAD, DEPREL) for which the value is `_` will not contribute to the loss.
 
-
 ## [v0.5.0] — 2022-05-13
 
-[Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.4.2...v0.5.0
+[v0.5.0]: https://github.com/hopsparser/hopsparser/compare/v0.4.2...v0.5.0
 
 The performances of the contemporary models in this release are improved, most notably for models
 not using BERT.

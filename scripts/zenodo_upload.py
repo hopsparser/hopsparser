@@ -1,6 +1,6 @@
 import pathlib
-from typing import Optional, Sequence
 import urllib.parse
+from typing import Optional, Sequence
 
 import click
 import httpx
