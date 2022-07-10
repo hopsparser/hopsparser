@@ -1,0 +1,251 @@
+{
+    "FTB-UD": {
+        "models": {
+            "UD_French-FTB-camembert": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9850,
+                        "LAS": 0.8837
+                    },
+                    "test": {
+                        "UPOS": 0.9857,
+                        "LAS": 0.8850
+                    }
+                },
+                "url": "https://zenodo.org/record/6525682/files/UD_French-FTB-camembert.tar.xz?download=1"
+            },
+            "UD_French-FTB-flaubert": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9847,
+                        "LAS": 0.8858
+                    },
+                    "test": {
+                        "UPOS": 0.9857,
+                        "LAS": 0.8855
+                    }
+                },
+                "url": "https://zenodo.org/record/6525682/files/UD_French-FTB-flaubert.tar.xz?download=1"
+            },
+            "UD_French-FTB-nobert-all": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9811,
+                        "LAS": 0.8535
+                    },
+                    "test": {
+                        "UPOS": 0.9817,
+                        "LAS": 0.8479
+                    }
+                },
+                "url": "https://zenodo.org/record/6525682/files/UD_French-FTB-nobert-all.tar.xz?download=1"
+            }
+        },
+        "treebank": null
+    },
+    "GSD-UD": {
+        "models": {
+            "UD_French-GSD-camembert": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9869,
+                        "LAS": 0.9577
+                    },
+                    "test": {
+                        "UPOS": 0.9843,
+                        "LAS": 0.9392
+                    }
+                },
+                "url": "https://zenodo.org/record/6525682/files/UD_French-GSD-camembert.tar.xz?download=1"
+            },
+            "UD_French-GSD-flaubert": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9864,
+                        "LAS": 0.9572
+                    },
+                    "test": {
+                        "UPOS": 0.9851,
+                        "LAS": 0.9419
+                    }
+                },
+                "url": "https://zenodo.org/record/6525682/files/UD_French-GSD-flaubert.tar.xz?download=1"
+            },
+            "UD_French-GSD-nobert-all": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9828,
+                        "LAS": 0.9281
+                    },
+                    "test": {
+                        "UPOS": 0.9775,
+                        "LAS": 0.8999
+                    }
+                },
+                "url": "https://zenodo.org/record/6525682/files/UD_French-GSD-nobert-all.tar.xz?download=1"
+            }
+        },
+        "treebank": {
+            "train": "https://github.com/UniversalDependencies/UD_French-GSD/raw/r2.9/fr_gsd-ud-train.conllu",
+            "dev": "https://github.com/UniversalDependencies/UD_French-GSD/raw/r2.9/fr_gsd-ud-dev.conllu",
+            "test": "https://github.com/UniversalDependencies/UD_French-GSD/raw/r2.9/fr_gsd-ud-test.conllu"
+        }
+    },
+    "Sequoia-UD": {
+        "models": {
+            "UD_French-Sequoia-camembert": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9893,
+                        "LAS": 0.9375
+                    },
+                    "test": {
+                        "UPOS": 0.9905,
+                        "LAS": 0.9368
+                    }
+                },
+                "url": "https://zenodo.org/record/6525682/files/UD_French-Sequoia-camembert.tar.xz?download=1"
+            },
+            "UD_French-Sequoia-flaubert": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9919,
+                        "LAS": 0.9443
+                    },
+                    "test": {
+                        "UPOS": 0.9933,
+                        "LAS": 0.9428
+                    }
+                },
+                "url": "https://zenodo.org/record/6525682/files/UD_French-Sequoia-flaubert.tar.xz?download=1"
+            },
+            "UD_French-Sequoia-nobert-all": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9771,
+                        "LAS": 0.8719
+                    },
+                    "test": {
+                        "UPOS": 0.9795,
+                        "LAS": 0.8693
+                    }
+                },
+                "url": "https://zenodo.org/record/6525682/files/UD_French-Sequoia-nobert-all.tar.xz?download=1"
+            }
+        },
+        "treebank": {
+            "train": "https://github.com/UniversalDependencies/UD_French-Sequoia/raw/r2.9/fr_sequoia-ud-train.conllu",
+            "dev": "https://github.com/UniversalDependencies/UD_French-Sequoia/raw/r2.9/fr_sequoia-ud-dev.conllu",
+            "test": "https://github.com/UniversalDependencies/UD_French-Sequoia/raw/r2.9/fr_sequoia-ud-test.conllu"
+        }
+    },
+    "French-Rhapsodie-UD": {
+        "models": {
+            "UD_French-Rhapsodie-camembert": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9720,
+                        "LAS": 0.8302
+                    },
+                    "test": {
+                        "UPOS": 0.9676,
+                        "LAS": 0.8241
+                    }
+                },
+                "url": "https://zenodo.org/record/6525682/files/UD_French-Rhapsodie-camembert.tar.xz?download=1"
+            },
+            "UD_French-Rhapsodie-flaubert": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9775,
+                        "LAS": 0.8469
+                    },
+                    "test": {
+                        "UPOS": 0.9739,
+                        "LAS": 0.8351
+                    }
+                },
+                "url": "https://zenodo.org/record/6525682/files/UD_French-Rhapsodie-flaubert.tar.xz?download=1"
+            },
+            "UD_French-Rhapsodie-nobert-all": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9639,
+                        "LAS": 0.7846
+                    },
+                    "test": {
+                        "UPOS": 0.9532,
+                        "LAS": 0.7655
+                    }
+                },
+                "url": "https://zenodo.org/record/6525682/files/UD_French-Rhapsodie-nobert-all.tar.xz?download=1"
+            }
+        },
+        "treebank": {
+            "train": "https://github.com/UniversalDependencies/UD_French-Rhapsodie/raw/r2.9/fr_rhapsodie-ud-train.conllu",
+            "dev": "https://github.com/UniversalDependencies/UD_French-Rhapsodie/raw/r2.9/fr_rhapsodie-ud-dev.conllu",
+            "test": "https://github.com/UniversalDependencies/UD_French-Rhapsodie/raw/r2.9/fr_rhapsodie-ud-test.conllu"
+        }
+    },
+    "SRCMF-UD": {
+        "models": {
+            "UD_Old_French-SRCMF-bertrade_base": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9730,
+                        "LAS": 0.8852
+                    },
+                    "test": {
+                        "UPOS": 0.9723,
+                        "LAS": 0.8888
+                    }
+                },
+                "url": "https://zenodo.org/record/6542539/files/UD_Old_French-SRCMF-2.9-bertrade_base.tar.xz?download=1"
+            },
+            "UD_Old_French-SRCMF-bertrade_petit": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9688,
+                        "LAS": 0.8723
+                    },
+                    "test": {
+                        "UPOS": 0.9693,
+                        "LAS": 0.8787
+                    }
+                },
+                "url": "https://zenodo.org/record/6542539/files/UD_Old_French-SRCMF-2.9-bertrade_petit.tar.xz?download=1"
+            },
+            "UD_Old_French-SRCMF-camembert_base+mlm-fro": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9778,
+                        "LAS": 0.9042
+                    },
+                    "test": {
+                        "UPOS": 0.9763,
+                        "LAS": 0.9130
+                    }
+                },
+                "url": "https://zenodo.org/record/6542539/files/UD_Old_French-SRCMF-2.9-camembert_base%2Bmlm-fro.tar.xz?download=1"
+            },
+            "UD_Old_French-SRCMF-flaubert_base_cased+mlm-fro": {
+                "scores": {
+                    "dev": {
+                        "UPOS": 0.9771,
+                        "LAS": 0.9112
+                    },
+                    "test": {
+                        "UPOS": 0.9762,
+                        "LAS": 0.9107
+                    }
+                },
+                "url": "https://zenodo.org/record/6542539/files/UD_Old_French-SRCMF-2.9-flaubert_base_cased%2Bmlm-fro.tar.xz?download=1"
+            }
+        },
+        "treebank": {
+            "train": "https://github.com/UniversalDependencies/UD_Old_French-SRCMF/raw/r2.9/fro_srcmf-ud-train.conllu",
+            "dev": "https://github.com/UniversalDependencies/UD_Old_French-SRCMF/raw/r2.9/fro_srcmf-ud-dev.conllu",
+            "test": "https://github.com/UniversalDependencies/UD_Old_French-SRCMF/raw/r2.9/fro_srcmf-ud-test.conllu"
+        }
+    }
+}
