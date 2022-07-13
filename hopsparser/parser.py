@@ -581,34 +581,41 @@ class BiAffineParser(nn.Module):
                 scheduler.step()
 
             if dev_set is not None:
-                dev_loss, dev_tag_acc, dev_arc_acc, dev_lab_acc = self.eval_model(
+                dev_loss, dev_tag_acc, dev_head_acc, dev_lab_acc = self.eval_model(
                     dev_set.make_batches(
                         batch_size, shuffle_batches=False, shuffle_data=False
                     ),
                     batch_size=batch_size,
                 )
+                # FIXME: this is not very elegant
                 log_epoch(
                     str(e),
                     {
                         "train loss": f"{train_loss.true_divide(overall_size).item():.4f}",
                         "dev loss": f"{dev_loss:.4f}",
-                        "dev tag acc": f"{dev_tag_acc:06.2%}",
-                        "dev head acc": f"{dev_arc_acc:06.2%}",
-                        "dev deprel acc": f"{dev_lab_acc:06.2%}",
+                        **{
+                            k: f"{v:06.2%}"
+                            for k, v in (
+                                ("dev tag acc", dev_tag_acc),
+                                ("dev head acc", dev_head_acc),
+                                ("dev deprel acc", dev_lab_acc),
+                            )
+                            if not math.isnan(v)
+                        },
                     },
                 )
 
                 # FIXME: probably change the logic here, esp. for headless data
-                if dev_arc_acc > best_arc_acc:
+                if dev_head_acc > best_arc_acc:
                     logger.info(
-                        f"New best model: head accuracy {dev_arc_acc:.2%} > {best_arc_acc:.2%}"
+                        f"New best model: head accuracy {dev_head_acc:.2%} > {best_arc_acc:.2%}"
                     )
                     self.save_params(weights_file)
-                    best_arc_acc = dev_arc_acc
-                elif math.isnan(dev_arc_acc):
+                    best_arc_acc = dev_head_acc
+                elif math.isnan(dev_head_acc):
                     logger.debug("No head annotations in dev: saving model")
                     self.save_params(weights_file)
-                    best_arc_acc = dev_arc_acc
+                    best_arc_acc = dev_head_acc
             else:
                 self.save_params(weights_file)
 
