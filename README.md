@@ -26,14 +26,14 @@ pip install hopsparser
 
 ## Inference
 
-This assumes you have an already trained model in the directory MODEL. You can parse a file
-INPUT_FILE using.
+This assumes you have an already trained model in the directory `MODEL`. You can parse a file
+`INPUT_FILE` using the following command
 
 ```sh
 hopsparser parse MODEL INPUT_FILE OUTPUT_FILE
 ```
 
-This results in a parsed file called `OUTPUT_FILE`. Both INPUT_FILE and OUTPUT_FILE can be set to
+This results in a parsed file at `OUTPUT_FILE`. Both `INPUT_FILE` and OUTPUT_FILE` can be set to
 `-` to use the standard i/o streams, which can be convenient if you want to use the parser in a
 pipe.
 
@@ -52,6 +52,9 @@ instance:
 
 That is, we require word indexation and word forms only. Empty words are currently not supported.
 Multi-word tokens are not taken into account by the parsing models but are preserved in the outputs.
+
+HOPS modifies the columns `UPOS`, `HEAD` and `DEPREL`, all the other columns and tree metadata are
+preserved.
 
 Alternatively, you may add the `--raw` flag to the command above, in which case the parser expects a
 pre-tokenized raw text file with one sentence per line and individual tokens separated by blanks.
@@ -89,6 +92,13 @@ hopsparser train CONFIG.yaml TRAIN.conllu OUTPUT_DIR --dev-file DEV.conllu --tes
 
 After some time (minutes, hours…) you are done and the model is ready to run (go back to the parsing
 section). There are other options, see `hopsparser train --help`.
+
+### Partial annotations
+
+The CoNLL-U files used for training may include missing annotations in either of the `UPOS`, `HEAD`
+and `DEPREL` columns, denoted by an underscore. In that case, the missing annotation will simply be
+ignored for training. For nodes where the `HEAD` information is missing, `DEPREL` will also be
+ignored.
 
 ## Citation
 
