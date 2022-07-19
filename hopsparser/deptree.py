@@ -184,6 +184,8 @@ class DepGraph:
                 deps=processed_row[8],
                 misc=processed_row[9],
             )
+            if node.head is None and node.deprel is not None:
+                logger.warning(f"Node with empty head and nonempty deprel: {node}")
             nodes.append(node)
         return cls(
             nodes=nodes,
