@@ -7,7 +7,8 @@ import fasttext
 import pytest
 import torch
 import transformers
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 from pytest_lazyfixture import lazy_fixture
 
 from hopsparser import lexers

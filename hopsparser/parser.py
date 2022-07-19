@@ -695,9 +695,9 @@ class BiAffineParser(nn.Module):
         labels = torch.tensor(
             [
                 self.labels.get(lab, self.LABEL_PADDING)
-                if lab is not None
+                if lab is not None and h is not None
                 else self.LABEL_PADDING
-                for lab in tree.deprels
+                for h, lab in zip(tree.heads, tree.deprels)
             ],
             dtype=torch.long,
         )
