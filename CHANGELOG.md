@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - `hopsparser evaluate` now accepts an optional output argument, allowing to write directly to a
   file if needed.
+- [A new script](test_models.py) to help catch performances regressions on released models.
 
 ### Changed
 
