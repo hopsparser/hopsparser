@@ -31,7 +31,7 @@ name = "hopsparser"
 readme = "README.md"
 requires-python = ">=3.8"
 urls = {repository = "https://github.com/hopsparser/hopsparser"}
-version = "0.5.0"
+version = "0.6.0"
 
 [options.optional_dependencies]
 traintools = [
