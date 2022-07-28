@@ -79,15 +79,18 @@ def parser(
 @given(
     stable_text=st.lists(
         st.text(alphabet=st.characters(blacklist_categories=["Zs", "C"]), min_size=1),
-        min_size=1, max_size=32,
+        min_size=1,
+        max_size=32,
     ),
     distractor_text_1=st.lists(
         st.text(alphabet=st.characters(blacklist_categories=["Zs", "C"]), min_size=1),
-        min_size=1, max_size=32,
+        min_size=1,
+        max_size=32,
     ),
     distractor_text_2=st.lists(
         st.text(alphabet=st.characters(blacklist_categories=["Zs", "C"]), min_size=1),
-        min_size=1, max_size=32,
+        min_size=1,
+        max_size=32,
     ),
 )
 def test_batch_invariance(
@@ -111,7 +114,7 @@ def test_batch_invariance(
         assume(False)
     with torch.no_grad():
         stable_length = len(stable_text) + 1
-        batch_stable = parser.batch_sentences([encoded_stable_text])
+        batch_stable = parser.batch_sentences([encoded_stable_text]).to(device)
         text_s1 = [encoded_stable_text, encoded_distractor_text_1]
         text_1s = [encoded_distractor_text_1, encoded_stable_text]
         text_s2 = [encoded_stable_text, encoded_distractor_text_2]
@@ -122,7 +125,7 @@ def test_batch_invariance(
             batch_stable.encodings, batch_stable.sent_lengths
         )
         for text, idx in ((text_s1, 0), (text_1s, 1), (text_s2, 0)):
-            batch = parser.batch_sentences(text)
+            batch = parser.batch_sentences(text).to(device)
             tagger_scores: torch.Tensor
             arc_scores: torch.Tensor
             lab_scores: torch.Tensor
