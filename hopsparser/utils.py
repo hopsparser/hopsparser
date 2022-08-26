@@ -7,10 +7,10 @@ import sys
 import tempfile
 from typing import IO, Dict, Generator, Optional, Union, cast
 
-from loguru import logger
-import rich.text
 import rich.progress
+import rich.text
 import transformers
+from loguru import logger
 
 
 @contextlib.contextmanager

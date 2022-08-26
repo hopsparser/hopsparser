@@ -1,8 +1,8 @@
 import json
 import math
 import pathlib
-from abc import abstractmethod
 import tempfile
+from abc import abstractmethod
 from typing import (
     Final,
     Iterable,
@@ -13,7 +13,6 @@ from typing import (
     Protocol,
     Sequence,
     Set,
-    Tuple,
     Type,
     TypeVar,
     Union,
@@ -23,7 +22,7 @@ import fasttext
 import torch
 import torch.jit
 import transformers
-from bidict import bidict, BidirectionalMapping
+from bidict import BidirectionalMapping, bidict
 from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
@@ -757,7 +756,7 @@ class BertLexer(nn.Module):
         )
 
     def encode(self, tokens_sequence: Sequence[str]) -> BertLexerSentence:
-        # The root token is remved here since the BERT model has no reason to know of it
+        # The root token is removed here since the BERT model has no reason to know of it
         # FIXME: this means that this lexer is not really reusable, we should find a better way to
         # get a representations for ROOT
         unrooted_tok_sequence = tokens_sequence[1:]
