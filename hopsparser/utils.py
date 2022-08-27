@@ -108,7 +108,7 @@ def setup_logging(verbose: bool, logfile: Optional[pathlib.Path] = None):
             ),
             colorize=False,
         )
-    
+
     class InterceptHandler(logging.Handler):
         def emit(self, record):
             # Get corresponding Loguru level if it exists
