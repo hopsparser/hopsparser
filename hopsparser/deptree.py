@@ -35,7 +35,8 @@ class Edge(NamedTuple):
 _T_Misc = TypeVar("_T_Misc", bound="Misc")
 
 
-class Misc(collections.abc.Sequence[str]):
+# FIXME: This should be `collections.abc.Sequence[str]` as soon as we can drop py38
+class Misc(collections.abc.Sequence):
     def __init__(self, elements: Optional[Sequence[str]] = None):
         if elements is None:
             elements = []
