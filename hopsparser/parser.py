@@ -178,6 +178,7 @@ class EncodedTree(NamedTuple):
     heads: torch.Tensor
     labels: torch.Tensor
     tags: torch.Tensor
+    annotations: Dict[str, torch.Tensor]
 
 
 _T_DependencyBatch = TypeVar("_T_DependencyBatch", bound="DependencyBatch")
@@ -203,6 +204,7 @@ class DependencyBatch(NamedTuple):
     tags: torch.Tensor
     heads: torch.Tensor
     labels: torch.Tensor
+    annotations: Dict[str, torch.Tensor]
 
     def to(
         self: _T_DependencyBatch, device: Union[str, torch.device]
@@ -213,6 +215,7 @@ class DependencyBatch(NamedTuple):
             tags=self.tags.to(device),
             heads=self.heads.to(device),
             labels=self.labels.to(device),
+            annotations={k: v.to(device) for k, v in self.annotations.items()},
         )
 
 
@@ -262,6 +265,7 @@ class BiAffineParser(nn.Module):
         mlp_lab_hidden: int,
         mlp_dropout: float,
         tagset: Sequence[str],
+        annotations_labels: Optional[Dict[str, Sequence[str]]] = None,
     ):
 
         super(BiAffineParser, self).__init__()
@@ -272,6 +276,16 @@ class BiAffineParser(nn.Module):
         self.labels: BidirectionalMapping[str, int] = bidict(
             (l, i) for i, l in enumerate(labels)
         )
+        self.annotations: Dict[str, BidirectionalMapping[str, int]]
+        if annotations_labels is not None:
+            self.annotations = {
+                name: bidict((l, i) for i, l in enumerate(labels))
+                for name, labels in annotations_labels.items()
+            }
+        else:
+            self.annotations = dict()
+        self.annotations_order = sorted(self.annotations.keys())
+
         self.mlp_arc_hidden: Final[int] = mlp_arc_hidden
         self.mlp_input: Final[int] = mlp_input
         self.mlp_tag_hidden: Final[int] = mlp_tag_hidden
@@ -701,11 +715,19 @@ class BiAffineParser(nn.Module):
             ],
             dtype=torch.long,
         )
+        annotations = {
+            name: torch.tensor(
+                [self.annotations[name][node.misc.mapping[name]] for node in tree.nodes]
+            )
+            for name in self.annotations_order
+        }
+
         return EncodedTree(
             sentence=sentence,
             heads=heads,
             labels=labels,
             tags=tag_idxes,
+            annotations=annotations,
         )
 
     def batch_trees(
@@ -734,6 +756,14 @@ class BiAffineParser(nn.Module):
             batch_first=True,
             padding_value=self.LABEL_PADDING,
         )
+        annotations = {
+            name: pad_sequence(
+                [tree.annotations[name] for tree in encoded_trees],
+                batch_first=True,
+                padding_value=self.LABEL_PADDING,
+            )
+            for name in self.annotations_order
+        }
 
         return DependencyBatch(
             sentences=sentences,
@@ -741,6 +771,7 @@ class BiAffineParser(nn.Module):
             labels=labels,
             tags=tags,
             trees=trees,
+            annotations=annotations,
         )
 
     def batched_predict(
