@@ -18,6 +18,7 @@ from typing import (
     NamedTuple,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Type,
     TypedDict,
@@ -54,24 +55,25 @@ from hopsparser.utils import smart_open
 
 
 def gen_tags(treelist: Iterable[DepGraph]) -> List[str]:
-    tagset = set(
-        [tag for tree in treelist for tag in tree.pos_tags[1:] if tag is not None]
-    )
-    if tagset.intersection((BiAffineParser.PAD_TOKEN, BiAffineParser.UNK_WORD)):
-        raise ValueError("Tag conflict: the treebank contains reserved POS tags")
-    return [
-        BiAffineParser.PAD_TOKEN,
-        DepGraph.ROOT_TOKEN,
-        BiAffineParser.UNK_WORD,
-        *sorted(tagset),
-    ]
+    tagset = {tag for tree in treelist for tag in tree.pos_tags[1:] if tag is not None}
+    return sorted(tagset)
+
+
+def gen_annotations_labels(
+    treelist: Iterable[DepGraph], annotation_names: Sequence[str]
+) -> Dict[str, List[str]]:
+    label_sets: Dict[str, Set[str]] = {name: set() for name in annotation_names}
+    for tree in treelist:
+        for node in tree.nodes:
+            for name, labels in label_sets.items():
+                node_label = node.misc.mapping[name]
+                labels.add(node_label)
+    return {name: sorted(labels) for name, labels in label_sets.items()}
 
 
 def gen_labels(treelist: Iterable[DepGraph]) -> List[str]:
-    labels = set([lbl for tree in treelist for lbl in tree.deprels if lbl is not None])
-    if BiAffineParser.PAD_TOKEN in labels:
-        raise ValueError("Tag conflict: the treebank contains reserved dep labels")
-    return [BiAffineParser.PAD_TOKEN, *sorted(labels)]
+    label_sets = {lbl for tree in treelist for lbl in tree.deprels if lbl is not None}
+    return sorted(label_sets)
 
 
 # FIXME: why does this not have relu in output????
@@ -244,7 +246,6 @@ _T_BiAffineParser = TypeVar("_T_BiAffineParser", bound="BiAffineParser")
 class BiAffineParser(nn.Module):
     """Biaffine Dependency Parser."""
 
-    PAD_TOKEN: Final[str] = "<pad>"
     UNK_WORD: Final[str] = "<unk>"
     # Labels that are -100 are ignored in torch crossentropy (we still set it explicitely)
     LABEL_PADDING: Final[int] = -100
@@ -715,9 +716,16 @@ class BiAffineParser(nn.Module):
             ],
             dtype=torch.long,
         )
+        # Double get here: this way, if the annotation isn't present in the MISC column OR if it's
+        # present but with an unknown value
         annotations = {
             name: torch.tensor(
-                [self.annotations[name][node.misc.mapping[name]] for node in tree.nodes]
+                [
+                    self.annotations[name].get(
+                        node.misc.mapping.get(name), self.LABEL_PADDING
+                    )
+                    for node in tree.nodes
+                ]
             )
             for name in self.annotations_order
         }
