@@ -1,6 +1,18 @@
+import collections.abc
 import itertools
+import re
 from dataclasses import dataclass
-from typing import Iterable, List, NamedTuple, Optional, Type, TypeVar, cast
+from typing import (
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Type,
+    TypeVar,
+    cast,
+)
 
 from loguru import logger
 
@@ -20,6 +32,39 @@ class Edge(NamedTuple):
     dep: int
 
 
+_T_Misc = TypeVar("_T_Misc", bound="Misc")
+
+
+class Misc(collections.abc.Sequence[str]):
+    def __init__(self, elements: Sequence[str]):
+        self._lst = list(elements)
+        self.mapping: Dict[str, str] = dict()
+        self._parse()
+
+    def _parse(self):
+        mapping = dict()
+        for e in self._lst:
+            if m := re.match("(?P<key>.+?)=(?P<value>.*)", e):
+                mapping[m.group("key")] = m.group("value")
+
+    def __getitem__(self, index):
+        return self._lst[index]
+
+    def __len__(self) -> int:
+        return len(self._lst)
+
+    def to_conllu(self) -> str:
+        if not self._lst:
+            return "_"
+        return "|".join(self._lst)
+
+    @classmethod
+    def from_string(cls: Type[_T_Misc], s: str) -> _T_Misc:
+        if s == "_":
+            return cls([])
+        return cls(s.split("|"))
+
+
 @dataclass(eq=False)
 class DepNode:
     identifier: int
@@ -31,23 +76,25 @@ class DepNode:
     head: Optional[int]
     deprel: Optional[str]
     deps: Optional[str]
-    misc: Optional[str]
+    misc: Misc
 
     def to_conll(self) -> str:
         row = [
-            str(c) if c is not None else "_"
-            for c in (
-                self.identifier,
-                self.form,
-                self.lemma,
-                self.upos,
-                self.xpos,
-                self.feats,
-                self.head,
-                self.deprel,
-                self.deps,
-                self.misc,
-            )
+            str(self.identifier),
+            self.form,
+            *(
+                str(c) if c is not None else "_"
+                for c in (
+                    self.lemma,
+                    self.upos,
+                    self.xpos,
+                    self.feats,
+                    self.head,
+                    self.deprel,
+                    self.deps,
+                )
+            ),
+            self.misc.to_conllu(),
         ]
         return "\t".join(row)
 
@@ -78,7 +125,9 @@ class DepGraph:
                 .difference(govs.keys())
                 .difference((0, None))
             ):
-                raise ValueError(f"Malformed tree: unreachable heads: {unreachable_heads}")
+                raise ValueError(
+                    f"Malformed tree: unreachable heads: {unreachable_heads}"
+                )
 
         self.mwe_ranges = [] if mwe_ranges is None else list(mwe_ranges)
         self.metadata = [] if metadata is None else list(metadata)
@@ -171,7 +220,7 @@ class DepGraph:
                 processed_row = [*row, *("_" for _ in range(10 - len(row)))]
             else:
                 processed_row = list(row)
-            processed_row[2:] = [c if c != "_" else None for c in processed_row[2:]]
+            processed_row[2:9] = [c if c != "_" else None for c in processed_row[2:9]]
             node = DepNode(
                 identifier=int(cast(str, processed_row[0])),
                 form=cast(str, processed_row[1]),
@@ -182,7 +231,7 @@ class DepGraph:
                 head=int(processed_row[6]) if processed_row[6] is not None else None,
                 deprel=processed_row[7],
                 deps=processed_row[8],
-                misc=processed_row[9],
+                misc=Misc.from_string(cast(str, processed_row[9])),
             )
             if node.head is None and node.deprel is not None:
                 logger.warning(f"Node with empty head and nonempty deprel: {node}")
