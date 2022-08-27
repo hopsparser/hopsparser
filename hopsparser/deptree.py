@@ -36,7 +36,9 @@ _T_Misc = TypeVar("_T_Misc", bound="Misc")
 
 
 class Misc(collections.abc.Sequence[str]):
-    def __init__(self, elements: Sequence[str]):
+    def __init__(self, elements: Optional[Sequence[str]] = None):
+        if elements is None:
+            elements = []
         self._lst = list(elements)
         self.mapping: Dict[str, str] = dict()
         self._parse()
@@ -300,7 +302,7 @@ class DepGraph:
                     head=None,
                     deprel=None,
                     deps=None,
-                    misc=None,
+                    misc=Misc(),
                 )
                 for i, w in enumerate(words, start=1)
             ],
