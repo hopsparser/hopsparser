@@ -249,6 +249,13 @@ class BiAffineParserConfig(pydantic.BaseModel):
     lexers: Dict[str, str]
 
 
+class BiaffineParserOutput(NamedTuple):
+    tag_scores: torch.Tensor
+    arc_scores: torch.Tensor
+    lab_scores: torch.Tensor
+    extra_labels_scores: Dict[str, torch.Tensor]
+
+
 _T_BiAffineParser = TypeVar("_T_BiAffineParser", bound="BiAffineParser")
 
 
@@ -376,7 +383,7 @@ class BiAffineParser(nn.Module):
         self,
         encodings: Dict[str, Any],
         sent_lengths: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> BiaffineParserOutput:
         """Predict POS, heads and deprel scores.
 
         ## Outputs
@@ -411,31 +418,42 @@ class BiAffineParser(nn.Module):
         arc_scores = self.arc_biaffine(arc_d, arc_h).squeeze(-1)
         lab_scores = self.lab_biaffine(lab_d, lab_h)
 
-        return tag_scores, arc_scores, lab_scores
+        extra_labels_scores = dict()
+        for name, annotator in self.annotators.items():
+            extra_labels_scores[name] = annotator(dep_embeddings)
+
+        return BiaffineParserOutput(
+            tag_scores=tag_scores,
+            arc_scores=arc_scores,
+            lab_scores=lab_scores,
+            extra_labels_scores=extra_labels_scores,
+        )
 
     # TODO: make this an independent function
     # TODO: hardcode the marginal loss for now
     # TODO: JIT this (or split it and jit the marginals?)
     def parser_loss(
         self,
-        tagger_scores: torch.Tensor,
-        arc_scores: torch.Tensor,
-        lab_scores: torch.Tensor,
+        parser_output: BiaffineParserOutput,
         batch: DependencyBatch,
         marginal_loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
     ) -> torch.Tensor:
         batch_size = batch.heads.shape[0]
         num_padded_deps = batch.heads.shape[1]
-        num_deprels = lab_scores.shape[-1]
+        num_deprels = parser_output.lab_scores.shape[-1]
 
         # TAGGER_LOSS
         # [batch×sent_length, num_tags]
-        tagger_scores_flat = tagger_scores.view(-1, tagger_scores.size(-1))
+        tagger_scores_flat = parser_output.tag_scores.view(
+            -1, parser_output.tag_scores.size(-1)
+        )
         tagger_loss = marginal_loss(tagger_scores_flat, batch.tags.view(-1))
 
         # ARC LOSS
         # [batch×num_deps, num_heads]
-        arc_scores_flat = arc_scores.view(-1, arc_scores.size(-1))
+        arc_scores_flat = parser_output.arc_scores.view(
+            -1, parser_output.arc_scores.size(-1)
+        )
         arc_loss = marginal_loss(arc_scores_flat, batch.heads.view(-1))
 
         # LABEL LOSS We will select the labels for the gold heads, so we have to provide one when
@@ -449,7 +467,9 @@ class BiAffineParser(nn.Module):
             batch_size, num_padded_deps, 1, num_deprels
         )
         # [batch, n_dependents, 1, n_labels]
-        predicted_labels_scores = torch.gather(lab_scores, -2, heads_selection)
+        predicted_labels_scores = torch.gather(
+            parser_output.lab_scores, -2, heads_selection
+        )
 
         # [batch×sent_len, n_labels]
         predicted_labels_scores_flat = predicted_labels_scores.view(-1, num_deprels)
@@ -487,27 +507,19 @@ class BiAffineParser(nn.Module):
 
                 # workaround since the design of torch modules makes it hard
                 # for static analyzer to find out their return type
-                tagger_scores: torch.Tensor
-                arc_scores: torch.Tensor
-                lab_scores: torch.Tensor
-                tagger_scores, arc_scores, lab_scores = self(
-                    batch.sentences.encodings,
-                    batch.sentences.sent_lengths,
-                )
+                output: BiaffineParserOutput = self(batch.sentences.encodings, batch.sentences.sent_lengths)
 
-                gloss += self.parser_loss(
-                    tagger_scores, arc_scores, lab_scores, batch, loss_fnc
-                )
+                gloss += self.parser_loss(output, batch, loss_fnc)
 
                 # tagger accuracy
-                tag_pred = tagger_scores.argmax(dim=-1)
+                tag_pred = output.tag_scores.argmax(dim=-1)
                 tags_mask = batch.tags.ne(self.LABEL_PADDING)
                 overall_tag_size += tags_mask.sum()
                 tag_accuracy = tag_pred.eq(batch.tags).logical_and(tags_mask).sum()
                 tag_tp += tag_accuracy
 
                 # greedy arc accuracy (without parsing)
-                arc_pred = arc_scores.argmax(dim=-1)
+                arc_pred = output.arc_scores.argmax(dim=-1)
                 arc_mask = batch.heads.ne(self.LABEL_PADDING)
                 overall_arc_size += arc_mask.sum()
                 arc_accuracy = arc_pred.eq(batch.heads).logical_and(arc_mask).sum()
@@ -521,12 +533,12 @@ class BiAffineParser(nn.Module):
                         batch.heads.shape[0],
                         batch.heads.shape[1],
                         1,
-                        lab_scores.shape[-1],
+                        output.lab_scores.shape[-1],
                     )
                 )
                 # shape: num_padded_deps×num_padded_heads
                 gold_head_lab_scores = torch.gather(
-                    lab_scores, -2, gold_heads_select
+                    output.lab_scores, -2, gold_heads_select
                 ).squeeze(-2)
                 lab_pred = gold_head_lab_scores.argmax(dim=-1)
                 lab_mask = batch.labels.ne(self.LABEL_PADDING)
@@ -605,14 +617,9 @@ class BiAffineParser(nn.Module):
                 batch = batch.to(device)
 
                 # FORWARD
-                tagger_scores, arc_scores, lab_scores = self(
-                    batch.sentences.encodings,
-                    batch.sentences.sent_lengths,
-                )
+                output: BiaffineParserOutput = self(batch.sentences.encodings, batch.sentences.sent_lengths)
 
-                loss = self.parser_loss(
-                    tagger_scores, arc_scores, lab_scores, batch, loss_fnc
-                )
+                loss = self.parser_loss(output, batch, loss_fnc)
 
                 with torch.inference_mode():
                     train_loss += loss
@@ -827,16 +834,8 @@ class BiAffineParser(nn.Module):
                 else:
                     batch_sentences = batch
                 # batch prediction
-                # workaround since the design of torch modules makes it hard
-                # for static analyzer to find out their return type
-                tagger_scores_batch: torch.Tensor
-                arc_scores_batch: torch.Tensor
-                lab_scores_batch: torch.Tensor
-                tagger_scores_batch, arc_scores_batch, lab_scores_batch = self(
-                    batch_sentences.encodings,
-                    batch_sentences.sent_lengths,
-                )
-                arc_scores_batch = arc_scores_batch.cpu()
+                output: BiaffineParserOutput = self(batch_sentences.encodings, batch_sentences.sent_lengths)
+                arc_scores = output.arc_scores.cpu()
 
                 if isinstance(batch, DependencyBatch):
                     trees = batch.trees
@@ -845,24 +844,24 @@ class BiAffineParser(nn.Module):
                 for (
                     tree,
                     sentence_length,
-                    tagger_scores,
-                    arc_scores,
-                    lab_scores,
+                    tree_tagger_scores,
+                    tree_arc_scores,
+                    tree_lab_scores,
                 ) in zip(
                     trees,
                     batch_sentences.sent_lengths,
-                    tagger_scores_batch,
-                    arc_scores_batch,
-                    lab_scores_batch,
+                    output.tag_scores,
+                    arc_scores,
+                    output.lab_scores,
                 ):
-                    tagger_scores = tagger_scores[:sentence_length, :]
-                    arc_scores = arc_scores[:sentence_length, :sentence_length]
-                    lab_scores = lab_scores[:sentence_length, :sentence_length, :]
+                    tree_tagger_scores = tree_tagger_scores[:sentence_length, :]
+                    tree_arc_scores = tree_arc_scores[:sentence_length, :sentence_length]
+                    tree_lab_scores = tree_lab_scores[:sentence_length, :sentence_length, :]
                     result_tree = self._scores_to_tree(
-                        arc_scores=arc_scores,
+                        arc_scores=tree_arc_scores,
                         greedy=greedy,
-                        lab_scores=lab_scores,
-                        tagger_scores=tagger_scores,
+                        lab_scores=tree_lab_scores,
+                        tagger_scores=tree_tagger_scores,
                         tree=tree,
                     )
                     yield result_tree

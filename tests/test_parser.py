@@ -10,7 +10,7 @@ from torch.testing import assert_close
 
 from hopsparser.deptree import DepGraph
 from hopsparser.lexers import LexingError
-from hopsparser.parser import BiAffineParser
+from hopsparser.parser import BiAffineParser, BiaffineParserOutput
 
 devices = ["cpu"]
 if torch.cuda.is_available():
@@ -121,7 +121,7 @@ def test_batch_invariance(
         ref_tagger_scores: torch.Tensor
         ref_arc_scores: torch.Tensor
         ref_lab_scores: torch.Tensor
-        ref_tagger_scores, ref_arc_scores, ref_lab_scores = parser(
+        ref_output: BiaffineParserOutput = parser(
             batch_stable.encodings, batch_stable.sent_lengths
         )
         for text, idx in ((text_s1, 0), (text_1s, 1), (text_s2, 0)):
@@ -129,21 +129,24 @@ def test_batch_invariance(
             tagger_scores: torch.Tensor
             arc_scores: torch.Tensor
             lab_scores: torch.Tensor
-            tagger_scores, arc_scores, lab_scores = parser(
-                batch.encodings, batch.sent_lengths
+            output: BiaffineParserOutput = parser(batch.encodings, batch.sent_lengths)
+            assert_close(
+                ref_output.tag_scores[0, :stable_length, :],
+                output.tag_scores[idx, :stable_length, :],
             )
             assert_close(
-                ref_tagger_scores[0, :stable_length, :],
-                tagger_scores[idx, :stable_length, :],
+                ref_output.arc_scores[0, :stable_length, :stable_length],
+                output.arc_scores[idx, :stable_length, :stable_length],
             )
             assert_close(
-                ref_arc_scores[0, :stable_length, :stable_length],
-                arc_scores[idx, :stable_length, :stable_length],
+                ref_output.lab_scores[0, :stable_length, :stable_length, :],
+                output.lab_scores[idx, :stable_length, :stable_length, :],
             )
-            assert_close(
-                ref_lab_scores[0, :stable_length, :stable_length, :],
-                lab_scores[idx, :stable_length, :stable_length, :],
-            )
+            for name, scores in output.extra_labels_scores.items():
+                assert_close(
+                    ref_output.extra_labels_scores[name][0, :stable_length, :],
+                    scores[idx, :stable_length, :],
+                )
 
 
 @pytest.mark.parametrize("device", devices)
