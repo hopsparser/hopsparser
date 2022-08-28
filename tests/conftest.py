@@ -48,6 +48,7 @@ def raw_text(test_data_dir: pathlib.Path) -> pathlib.Path:
         "toy_onlychars",
         "toy_onlyfasttext",
         "toy_onlywords",
+        "toy_onlywords_spaceafter",
     ],
     scope="session",
 )

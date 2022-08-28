@@ -1,0 +1,20 @@
+# Layer dimensions
+mlp_input: 512
+mlp_tag_hidden: 16
+mlp_arc_hidden: 512
+mlp_lab_hidden: 128
+# Training hyperparameters
+encoder_dropout: 0.6
+mlp_dropout: 0.5
+batch_size: 32
+epochs: 2
+lr:
+  base: 0.001
+lexers:
+  - name: word_embeddings
+    type: words
+    embedding_size: 128
+    word_dropout: 0.6
+extra_annotations:
+  "SpaceAfter":
+    hidden_layer_size: 16
