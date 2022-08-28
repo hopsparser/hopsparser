@@ -369,7 +369,7 @@ class BiAffineParser(nn.Module):
         else:
             self.extra_annotations = dict()
             self.annotation_lexicons = dict()
-            self.tagges = nn.ModuleDict(dict())
+            self.annotators = nn.ModuleDict(dict())
         self.annotations_order = sorted(self.annotation_lexicons.keys())
 
     def save_params(self, path: Union[str, pathlib.Path, BinaryIO]):
