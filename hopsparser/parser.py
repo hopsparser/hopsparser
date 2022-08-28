@@ -67,8 +67,8 @@ def gen_annotations_labels(
     for tree in treelist:
         for node in tree.nodes:
             for name, labels in label_sets.items():
-                node_label = node.misc.mapping[name]
-                labels.add(node_label)
+                if (node_label := node.misc.mapping.get(name)) is not None:
+                    labels.add(node_label)
     return {name: sorted(labels) for name, labels in label_sets.items()}
 
 
