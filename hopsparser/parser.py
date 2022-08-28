@@ -15,6 +15,7 @@ from typing import (
     Iterable,
     List,
     Literal,
+    Mapping,
     NamedTuple,
     Optional,
     Sequence,
@@ -226,6 +227,11 @@ class LRSchedule(TypedDict):
     warmup_steps: int
 
 
+class AnnotationConfig(pydantic.BaseModel):
+    hidden_layer_dim: int
+    labels: List[str]
+
+
 class BiAffineParserConfig(pydantic.BaseModel):
     mlp_input: int
     mlp_tag_hidden: int
@@ -234,6 +240,9 @@ class BiAffineParserConfig(pydantic.BaseModel):
     biased_biaffine: bool
     default_batch_size: int
     encoder_dropout: float
+    extra_annotations: Dict[str, AnnotationConfig] = pydantic.Field(
+        default_factory=dict
+    )
     labels: List[str]
     mlp_dropout: float
     tagset: List[str]
@@ -259,14 +268,14 @@ class BiAffineParser(nn.Module):
         default_batch_size: int,
         encoder_dropout: float,  # lstm dropout
         labels: Sequence[str],
-        lexers: Dict[str, lexers.Lexer],
+        lexers: Mapping[str, lexers.Lexer],
         mlp_input: int,
         mlp_tag_hidden: int,
         mlp_arc_hidden: int,
         mlp_lab_hidden: int,
         mlp_dropout: float,
         tagset: Sequence[str],
-        annotations_labels: Optional[Dict[str, Sequence[str]]] = None,
+        extra_annotations: Optional[Mapping[str, AnnotationConfig]] = None,
     ):
 
         super(BiAffineParser, self).__init__()
@@ -277,15 +286,6 @@ class BiAffineParser(nn.Module):
         self.labels: BidirectionalMapping[str, int] = bidict(
             (l, i) for i, l in enumerate(labels)
         )
-        self.annotations: Dict[str, BidirectionalMapping[str, int]]
-        if annotations_labels is not None:
-            self.annotations = {
-                name: bidict((l, i) for i, l in enumerate(labels))
-                for name, labels in annotations_labels.items()
-            }
-        else:
-            self.annotations = dict()
-        self.annotations_order = sorted(self.annotations.keys())
 
         self.mlp_arc_hidden: Final[int] = mlp_arc_hidden
         self.mlp_input: Final[int] = mlp_input
@@ -315,6 +315,7 @@ class BiAffineParser(nn.Module):
         )
 
         # POS tagger & char RNN
+        # FIXME: why no dropout here?
         self.pos_tagger = MLP(self.mlp_input * 2, self.mlp_tag_hidden, len(self.tagset))
 
         # Arc MLPs
@@ -337,6 +338,32 @@ class BiAffineParser(nn.Module):
         self.lab_biaffine = BiAffine(
             self.mlp_input, len(self.labels), bias=biased_biaffine
         )
+
+        # Extra annotations
+        # This makes us store the list of labels twice but makes it less clunky to __init__ and save
+        self.annotation_lexicons: Dict[str, BidirectionalMapping[str, int]]
+        if extra_annotations is not None:
+            self.extra_annotations = extra_annotations
+            self.annotation_lexicons = {
+                name: bidict((l, i) for i, l in enumerate(conf.labels))
+                for name, conf in extra_annotations.items()
+            }
+            self.annotators = nn.ModuleDict(
+                {
+                    name: MLP(
+                        input_dim=self.mlp_input * 2,
+                        hidden_dim=conf.hidden_layer_dim,
+                        output_dim=len(self.tagset),
+                        dropout=self.mlp_dropout,
+                    )
+                    for name, conf in extra_annotations.items()
+                }
+            )
+        else:
+            self.extra_annotations = dict()
+            self.annotation_lexicons = dict()
+            self.tagges = nn.ModuleDict(dict())
+        self.annotations_order = sorted(self.annotation_lexicons.keys())
 
     def save_params(self, path: Union[str, pathlib.Path, BinaryIO]):
         torch.save(self.state_dict(), path)
@@ -716,12 +743,13 @@ class BiAffineParser(nn.Module):
             ],
             dtype=torch.long,
         )
+        # TODO: at this point we probably want to implement a strict mode to be safe
         # Double get here: this way, if the annotation isn't present in the MISC column OR if it's
         # present but with an unknown value
         annotations = {
             name: torch.tensor(
                 [
-                    self.annotations[name].get(
+                    self.annotation_lexicons[name].get(
                         node.misc.mapping.get(name), self.LABEL_PADDING
                     )
                     for node in tree.nodes
@@ -923,6 +951,7 @@ class BiAffineParser(nn.Module):
             biased_biaffine=self.arc_biaffine.bias,
             default_batch_size=self.default_batch_size,
             encoder_dropout=self.dep_rnn.dropout,
+            extra_annotations=self.extra_annotations,
             labels=[self.labels.inverse[i] for i in range(len(self.labels))],
             mlp_input=self.mlp_input,
             mlp_tag_hidden=self.mlp_tag_hidden,
@@ -944,6 +973,7 @@ class BiAffineParser(nn.Module):
         if save_weights:
             torch.save(self.state_dict(), model_path / "weights.pt")
 
+    # FIXME: allow passing a config dict directly
     @classmethod
     def initialize(
         cls: Type[_T_BiAffineParser],
@@ -1020,6 +1050,19 @@ class BiAffineParser(nn.Module):
 
         itolab = gen_labels(treebank)
         itotag = gen_tags(treebank)
+        if (extra_annotations_config := config.get("extra_annotations")) is not None:
+            annotations_labels = gen_annotations_labels(
+                treebank, sorted(extra_annotations_config.keys())
+            )
+            extra_annotations = {
+                name: AnnotationConfig(
+                    labels=annotations_labels[name],
+                    hidden_layer_dim=conf["hidden_layer_size"],
+                )
+                for name, conf in extra_annotations_config.items()
+            }
+        else:
+            extra_annotations = None
 
         return cls(
             labels=itolab,
@@ -1027,6 +1070,7 @@ class BiAffineParser(nn.Module):
             tagset=itotag,
             biased_biaffine=config["biased_biaffine"],
             default_batch_size=config["batch_size"],
+            extra_annotations=extra_annotations,
             encoder_dropout=config["encoder_dropout"],
             mlp_input=config["mlp_input"],
             mlp_tag_hidden=config["mlp_tag_hidden"],
@@ -1056,6 +1100,7 @@ class BiAffineParser(nn.Module):
         parser_lexers
 
         parser = cls(
+            extra_annotations=config.extra_annotations,
             biased_biaffine=config.biased_biaffine,
             default_batch_size=config.default_batch_size,
             encoder_dropout=config.encoder_dropout,
