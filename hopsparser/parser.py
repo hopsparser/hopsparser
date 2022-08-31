@@ -71,7 +71,14 @@ def gen_annotations_labels(
     if (
         name := next((name for name, labels in label_sets.items() if not labels), None)
     ) is not None:
-        raise ValueError("No label found in treebank for annotation {name}")
+        # No iterable unpacking for poor walrus :( (<https://bugs.python.org/issue43143>)
+        labels = label_sets[name]
+        if not labels:
+            raise ValueError(f"No label found in treebank for annotation {n}")
+        else:
+            logger.warning(
+                f"Only one label ({next(iter(labels))} found for annotation {labels}, this is likely an error."
+            )
     return {name: sorted(labels) for name, labels in label_sets.items()}
 
 
