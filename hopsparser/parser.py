@@ -200,6 +200,8 @@ class DependencyBatch(NamedTuple):
       max_sentence_length)`
     - `labels` The gold dependency labels (if any) as a `LongTensor` with shape `(batch_size,
       max_sentence_length)`
+    - `annotations` The gold labels for extra annotations, as a mapping from annotation names to
+      `LongTensor`s with shape `(batch_size, max_sentence_length)`
     """
 
     trees: Sequence[DepGraph]
@@ -372,7 +374,9 @@ class BiAffineParser(nn.Module):
             self.annotators = nn.ModuleDict(dict())
         self.annotations_order = sorted(self.annotation_lexicons.keys())
 
-        self.marginal_loss = nn.CrossEntropyLoss(reduction="sum", ignore_index=self.LABEL_PADDING)
+        self.marginal_loss = nn.CrossEntropyLoss(
+            reduction="sum", ignore_index=self.LABEL_PADDING
+        )
 
     def save_params(self, path: Union[str, pathlib.Path, BinaryIO]):
         torch.save(self.state_dict(), path)
@@ -450,6 +454,14 @@ class BiAffineParser(nn.Module):
         )
         tagger_loss = self.marginal_loss(tagger_scores_flat, batch.tags.view(-1))
 
+        # Extra annotations loss
+        extra_annotations_loss = torch.zeros_like(tagger_loss)
+        for annotation_name, labels in batch.annotations.items():
+            extra_labels_scores_flat = parser_output.tag_scores.view(
+                -1, parser_output.extra_labels_scores[annotation_name].size(-1)
+            )
+            extra_annotations_loss += self.marginal_loss(extra_labels_scores_flat, labels.view(-1))
+
         # ARC LOSS
         # [batch×num_deps, num_heads]
         arc_scores_flat = parser_output.arc_scores.view(
@@ -474,12 +486,14 @@ class BiAffineParser(nn.Module):
 
         # [batch×sent_len, n_labels]
         predicted_labels_scores_flat = predicted_labels_scores.view(-1, num_deprels)
-        lab_loss = self.marginal_loss(predicted_labels_scores_flat, batch.labels.view(-1))
+        lab_loss = self.marginal_loss(
+            predicted_labels_scores_flat, batch.labels.view(-1)
+        )
 
         # TODO: see if other loss combination functions wouldn't help here, e.g.
         # <https://arxiv.org/abs/1805.06334> or <https://arxiv.org/abs/1209.2784>
         # tracked at <https://github.com/hopsparser/npdependency/issues/59>
-        return tagger_loss + arc_loss + lab_loss
+        return tagger_loss + extra_annotations_loss + arc_loss + lab_loss
 
     def eval_model(
         self, dev_set: Iterable[DependencyBatch], batch_size: Optional[int] = None
@@ -506,7 +520,9 @@ class BiAffineParser(nn.Module):
 
                 # workaround since the design of torch modules makes it hard
                 # for static analyzer to find out their return type
-                output: BiaffineParserOutput = self(batch.sentences.encodings, batch.sentences.sent_lengths)
+                output: BiaffineParserOutput = self(
+                    batch.sentences.encodings, batch.sentences.sent_lengths
+                )
 
                 gloss += self.parser_loss(output, batch)
 
@@ -615,7 +631,9 @@ class BiAffineParser(nn.Module):
                 batch = batch.to(device)
 
                 # FORWARD
-                output: BiaffineParserOutput = self(batch.sentences.encodings, batch.sentences.sent_lengths)
+                output: BiaffineParserOutput = self(
+                    batch.sentences.encodings, batch.sentences.sent_lengths
+                )
 
                 loss = self.parser_loss(output, batch)
 
@@ -832,7 +850,9 @@ class BiAffineParser(nn.Module):
                 else:
                     batch_sentences = batch
                 # batch prediction
-                output: BiaffineParserOutput = self(batch_sentences.encodings, batch_sentences.sent_lengths)
+                output: BiaffineParserOutput = self(
+                    batch_sentences.encodings, batch_sentences.sent_lengths
+                )
                 arc_scores = output.arc_scores.cpu()
 
                 if isinstance(batch, DependencyBatch):
@@ -853,8 +873,12 @@ class BiAffineParser(nn.Module):
                     output.lab_scores,
                 ):
                     tree_tagger_scores = tree_tagger_scores[:sentence_length, :]
-                    tree_arc_scores = tree_arc_scores[:sentence_length, :sentence_length]
-                    tree_lab_scores = tree_lab_scores[:sentence_length, :sentence_length, :]
+                    tree_arc_scores = tree_arc_scores[
+                        :sentence_length, :sentence_length
+                    ]
+                    tree_lab_scores = tree_lab_scores[
+                        :sentence_length, :sentence_length, :
+                    ]
                     result_tree = self._scores_to_tree(
                         arc_scores=tree_arc_scores,
                         greedy=greedy,
