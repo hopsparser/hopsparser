@@ -49,12 +49,19 @@ class Misc(collections.abc.Sequence):
         for e in self._lst:
             if m := re.match("(?P<key>.+?)=(?P<value>.*)", e):
                 mapping[m.group("key")] = m.group("value")
+        self.mapping = mapping
 
     def __getitem__(self, index):
         return self._lst[index]
 
     def __len__(self) -> int:
         return len(self._lst)
+    
+    def __str__(self) -> str:
+        return f"Misc({self._lst}, {self.mapping})"
+    
+    def __repr__(self) -> str:
+        return f"Misc({self._lst})"
 
     def to_conllu(self) -> str:
         if not self._lst:
