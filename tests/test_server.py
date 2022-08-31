@@ -41,7 +41,5 @@ def test_server_processing(api_client: TestClient, raw_text: pathlib.Path):
         "data": util.Any(),
     }
 
-    parsed_trees = list(
-        deptree.DepGraph.read_conll(io.StringIO(response.json()["data"]))
-    )
+    parsed_trees = list(deptree.DepGraph.read_conll(io.StringIO(response.json()["data"])))
     assert len(parsed_trees) == len(raw_text.read_text().splitlines())

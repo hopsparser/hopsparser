@@ -35,9 +35,7 @@ class ParseRequest(pydantic.BaseModel):
         default_model,
         description="The model to use to parse the data. See `models` for a list.",
     )
-    output: Literal["conllu"] = pydantic.Field(
-        "conllu", description="The output format to use."
-    )
+    output: Literal["conllu"] = pydantic.Field("conllu", description="The output format to use.")
     parser: Optional[str] = pydantic.Field(
         None, description="Ignored (for compatibility with UDPipe.)"
     )
@@ -85,9 +83,7 @@ async def process(req: ParseRequest) -> ParseResponse:
         parsed = "".join(
             [
                 f"{tree.to_conllu()}\n\n"
-                for tree in parser.parse(
-                    req.data.splitlines(), raw=req.input == "horizontal"
-                )
+                for tree in parser.parse(req.data.splitlines(), raw=req.input == "horizontal")
             ]
         )
     return ParseResponse(model=model_name, acknowledgements=[""], data=parsed)

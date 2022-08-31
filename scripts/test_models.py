@@ -96,9 +96,7 @@ def main(device: str, models_list: TextIO):
                         treebank=treebank,
                     )
                     if not ok:
-                        print(
-                            f"Inconsistency with model {model_name} for treebank {dataset_name}."
-                        )
+                        print(f"Inconsistency with model {model_name} for treebank {dataset_name}.")
 
 
 if __name__ == "__main__":

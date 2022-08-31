@@ -114,13 +114,9 @@ def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
         # expand to make space for the metanode (n+1 x n+1) in R
         subscores = np.pad(subscores, ((0, 1), (0, 1)), "constant")
         # set the contracted graph scores of cycle's potential heads; (c x n)[:, (n) in n] in R -> (n) in R
-        subscores[-1, :-1] = metanode_head_scores[
-            metanode_heads, np.arange(len(noncycle_locs))
-        ]
+        subscores[-1, :-1] = metanode_head_scores[metanode_heads, np.arange(len(noncycle_locs))]
         # set the contracted graph scores of cycle's potential dependents; (n x c)[(n) in n] in R-> (n) in R
-        subscores[:-1, -1] = metanode_dep_scores[
-            np.arange(len(noncycle_locs)), metanode_deps
-        ]
+        subscores[:-1, -1] = metanode_dep_scores[np.arange(len(noncycle_locs)), metanode_deps]
 
         # MST with contraction; (n+1) in n+1
         contracted_tree = chuliu_edmonds(subscores)
@@ -139,9 +135,7 @@ def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
         # fixed tree with heads coming from the cycle: (n) in [0,1]
         contracted_subtree = np.logical_not(contracted_subtree)
         # add the nodes to the tree (t)[(n)[(n) in [0,1]] in t] in t = (c)[(n)[(n) in [0,1]] in c] in t
-        new_tree[noncycle_locs[contracted_subtree]] = cycle_locs[
-            metanode_deps[contracted_subtree]
-        ]
+        new_tree[noncycle_locs[contracted_subtree]] = cycle_locs[metanode_deps[contracted_subtree]]
         # add the old cycle to the tree; (t)[(c) in t] in t = (t)[(c) in t] in t
         new_tree[cycle_locs] = tree[cycle_locs]
         # root of the cycle; (n)[() in n] in c = () in c
@@ -189,11 +183,7 @@ def chuliu_edmonds_one_root(scores: np.ndarray) -> np.ndarray:
         _scores, root_score = set_root(scores, root)
         _tree = chuliu_edmonds(_scores)
         tree_probs = _scores[np.arange(len(_scores)), _tree]
-        tree_score = (
-            (tree_probs).sum() + (root_score)
-            if (tree_probs > -np.inf).all()
-            else -np.inf
-        )
+        tree_score = (tree_probs).sum() + (root_score) if (tree_probs > -np.inf).all() else -np.inf
         if tree_score > best_score:
             best_score = tree_score
             best_tree = _tree

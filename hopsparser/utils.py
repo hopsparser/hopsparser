@@ -101,11 +101,7 @@ def setup_logging(verbose: bool, logfile: Optional[pathlib.Path] = None):
         logger.add(
             logfile,
             level="DEBUG",
-            format=(
-                f"[{appname}]"
-                " {time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} |"
-                " {message}"
-            ),
+            format=(f"[{appname}]" " {time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} |" " {message}"),
             colorize=False,
         )
 
@@ -141,6 +137,4 @@ class SpeedColumn(rich.progress.ProgressColumn):
         if task.speed >= 1:
             return rich.text.Text(f"{task.speed:.2f} it/s")
         else:
-            return rich.text.Text(
-                f"{datetime.timedelta(seconds=math.ceil(1/task.speed))} /it"
-            )
+            return rich.text.Text(f"{datetime.timedelta(seconds=math.ceil(1/task.speed))} /it")

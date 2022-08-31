@@ -51,9 +51,7 @@ def test_char_rnn_create_save_load(
     special_tokens=st.lists(st.text(min_size=2), max_size=8),
     train_text=st.lists(
         st.lists(
-            st.text(
-                alphabet=st.characters(blacklist_categories=["Zs", "C"]), min_size=1
-            ),
+            st.text(alphabet=st.characters(blacklist_categories=["Zs", "C"]), min_size=1),
             min_size=1,
         ),
         min_size=1,
@@ -88,9 +86,7 @@ def test_fasttext_train_create_save_load(
         reloaded = lexers.FastTextLexer.load(tmp_path)
     assert fasttext_lexer.special_tokens == reloaded.special_tokens
     fasttext_lexer.eval()
-    orig_encoding = fasttext_lexer(
-        fasttext_lexer.make_batch([fasttext_lexer.encode(test_text)])
-    )
+    orig_encoding = fasttext_lexer(fasttext_lexer.make_batch([fasttext_lexer.encode(test_text)]))
     reloaded.eval()
     reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
     assert torch.equal(orig_encoding, reloaded_encoding)
@@ -175,9 +171,7 @@ def test_bert_embeddings_create_save_load(
     data: st.DataObject,
     subwords_reduction: Literal["first", "mean"],
     test_text: List[str],
-    transformer_model: Tuple[
-        transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase
-    ],
+    transformer_model: Tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase],
     weight_layers: bool,
 ):
     model, tokenizer = transformer_model
@@ -190,9 +184,7 @@ def test_bert_embeddings_create_save_load(
             [
                 st.none(),
                 st.lists(
-                    st.integers(
-                        min_value=-max_num_layers, max_value=max_num_layers - 1
-                    ),
+                    st.integers(min_value=-max_num_layers, max_value=max_num_layers - 1),
                     min_size=1,
                 ),
             ]

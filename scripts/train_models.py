@@ -100,9 +100,7 @@ def train_single_model(
         gold_testset = evaluator.load_conllu_file(test_file)
         syst_testset = evaluator.load_conllu_file(parsed_testset_path)
         test_metrics = evaluator.evaluate(gold_testset, syst_testset)
-        metrics_table.add_row(
-            "Test", *(f"{100*test_metrics[m].f1:.2f}" for m in metrics)
-        )
+        metrics_table.add_row("Test", *(f"{100*test_metrics[m].f1:.2f}" for m in metrics))
 
     if metrics_table.rows:
         out = Console(file=StringIO())
@@ -130,9 +128,7 @@ def worker(
     # works.
     device = device_queue.get(block=False)
     # TODO: figure out a way to make the run name bubble up here
-    log_handle = setup_logging(
-        lambda m: monitor_queue.put((Messages.LOG, m)), rich_fmt=True
-    )
+    log_handle = setup_logging(lambda m: monitor_queue.put((Messages.LOG, m)), rich_fmt=True)
     train_kwargs["device"] = device
     logger.info(f"Start training {run_name} on {device}")
     with open(train_kwargs["config_file"]) as in_stream:
@@ -244,9 +240,7 @@ class InterceptHandler(logging.Handler):
             frame = frame.f_back
             depth += 1
 
-        logger.opt(depth=depth, exception=record.exc_info).log(
-            level, record.getMessage()
-        )
+        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 
 def setup_logging(sink=sys.stderr, rich_fmt: bool = False):
@@ -286,15 +280,11 @@ def setup_logging(sink=sys.stderr, rich_fmt: bool = False):
 @click.command()
 @click.argument(
     "configs_dir",
-    type=click.Path(
-        resolve_path=True, exists=True, file_okay=False, path_type=pathlib.Path
-    ),
+    type=click.Path(resolve_path=True, exists=True, file_okay=False, path_type=pathlib.Path),
 )
 @click.argument(
     "treebanks_dir",
-    type=click.Path(
-        resolve_path=True, exists=True, file_okay=False, path_type=pathlib.Path
-    ),
+    type=click.Path(resolve_path=True, exists=True, file_okay=False, path_type=pathlib.Path),
 )
 @click.option(
     "--args",
@@ -316,17 +306,13 @@ def setup_logging(sink=sys.stderr, rich_fmt: bool = False):
 @click.option(
     "--out-dir",
     default=".",
-    type=click.Path(
-        resolve_path=True, exists=False, file_okay=False, path_type=pathlib.Path
-    ),
+    type=click.Path(resolve_path=True, exists=False, file_okay=False, path_type=pathlib.Path),
 )
 @click.option("--prefix", default="", help="A custom prefix to prepend to run names.")
 @click.option(
     "--rand-seeds",
     callback=(
-        lambda _ctx, _opt, val: None
-        if val is None
-        else [int(v) for v in val.split(",") if v]
+        lambda _ctx, _opt, val: None if val is None else [int(v) for v in val.split(",") if v]
     ),
     help=(
         "A comma-separated list of random seeds to try and run stats on."
@@ -408,20 +394,14 @@ def main(
                             syst_devset = evaluator.load_conllu_file(parsed_dev)
                             dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
                         except evaluator.UDError as e:
-                            raise ValueError(
-                                f"Corrupted parsed dev file for {run_out_dir}"
-                            ) from e
+                            raise ValueError(f"Corrupted parsed dev file for {run_out_dir}") from e
 
                         try:
                             gold_testset = evaluator.load_conllu_file(test_file)
                             syst_testset = evaluator.load_conllu_file(parsed_test)
-                            test_metrics = evaluator.evaluate(
-                                gold_testset, syst_testset
-                            )
+                            test_metrics = evaluator.evaluate(gold_testset, syst_testset)
                         except evaluator.UDError as e:
-                            raise ValueError(
-                                f"Corrupted parsed test file for {run_out_dir}"
-                            ) from e
+                            raise ValueError(f"Corrupted parsed test file for {run_out_dir}") from e
 
                         skip_res = TrainResults(
                             dev_upos=dev_metrics["UPOS"].f1,
@@ -479,11 +459,7 @@ def main(
     else:
         df_dict = {
             run_name: {
-                **{
-                    k: v
-                    for k, v in run_report.items()
-                    if k not in ("additional_args", "results")
-                },
+                **{k: v for k, v in run_report.items() if k not in ("additional_args", "results")},
                 **run_report["additional_args"],
                 **run_report["results"],
             }
@@ -494,9 +470,7 @@ def main(
         grouped = df.groupby(
             ["config", "treebank", *(a for a in args_names if a != "rand_seed")],
         )
-        grouped[["dev_upos", "dev_las", "test_upos", "test_las"]].describe().to_csv(
-            summary_file
-        )
+        grouped[["dev_upos", "dev_las", "test_upos", "test_las"]].describe().to_csv(summary_file)
         best_dir = out_dir / "best"
         best_dir.mkdir(exist_ok=True, parents=True)
         with open(best_dir / "models.md", "w") as out_stream:
@@ -504,12 +478,8 @@ def main(
                 "| Model name | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download |\n"
                 "|:-----------|:----------:|:---------:|:-----------:|:----------:|:--------:|\n"
             )
-            for run_name, report in sorted(
-                df.loc[grouped["dev_las"].idxmax()].iterrows()
-            ):
-                shutil.copytree(
-                    report["output_dir"], best_dir / run_name, dirs_exist_ok=True
-                )
+            for run_name, report in sorted(df.loc[grouped["dev_las"].idxmax()].iterrows()):
+                shutil.copytree(report["output_dir"], best_dir / run_name, dirs_exist_ok=True)
                 model_name = run_name.split("+", maxsplit=1)[0]
                 out_stream.write("| ")
                 out_stream.write(
