@@ -372,6 +372,8 @@ class BiAffineParser(nn.Module):
             self.annotators = nn.ModuleDict(dict())
         self.annotations_order = sorted(self.annotation_lexicons.keys())
 
+        self.marginal_loss = nn.CrossEntropyLoss(reduction="sum", ignore_index=self.LABEL_PADDING)
+
     def save_params(self, path: Union[str, pathlib.Path, BinaryIO]):
         torch.save(self.state_dict(), path)
 
@@ -436,7 +438,6 @@ class BiAffineParser(nn.Module):
         self,
         parser_output: BiaffineParserOutput,
         batch: DependencyBatch,
-        marginal_loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
     ) -> torch.Tensor:
         batch_size = batch.heads.shape[0]
         num_padded_deps = batch.heads.shape[1]
@@ -447,14 +448,14 @@ class BiAffineParser(nn.Module):
         tagger_scores_flat = parser_output.tag_scores.view(
             -1, parser_output.tag_scores.size(-1)
         )
-        tagger_loss = marginal_loss(tagger_scores_flat, batch.tags.view(-1))
+        tagger_loss = self.marginal_loss(tagger_scores_flat, batch.tags.view(-1))
 
         # ARC LOSS
         # [batch×num_deps, num_heads]
         arc_scores_flat = parser_output.arc_scores.view(
             -1, parser_output.arc_scores.size(-1)
         )
-        arc_loss = marginal_loss(arc_scores_flat, batch.heads.view(-1))
+        arc_loss = self.marginal_loss(arc_scores_flat, batch.heads.view(-1))
 
         # LABEL LOSS We will select the labels for the gold heads, so we have to provide one when
         # there is none (either it is absent from the data or this is a padding token) to even if
@@ -473,7 +474,7 @@ class BiAffineParser(nn.Module):
 
         # [batch×sent_len, n_labels]
         predicted_labels_scores_flat = predicted_labels_scores.view(-1, num_deprels)
-        lab_loss = marginal_loss(predicted_labels_scores_flat, batch.labels.view(-1))
+        lab_loss = self.marginal_loss(predicted_labels_scores_flat, batch.labels.view(-1))
 
         # TODO: see if other loss combination functions wouldn't help here, e.g.
         # <https://arxiv.org/abs/1805.06334> or <https://arxiv.org/abs/1209.2784>
@@ -485,8 +486,6 @@ class BiAffineParser(nn.Module):
     ) -> Tuple[float, float, float, float]:
         if batch_size is None:
             batch_size = self.default_batch_size
-
-        loss_fnc = nn.CrossEntropyLoss(reduction="sum", ignore_index=self.LABEL_PADDING)
 
         self.eval()
         device = next(self.parameters()).device
@@ -509,7 +508,7 @@ class BiAffineParser(nn.Module):
                 # for static analyzer to find out their return type
                 output: BiaffineParserOutput = self(batch.sentences.encodings, batch.sentences.sent_lengths)
 
-                gloss += self.parser_loss(output, batch, loss_fnc)
+                gloss += self.parser_loss(output, batch)
 
                 # tagger accuracy
                 tag_pred = output.tag_scores.argmax(dim=-1)
@@ -572,7 +571,6 @@ class BiAffineParser(nn.Module):
             batch_size = self.default_batch_size
         device = next(self.parameters()).device
         logger.info(f"Start training on {device}")
-        loss_fnc = nn.CrossEntropyLoss(reduction="sum", ignore_index=self.LABEL_PADDING)
 
         # TODO: make these configurable?
         optimizer = torch.optim.Adam(
@@ -619,7 +617,7 @@ class BiAffineParser(nn.Module):
                 # FORWARD
                 output: BiaffineParserOutput = self(batch.sentences.encodings, batch.sentences.sent_lengths)
 
-                loss = self.parser_loss(output, batch, loss_fnc)
+                loss = self.parser_loss(output, batch)
 
                 with torch.inference_mode():
                     train_loss += loss
