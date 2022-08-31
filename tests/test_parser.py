@@ -10,7 +10,7 @@ from torch.testing import assert_close
 
 from hopsparser.deptree import DepGraph
 from hopsparser.lexers import LexingError
-from hopsparser.parser import BiAffineParser, BiaffineParserOutput
+from hopsparser.parser import BiAffineParser, BiaffineParserOutput, train
 
 devices = ["cpu"]
 if torch.cuda.is_available():
@@ -73,6 +73,22 @@ def parser(
 
 
 @pytest.mark.parametrize("device", devices)
+def test_train(
+    device: str,
+    tmp_path: pathlib.Path,
+    train_config: pathlib.Path,
+    treebank: pathlib.Path,
+):
+    train(
+        config_file=train_config,
+        dev_file=treebank,
+        device=device,
+        train_file=treebank,
+        model_path=tmp_path,
+    )
+
+
+@pytest.mark.parametrize("device", devices)
 @settings(deadline=8192)
 # FIXME: should we really skip control characters and whitespaces? We do now because most 🤗
 # tokenizers strip them out instead of rendering them as unk (see also test_lexers)
@@ -118,17 +134,11 @@ def test_batch_invariance(
         text_s1 = [encoded_stable_text, encoded_distractor_text_1]
         text_1s = [encoded_distractor_text_1, encoded_stable_text]
         text_s2 = [encoded_stable_text, encoded_distractor_text_2]
-        ref_tagger_scores: torch.Tensor
-        ref_arc_scores: torch.Tensor
-        ref_lab_scores: torch.Tensor
         ref_output: BiaffineParserOutput = parser(
             batch_stable.encodings, batch_stable.sent_lengths
         )
         for text, idx in ((text_s1, 0), (text_1s, 1), (text_s2, 0)):
             batch = parser.batch_sentences(text).to(device)
-            tagger_scores: torch.Tensor
-            arc_scores: torch.Tensor
-            lab_scores: torch.Tensor
             output: BiaffineParserOutput = parser(batch.encodings, batch.sent_lengths)
             assert_close(
                 ref_output.tag_scores[0, :stable_length, :],
