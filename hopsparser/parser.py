@@ -20,7 +20,6 @@ from typing import (
     Optional,
     Sequence,
     Set,
-    Tuple,
     Type,
     TypedDict,
     TypeVar,
@@ -69,6 +68,10 @@ def gen_annotations_labels(
             for name, labels in label_sets.items():
                 if (node_label := node.misc.mapping.get(name)) is not None:
                     labels.add(node_label)
+    if (
+        name := next((name for name, labels in label_sets.items() if not labels), None)
+    ) is not None:
+        raise ValueError("No label found in treebank for annotation {name}")
     return {name: sorted(labels) for name, labels in label_sets.items()}
 
 
@@ -253,9 +256,16 @@ class BiAffineParserConfig(pydantic.BaseModel):
 
 class BiaffineParserOutput(NamedTuple):
     tag_scores: torch.Tensor
-    arc_scores: torch.Tensor
-    lab_scores: torch.Tensor
+    head_scores: torch.Tensor
+    deprel_scores: torch.Tensor
     extra_labels_scores: Dict[str, torch.Tensor]
+
+
+class ParserEvalOutput(NamedTuple):
+    loss: float
+    tag_accuracy: float
+    head_accuracy: float
+    deprel_accuracy: float
 
 
 _T_BiAffineParser = TypeVar("_T_BiAffineParser", bound="BiAffineParser")
@@ -362,7 +372,7 @@ class BiAffineParser(nn.Module):
                     name: MLP(
                         input_dim=self.mlp_input * 2,
                         hidden_dim=conf.hidden_layer_dim,
-                        output_dim=len(self.tagset),
+                        output_dim=len(conf.labels),
                         dropout=self.mlp_dropout,
                     )
                     for name, conf in extra_annotations.items()
@@ -430,8 +440,8 @@ class BiAffineParser(nn.Module):
 
         return BiaffineParserOutput(
             tag_scores=tag_scores,
-            arc_scores=arc_scores,
-            lab_scores=lab_scores,
+            head_scores=arc_scores,
+            deprel_scores=lab_scores,
             extra_labels_scores=extra_labels_scores,
         )
 
@@ -445,7 +455,7 @@ class BiAffineParser(nn.Module):
     ) -> torch.Tensor:
         batch_size = batch.heads.shape[0]
         num_padded_deps = batch.heads.shape[1]
-        num_deprels = parser_output.lab_scores.shape[-1]
+        num_deprels = parser_output.deprel_scores.shape[-1]
 
         # TAGGER_LOSS
         # [batch×sent_length, num_tags]
@@ -457,17 +467,18 @@ class BiAffineParser(nn.Module):
         # Extra annotations loss
         extra_annotations_loss = torch.zeros_like(tagger_loss)
         for annotation_name, labels in batch.annotations.items():
-            extra_labels_scores_flat = parser_output.tag_scores.view(
-                -1, parser_output.extra_labels_scores[annotation_name].size(-1)
+            labels_scores = parser_output.extra_labels_scores[annotation_name]
+            labels_scores_flat = labels_scores.view(-1, labels_scores.size(-1))
+            extra_annotations_loss += self.marginal_loss(
+                labels_scores_flat, labels.view(-1)
             )
-            extra_annotations_loss += self.marginal_loss(extra_labels_scores_flat, labels.view(-1))
 
         # ARC LOSS
         # [batch×num_deps, num_heads]
-        arc_scores_flat = parser_output.arc_scores.view(
-            -1, parser_output.arc_scores.size(-1)
+        head_scores_flat = parser_output.head_scores.view(
+            -1, parser_output.head_scores.size(-1)
         )
-        arc_loss = self.marginal_loss(arc_scores_flat, batch.heads.view(-1))
+        head_loss = self.marginal_loss(head_scores_flat, batch.heads.view(-1))
 
         # LABEL LOSS We will select the labels for the gold heads, so we have to provide one when
         # there is none (either it is absent from the data or this is a padding token) to even if
@@ -481,7 +492,7 @@ class BiAffineParser(nn.Module):
         )
         # [batch, n_dependents, 1, n_labels]
         predicted_labels_scores = torch.gather(
-            parser_output.lab_scores, -2, heads_selection
+            parser_output.deprel_scores, -2, heads_selection
         )
 
         # [batch×sent_len, n_labels]
@@ -493,11 +504,11 @@ class BiAffineParser(nn.Module):
         # TODO: see if other loss combination functions wouldn't help here, e.g.
         # <https://arxiv.org/abs/1805.06334> or <https://arxiv.org/abs/1209.2784>
         # tracked at <https://github.com/hopsparser/npdependency/issues/59>
-        return tagger_loss + extra_annotations_loss + arc_loss + lab_loss
+        return tagger_loss + extra_annotations_loss + head_loss + lab_loss
 
     def eval_model(
         self, dev_set: Iterable[DependencyBatch], batch_size: Optional[int] = None
-    ) -> Tuple[float, float, float, float]:
+    ) -> ParserEvalOutput:
         if batch_size is None:
             batch_size = self.default_batch_size
 
@@ -505,12 +516,12 @@ class BiAffineParser(nn.Module):
         device = next(self.parameters()).device
         # NOTE: the accuracy scoring is approximative and cannot be interpreted as an UAS/LAS score
         # NOTE: fun project: track the correlation between them
-        tag_tp = torch.zeros(1, dtype=torch.long, device=device)
-        arc_tp = torch.zeros(1, dtype=torch.long, device=device)
-        lab_tp = torch.zeros(1, dtype=torch.long, device=device)
-        overall_tag_size = torch.zeros(1, dtype=torch.long, device=device)
-        overall_arc_size = torch.zeros(1, dtype=torch.long, device=device)
-        overall_lab_size = torch.zeros(1, dtype=torch.long, device=device)
+        tags_tp = torch.zeros(1, dtype=torch.long, device=device)
+        heads_tp = torch.zeros(1, dtype=torch.long, device=device)
+        deprels_tp = torch.zeros(1, dtype=torch.long, device=device)
+        overall_tags_size = torch.zeros(1, dtype=torch.long, device=device)
+        overall_heads_size = torch.zeros(1, dtype=torch.long, device=device)
+        overall_deprels_size = torch.zeros(1, dtype=torch.long, device=device)
         gloss = torch.zeros(1, dtype=torch.float, device=device)
 
         with torch.inference_mode():
@@ -527,20 +538,22 @@ class BiAffineParser(nn.Module):
                 gloss += self.parser_loss(output, batch)
 
                 # tagger accuracy
-                tag_pred = output.tag_scores.argmax(dim=-1)
+                tags_pred = output.tag_scores.argmax(dim=-1)
                 tags_mask = batch.tags.ne(self.LABEL_PADDING)
-                overall_tag_size += tags_mask.sum()
-                tag_accuracy = tag_pred.eq(batch.tags).logical_and(tags_mask).sum()
-                tag_tp += tag_accuracy
+                overall_tags_size += tags_mask.sum()
+                tags_accuracy = tags_pred.eq(batch.tags).logical_and(tags_mask).sum()
+                tags_tp += tags_accuracy
 
-                # greedy arc accuracy (without parsing)
-                arc_pred = output.arc_scores.argmax(dim=-1)
-                arc_mask = batch.heads.ne(self.LABEL_PADDING)
-                overall_arc_size += arc_mask.sum()
-                arc_accuracy = arc_pred.eq(batch.heads).logical_and(arc_mask).sum()
-                arc_tp += arc_accuracy
+                # greedy head accuracy (without parsing)
+                heads_preds = output.head_scores.argmax(dim=-1)
+                heads_mask = batch.heads.ne(self.LABEL_PADDING)
+                overall_heads_size += heads_mask.sum()
+                heads_accuracy = (
+                    heads_preds.eq(batch.heads).logical_and(heads_mask).sum()
+                )
+                heads_tp += heads_accuracy
 
-                # greedy label accuracy (without parsing)
+                # greedy deprel accuracy (without parsing)
                 gold_heads_select = (
                     batch.heads.masked_fill(batch.heads.eq(self.LABEL_PADDING), 0)
                     .view(batch.heads.shape[0], batch.heads.shape[1], 1, 1)
@@ -548,26 +561,28 @@ class BiAffineParser(nn.Module):
                         batch.heads.shape[0],
                         batch.heads.shape[1],
                         1,
-                        output.lab_scores.shape[-1],
+                        output.deprel_scores.shape[-1],
                     )
                 )
                 # shape: num_padded_deps×num_padded_heads
-                gold_head_lab_scores = torch.gather(
-                    output.lab_scores, -2, gold_heads_select
+                gold_head_deprels_scores = torch.gather(
+                    output.deprel_scores, -2, gold_heads_select
                 ).squeeze(-2)
-                lab_pred = gold_head_lab_scores.argmax(dim=-1)
-                lab_mask = batch.labels.ne(self.LABEL_PADDING)
-                overall_lab_size += lab_mask.sum()
-                lab_accuracy = lab_pred.eq(batch.labels).logical_and(lab_mask).sum()
-                lab_tp += lab_accuracy.item()
+                deprels_pred = gold_head_deprels_scores.argmax(dim=-1)
+                deprels_mask = batch.labels.ne(self.LABEL_PADDING)
+                overall_deprels_size += deprels_mask.sum()
+                deprels_accuracy = (
+                    deprels_pred.eq(batch.labels).logical_and(deprels_mask).sum()
+                )
+                deprels_tp += deprels_accuracy.item()
 
-        return (
-            gloss.true_divide(
-                overall_tag_size + overall_arc_size + overall_lab_size
+        return ParserEvalOutput(
+            loss=gloss.true_divide(
+                overall_tags_size + overall_heads_size + overall_deprels_size
             ).item(),
-            tag_tp.true_divide(overall_tag_size).item(),
-            arc_tp.true_divide(overall_arc_size).item(),
-            lab_tp.true_divide(overall_lab_size).item(),
+            tag_accuracy=tags_tp.true_divide(overall_tags_size).item(),
+            head_accuracy=heads_tp.true_divide(overall_heads_size).item(),
+            deprel_accuracy=deprels_tp.true_divide(overall_deprels_size).item(),
         )
 
     def train_model(
@@ -646,7 +661,7 @@ class BiAffineParser(nn.Module):
                 scheduler.step()
 
             if dev_set is not None:
-                dev_loss, dev_tag_acc, dev_head_acc, dev_lab_acc = self.eval_model(
+                dev_scores = self.eval_model(
                     dev_set.make_batches(
                         batch_size, shuffle_batches=False, shuffle_data=False
                     ),
@@ -657,13 +672,13 @@ class BiAffineParser(nn.Module):
                     str(e),
                     {
                         "train loss": f"{train_loss.true_divide(overall_size).item():.4f}",
-                        "dev loss": f"{dev_loss:.4f}",
+                        "dev loss": f"{dev_scores.loss:.4f}",
                         **{
                             k: f"{v:06.2%}"
                             for k, v in (
-                                ("dev tag acc", dev_tag_acc),
-                                ("dev head acc", dev_head_acc),
-                                ("dev deprel acc", dev_lab_acc),
+                                ("dev tag acc", dev_scores.tag_accuracy),
+                                ("dev head acc", dev_scores.head_accuracy),
+                                ("dev deprel acc", dev_scores.deprel_accuracy),
                             )
                             if not math.isnan(v)
                         },
@@ -671,16 +686,16 @@ class BiAffineParser(nn.Module):
                 )
 
                 # FIXME: probably change the logic here, esp. for headless data
-                if dev_head_acc > best_arc_acc:
+                if dev_scores.head_accuracy > best_arc_acc:
                     logger.info(
-                        f"New best model: head accuracy {dev_head_acc:.2%} > {best_arc_acc:.2%}"
+                        f"New best model: head accuracy {dev_scores.head_accuracy:.2%} > {best_arc_acc:.2%}"
                     )
                     self.save_params(weights_file)
-                    best_arc_acc = dev_head_acc
-                elif math.isnan(dev_head_acc):
+                    best_arc_acc = dev_scores.head_accuracy
+                elif math.isnan(dev_scores.head_accuracy):
                     logger.debug("No head annotations in dev: saving model")
                     self.save_params(weights_file)
-                    best_arc_acc = dev_head_acc
+                    best_arc_acc = dev_scores.head_accuracy
             else:
                 self.save_params(weights_file)
 
@@ -769,13 +784,17 @@ class BiAffineParser(nn.Module):
         # TODO: at this point we probably want to implement a strict mode to be safe
         # Double get here: this way, if the annotation isn't present in the MISC column OR if it's
         # present but with an unknown value
+        # FIXME: maybe not a good idea actually since some labels might be implicit (like SpaceAfter=yes)
+        # FIXME: Padding for the root node, but probably a better idea to not even predict any label for it if we can avoid it
         annotations = {
             name: torch.tensor(
                 [
-                    self.annotation_lexicons[name].get(
+                    self.LABEL_PADDING,
+                    *(self.annotation_lexicons[name].get(
                         node.misc.mapping.get(name), self.LABEL_PADDING
                     )
                     for node in tree.nodes
+                    )
                 ]
             )
             for name in self.annotations_order
@@ -853,7 +872,7 @@ class BiAffineParser(nn.Module):
                 output: BiaffineParserOutput = self(
                     batch_sentences.encodings, batch_sentences.sent_lengths
                 )
-                arc_scores = output.arc_scores.cpu()
+                arc_scores = output.head_scores.cpu()
 
                 if isinstance(batch, DependencyBatch):
                     trees = batch.trees
@@ -870,7 +889,7 @@ class BiAffineParser(nn.Module):
                     batch_sentences.sent_lengths,
                     output.tag_scores,
                     arc_scores,
-                    output.lab_scores,
+                    output.deprel_scores,
                 ):
                     tree_tagger_scores = tree_tagger_scores[:sentence_length, :]
                     tree_arc_scores = tree_arc_scores[
@@ -1221,7 +1240,9 @@ def train(
                 )
                 shutil.rmtree(model_path)
             else:
-                logger.warning(f"--overwrite asked but {model_path} does not exist or is empty")
+                logger.warning(
+                    f"--overwrite asked but {model_path} does not exist or is empty"
+                )
         parser = BiAffineParser.initialize(
             config_path=config_file,
             treebank=traintrees,
