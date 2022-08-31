@@ -145,12 +145,12 @@ def test_batch_invariance(
                 output.tag_scores[idx, :stable_length, :],
             )
             assert_close(
-                ref_output.arc_scores[0, :stable_length, :stable_length],
-                output.arc_scores[idx, :stable_length, :stable_length],
+                ref_output.head_scores[0, :stable_length, :stable_length],
+                output.head_scores[idx, :stable_length, :stable_length],
             )
             assert_close(
-                ref_output.lab_scores[0, :stable_length, :stable_length, :],
-                output.lab_scores[idx, :stable_length, :stable_length, :],
+                ref_output.deprel_scores[0, :stable_length, :stable_length, :],
+                output.deprel_scores[idx, :stable_length, :stable_length, :],
             )
             for name, scores in output.extra_labels_scores.items():
                 assert_close(
