@@ -1209,18 +1209,19 @@ def train(
         traintrees = list(
             DepGraph.read_conll(in_stream, max_tree_length=max_tree_length)
         )
-    if model_path.exists() and not overwrite:
+    model_path_not_empty = model_path.exists() and any(model_path.iterdir())
+    if model_path_not_empty and not overwrite:
         logger.info(f"Continuing training from {model_path}")
         parser = BiAffineParser.load(model_path)
     else:
         if overwrite:
-            if model_path.exists():
+            if model_path_not_empty:
                 logger.info(
                     f"Erasing existing trained model in {model_path} since overwrite was asked",
                 )
                 shutil.rmtree(model_path)
             else:
-                logger.warning(f"--overwrite asked but {model_path} does not exist")
+                logger.warning(f"--overwrite asked but {model_path} does not exist or is empty")
         parser = BiAffineParser.initialize(
             config_path=config_file,
             treebank=traintrees,
