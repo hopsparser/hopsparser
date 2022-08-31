@@ -61,3 +61,6 @@ multi_line_output = 3
 [tool.mypy]
 warn_unreachable = true
 plugins = ["pydantic.mypy"]
+
+[tool.black]
+line-length = 100
