@@ -74,7 +74,7 @@ def gen_annotations_labels(
         # No iterable unpacking for poor walrus :( (<https://bugs.python.org/issue43143>)
         labels = label_sets[name]
         if not labels:
-            raise ValueError(f"No label found in treebank for annotation {n}")
+            raise ValueError(f"No label found in treebank for annotation {name}")
         else:
             logger.warning(
                 f"Only one label ({next(iter(labels))} found for annotation {labels}, this is likely an error."
@@ -89,9 +89,7 @@ def gen_labels(treelist: Iterable[DepGraph]) -> List[str]:
 
 # FIXME: why does this not have relu in output????
 class MLP(nn.Module):
-    def __init__(
-        self, input_dim: int, hidden_dim: int, output_dim: int, dropout: float = 0.0
-    ):
+    def __init__(self, input_dim: int, hidden_dim: int, output_dim: int, dropout: float = 0.0):
         super(MLP, self).__init__()
         self.input_dim: Final[int] = input_dim
         self.output_dim: Final[int] = output_dim
@@ -160,9 +158,7 @@ class SentencesBatch(NamedTuple):
     encodings: Dict[str, SupportsTo]
     sent_lengths: torch.Tensor
 
-    def to(
-        self: _T_SentencesBatch, device: Union[str, torch.device]
-    ) -> _T_SentencesBatch:
+    def to(self: _T_SentencesBatch, device: Union[str, torch.device]) -> _T_SentencesBatch:
         return type(self)(
             encodings={
                 lexer_name: encoded_batch.to(device)
@@ -221,9 +217,7 @@ class DependencyBatch(NamedTuple):
     labels: torch.Tensor
     annotations: Dict[str, torch.Tensor]
 
-    def to(
-        self: _T_DependencyBatch, device: Union[str, torch.device]
-    ) -> _T_DependencyBatch:
+    def to(self: _T_DependencyBatch, device: Union[str, torch.device]) -> _T_DependencyBatch:
         return type(self)(
             trees=self.trees,
             sentences=self.sentences.to(device),
@@ -252,9 +246,7 @@ class BiAffineParserConfig(pydantic.BaseModel):
     biased_biaffine: bool
     default_batch_size: int
     encoder_dropout: float
-    extra_annotations: Dict[str, AnnotationConfig] = pydantic.Field(
-        default_factory=dict
-    )
+    extra_annotations: Dict[str, AnnotationConfig] = pydantic.Field(default_factory=dict)
     labels: List[str]
     mlp_dropout: float
     tagset: List[str]
@@ -306,12 +298,8 @@ class BiAffineParser(nn.Module):
 
         super(BiAffineParser, self).__init__()
         self.default_batch_size = default_batch_size
-        self.tagset: BidirectionalMapping[str, int] = bidict(
-            (t, i) for i, t in enumerate(tagset)
-        )
-        self.labels: BidirectionalMapping[str, int] = bidict(
-            (l, i) for i, l in enumerate(labels)
-        )
+        self.tagset: BidirectionalMapping[str, int] = bidict((t, i) for i, t in enumerate(tagset))
+        self.labels: BidirectionalMapping[str, int] = bidict((l, i) for i, l in enumerate(labels))
 
         self.mlp_arc_hidden: Final[int] = mlp_arc_hidden
         self.mlp_input: Final[int] = mlp_input
@@ -326,9 +314,7 @@ class BiAffineParser(nn.Module):
         # since we have to wrap them in a `ModuleDict` here`. Also we really don't want to separate
         # lexers that wouldn't be torch Modules since that's really never going to happen in
         # practice.
-        self.lexers = cast(
-            Dict[str, Lexer], nn.ModuleDict(cast(Dict[str, nn.Module], lexers))
-        )
+        self.lexers = cast(Dict[str, Lexer], nn.ModuleDict(cast(Dict[str, nn.Module], lexers)))
         self.lexers_order = sorted(self.lexers.keys())
 
         self.dep_rnn = nn.LSTM(
@@ -361,9 +347,7 @@ class BiAffineParser(nn.Module):
 
         # BiAffine layers
         self.arc_biaffine = BiAffine(self.mlp_input, 1, bias=biased_biaffine)
-        self.lab_biaffine = BiAffine(
-            self.mlp_input, len(self.labels), bias=biased_biaffine
-        )
+        self.lab_biaffine = BiAffine(self.mlp_input, len(self.labels), bias=biased_biaffine)
 
         # Extra annotations
         # This makes us store the list of labels twice but makes it less clunky to __init__ and save
@@ -391,9 +375,7 @@ class BiAffineParser(nn.Module):
             self.annotators = nn.ModuleDict(dict())
         self.annotations_order = sorted(self.annotation_lexicons.keys())
 
-        self.marginal_loss = nn.CrossEntropyLoss(
-            reduction="sum", ignore_index=self.LABEL_PADDING
-        )
+        self.marginal_loss = nn.CrossEntropyLoss(reduction="sum", ignore_index=self.LABEL_PADDING)
 
     def save_params(self, path: Union[str, pathlib.Path, BinaryIO]):
         torch.save(self.state_dict(), path)
@@ -418,8 +400,7 @@ class BiAffineParser(nn.Module):
         - `label_scores`: $`batch_size×n_deps×n_possible_heads×num_deprels`$
         """
         embeddings = [
-            self.lexers[lexer_name](encodings[lexer_name])
-            for lexer_name in self.lexers_order
+            self.lexers[lexer_name](encodings[lexer_name]) for lexer_name in self.lexers_order
         ]
         inpt = torch.cat(embeddings, dim=-1)
         packed_inpt = pack_padded_sequence(
@@ -466,9 +447,7 @@ class BiAffineParser(nn.Module):
 
         # TAGGER_LOSS
         # [batch×sent_length, num_tags]
-        tagger_scores_flat = parser_output.tag_scores.view(
-            -1, parser_output.tag_scores.size(-1)
-        )
+        tagger_scores_flat = parser_output.tag_scores.view(-1, parser_output.tag_scores.size(-1))
         tagger_loss = self.marginal_loss(tagger_scores_flat, batch.tags.view(-1))
 
         # Extra annotations loss
@@ -476,15 +455,11 @@ class BiAffineParser(nn.Module):
         for annotation_name, labels in batch.annotations.items():
             labels_scores = parser_output.extra_labels_scores[annotation_name]
             labels_scores_flat = labels_scores.view(-1, labels_scores.size(-1))
-            extra_annotations_loss += self.marginal_loss(
-                labels_scores_flat, labels.view(-1)
-            )
+            extra_annotations_loss += self.marginal_loss(labels_scores_flat, labels.view(-1))
 
         # ARC LOSS
         # [batch×num_deps, num_heads]
-        head_scores_flat = parser_output.head_scores.view(
-            -1, parser_output.head_scores.size(-1)
-        )
+        head_scores_flat = parser_output.head_scores.view(-1, parser_output.head_scores.size(-1))
         head_loss = self.marginal_loss(head_scores_flat, batch.heads.view(-1))
 
         # LABEL LOSS We will select the labels for the gold heads, so we have to provide one when
@@ -494,19 +469,13 @@ class BiAffineParser(nn.Module):
         positive_heads = batch.heads.masked_fill(batch.heads.eq(self.LABEL_PADDING), 0)
         heads_selection = positive_heads.view(batch_size, num_padded_deps, 1, 1)
         # [batch, n_dependents, 1, n_labels]
-        heads_selection = heads_selection.expand(
-            batch_size, num_padded_deps, 1, num_deprels
-        )
+        heads_selection = heads_selection.expand(batch_size, num_padded_deps, 1, num_deprels)
         # [batch, n_dependents, 1, n_labels]
-        predicted_labels_scores = torch.gather(
-            parser_output.deprel_scores, -2, heads_selection
-        )
+        predicted_labels_scores = torch.gather(parser_output.deprel_scores, -2, heads_selection)
 
         # [batch×sent_len, n_labels]
         predicted_labels_scores_flat = predicted_labels_scores.view(-1, num_deprels)
-        lab_loss = self.marginal_loss(
-            predicted_labels_scores_flat, batch.labels.view(-1)
-        )
+        lab_loss = self.marginal_loss(predicted_labels_scores_flat, batch.labels.view(-1))
 
         # TODO: see if other loss combination functions wouldn't help here, e.g.
         # <https://arxiv.org/abs/1805.06334> or <https://arxiv.org/abs/1209.2784>
@@ -555,9 +524,7 @@ class BiAffineParser(nn.Module):
                 heads_preds = output.head_scores.argmax(dim=-1)
                 heads_mask = batch.heads.ne(self.LABEL_PADDING)
                 overall_heads_size += heads_mask.sum()
-                heads_accuracy = (
-                    heads_preds.eq(batch.heads).logical_and(heads_mask).sum()
-                )
+                heads_accuracy = heads_preds.eq(batch.heads).logical_and(heads_mask).sum()
                 heads_tp += heads_accuracy
 
                 # greedy deprel accuracy (without parsing)
@@ -578,9 +545,7 @@ class BiAffineParser(nn.Module):
                 deprels_pred = gold_head_deprels_scores.argmax(dim=-1)
                 deprels_mask = batch.labels.ne(self.LABEL_PADDING)
                 overall_deprels_size += deprels_mask.sum()
-                deprels_accuracy = (
-                    deprels_pred.eq(batch.labels).logical_and(deprels_mask).sum()
-                )
+                deprels_accuracy = deprels_pred.eq(batch.labels).logical_and(deprels_mask).sum()
                 deprels_tp += deprels_accuracy.item()
 
         return ParserEvalOutput(
@@ -611,9 +576,7 @@ class BiAffineParser(nn.Module):
         logger.info(f"Start training on {device}")
 
         # TODO: make these configurable?
-        optimizer = torch.optim.Adam(
-            self.parameters(), betas=(0.9, 0.9), lr=lr, eps=1e-09
-        )
+        optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr=lr, eps=1e-09)
 
         if lr_schedule["shape"] == "exponential":
             scheduler = torch.optim.lr_scheduler.LambdaLR(
@@ -669,9 +632,7 @@ class BiAffineParser(nn.Module):
 
             if dev_set is not None:
                 dev_scores = self.eval_model(
-                    dev_set.make_batches(
-                        batch_size, shuffle_batches=False, shuffle_data=False
-                    ),
+                    dev_set.make_batches(batch_size, shuffle_batches=False, shuffle_data=False),
                     batch_size=batch_size,
                 )
                 # FIXME: this is not very elegant
@@ -715,9 +676,7 @@ class BiAffineParser(nn.Module):
         pass
 
     @overload
-    def encode_sentence(
-        self, words: Sequence[str], strict: bool
-    ) -> Optional[EncodedSentence]:
+    def encode_sentence(self, words: Sequence[str], strict: bool) -> Optional[EncodedSentence]:
         pass
 
     def encode_sentence(
@@ -747,15 +706,11 @@ class BiAffineParser(nn.Module):
     def batch_sentences(self, sentences: Sequence[EncodedSentence]) -> SentencesBatch:
         words = [sent.words for sent in sentences]
         encodings = {
-            lexer_name: lexer.make_batch(
-                [sent.encodings[lexer_name] for sent in sentences]
-            )
+            lexer_name: lexer.make_batch([sent.encodings[lexer_name] for sent in sentences])
             for lexer_name, lexer in self.lexers.items()
         }
 
-        sent_lengths = torch.tensor(
-            [sent.sent_len for sent in sentences], dtype=torch.long
-        )
+        sent_lengths = torch.tensor([sent.sent_len for sent in sentences], dtype=torch.long)
 
         return SentencesBatch(
             words=words,
@@ -767,9 +722,7 @@ class BiAffineParser(nn.Module):
         sentence = self.encode_sentence(tree.words[1:])
         tag_idxes = torch.tensor(
             [
-                self.tagset.get(tag, self.LABEL_PADDING)
-                if tag is not None
-                else self.LABEL_PADDING
+                self.tagset.get(tag, self.LABEL_PADDING) if tag is not None else self.LABEL_PADDING
                 for tag in tree.pos_tags
             ],
             dtype=torch.long,
@@ -797,11 +750,12 @@ class BiAffineParser(nn.Module):
             name: torch.tensor(
                 [
                     self.LABEL_PADDING,
-                    *(self.annotation_lexicons[name].get(
-                        node.misc.mapping.get(name), self.LABEL_PADDING
-                    )
-                    for node in tree.nodes
-                    )
+                    *(
+                        self.annotation_lexicons[name].get(
+                            node.misc.mapping.get(name), self.LABEL_PADDING
+                        )
+                        for node in tree.nodes
+                    ),
                 ]
             )
             for name in self.annotations_order
@@ -899,12 +853,8 @@ class BiAffineParser(nn.Module):
                     output.deprel_scores,
                 ):
                     tree_tagger_scores = tree_tagger_scores[:sentence_length, :]
-                    tree_arc_scores = tree_arc_scores[
-                        :sentence_length, :sentence_length
-                    ]
-                    tree_lab_scores = tree_lab_scores[
-                        :sentence_length, :sentence_length, :
-                    ]
+                    tree_arc_scores = tree_arc_scores[:sentence_length, :sentence_length]
+                    tree_lab_scores = tree_lab_scores[:sentence_length, :sentence_length, :]
                     result_tree = self._scores_to_tree(
                         arc_scores=tree_arc_scores,
                         greedy=greedy,
@@ -972,9 +922,7 @@ class BiAffineParser(nn.Module):
                 encoded
                 for line in inpt
                 if line and not line.isspace()
-                for encoded in [
-                    self.encode_sentence(line.strip().split(), strict=strict)
-                ]
+                for encoded in [self.encode_sentence(line.strip().split(), strict=strict)]
                 if encoded is not None
             )
             batches = (
@@ -987,8 +935,7 @@ class BiAffineParser(nn.Module):
         else:
             trees = DepGraph.read_conll(inpt)
             batches = (
-                self.batch_trees(batch)
-                for batch in itu.chunked_iter(trees, size=batch_size)
+                self.batch_trees(batch) for batch in itu.chunked_iter(trees, size=batch_size)
             )
         yield from self.batched_predict(batches, greedy=False)
 
@@ -1066,9 +1013,7 @@ class BiAffineParser(nn.Module):
                 if (fasttext_model_path := lexer_config.get("source")) is not None:
                     fasttext_model_path = pathlib.Path(fasttext_model_path)
                     if not fasttext_model_path.is_absolute():
-                        fasttext_model_path = (
-                            config_path.parent / fasttext_model_path
-                        ).resolve()
+                        fasttext_model_path = (config_path.parent / fasttext_model_path).resolve()
                 if fasttext_model_path is None:
                     logger.info("Generating a FastText model from the treebank")
                     lexer = FastTextLexer.from_sents(
@@ -1083,9 +1028,7 @@ class BiAffineParser(nn.Module):
                         )
                     except ValueError:
                         # FastText couldn't load it, so it should be raw text
-                        logger.info(
-                            f"Generating a FastText model from {fasttext_model_path}"
-                        )
+                        logger.info(f"Generating a FastText model from {fasttext_model_path}")
                         lexer = FastTextLexer.from_raw(
                             fasttext_model_path, special_tokens=[DepGraph.ROOT_TOKEN]
                         )
@@ -1232,9 +1175,7 @@ def train(
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
 
     with open(train_file) as in_stream:
-        traintrees = list(
-            DepGraph.read_conll(in_stream, max_tree_length=max_tree_length)
-        )
+        traintrees = list(DepGraph.read_conll(in_stream, max_tree_length=max_tree_length))
     model_path_not_empty = model_path.exists() and any(model_path.iterdir())
     if model_path_not_empty and not overwrite:
         logger.info(f"Continuing training from {model_path}")
@@ -1247,9 +1188,7 @@ def train(
                 )
                 shutil.rmtree(model_path)
             else:
-                logger.warning(
-                    f"--overwrite asked but {model_path} does not exist or is empty"
-                )
+                logger.warning(f"--overwrite asked but {model_path} does not exist or is empty")
         parser = BiAffineParser.initialize(
             config_path=config_file,
             treebank=traintrees,
@@ -1260,9 +1199,7 @@ def train(
             # TODO: remove the cast once we've figured out how to require our lexers to be modules
             freeze_module(cast(nn.Module, lexer))
         else:
-            warnings.warn(
-                f"I can't freeze a {lexer_to_freeze_name!r} lexer that does not exist"
-            )
+            warnings.warn(f"I can't freeze a {lexer_to_freeze_name!r} lexer that does not exist")
     parser.save(model_path)
 
     trainset = DependencyDataset(
@@ -1286,9 +1223,7 @@ def train(
         epochs=hp["epochs"],
         log_epoch=log_epoch,
         lr=lr_config["base"],
-        lr_schedule=lr_config.get(
-            "schedule", {"shape": "exponential", "warmup_steps": 0}
-        ),
+        lr_schedule=lr_config.get("schedule", {"shape": "exponential", "warmup_steps": 0}),
         model_path=model_path,
         train_set=trainset,
     )
@@ -1306,8 +1241,6 @@ def parse(
     parser = BiAffineParser.load(model_path)
     parser = parser.to(device)
     with smart_open(in_file) as in_stream, smart_open(out_file, "w") as ostream:
-        for tree in parser.parse(
-            inpt=in_stream, batch_size=batch_size, raw=raw, strict=strict
-        ):
+        for tree in parser.parse(inpt=in_stream, batch_size=batch_size, raw=raw, strict=strict):
             ostream.write(tree.to_conllu())
             ostream.write("\n\n")

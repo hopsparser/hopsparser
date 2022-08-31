@@ -175,11 +175,7 @@ class UDError(Exception):
 
 # Conversion methods handling `str` <-> `unicode` conversions in Python2
 def _decode(text):
-    return (
-        text
-        if sys.version_info[0] >= 3 or not isinstance(text, str)
-        else text.decode("utf-8")
-    )
+    return text if sys.version_info[0] >= 3 or not isinstance(text, str) else text.decode("utf-8")
 
 
 def _encode(text):
@@ -284,10 +280,7 @@ def load_conllu(file):
                     word.parent.functional_children.append(word)
 
             # Check there is a single root node
-            if (
-                len([word for word in ud.words[sentence_start:] if word.parent is None])
-                != 1
-            ):
+            if len([word for word in ud.words[sentence_start:] if word.parent is None]) != 1:
                 raise UDError("There are multiple roots in a sentence")
 
             # End the sentence
@@ -311,9 +304,7 @@ def load_conllu(file):
         # Delete spaces from FORM, so gold.characters == system.characters
         # even if one of them tokenizes the space. Use any Unicode character
         # with category Zs.
-        columns[FORM] = "".join(
-            filter(lambda c: unicodedata.category(c) != "Zs", columns[FORM])
-        )
+        columns[FORM] = "".join(filter(lambda c: unicodedata.category(c) != "Zs", columns[FORM]))
         if not columns[FORM]:
             raise UDError("There is an empty FORM in the CoNLL-U file")
 
@@ -327,9 +318,7 @@ def load_conllu(file):
             try:
                 start, end = map(int, columns[ID].split("-"))
             except:
-                raise UDError(
-                    "Cannot parse multi-word token ID '{}'".format(_encode(columns[ID]))
-                )
+                raise UDError("Cannot parse multi-word token ID '{}'".format(_encode(columns[ID])))
 
             for _ in range(start, end + 1):
                 word_line = _decode(file.readline().rstrip("\r\n"))
@@ -385,14 +374,8 @@ class Score:
         self.aligned_total = aligned_total
         self.precision = correct / system_total if system_total else 0.0
         self.recall = correct / gold_total if gold_total else 0.0
-        self.f1 = (
-            2 * correct / (system_total + gold_total)
-            if system_total + gold_total
-            else 0.0
-        )
-        self.aligned_accuracy = (
-            correct / aligned_total if aligned_total else aligned_total
-        )
+        self.f1 = 2 * correct / (system_total + gold_total) if system_total + gold_total else 0.0
+        self.aligned_accuracy = correct / aligned_total if aligned_total else aligned_total
 
 
 class AlignmentWord:
@@ -414,9 +397,7 @@ class Alignment:
 
 
 # Evaluate the gold and system treebanks (loaded using load_conllu).
-def evaluate(
-    gold_ud: UDRepresentation, system_ud: UDRepresentation
-) -> Dict[str, Score]:
+def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> Dict[str, Score]:
     def spans_score(gold_spans, system_spans):
         correct, gi, si = 0, 0, 0
         while gi < len(gold_spans) and si < len(system_spans):
@@ -435,9 +416,7 @@ def evaluate(
         if filter_fn is not None:
             gold = sum(1 for gold in alignment.gold_words if filter_fn(gold))
             system = sum(1 for system in alignment.system_words if filter_fn(system))
-            aligned = sum(
-                1 for word in alignment.matched_words if filter_fn(word.gold_word)
-            )
+            aligned = sum(1 for word in alignment.matched_words if filter_fn(word.gold_word))
         else:
             gold = len(alignment.gold_words)
             system = len(alignment.system_words)
@@ -451,11 +430,7 @@ def evaluate(
             return word
 
         def gold_aligned_system(word):
-            return (
-                alignment.matched_words_map.get(word, "NotAligned")
-                if word is not None
-                else None
-            )
+            return alignment.matched_words_map.get(word, "NotAligned") if word is not None else None
 
         correct = 0
         for words in alignment.matched_words:
@@ -505,8 +480,7 @@ def evaluate(
             system_words, si, multiword_span_end
         ):
             if gi < len(gold_words) and (
-                si >= len(system_words)
-                or gold_words[gi].span.start <= system_words[si].span.start
+                si >= len(system_words) or gold_words[gi].span.start <= system_words[si].span.start
             ):
                 multiword_span_end = extend_end(gold_words[gi], multiword_span_end)
                 gi += 1
@@ -549,9 +523,7 @@ def evaluate(
                             gold_words[gs + g].columns[FORM].lower()
                             == system_words[ss + s].columns[FORM].lower()
                         ):
-                            alignment.append_aligned_words(
-                                gold_words[gs + g], system_words[ss + s]
-                            )
+                            alignment.append_aligned_words(gold_words[gs + g], system_words[ss + s])
                             g += 1
                             s += 1
                         elif lcs[g][s] == (lcs[g + 1][s] if g + 1 < gi - gs else 0):
@@ -611,9 +583,7 @@ def evaluate(
             lambda w, ga: w.columns[LEMMA] if ga(w).columns[LEMMA] != "_" else "_",
         ),
         "UAS": alignment_score(alignment, lambda w, ga: ga(w.parent)),
-        "LAS": alignment_score(
-            alignment, lambda w, ga: (ga(w.parent), w.columns[DEPREL])
-        ),
+        "LAS": alignment_score(alignment, lambda w, ga: (ga(w.parent), w.columns[DEPREL])),
         "CLAS": alignment_score(
             alignment,
             lambda w, ga: (ga(w.parent), w.columns[DEPREL]),
@@ -646,9 +616,7 @@ def evaluate(
 
 
 def load_conllu_file(path):
-    _file = open(
-        path, mode="r", **({"encoding": "utf-8"} if sys.version_info >= (3, 0) else {})
-    )
+    _file = open(path, mode="r", **({"encoding": "utf-8"} if sys.version_info >= (3, 0) else {}))
     return load_conllu(_file)
 
 
@@ -662,9 +630,7 @@ def evaluate_wrapper(args):
 def main():
     # Parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "gold_file", type=str, help="Name of the CoNLL-U file with the gold data."
-    )
+    parser.add_argument("gold_file", type=str, help="Name of the CoNLL-U file with the gold data.")
     parser.add_argument(
         "system_file",
         type=str,
@@ -768,15 +734,11 @@ class TestAlignment(unittest.TestCase):
                         )
                     )
         return load_conllu(
-            (io.StringIO if sys.version_info >= (3, 0) else io.BytesIO)(
-                "\n".join(lines + ["\n"])
-            )
+            (io.StringIO if sys.version_info >= (3, 0) else io.BytesIO)("\n".join(lines + ["\n"]))
         )
 
     def _test_exception(self, gold, system):
-        self.assertRaises(
-            UDError, evaluate, self._load_words(gold), self._load_words(system)
-        )
+        self.assertRaises(UDError, evaluate, self._load_words(gold), self._load_words(system))
 
     def _test_ok(self, gold, system, correct):
         metrics = evaluate(self._load_words(gold), self._load_words(system))

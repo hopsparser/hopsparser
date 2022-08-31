@@ -6,6 +6,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Mapping,
     NamedTuple,
     Optional,
     Sequence,
@@ -51,15 +52,34 @@ class Misc(collections.abc.Sequence):
                 mapping[m.group("key")] = m.group("value")
         self.mapping = mapping
 
+    def replace(self: _T_Misc, mapping: Mapping[str, str]) -> _T_Misc:
+        new_elements = []
+        modified = set()
+        for e in self._lst:
+            if m := re.match("(?P<key>.+?)=(?P<value>.*)", e):
+                k = m.group("key")
+                if (new_value := mapping.get(k)) is not None:
+                    if m.group("key") in modified:
+                        logger.warning(
+                            f"Extra annotation {k} has multiple labels, replacing only the first one."
+                        )
+                        new_elements.append(e)
+                    else:
+                        new_elements.append(f"{k}={new_value}")
+                        modified.add(k)
+                else:
+                    new_elements.append(e)
+        return type(self)(new_elements)
+
     def __getitem__(self, index):
         return self._lst[index]
 
     def __len__(self) -> int:
         return len(self._lst)
-    
+
     def __str__(self) -> str:
         return f"Misc({self._lst}, {self.mapping})"
-    
+
     def __repr__(self) -> str:
         return f"Misc({self._lst})"
 
@@ -135,9 +155,7 @@ class DepGraph:
                 .difference(govs.keys())
                 .difference((0, None))
             ):
-                raise ValueError(
-                    f"Malformed tree: unreachable heads: {unreachable_heads}"
-                )
+                raise ValueError(f"Malformed tree: unreachable heads: {unreachable_heads}")
 
         self.mwe_ranges = [] if mwe_ranges is None else list(mwe_ranges)
         self.metadata = [] if metadata is None else list(metadata)
@@ -165,7 +183,10 @@ class DepGraph:
         return [None, *(n.deprel for n in self.nodes)]
 
     def replace(
-        self, edges: Optional[Iterable[Edge]], pos_tags: Optional[Iterable[str]]
+        self,
+        edges: Optional[Iterable[Edge]],
+        pos_tags: Optional[Iterable[str]],
+        misc: Optional[Iterable[Dict[str, str]]] = None,
     ) -> "DepGraph":
         """Return a new `DepGraph`, identical to `self` except for its dependencies and pos tags (if specified).
 
@@ -280,10 +301,7 @@ class DepGraph:
         for line in itertools.chain(lines, [""]):
             if not line or line.isspace():
                 if current_tree_lines:
-                    if (
-                        max_tree_length is None
-                        or len(current_tree_lines) <= max_tree_length
-                    ):
+                    if max_tree_length is None or len(current_tree_lines) <= max_tree_length:
                         yield cls.from_conllu(current_tree_lines)
                     else:
                         logger.info(

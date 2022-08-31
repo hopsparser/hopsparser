@@ -120,12 +120,8 @@ def test_batch_invariance(
     parser.eval()
     try:
         encoded_stable_text = parser.encode_sentence(stable_text, strict=True)
-        encoded_distractor_text_1 = parser.encode_sentence(
-            distractor_text_1, strict=True
-        )
-        encoded_distractor_text_2 = parser.encode_sentence(
-            distractor_text_2, strict=True
-        )
+        encoded_distractor_text_1 = parser.encode_sentence(distractor_text_1, strict=True)
+        encoded_distractor_text_2 = parser.encode_sentence(distractor_text_2, strict=True)
     except LexingError:
         assume(False)
     with torch.no_grad():
@@ -134,9 +130,7 @@ def test_batch_invariance(
         text_s1 = [encoded_stable_text, encoded_distractor_text_1]
         text_1s = [encoded_distractor_text_1, encoded_stable_text]
         text_s2 = [encoded_stable_text, encoded_distractor_text_2]
-        ref_output: BiaffineParserOutput = parser(
-            batch_stable.encodings, batch_stable.sent_lengths
-        )
+        ref_output: BiaffineParserOutput = parser(batch_stable.encodings, batch_stable.sent_lengths)
         for text, idx in ((text_s1, 0), (text_1s, 1), (text_s2, 0)):
             batch = parser.batch_sentences(text).to(device)
             output: BiaffineParserOutput = parser(batch.encodings, batch.sent_lengths)

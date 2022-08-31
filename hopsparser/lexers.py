@@ -91,9 +91,7 @@ class CharRNNLexerBatch(NamedTuple):
     sent_lengths: List[int]
     word_lengths: torch.Tensor
 
-    def to(
-        self: _T_CharRNNLexerBatch, device: Union[str, torch.device]
-    ) -> _T_CharRNNLexerBatch:
+    def to(self: _T_CharRNNLexerBatch, device: Union[str, torch.device]) -> _T_CharRNNLexerBatch:
         return type(self)(
             encoding=self.encoding.to(device=device),
             sent_lengths=self.sent_lengths,
@@ -191,11 +189,7 @@ class CharRNNLexer(nn.Module):
         if token in self.special_tokens:
             res = [self.special_tokens_idx]
         else:
-            res = [
-                idx
-                for idx in (self.vocabulary.get(c) for c in token)
-                if idx is not None
-            ]
+            res = [idx for idx in (self.vocabulary.get(c) for c in token) if idx is not None]
             if not res:
                 res = [self.pad_idx]
         return torch.tensor(res, dtype=torch.long)
@@ -233,9 +227,7 @@ class CharRNNLexer(nn.Module):
                     "char_embeddings_dim": self.char_embeddings_dim,
                     "output_dim": self.output_dim,
                     "special_tokens": list(self.special_tokens),
-                    "charset": [
-                        self.vocabulary.inverse[i] for i in range(len(self.vocabulary))
-                    ],
+                    "charset": [self.vocabulary.inverse[i] for i in range(len(self.vocabulary))],
                 },
                 out_stream,
             )
@@ -253,9 +245,7 @@ class CharRNNLexer(nn.Module):
         return res
 
     @classmethod
-    def from_chars(
-        cls: Type[_T_CharRNNLexer], chars: Iterable[str], **kwargs
-    ) -> _T_CharRNNLexer:
+    def from_chars(cls: Type[_T_CharRNNLexer], chars: Iterable[str], **kwargs) -> _T_CharRNNLexer:
         charset = sorted(set(chars))
         if wrong := [c for c in charset if len(c) > 1]:
             raise ValueError(f"Characters of length > 1 in charset: {wrong}")
@@ -292,13 +282,11 @@ class FastTextLexer(nn.Module):
             torch.randint(high=self.vocab_size, size=(self.output_dim,)),
             torch.arange(self.output_dim),
         ].unsqueeze(0)
-        weights = torch.cat(
-            (weights, torch.zeros((1, self.output_dim)), root_embedding), dim=0
-        ).to(torch.float)
-        weights.requires_grad = True
-        self.embeddings = nn.Embedding.from_pretrained(
-            weights, padding_idx=self.vocab_size
+        weights = torch.cat((weights, torch.zeros((1, self.output_dim)), root_embedding), dim=0).to(
+            torch.float
         )
+        weights.requires_grad = True
+        self.embeddings = nn.Embedding.from_pretrained(weights, padding_idx=self.vocab_size)
         self.special_tokens: Set = set([] if special_tokens is None else special_tokens)
         self.special_tokens_idx: Final[int] = self.vocab_size + 1
         self.pad_idx: Final[int] = self.embeddings.padding_idx
@@ -339,9 +327,7 @@ class FastTextLexer(nn.Module):
         """
         subword_indices = [self.word2subcodes(token) for token in tokens_sequence]
         # shape: sentence_length×num_subwords_in_longest_word
-        return pad_sequence(
-            subword_indices, padding_value=self.pad_idx, batch_first=True
-        )
+        return pad_sequence(subword_indices, padding_value=self.pad_idx, batch_first=True)
 
     def make_batch(self, batch: Sequence[torch.Tensor]) -> torch.Tensor:
         """Pad a batch of sentences.
@@ -464,17 +450,13 @@ class WordEmbeddingsLexer(nn.Module):
             )
         except ValueError as e:
             raise ValueError("Duplicated words in vocabulary") from e
-        self.embedding = nn.Embedding(
-            len(self.vocabulary) + 1, embeddings_dim, padding_idx=0
-        )
+        self.embedding = nn.Embedding(len(self.vocabulary) + 1, embeddings_dim, padding_idx=0)
         self.output_dim = embeddings_dim
         self.unk_word_idx = self.vocabulary[unk_word]
         self.word_dropout = word_dropout
         self._dpout = 0.0
 
-    def train(
-        self: _T_WordEmbeddingsLexer, mode: bool = True
-    ) -> _T_WordEmbeddingsLexer:
+    def train(self: _T_WordEmbeddingsLexer, mode: bool = True) -> _T_WordEmbeddingsLexer:
         if mode:
             self._dpout = self.word_dropout
         else:
@@ -486,16 +468,12 @@ class WordEmbeddingsLexer(nn.Module):
         Takes words sequences codes as integer sequences and returns the embeddings
         """
         if self._dpout:
-            word_sequences = integer_dropout(
-                word_sequences, self.unk_word_idx, self._dpout
-            )
+            word_sequences = integer_dropout(word_sequences, self.unk_word_idx, self._dpout)
         return self.embedding(word_sequences)
 
     def encode(self, tokens_sequence: Sequence[str]) -> torch.Tensor:
         """Map word tokens to integer indices."""
-        word_idxes = [
-            self.vocabulary.get(token, self.unk_word_idx) for token in tokens_sequence
-        ]
+        word_idxes = [self.vocabulary.get(token, self.unk_word_idx) for token in tokens_sequence]
         return torch.tensor(word_idxes)
 
     def make_batch(self, batch: Sequence[torch.Tensor]) -> torch.Tensor:
@@ -512,8 +490,7 @@ class WordEmbeddingsLexer(nn.Module):
                     "embeddings_dim": self.output_dim,
                     "unk_word": self.vocabulary.inverse[self.unk_word_idx],
                     "vocabulary": [
-                        self.vocabulary.inverse[i]
-                        for i in range(1, len(self.vocabulary) + 1)
+                        self.vocabulary.inverse[i] for i in range(1, len(self.vocabulary) + 1)
                     ],
                     "word_dropout": self.word_dropout,
                 },
@@ -523,9 +500,7 @@ class WordEmbeddingsLexer(nn.Module):
             torch.save(self.state_dict(), model_path / "weights.pt")
 
     @classmethod
-    def load(
-        cls: Type[_T_WordEmbeddingsLexer], model_path: pathlib.Path
-    ) -> _T_WordEmbeddingsLexer:
+    def load(cls: Type[_T_WordEmbeddingsLexer], model_path: pathlib.Path) -> _T_WordEmbeddingsLexer:
         with open(model_path / "config.json") as in_stream:
             config = json.load(in_stream)
         res = cls(**config)
@@ -577,9 +552,7 @@ class BertLexerBatch(NamedTuple):
     encoding: BatchEncoding
     subword_alignments: Sequence[Sequence[TokenSpan]]
 
-    def to(
-        self: _T_BertLexerBatch, device: Union[str, torch.device]
-    ) -> _T_BertLexerBatch:
+    def to(self: _T_BertLexerBatch, device: Union[str, torch.device]) -> _T_BertLexerBatch:
         return type(self)(
             self.encoding.to(device=device),
             self.subword_alignments,
@@ -726,16 +699,14 @@ class BertLexer(nn.Module):
                 if self.subwords_reduction == "first":
                     reduced_bert_word_embedding = this_word_subword_embeddings[0, ...]
                 elif self.subwords_reduction == "mean":
-                    reduced_bert_word_embedding = this_word_subword_embeddings.mean(
-                        dim=0
-                    )
+                    reduced_bert_word_embedding = this_word_subword_embeddings.mean(dim=0)
                 else:
                     raise ValueError(f"Unknown reduction {self.subwords_reduction}")
                 word_embeddings[sent_n, word_n, ...] = reduced_bert_word_embedding
             # Now do the root token as the average of (non-padding words) embeddings.
-            word_embeddings[sent_n, 0, ...] = word_embeddings[sent_n, ...].sum(
-                dim=0
-            ) / len(alignment)
+            word_embeddings[sent_n, 0, ...] = word_embeddings[sent_n, ...].sum(dim=0) / len(
+                alignment
+            )
 
         return word_embeddings
 
@@ -776,8 +747,7 @@ class BertLexer(nn.Module):
                 )
             # TODO: there might be a better way to do this?
             alignments = [
-                bert_encoding.word_to_tokens(i)
-                for i in range(len(unrooted_tok_sequence))
+                bert_encoding.word_to_tokens(i) for i in range(len(unrooted_tok_sequence))
             ]
             i = next((i for i, a in enumerate(alignments) if a is None), None)
             if i is not None:
@@ -789,9 +759,7 @@ class BertLexer(nn.Module):
             # NOTE: this might different results than tokenizing the whole sentence
             # with some tokenizers (e.g. sentencepiece) but as far as I know, all of
             # these have fast version, so they shouldn't land in this branch anyway.
-            bert_tokens = [
-                self.tokenizer.tokenize(token) for token in unrooted_tok_sequence
-            ]
+            bert_tokens = [self.tokenizer.tokenize(token) for token in unrooted_tok_sequence]
             i = next((i for i, s in enumerate(bert_tokens) if not s), None)
             if i is not None:
                 if self.tokenizer.unk_token is None:
@@ -804,12 +772,9 @@ class BertLexer(nn.Module):
                         f"Replacing empty words by  {self.tokenizer.unk_token} in {unrooted_tok_sequence}"
                     )
                     bert_tokens = [
-                        tokens if tokens else [self.tokenizer.unk_token]
-                        for tokens in bert_tokens
+                        tokens if tokens else [self.tokenizer.unk_token] for tokens in bert_tokens
                     ]
-            subtokens_sequence = [
-                subtoken for token in bert_tokens for subtoken in token
-            ]
+            subtokens_sequence = [subtoken for token in bert_tokens for subtoken in token]
             if len(subtokens_sequence) > self.max_length:
                 raise LexingError(
                     f"Sentence too long for this transformer model ({len(subtokens_sequence)} tokens > {self.max_length})",
@@ -855,9 +820,7 @@ class BertLexer(nn.Module):
         bert_model_path = model_path / "model"
         bert_config = transformers.AutoConfig.from_pretrained(bert_model_path)
         model = transformers.AutoModel.from_config(bert_config)
-        tokenizer = transformers.AutoTokenizer.from_pretrained(
-            bert_model_path, use_fast=True
-        )
+        tokenizer = transformers.AutoTokenizer.from_pretrained(bert_model_path, use_fast=True)
         # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
         if isinstance(
             tokenizer,
@@ -882,9 +845,7 @@ class BertLexer(nn.Module):
             config = transformers.AutoConfig.from_pretrained(model_name_or_path)
             model = transformers.AutoModel.from_config(config)
 
-        tokenizer = transformers.AutoTokenizer.from_pretrained(
-            model_name_or_path, use_fast=True
-        )
+        tokenizer = transformers.AutoTokenizer.from_pretrained(model_name_or_path, use_fast=True)
         # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
         if isinstance(
             tokenizer,

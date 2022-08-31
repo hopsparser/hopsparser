@@ -91,27 +91,19 @@ def parse(
 @cli.command(help="Train a parsing model")
 @click.argument(
     "config_file",
-    type=click.Path(
-        resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path
-    ),
+    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
 )
 @click.argument(
     "train_file",
-    type=click.Path(
-        resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path
-    ),
+    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
 )
 @click.argument(
     "output_dir",
-    type=click.Path(
-        resolve_path=True, file_okay=False, writable=True, path_type=pathlib.Path
-    ),
+    type=click.Path(resolve_path=True, file_okay=False, writable=True, path_type=pathlib.Path),
 )
 @click.option(
     "--dev-file",
-    type=click.Path(
-        resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path
-    ),
+    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
     help="A CoNLL-U treebank to use as a development dataset.",
 )
 @click.option(
@@ -126,9 +118,7 @@ def parse(
 )
 @click.option(
     "--test-file",
-    type=click.Path(
-        resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path
-    ),
+    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
     help="A CoNLL-U treebank to use as a test dataset.",
 )
 @click.option(
@@ -183,9 +173,7 @@ def train(
         gold_testset = evaluator.load_conllu_file(test_file)
         syst_testset = evaluator.load_conllu_file(parsed_testset_path)
         test_metrics = evaluator.evaluate(gold_testset, syst_testset)
-        metrics_table.add_row(
-            "Test", *(f"{100*test_metrics[m].f1:.2f}" for m in metrics)
-        )
+        metrics_table.add_row("Test", *(f"{100*test_metrics[m].f1:.2f}" for m in metrics))
 
     if metrics_table.rows:
         console = Console()
@@ -209,9 +197,7 @@ def train(
 @device_opt
 @click.option(
     "--intermediary-dir",
-    type=click.Path(
-        resolve_path=True, file_okay=False, writable=True, path_type=pathlib.Path
-    ),
+    type=click.Path(resolve_path=True, file_okay=False, writable=True, path_type=pathlib.Path),
     help="A directory where the parsed data will be stored, defaults to a temp dir",
 )
 @click.option(
