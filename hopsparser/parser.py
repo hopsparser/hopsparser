@@ -889,17 +889,26 @@ class BiAffineParser(nn.Module):
         mst_labels = selected.argmax(dim=-1)
 
         # `[1:]` to ignore the root node's tag
-        pos_tags = [self.tagset.inverse[idx] for idx in tag_idxes[1:].tolist()]
+        # TODO: use zip strict when we can drop py38 and py39, for this and the following
+        # TODO: does tolist slow us down, here?
+        # TODO: should we maintain a `node.identifier: index_in_tensor` dict for this? It's
+        # unnecssary right now but would make the management of the root cleaner and allow non-int
+        # identifiers in the future
+        pos_tags = {
+            node.identifier: self.tagset.inverse[idx]
+            for node, idx in zip(tree.nodes, tag_idxes[1:].tolist())
+        }
         # `[1:]` to ignore the root node's head
-        heads = mst_heads[1:].tolist()
+        heads = {node.identifier: h for node, h in zip(tree.nodes, mst_heads[1:].tolist())}
         # `[1:]` to ignore the root node's deprel
-        deprels = [self.labels.inverse[lbl] for lbl in mst_labels[1:].tolist()]
-        edges = [
-            deptree.Edge(head_idx, lbl, dep_idx)
-            for dep_idx, (head_idx, lbl) in enumerate(zip(heads, deprels), start=1)
-        ]
+        deprels = {
+            node.identifier: self.labels.inverse[lbl]
+            for node, lbl in zip(tree.nodes, mst_labels[1:].tolist())
+        }
+
         result_tree = tree.replace(
-            edges=edges,
+            deprels=deprels,
+            heads=heads,
             pos_tags=pos_tags,
         )
 

@@ -59,7 +59,7 @@ class Misc(collections.abc.Sequence):
             if m := re.match("(?P<key>.+?)=(?P<value>.*)", e):
                 k = m.group("key")
                 if (new_value := mapping.get(k)) is not None:
-                    if m.group("key") in modified:
+                    if k in modified:
                         logger.warning(
                             f"Extra annotation {k} has multiple labels, replacing only the first one."
                         )
@@ -184,36 +184,36 @@ class DepGraph:
 
     def replace(
         self,
-        edges: Optional[Iterable[Edge]],
-        pos_tags: Optional[Iterable[str]],
-        misc: Optional[Iterable[Dict[str, str]]] = None,
+        heads: Optional[Mapping[int, int]],
+        deprels: Optional[Mapping[int, str]],
+        pos_tags: Optional[Mapping[int, str]],
+        misc: Optional[Mapping[int, Mapping[str, str]]] = None,
     ) -> "DepGraph":
-        """Return a new `DepGraph`, identical to `self` except for its dependencies and pos tags (if specified).
+        """Return a new `DepGraph`, identical to `self` except for its dependencies, pos tags and
+        misc annotations (if specified). All parameters should be dicts mapping node identifiers
+        to the new value of the corresponding feature.
 
-        If neither `edges` nor `pos_tags` is provided, this returns a shallow copy of `self`.
+        If no argument is provided, this returns a shallow copy of `self`.
         """
-        if edges is None:
-            govs = {n.identifier: n.head for n in self.nodes}
-            labels = {n.identifier: n.deprel for n in self.nodes}
-        else:
-            govs = {e.dep: e.gov for e in edges}
-            labels = {e.dep: e.label for e in edges}
-        new_pos_tags: List[Optional[str]]
+        if heads is None:
+            heads = dict()
+
+        if deprels is None:
+            deprels = dict()
+
         if pos_tags is None:
-            new_pos_tags = [n.upos for n in self.nodes]
-        else:
-            new_pos_tags = list(pos_tags)
-        pos = {i: tag for i, tag in enumerate(new_pos_tags, start=1)}
+            pos_tags = dict()
+
         new_nodes = [
             DepNode(
                 identifier=node.identifier,
                 form=node.form,
                 lemma=node.lemma,
-                upos=pos[node.identifier],
+                upos=pos_tags.get(node.identifier, node.upos),
                 xpos=node.xpos,
                 feats=node.feats,
-                head=govs[node.identifier],
-                deprel=labels[node.identifier],
+                head=heads.get(node.identifier, node.head),
+                deprel=deprels.get(node.identifier, node.deprel),
                 deps=node.deps,
                 misc=node.misc,
             )
