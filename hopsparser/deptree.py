@@ -203,6 +203,9 @@ class DepGraph:
 
         if pos_tags is None:
             pos_tags = dict()
+        
+        if misc is None:
+            misc = dict()
 
         new_nodes = [
             DepNode(
@@ -215,7 +218,7 @@ class DepGraph:
                 head=heads.get(node.identifier, node.head),
                 deprel=deprels.get(node.identifier, node.deprel),
                 deps=node.deps,
-                misc=node.misc,
+                misc=node.misc.replace(misc.get(node.identifier, dict())),
             )
             for node in self.nodes
         ]

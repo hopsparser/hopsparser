@@ -28,7 +28,6 @@ from typing import (
     overload,
 )
 
-import numpy as np
 import pydantic
 import torch
 import transformers
@@ -39,7 +38,7 @@ from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
 
-from hopsparser import deptree, lexers, utils
+from hopsparser import lexers, utils
 from hopsparser.deptree import DepGraph
 from hopsparser.lexers import (
     BertLexer,
@@ -87,7 +86,8 @@ def gen_labels(treelist: Iterable[DepGraph]) -> List[str]:
     return sorted(label_sets)
 
 
-# FIXME: why does this not have relu in output????
+# No non-linearity on the output so this can also serve before softmax
+# TODO: jit
 class MLP(nn.Module):
     def __init__(self, input_dim: int, hidden_dim: int, output_dim: int, dropout: float = 0.0):
         super(MLP, self).__init__()
@@ -258,6 +258,33 @@ class BiaffineParserOutput(NamedTuple):
     head_scores: torch.Tensor
     deprel_scores: torch.Tensor
     extra_labels_scores: Dict[str, torch.Tensor]
+
+    def unbatch(self, sentence_lengths: Sequence[int]) -> List["BiaffineParserOutput"]:
+        """Return individual scores for every sentence in the batch, properly truncated to the sentence length."""
+        transposed_extra_labels_scores = [dict() for _ in sentence_lengths]
+        # FIXME: this is too clunky
+        if self.extra_labels_scores:
+            for name, scores in self.extra_labels_scores.items():
+                for scores_dict, scores, sent_len in zip(
+                    transposed_extra_labels_scores, scores.unbind(0), sentence_lengths
+                ):
+                    scores_dict[name] = scores[:sent_len, :]
+
+        return [
+            type(self)(
+                tag_scores=tag_scores[:sent_len, :],
+                head_scores=head_scores[:sent_len, :sent_len],
+                deprel_scores=deprel_scores[:sent_len, :sent_len, :],
+                extra_labels_scores=extra_labels_scores,
+            )
+            for tag_scores, head_scores, deprel_scores, extra_labels_scores, sent_len in zip(
+                self.tag_scores.unbind(0),
+                self.head_scores.unbind(0),
+                self.deprel_scores.unbind(0),
+                transposed_extra_labels_scores,
+                sentence_lengths,
+            )
+        ]
 
 
 class ParserEvalOutput(NamedTuple):
@@ -434,7 +461,6 @@ class BiAffineParser(nn.Module):
         )
 
     # TODO: make this an independent function
-    # TODO: hardcode the marginal loss for now
     # TODO: JIT this (or split it and jit the marginals?)
     def parser_loss(
         self,
@@ -833,66 +859,60 @@ class BiAffineParser(nn.Module):
                 output: BiaffineParserOutput = self(
                     batch_sentences.encodings, batch_sentences.sent_lengths
                 )
-                arc_scores = output.head_scores.cpu()
 
                 if isinstance(batch, DependencyBatch):
                     trees = batch.trees
                 else:
                     trees = [DepGraph.from_words(words) for words in batch.words]
-                for (
-                    tree,
-                    sentence_length,
-                    tree_tagger_scores,
-                    tree_arc_scores,
-                    tree_lab_scores,
-                ) in zip(
-                    trees,
-                    batch_sentences.sent_lengths,
-                    output.tag_scores,
-                    arc_scores,
-                    output.deprel_scores,
+                for (tree, tree_scores) in zip(
+                    trees, output.unbatch(sentence_lengths=batch_sentences.sent_lengths.tolist())
                 ):
-                    tree_tagger_scores = tree_tagger_scores[:sentence_length, :]
-                    tree_arc_scores = tree_arc_scores[:sentence_length, :sentence_length]
-                    tree_lab_scores = tree_lab_scores[:sentence_length, :sentence_length, :]
                     result_tree = self._scores_to_tree(
-                        arc_scores=tree_arc_scores,
                         greedy=greedy,
-                        lab_scores=tree_lab_scores,
-                        tagger_scores=tree_tagger_scores,
+                        scores=tree_scores,
                         tree=tree,
                     )
                     yield result_tree
 
+    # FIXME: tags and extra annotations argmaxing is very batchable, which would make this faster
+    # AND easier to read
     def _scores_to_tree(
         self,
-        arc_scores: torch.Tensor,
         greedy: bool,
-        lab_scores: torch.Tensor,
-        tagger_scores: torch.Tensor,
+        scores: BiaffineParserOutput,
         tree: DepGraph,
     ):
-        sentence_length = lab_scores.shape[0]
-        # Predict heads
-        probs = arc_scores.cpu().numpy()
-        mst_heads_np = np.argmax(probs, axis=1) if greedy else chuliu_edmonds(probs)
-        # shape: num_deps
-        mst_heads = torch.from_numpy(mst_heads_np).to(lab_scores.device)
+        sentence_length = scores.deprel_scores.shape[0]
 
-        # Predict tags
-        tag_idxes = tagger_scores.argmax(dim=1)
+        # Predict heads
+        if greedy:
+            # shape: num_deps
+            mst_heads = scores.head_scores.argmax(dim=1)
+        else:
+            head_scores_np = scores.head_scores.cpu().numpy()
+            mst_heads_np = chuliu_edmonds(head_scores_np)
+            # shape: num_deps
+            mst_heads = torch.from_numpy(mst_heads_np).to(scores.deprel_scores.device)
+
         # Predict labels
         # shape: num_deps×1×num_deprel
-        select = mst_heads.view(-1, 1, 1).expand(-1, 1, lab_scores.size(-1))
+        select = mst_heads.view(-1, 1, 1).expand(-1, 1, scores.deprel_scores.size(-1))
         # shape: num_deps×num_deprel
-        selected = torch.gather(lab_scores, 1, select).view(sentence_length, -1)
+        selected = torch.gather(scores.deprel_scores, 1, select).view(sentence_length, -1)
         mst_labels = selected.argmax(dim=-1)
+
+        # Predict tags
+        tag_idxes = scores.tag_scores.argmax(dim=1)
+
+        # Predict extra annotations
+        # `[1:]` to ignore the root node's labels
+        misc_idx = {n: s[1:].argmax(dim=1).tolist() for n, s in scores.extra_labels_scores.items()}
 
         # `[1:]` to ignore the root node's tag
         # TODO: use zip strict when we can drop py38 and py39, for this and the following
         # TODO: does tolist slow us down, here?
         # TODO: should we maintain a `node.identifier: index_in_tensor` dict for this? It's
-        # unnecssary right now but would make the management of the root cleaner and allow non-int
+        # unnecsesary right now but would make the management of the root cleaner and allow non-int
         # identifiers in the future
         pos_tags = {
             node.identifier: self.tagset.inverse[idx]
@@ -906,9 +926,17 @@ class BiAffineParser(nn.Module):
             for node, lbl in zip(tree.nodes, mst_labels[1:].tolist())
         }
 
+        misc = {
+            node.identifier: {
+                n: self.annotation_lexicons[n].inverse[idx[i]] for n, idx in misc_idx.items()
+            }
+            for i, node in enumerate(tree.nodes, start=1)
+        }
+
         result_tree = tree.replace(
             deprels=deprels,
             heads=heads,
+            misc=misc,
             pos_tags=pos_tags,
         )
 
