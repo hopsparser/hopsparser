@@ -61,6 +61,7 @@ def dir_manager(
         yield d_path
 
 
+# TODO: use rich table markdown style for this instead
 def make_markdown_metrics_table(metrics: Dict[str, float]) -> str:
     column_width = max(7, *(len(k) for k in metrics.keys()))
     keys, values = zip(*metrics.items())

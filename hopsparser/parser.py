@@ -68,12 +68,12 @@ def gen_annotations_labels(
                 if (node_label := node.misc.mapping.get(name)) is not None:
                     labels.add(node_label)
     if (
-        name := next((name for name, labels in label_sets.items() if not labels), None)
+        name_nolabel := next((name for name, labels in label_sets.items() if not labels), None)
     ) is not None:
         # No iterable unpacking for poor walrus :( (<https://bugs.python.org/issue43143>)
-        labels = label_sets[name]
+        labels = label_sets[name_nolabel]
         if not labels:
-            raise ValueError(f"No label found in treebank for annotation {name}")
+            raise ValueError(f"No label found in treebank for annotation {name_nolabel}")
         else:
             logger.warning(
                 f"Only one label ({next(iter(labels))} found for annotation {labels}, this is likely an error."
@@ -261,7 +261,9 @@ class BiaffineParserOutput(NamedTuple):
 
     def unbatch(self, sentence_lengths: Sequence[int]) -> List["BiaffineParserOutput"]:
         """Return individual scores for every sentence in the batch, properly truncated to the sentence length."""
-        transposed_extra_labels_scores = [dict() for _ in sentence_lengths]
+        transposed_extra_labels_scores: List[Dict[str, torch.Tensor]] = [
+            dict() for _ in sentence_lengths
+        ]
         # FIXME: this is too clunky
         if self.extra_labels_scores:
             for name, scores in self.extra_labels_scores.items():
@@ -292,6 +294,7 @@ class ParserEvalOutput(NamedTuple):
     tag_accuracy: float
     head_accuracy: float
     deprel_accuracy: float
+    extra_annotations_accuracy: Dict[str, float]
 
 
 _T_BiAffineParser = TypeVar("_T_BiAffineParser", bound="BiAffineParser")
@@ -521,9 +524,15 @@ class BiAffineParser(nn.Module):
         tags_tp = torch.zeros(1, dtype=torch.long, device=device)
         heads_tp = torch.zeros(1, dtype=torch.long, device=device)
         deprels_tp = torch.zeros(1, dtype=torch.long, device=device)
+        extra_annotations_tp = {
+            name: torch.zeros(1, dtype=torch.long, device=device) for name in self.annotations_order
+        }
         overall_tags_size = torch.zeros(1, dtype=torch.long, device=device)
         overall_heads_size = torch.zeros(1, dtype=torch.long, device=device)
         overall_deprels_size = torch.zeros(1, dtype=torch.long, device=device)
+        overall_extra_annotations_size = {
+            name: torch.zeros(1, dtype=torch.long, device=device) for name in self.annotations_order
+        }
         gloss = torch.zeros(1, dtype=torch.float, device=device)
 
         with torch.inference_mode():
@@ -543,8 +552,19 @@ class BiAffineParser(nn.Module):
                 tags_pred = output.tag_scores.argmax(dim=-1)
                 tags_mask = batch.tags.ne(self.LABEL_PADDING)
                 overall_tags_size += tags_mask.sum()
+                # FIXME: weird variable name
                 tags_accuracy = tags_pred.eq(batch.tags).logical_and(tags_mask).sum()
                 tags_tp += tags_accuracy
+
+                # extra labels accuracy
+                for name, scores in output.extra_labels_scores.items():
+                    gold_annotation = batch.annotations[name]
+                    annotation_pred = scores.argmax(dim=-1)
+                    annotation_mask = gold_annotation.ne(self.LABEL_PADDING)
+                    overall_extra_annotations_size[name] += annotation_mask.sum()
+                    extra_annotations_tp[name] += (
+                        annotation_pred.eq(gold_annotation).logical_and(annotation_mask).sum()
+                    )
 
                 # greedy head accuracy (without parsing)
                 heads_preds = output.head_scores.argmax(dim=-1)
@@ -581,6 +601,12 @@ class BiAffineParser(nn.Module):
             tag_accuracy=tags_tp.true_divide(overall_tags_size).item(),
             head_accuracy=heads_tp.true_divide(overall_heads_size).item(),
             deprel_accuracy=deprels_tp.true_divide(overall_deprels_size).item(),
+            extra_annotations_accuracy={
+                name: extra_annotations_tp[name]
+                .true_divide(overall_extra_annotations_size[name])
+                .item()
+                for name in self.annotations_order
+            },
         )
 
     def train_model(
@@ -637,6 +663,7 @@ class BiAffineParser(nn.Module):
                     batch.tags.ne(self.LABEL_PADDING).sum()
                     + batch.heads.ne(self.LABEL_PADDING).sum()
                     + batch.labels.ne(self.LABEL_PADDING).sum()
+                    + sum(ann.ne(self.LABEL_PADDING).sum() for ann in batch.annotations.values())
                 )
 
                 batch = batch.to(device)
@@ -661,7 +688,8 @@ class BiAffineParser(nn.Module):
                     dev_set.make_batches(batch_size, shuffle_batches=False, shuffle_data=False),
                     batch_size=batch_size,
                 )
-                # FIXME: this is not very elegant
+                # FIXME: this is not very elegant (2022-07)
+                # FIXME: really not (2022-09)
                 log_epoch(
                     str(e),
                     {
@@ -673,6 +701,10 @@ class BiAffineParser(nn.Module):
                                 ("dev tag acc", dev_scores.tag_accuracy),
                                 ("dev head acc", dev_scores.head_accuracy),
                                 ("dev deprel acc", dev_scores.deprel_accuracy),
+                                *(
+                                    (f"dev {name} acc", annotation_accuracy)
+                                    for name, annotation_accuracy in dev_scores.extra_annotations_accuracy.items()
+                                ),
                             )
                             if not math.isnan(v)
                         },
@@ -894,6 +926,7 @@ class BiAffineParser(nn.Module):
             # shape: num_deps
             mst_heads = torch.from_numpy(mst_heads_np).to(scores.deprel_scores.device)
 
+        # TODO: we should remove the root here so we have one less node to argmax on
         # Predict labels
         # shape: num_deps×1×num_deprel
         select = mst_heads.view(-1, 1, 1).expand(-1, 1, scores.deprel_scores.size(-1))
@@ -906,7 +939,7 @@ class BiAffineParser(nn.Module):
 
         # Predict extra annotations
         # `[1:]` to ignore the root node's labels
-        misc_idx = {n: s[1:].argmax(dim=1).tolist() for n, s in scores.extra_labels_scores.items()}
+        misc_idx = {n: s.argmax(dim=1).tolist() for n, s in scores.extra_labels_scores.items()}
 
         # `[1:]` to ignore the root node's tag
         # TODO: use zip strict when we can drop py38 and py39, for this and the following
