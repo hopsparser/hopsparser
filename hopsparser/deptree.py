@@ -69,6 +69,10 @@ class Misc(collections.abc.Sequence):
                         modified.add(k)
                 else:
                     new_elements.append(e)
+        # Add new annotations
+        for k, v in mapping.items():
+            if k not in modified:
+                new_elements.append(f"{k}={v}")
         return type(self)(new_elements)
 
     def __getitem__(self, index):
