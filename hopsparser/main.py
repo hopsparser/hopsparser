@@ -5,16 +5,21 @@ import shutil
 import subprocess
 import sys
 import warnings
-from typing import Literal, Optional, TextIO
+from typing import Literal, Optional, Sequence, TextIO, Tuple
 
 import click
 from rich import box
 from rich.console import Console
-from rich.table import Table
+from rich.table import Column, Table
 
 from hopsparser import conll2018_eval as evaluator
-from hopsparser import parser
-from hopsparser.utils import dir_manager, make_markdown_metrics_table, setup_logging
+from hopsparser import deptree, parser
+from hopsparser.utils import (
+    SeparatedTuple,
+    dir_manager,
+    make_markdown_metrics_table,
+    setup_logging,
+)
 
 device_opt = click.option(
     "--device",
@@ -154,11 +159,14 @@ def train(
         overwrite=overwrite,
         rand_seed=rand_seed,
     )
-    metrics_table = Table(box=box.HORIZONTALS)
-    metrics_table.add_column("Split")
     metrics = ("UPOS", "UAS", "LAS")
-    for m in metrics:
-        metrics_table.add_column(m, justify="center")
+    metrics_table = Table(
+        "Split",
+        *(Column(header=m, justify="center") for m in metrics),
+        box=box.HORIZONTALS,
+        title="Evaluation metrics",
+    )
+
     if dev_file is not None:
         parsed_devset_path = output_dir / f"{dev_file.stem}.parsed.conllu"
         parser.parse(model_path, dev_file, parsed_devset_path, device=device)
@@ -178,6 +186,159 @@ def train(
     if metrics_table.rows:
         console = Console()
         console.print(metrics_table)
+
+
+@cli.command(
+    help="Train a polyglot/cross-domain model. Treebank files should be given in a <label>:<path> form."
+)
+@click.argument(
+    "config_file",
+    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
+)
+@click.argument(
+    "train_files",
+    type=SeparatedTuple(":", (str, click.File(lazy=True))),
+    nargs=-1,
+)
+@click.argument(
+    "output_dir",
+    type=click.Path(resolve_path=True, file_okay=False, writable=True, path_type=pathlib.Path),
+)
+@click.option(
+    "--dev-files",
+    type=SeparatedTuple(
+        ":",
+        (str, click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path)),
+    ),
+    multiple=True,
+    help="CoNLL-U treebanks to use as a development dataset. Should be given in a <label>:<path> form. Can be given multiple times.",
+)
+@click.option(
+    "--origin-label-name",
+    default="original_treebank",
+    help=(
+        "The label name to use for marking the treebank of origin in the MISC column of the input and output CoNLL-U files."
+        " If origin prediction is desired, this label should be present in the `extra_annotations` field of the parser config."
+    ),
+)
+@click.option(
+    "--max-tree-length",
+    type=int,
+    help="The maximum length for trees to be taken into account in the training dataset.",
+)
+@click.option(
+    "--rand-seed",
+    type=int,
+    help="Force the random seed fo Python and Pytorch (see <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)",
+)
+@click.option(
+    "--test-files",
+    type=SeparatedTuple(
+        ":",
+        (str, click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path)),
+    ),
+    multiple=True,
+    help="CoNLL-U treebanks to use as a development dataset. Should be given in a <label>:<path> form. Can be given multiple times.",
+)
+@click.option(
+    "--overwrite",
+    is_flag=True,
+    help="If a model already in the output directory, restart training from scratch instead of continuing.",
+)
+@device_opt
+@verbose_opt
+def train_multi(
+    config_file: pathlib.Path,
+    dev_files: Sequence[Tuple[str, pathlib.Path]],
+    device: str,
+    max_tree_length: Optional[int],
+    origin_label_name: str,
+    output_dir: pathlib.Path,
+    overwrite: bool,
+    rand_seed: int,
+    test_files: Sequence[Tuple[str, pathlib.Path]],
+    train_files: Sequence[Tuple[str, TextIO]],
+    verbose: bool,
+):
+    output_dir.mkdir(exist_ok=True, parents=True)
+    setup_logging(verbose=verbose, logfile=output_dir / "train.log")
+    model_path = output_dir / "model"
+    shutil.copy(config_file, output_dir / config_file.name)
+
+    train_file = output_dir / "train.conllu"
+    with open(train_file, "w") as out_stream:
+        for label, f in train_files:
+            for tree in deptree.DepGraph.read_conll(f, max_tree_length=max_tree_length):
+                labelled_tree = tree.replace(
+                    misc={node.identifier: {origin_label_name: label} for node in tree.nodes}
+                )
+                out_stream.write(labelled_tree.to_conllu())
+                out_stream.write("\n\n")
+
+    if dev_files:
+        dev_file = output_dir / "dev.conllu"
+        with open(dev_file, "w") as out_stream:
+            for label, path in dev_files:
+                with open(path) as in_stream:
+                    for tree in deptree.DepGraph.read_conll(
+                        in_stream, max_tree_length=max_tree_length
+                    ):
+                        labelled_tree = tree.replace(
+                            misc={
+                                node.identifier: {origin_label_name: label} for node in tree.nodes
+                            }
+                        )
+                        out_stream.write(labelled_tree.to_conllu())
+                        out_stream.write("\n\n")
+    else:
+        dev_file = None
+
+    parser.train(
+        config_file=config_file,
+        dev_file=dev_file,
+        device=device,
+        train_file=train_file,
+        max_tree_length=max_tree_length,
+        model_path=model_path,
+        overwrite=overwrite,
+        rand_seed=rand_seed,
+    )
+
+    console = Console()
+    if dev_file is not None:
+        dev_metrics = ("UPOS", "UAS", "LAS")
+        dev_metrics_table = Table(
+            *(Column(header=m, justify="center") for m in dev_metrics),
+            box=box.HORIZONTALS,
+            title="Dev metrics",
+        )
+        parsed_devset_path = output_dir / f"{dev_file.stem}.parsed.conllu"
+        parser.parse(model_path, dev_file, parsed_devset_path, device=device)
+        gold_devset = evaluator.load_conllu_file(dev_file)
+        syst_devset = evaluator.load_conllu_file(parsed_devset_path)
+        metrics = evaluator.evaluate(gold_devset, syst_devset)
+        dev_metrics_table.add_row(*(f"{100*metrics[m].f1:.2f}" for m in dev_metrics))
+        console.print(dev_metrics_table)
+
+    if test_files is not None:
+        test_metrics = ("UPOS", "UAS", "LAS")
+        test_metrics_table = Table(
+            "Treebank",
+            *(Column(header=m, justify="center") for m in test_metrics),
+            box=box.HORIZONTALS,
+            title="Test metrics",
+        )
+        for label, path in test_files:
+            parsed_testset_path = output_dir / f"{label}-{path.stem}.parsed.conllu"
+            parser.parse(model_path, path, parsed_testset_path, device=device)
+            gold_testset = evaluator.load_conllu_file(path)
+            syst_testset = evaluator.load_conllu_file(parsed_testset_path)
+            metrics = evaluator.evaluate(gold_testset, syst_testset)
+            test_metrics_table.add_row(
+                f"{label}-{path.stem}", *(f"{100*metrics[m].f1:.2f}" for m in test_metrics)
+            )
+            console = Console()
+            console.print(test_metrics_table)
 
 
 @cli.command(help="Evaluate a trained model")

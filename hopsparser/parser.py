@@ -238,6 +238,7 @@ class AnnotationConfig(pydantic.BaseModel):
     labels: List[str]
 
 
+# TODO: look into <https://github.com/lincolnloop/goodconf/>
 class BiAffineParserConfig(pydantic.BaseModel):
     mlp_input: int
     mlp_tag_hidden: int
