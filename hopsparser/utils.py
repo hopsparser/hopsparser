@@ -5,8 +5,9 @@ import math
 import pathlib
 import sys
 import tempfile
-from typing import IO, Dict, Generator, Optional, Union, cast
+from typing import IO, Any, Dict, Generator, Optional, Sequence, Type, Union, cast
 
+import click
 import rich.progress
 import rich.text
 import transformers
@@ -139,3 +140,60 @@ class SpeedColumn(rich.progress.ProgressColumn):
             return rich.text.Text(f"{task.speed:.2f} it/s")
         else:
             return rich.text.Text(f"{datetime.timedelta(seconds=math.ceil(1/task.speed))} /it")
+
+
+# NOTE: if the need arise, using a separator regex instead of string would not be very hard but for now
+# we don't need the extra complexity.
+class SeparatedTuple(click.ParamType):
+    """A click parameters type that accept tuples formatted as strings spearated by an arbitrary separator.
+
+    This is particularly useful to make variadic composite parameters. For instance, this is how we
+    specify tagged paths for the `train_multi` command:
+
+    ```python
+    @click.argument(
+        "train_files", type=SeparatedTuple(
+            ":",
+            (str, click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path)),
+        ),
+        nargs=-1,
+    )
+    ```
+
+    This parses argumenst of the form `somelabel:/path/to/something` and returns a couple `(label:
+    str, path: pathlib.Path)`.
+    """
+    name = "separated tuple"
+
+    def __init__(self, separator: str, types: Sequence[Union[Type, click.ParamType]]):
+        self.separator = separator
+        self.types = [click.types.convert_type(ty) for ty in types]
+
+    def to_info_dict(self) -> Dict[str, Any]:
+        info_dict = super().to_info_dict()
+        info_dict["types"] = [t.to_info_dict() for t in self.types]
+        return info_dict
+
+    @property  # type: ignore[no-redef]
+    def name(self) -> str:  # type: ignore[override]
+        return f"<{' '.join(ty.name for ty in self.types)}>"
+
+    # NOTE: the way this is written forbids using the separator character in the values at all.
+    # If the needs arises, we could allow escaping it.
+    def convert(
+        self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
+    ) -> Any:
+        if isinstance(value, str):
+            value = value.split(self.separator)
+
+        len_type = len(self.types)
+        len_value = len(value)
+
+        if len_value != len_type:
+            self.fail(
+                f"{len_type} values are required, but {len_value} was given.",
+                param=param,
+                ctx=ctx,
+            )
+
+        return tuple(ty(x, param, ctx) for ty, x in zip(self.types, value))
