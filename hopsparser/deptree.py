@@ -188,9 +188,9 @@ class DepGraph:
 
     def replace(
         self,
-        heads: Optional[Mapping[int, int]],
-        deprels: Optional[Mapping[int, str]],
-        pos_tags: Optional[Mapping[int, str]],
+        heads: Optional[Mapping[int, int]] = None,
+        deprels: Optional[Mapping[int, str]] = None,
+        pos_tags: Optional[Mapping[int, str]] = None,
         misc: Optional[Mapping[int, Mapping[str, str]]] = None,
     ) -> "DepGraph":
         """Return a new `DepGraph`, identical to `self` except for its dependencies, pos tags and
