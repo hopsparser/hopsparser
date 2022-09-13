@@ -196,7 +196,7 @@ def train(
     type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
 )
 @click.argument(
-    "train_files",
+    "train_file",
     type=SeparatedTuple(":", (str, click.File(lazy=True))),
     nargs=-1,
 )
@@ -205,7 +205,7 @@ def train(
     type=click.Path(resolve_path=True, file_okay=False, writable=True, path_type=pathlib.Path),
 )
 @click.option(
-    "--dev-files",
+    "--dev-file",
     type=SeparatedTuple(
         ":",
         (str, click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path)),
@@ -220,6 +220,7 @@ def train(
         "The label name to use for marking the treebank of origin in the MISC column of the input and output CoNLL-U files."
         " If origin prediction is desired, this label should be present in the `extra_annotations` field of the parser config."
     ),
+    show_default=True,
 )
 @click.option(
     "--max-tree-length",
@@ -232,7 +233,7 @@ def train(
     help="Force the random seed fo Python and Pytorch (see <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)",
 )
 @click.option(
-    "--test-files",
+    "--test-file",
     type=SeparatedTuple(
         ":",
         (str, click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path)),
@@ -249,15 +250,15 @@ def train(
 @verbose_opt
 def train_multi(
     config_file: pathlib.Path,
-    dev_files: Sequence[Tuple[str, pathlib.Path]],
+    dev_file: Sequence[Tuple[str, pathlib.Path]],
     device: str,
     max_tree_length: Optional[int],
     origin_label_name: str,
     output_dir: pathlib.Path,
     overwrite: bool,
     rand_seed: int,
-    test_files: Sequence[Tuple[str, pathlib.Path]],
-    train_files: Sequence[Tuple[str, TextIO]],
+    test_file: Sequence[Tuple[str, pathlib.Path]],
+    train_file: Sequence[Tuple[str, TextIO]],
     verbose: bool,
 ):
     output_dir.mkdir(exist_ok=True, parents=True)
@@ -265,9 +266,9 @@ def train_multi(
     model_path = output_dir / "model"
     shutil.copy(config_file, output_dir / config_file.name)
 
-    train_file = output_dir / "train.conllu"
-    with open(train_file, "w") as out_stream:
-        for label, f in train_files:
+    concat_train_file = output_dir / "train.conllu"
+    with open(concat_train_file, "w") as out_stream:
+        for label, f in train_file:
             for tree in deptree.DepGraph.read_conll(f, max_tree_length=max_tree_length):
                 labelled_tree = tree.replace(
                     misc={node.identifier: {origin_label_name: label} for node in tree.nodes}
@@ -275,10 +276,10 @@ def train_multi(
                 out_stream.write(labelled_tree.to_conllu())
                 out_stream.write("\n\n")
 
-    if dev_files:
-        dev_file = output_dir / "dev.conllu"
-        with open(dev_file, "w") as out_stream:
-            for label, path in dev_files:
+    if dev_file:
+        concat_dev_file = output_dir / "dev.conllu"
+        with open(concat_dev_file, "w") as out_stream:
+            for label, path in dev_file:
                 with open(path) as in_stream:
                     for tree in deptree.DepGraph.read_conll(
                         in_stream, max_tree_length=max_tree_length
@@ -291,13 +292,13 @@ def train_multi(
                         out_stream.write(labelled_tree.to_conllu())
                         out_stream.write("\n\n")
     else:
-        dev_file = None
+        concat_dev_file = None
 
     parser.train(
         config_file=config_file,
-        dev_file=dev_file,
+        dev_file=concat_dev_file,
         device=device,
-        train_file=train_file,
+        train_file=concat_train_file,
         max_tree_length=max_tree_length,
         model_path=model_path,
         overwrite=overwrite,
@@ -320,7 +321,7 @@ def train_multi(
         dev_metrics_table.add_row(*(f"{100*metrics[m].f1:.2f}" for m in dev_metrics))
         console.print(dev_metrics_table)
 
-    if test_files is not None:
+    if test_file is not None:
         test_metrics = ("UPOS", "UAS", "LAS")
         test_metrics_table = Table(
             "Treebank",
@@ -328,7 +329,7 @@ def train_multi(
             box=box.HORIZONTALS,
             title="Test metrics",
         )
-        for label, path in test_files:
+        for label, path in test_file:
             parsed_testset_path = output_dir / f"{label}-{path.stem}.parsed.conllu"
             parser.parse(model_path, path, parsed_testset_path, device=device)
             gold_testset = evaluator.load_conllu_file(path)

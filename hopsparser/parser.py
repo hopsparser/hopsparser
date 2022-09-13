@@ -1118,7 +1118,7 @@ class BiAffineParser(nn.Module):
             extra_annotations = {
                 name: AnnotationConfig(
                     labels=annotations_labels[name],
-                    hidden_layer_dim=conf["hidden_layer_size"],
+                    hidden_layer_dim=conf["hidden_layer_dim"],
                 )
                 for name, conf in extra_annotations_config.items()
             }

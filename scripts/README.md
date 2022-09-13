@@ -6,11 +6,13 @@ have additional dependencies that you can install using `pip install hopsparser[
 
 ## `zenodo_upload.py`: upload files to a Zenodo deposit
 
+## `test_models.py`: check against performance changes for existing models
+
 ## `train_models.py`: training a treebank×configs matrix
 
-`train_models.py` is an utility to train and evaluate models using several configs on several
-treebanks. We use it internally to train the models we provide and it is not much more flexible than
-we need it to be for that purpose (but PR to improve that are welcome). It also has very little
+`train_models.py` is a utility to train and evaluate models using several configs on several
+treebanks. We use it internally to train the models we provide, and it is not much more flexible
+than we need it to be for that purpose (but PR to improve that are welcome). It also has very little
 error management so if any train run fails it will just hang until you SIGINT or SIGKILL it.
 
 After installing `hopsparser[traintools]`, it can be run with
