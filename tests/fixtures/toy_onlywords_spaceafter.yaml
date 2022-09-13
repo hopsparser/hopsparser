@@ -17,4 +17,4 @@ lexers:
     word_dropout: 0.6
 extra_annotations:
   "SpaceAfter":
-    hidden_layer_size: 16
+    hidden_layer_dim: 16
