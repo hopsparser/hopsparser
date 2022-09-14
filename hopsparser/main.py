@@ -309,17 +309,21 @@ def train_multi(
     if dev_file is not None:
         dev_metrics = ("UPOS", "UAS", "LAS")
         dev_metrics_table = Table(
+            "Treebank",
             *(Column(header=m, justify="center") for m in dev_metrics),
             box=box.HORIZONTALS,
             title="Dev metrics",
         )
-        parsed_devset_path = output_dir / f"{dev_file.stem}.parsed.conllu"
-        parser.parse(model_path, dev_file, parsed_devset_path, device=device)
-        gold_devset = evaluator.load_conllu_file(dev_file)
-        syst_devset = evaluator.load_conllu_file(parsed_devset_path)
-        metrics = evaluator.evaluate(gold_devset, syst_devset)
-        dev_metrics_table.add_row(*(f"{100*metrics[m].f1:.2f}" for m in dev_metrics))
-        console.print(dev_metrics_table)
+        for label, path in dev_file:
+            parsed_devset_path = output_dir / f"{label}-{path.stem}.parsed.conllu"
+            parser.parse(model_path, path, parsed_devset_path, device=device)
+            gold_devset = evaluator.load_conllu_file(dev_file)
+            syst_devset = evaluator.load_conllu_file(parsed_devset_path)
+            metrics = evaluator.evaluate(gold_devset, syst_devset)
+            dev_metrics_table.add_row(
+                f"{label}-{path.stem}", *(f"{100*metrics[m].f1:.2f}" for m in dev_metrics)
+            )
+            console.print(dev_metrics_table)
 
     if test_file is not None:
         test_metrics = ("UPOS", "UAS", "LAS")
