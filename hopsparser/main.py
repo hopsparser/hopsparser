@@ -323,7 +323,7 @@ def train_multi(
             dev_metrics_table.add_row(
                 f"{label}-{path.stem}", *(f"{100*metrics[m].f1:.2f}" for m in dev_metrics)
             )
-            console.print(dev_metrics_table)
+        console.print(dev_metrics_table)
 
     if test_file is not None:
         test_metrics = ("UPOS", "UAS", "LAS")
@@ -342,8 +342,7 @@ def train_multi(
             test_metrics_table.add_row(
                 f"{label}-{path.stem}", *(f"{100*metrics[m].f1:.2f}" for m in test_metrics)
             )
-            console = Console()
-            console.print(test_metrics_table)
+        console.print(test_metrics_table)
 
 
 @cli.command(help="Evaluate a trained model")
