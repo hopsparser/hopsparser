@@ -317,7 +317,7 @@ def train_multi(
         for label, path in dev_file:
             parsed_devset_path = output_dir / f"{label}-{path.stem}.parsed.conllu"
             parser.parse(model_path, path, parsed_devset_path, device=device)
-            gold_devset = evaluator.load_conllu_file(dev_file)
+            gold_devset = evaluator.load_conllu_file(path)
             syst_devset = evaluator.load_conllu_file(parsed_devset_path)
             metrics = evaluator.evaluate(gold_devset, syst_devset)
             dev_metrics_table.add_row(
