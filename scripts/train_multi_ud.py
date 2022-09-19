@@ -91,7 +91,7 @@ def main(
     shutil.copy(config_file, output_dir / config_file.name)
 
     if lang is not None:
-        lang = [l.lower() for l in lang]
+        lang = [lg.lower() for lg in lang]
 
     train_files = []
     dev_files = []
@@ -117,12 +117,12 @@ def main(
     with open(concat_train_file, "w") as out_stream:
         for label, path in train_files:
             with open(path) as in_stream:
-                for tree in deptree.DepGraph.read_conll(
-                    in_stream, max_tree_length=max_tree_length
-                ):
+                for tree in deptree.DepGraph.read_conll(in_stream, max_tree_length=max_tree_length):
                     if train_with_lang_labels:
                         labelled_tree = tree.replace(
-                            misc={node.identifier: {origin_label_name: label} for node in tree.nodes}
+                            misc={
+                                node.identifier: {origin_label_name: label} for node in tree.nodes
+                            }
                         )
                     else:
                         labelled_tree = tree
@@ -139,7 +139,10 @@ def main(
                     ):
                         if train_with_lang_labels:
                             labelled_tree = tree.replace(
-                                misc={node.identifier: {origin_label_name: label} for node in tree.nodes}
+                                misc={
+                                    node.identifier: {origin_label_name: label}
+                                    for node in tree.nodes
+                                }
                             )
                         else:
                             labelled_tree = tree
@@ -160,11 +163,11 @@ def main(
     )
 
     console = Console()
+    metric_names = ("UPOS", "UAS", "LAS", "CLAS")
     if dev_files is not None:
-        dev_metrics = ("UPOS", "UAS", "LAS")
         dev_metrics_table = Table(
             "Treebank",
-            *(Column(header=m, justify="center") for m in dev_metrics),
+            *(Column(header=m, justify="center") for m in metric_names),
             box=box.HORIZONTALS,
             title="Dev metrics",
         )
@@ -175,15 +178,14 @@ def main(
             syst_devset = evaluator.load_conllu_file(parsed_devset_path)
             metrics = evaluator.evaluate(gold_devset, syst_devset)
             dev_metrics_table.add_row(
-                f"{label}-{path.stem}", *(f"{100*metrics[m].f1:.2f}" for m in dev_metrics)
+                f"{label}-{path.stem}", *(f"{100*metrics[m].f1:.2f}" for m in metric_names)
             )
         console.print(dev_metrics_table)
 
     if test_files is not None:
-        test_metrics = ("UPOS", "UAS", "LAS")
         test_metrics_table = Table(
             "Treebank",
-            *(Column(header=m, justify="center") for m in test_metrics),
+            *(Column(header=m, justify="center") for m in metric_names),
             box=box.HORIZONTALS,
             title="Test metrics",
         )
@@ -194,7 +196,7 @@ def main(
             syst_testset = evaluator.load_conllu_file(parsed_testset_path)
             metrics = evaluator.evaluate(gold_testset, syst_testset)
             test_metrics_table.add_row(
-                f"{label}-{path.stem}", *(f"{100*metrics[m].f1:.2f}" for m in test_metrics)
+                f"{label}-{path.stem}", *(f"{100*metrics[m].f1:.2f}" for m in metric_names)
             )
         console.print(test_metrics_table)
 
