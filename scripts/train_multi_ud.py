@@ -63,6 +63,11 @@ from hopsparser.utils import setup_logging
     help="Force the random seed fo Python and Pytorch (see <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)",
 )
 @click.option(
+    "--skip-unencodable",
+    is_flag=True,
+    help="Skip unencodable trees in the training set",
+)
+@click.option(
     "--train-with-lang-labels",
     is_flag=True,
     help="Whether to train the lang prediction head",
@@ -81,6 +86,7 @@ def main(
     origin_label_name: str,
     overwrite: bool,
     rand_seed: int,
+    skip_unencodable: bool,
     train_with_lang_labels: bool,
     ud_dir: pathlib.Path,
     verbose: bool,
@@ -160,6 +166,7 @@ def main(
         model_path=model_path,
         overwrite=overwrite,
         rand_seed=rand_seed,
+        skip_unencodable=skip_unencodable,
     )
 
     console = Console()

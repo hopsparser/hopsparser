@@ -1,4 +1,3 @@
-import collections.abc
 import json
 import math
 import pathlib
@@ -1188,15 +1187,24 @@ class DependencyDataset:
         self,
         parser: BiAffineParser,
         treelist: Iterable[DepGraph],
+        skip_unencodable: bool = True,
     ):
         self.parser = parser
-        self.treelist = treelist
+        self.treelist: List[DepGraph] = []
         self.encoded_trees: List[EncodedTree] = []
-
-    def encode(self):
-        self.encoded_trees = []
-        for tree in self.treelist:
-            self.encoded_trees.append(self.parser.encode_tree(tree))
+        for tree in treelist:
+            try:
+                encoded = self.parser.encode_tree(tree)
+            except lexers.LexingError as e:
+                if not skip_unencodable:
+                    raise e
+                else:
+                    logger.info(
+                        f"Skipping tree {e.sentence} due to lexing error '{e.message}'.",
+                    )
+                    continue
+            self.treelist.append(tree)
+            self.encoded_trees.append(encoded)
 
     def make_batches(
         self,
@@ -1204,10 +1212,6 @@ class DependencyDataset:
         shuffle_batches: bool = False,
         shuffle_data: bool = True,
     ) -> Iterable[DependencyBatch]:
-        if not isinstance(self.treelist, collections.abc.Sequence):
-            self.treelist = list(self.treelist)
-        if not self.encoded_trees:
-            self.encode()
         N = len(self.treelist)
         order = list(range(N))
         if shuffle_data:
@@ -1232,6 +1236,7 @@ def train(
     model_path: pathlib.Path,
     train_file: pathlib.Path,
     dev_file: Optional[pathlib.Path] = None,
+    skip_unencodable: bool = True,
     device: Union[str, torch.device] = "cpu",
     max_tree_length: Optional[int] = None,
     log_epoch: Callable[[str, Dict[str, str]], Any] = utils.log_epoch,
@@ -1276,6 +1281,7 @@ def train(
     trainset = DependencyDataset(
         parser,
         traintrees,
+        skip_unencodable=skip_unencodable,
     )
     devset: Optional[DependencyDataset]
     if dev_file is not None:
