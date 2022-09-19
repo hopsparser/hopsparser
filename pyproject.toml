@@ -51,7 +51,7 @@ hopsparser = "hopsparser.main:cli"
 eval_parse = "hopsparser.conll2018_eval:main"
 
 [build-system]
-requires = ["setuptools>=54", "wheel"]
+requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.isort]
