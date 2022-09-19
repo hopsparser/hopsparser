@@ -1,43 +1,64 @@
+# sent_id = sv-ud-test-177
+# text = Fortfarande beräknas dock 300 milj människor vara sjuka i malaria, 10 milj i spetälska.
+1	Fortfarande	fortfarande	ADV	AB	_	2	advmod	2:advmod	_
+2	beräknas	beräkna	VERB	VB|PRS|SFO	Mood=Ind|Tense=Pres|VerbForm=Fin|Voice=Pass	0	root	0:root	_
+3	dock	dock	ADV	AB	_	2	advmod	2:advmod	_
+4	300	300	NUM	RG|NOM	Case=Nom|NumType=Card	5	nummod	5:nummod	_
+5	milj	milj	NOUN	NN|AN	Abbr=Yes	6	nmod	6:nmod	_
+6	människor	människa	NOUN	NN|UTR|PLU|IND|NOM	Case=Nom|Definite=Ind|Gender=Com|Number=Plur	2	nsubj:pass	2:nsubj:pass|8:nsubj	_
+7	vara	vara	AUX	VB|INF|AKT	VerbForm=Inf|Voice=Act	8	cop	8:cop	_
+8	sjuka	sjuk	ADJ	JJ|POS|UTR/NEU|PLU|IND/DEF|NOM	Case=Nom|Degree=Pos|Number=Plur	2	xcomp	2:xcomp	_
+9	i	i	ADP	PP	_	10	case	10:case	_
+10	malaria	malaria	NOUN	NN|UTR|SIN|IND|NOM	Case=Nom|Definite=Ind|Gender=Com|Number=Sing	8	obl	8:obl:i	SpaceAfter=No
+11	,	,	PUNCT	MID	_	13	punct	13:punct	_
+12	10	10	NUM	RG|NOM	Case=Nom|NumType=Card	13	nummod	13:nummod	_
+13	milj	milj	NOUN	NN|AN	Abbr=Yes	2	conj	13.1:nsubj:pass|13.2:nsubj	Enhanced=nsubj
+13.1	beräknas	beräkna	VERB	VB|PRS|SFO	Mood=Ind|Tense=Pres|VerbForm=Fin|Voice=Pass	_	_	2:conj	_
+13.2	sjuka	sjuk	ADJ	JJ|POS|UTR/NEU|PLU|IND/DEF|NOM	Case=Nom|Degree=Pos|Number=Plur	_	_	13.1:xcomp	_
+14	i	i	ADP	PP	_	15	case	15:case	_
+15	spetälska	spetälska	NOUN	NN|UTR|SIN|IND|NOM	Case=Nom|Definite=Ind|Gender=Com|Number=Sing	13	orphan	13.2:obl:i	Enhanced=obl|SpaceAfter=No
+16	.	.	PUNCT	MAD	_	2	punct	2:punct	_
+
 # newdoc id = P408
 # newpar id = P408.1
 # sent_id = sv-ud-dev-1
 # text = Kibbutzgrundarna kom från en miljö, som utmärktes av ett strängt patriarkaliskt system, där första budet löd:
-1	Kibbutzgrundarna	kibbutzgrundare	_	NN|UTR|PLU|DEF|NOM	Case=Nom|Definite=Def|Gender=Com|Number=Plur	2	nsubj	2:nsubj	_
-2	kom	komma	_	VB|PRT|AKT	Mood=Ind|Tense=Past|VerbForm=Fin|Voice=Act	0	root	0:root	_
-3	från	från	_	PP	_	5	case	5:case	_
-4	en	en	_	DT|UTR|SIN|IND	Definite=Ind|Gender=Com|Number=Sing|PronType=Art	5	det	5:det	_
-5	miljö	miljö	_	NN|UTR|SIN|IND|NOM	Case=Nom|Definite=Ind|Gender=Com|Number=Sing	2	obl	2:obl:från|8:nsubj:pass	SpaceAfter=No
-6	,	,	_	MID	_	5	punct	5:punct	_
-7	som	som	_	HP|-|-|-	PronType=Rel	8	nsubj:pass	5:ref	_
-8	utmärktes	utmärka	_	VB|PRT|SFO	Mood=Ind|Tense=Past|VerbForm=Fin|Voice=Pass	5	acl:relcl	5:acl:relcl	_
-9	av	av	_	PP	_	13	case	13:case	_
-10	ett	en	_	DT|NEU|SIN|IND	Definite=Ind|Gender=Neut|Number=Sing|PronType=Art	13	det	13:det	_
-11	strängt	sträng	_	AB|POS	Degree=Pos	12	advmod	12:advmod	_
-12	patriarkaliskt	patriarkalisk	_	JJ|POS|NEU|SIN|IND|NOM	Case=Nom|Definite=Ind|Degree=Pos|Gender=Neut|Number=Sing	13	amod	13:amod	_
-13	system	system	_	NN|NEU|SIN|IND|NOM	Case=Nom|Definite=Ind|Gender=Neut|Number=Sing	8	obl:agent	8:obl:agent	SpaceAfter=No
-14	,	,	_	MID	_	13	punct	13:punct	_
-15	där	där	_	HA	_	18	advmod	18:advmod	_
-16	första	en	_	RO|NOM	Case=Nom	17	amod	17:amod	_
-17	budet	bud	_	NN|NEU|SIN|DEF|NOM	Case=Nom|Definite=Def|Gender=Neut|Number=Sing	18	nsubj	18:nsubj	_
-18	löd	lyda	_	VB|PRT|AKT	Mood=Ind|Tense=Past|VerbForm=Fin|Voice=Act	13	acl:relcl	13:acl:relcl	SpaceAfter=No
-19	:	:	_	MAD	_	18	punct	18:punct	_
+1	Kibbutzgrundarna	kibbutzgrundare	NOUN	NN|UTR|PLU|DEF|NOM	Case=Nom|Definite=Def|Gender=Com|Number=Plur	2	nsubj	2:nsubj	_
+2	kom	komma	VERB	VB|PRT|AKT	Mood=Ind|Tense=Past|VerbForm=Fin|Voice=Act	0	root	0:root	_
+3	från	från	ADP	PP	_	5	case	5:case	_
+4	en	en	DET	DT|UTR|SIN|IND	Definite=Ind|Gender=Com|Number=Sing|PronType=Art	5	det	5:det	_
+5	miljö	miljö	NOUN	NN|UTR|SIN|IND|NOM	Case=Nom|Definite=Ind|Gender=Com|Number=Sing	2	obl	2:obl:från|8:nsubj:pass	SpaceAfter=No
+6	,	,	PUNCT	MID	_	5	punct	5:punct	_
+7	som	som	PRON	HP|-|-|-	PronType=Rel	8	nsubj:pass	5:ref	_
+8	utmärktes	utmärka	VERB	VB|PRT|SFO	Mood=Ind|Tense=Past|VerbForm=Fin|Voice=Pass	5	acl:relcl	5:acl:relcl	_
+9	av	av	ADP	PP	_	13	case	13:case	_
+10	ett	en	DET	DT|NEU|SIN|IND	Definite=Ind|Gender=Neut|Number=Sing|PronType=Art	13	det	13:det	_
+11	strängt	sträng	ADV	AB|POS	Degree=Pos	12	advmod	12:advmod	_
+12	patriarkaliskt	patriarkalisk	ADJ	JJ|POS|NEU|SIN|IND|NOM	Case=Nom|Definite=Ind|Degree=Pos|Gender=Neut|Number=Sing	13	amod	13:amod	_
+13	system	system	NOUN	NN|NEU|SIN|IND|NOM	Case=Nom|Definite=Ind|Gender=Neut|Number=Sing	8	obl:agent	8:obl:agent	SpaceAfter=No
+14	,	,	PUNCT	MID	_	13	punct	13:punct	_
+15	där	där	ADV	HA	_	18	advmod	18:advmod	_
+16	första	en	ADJ	RO|NOM	Case=Nom	17	amod	17:amod	_
+17	budet	bud	NOUN	NN|NEU|SIN|DEF|NOM	Case=Nom|Definite=Def|Gender=Neut|Number=Sing	18	nsubj	18:nsubj	_
+18	löd	lyda	VERB	VB|PRT|AKT	Mood=Ind|Tense=Past|VerbForm=Fin|Voice=Act	13	acl:relcl	13:acl:relcl	SpaceAfter=No
+19	:	:	PUNCT	MAD	_	18	punct	18:punct	_
 
 # sent_id = sv-ud-dev-2
 # text = 'Du skall lyda din fader.'
-1	'	'	PUNCT	PAD	_	_	_	4:punct	SpaceAfter=No
-2	Du	du	PRON	PN|UTR|SIN|DEF|SUB	Case=Nom|Definite=Def|Gender=Com|Number=Sing|PronType=Prs	_	_	4:nsubj	_
-3	skall	skola	AUX	VB|PRS|AKT	Mood=Ind|Tense=Pres|VerbForm=Fin|Voice=Act	_	_	4:aux	_
-4	lyda	lyda	VERB	VB|INF|AKT	VerbForm=Inf|Voice=Act	_	_	0:root	_
-5	din	du	PRON	PS|UTR|SIN|DEF	Definite=Def|Gender=Com|Number=Sing|Poss=Yes|PronType=Prs	_	_	6:nmod:poss	_
-6	fader	far	NOUN	NN|UTR|SIN|IND|NOM	Case=Nom|Definite=Ind|Gender=Com|Number=Sing	_	_	4:obj	SpaceAfter=No
-7	.	.	PUNCT	MAD	_	_	_	4:punct	SpaceAfter=No
-8	'	'	PUNCT	PAD	_	_	_	4:punct	_
+1	'	'	PUNCT	PAD	_	4	punct	4:punct	SpaceAfter=No
+2	Du	du	PRON	PN|UTR|SIN|DEF|SUB	Case=Nom|Definite=Def|Gender=Com|Number=Sing|PronType=Prs	4	nsubj	4:nsubj	_
+3	skall	skola	AUX	VB|PRS|AKT	Mood=Ind|Tense=Pres|VerbForm=Fin|Voice=Act	4	aux	4:aux	_
+4	lyda	lyda	VERB	VB|INF|AKT	VerbForm=Inf|Voice=Act	0	root	0:root	_
+5	din	du	PRON	PS|UTR|SIN|DEF	Definite=Def|Gender=Com|Number=Sing|Poss=Yes|PronType=Prs	6	nmod:poss	6:nmod:poss	_
+6	fader	far	NOUN	NN|UTR|SIN|IND|NOM	Case=Nom|Definite=Ind|Gender=Com|Number=Sing	4	obj	4:obj	SpaceAfter=No
+7	.	.	PUNCT	MAD	_	4	punct	4:punct	SpaceAfter=No
+8	'	'	PUNCT	PAD	_	4	punct	4:punct	_
 
 # sent_id = sv-ud-dev-3
 # text = Ett av de viktigaste leden i skapandet av idealsamhället bestod i en fullständig omdaning av denna familjestruktur, eftersom fadersauktoriteten ansågs vara ett ont, som förpestade familjelivet och därigenom hela samhället.
 1	Ett	en	PRON	PN|NEU|SIN|IND|SUB/OBJ	Definite=Ind|Gender=Neut|Number=Sing|PronType=Prs	10	nsubj	10:nsubj	_
-2	av	av	ADP	PP	_	_	_	5:case	_
-3	de	en	_	DT|UTR/NEU|PLU|DEF	Definite=Def|Number=Plur|PronType=Art	_	_	5:det	_
+2	av	av	ADP	PP	_	5	case	5:case	_
+3	de	en	DET	DT|UTR/NEU|PLU|DEF	Definite=Def|Number=Plur|PronType=Art	5	det	5:det	_
 4	viktigaste	viktig	ADJ	JJ|SUV|UTR/NEU|SIN/PLU|DEF|NOM	Case=Nom|Definite=Def|Degree=Sup	5	amod	5:amod	_
 5	leden	led	NOUN	NN|NEU|PLU|DEF|NOM	Case=Nom|Definite=Def|Gender=Neut|Number=Plur	1	nmod	1:nmod:av	_
 6	i	i	ADP	PP	_	7	case	7:case	_

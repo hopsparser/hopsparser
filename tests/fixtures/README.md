@@ -3,9 +3,11 @@ Test fixtures
 
 File origins:
 
-- `truncated-sv_talbanken-ud-dev.conllu` contains the 100 first trees of [the dev part of
+- `truncated-sv_talbanken-ud.conllu` contains the 100 first trees of [the dev part of
   UD-Swedish-Talbanken as of UD
-  2.5](https://github.com/UniversalDependencies/UD_Swedish-Talbanken/blob/r2.5/sv_talbanken-ud-dev.conllu)
+  2.10](https://github.com/UniversalDependencies/UD_Swedish-Talbanken/blob/r2.10/sv_talbanken-ud-dev.conllu)
+  and one tree from [its test
+  part](https://github.com/UniversalDependencies/UD_Swedish-Talbanken/blob/r2.10/sv_talbanken-ud-test.conllu)
   and is released under the terms of [the Creative Commons Attribution-ShareAlike 4.0 International
   license](https://creativecommons.org/licenses/by-sa/4.0/).
   

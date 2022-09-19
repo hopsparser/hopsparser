@@ -50,7 +50,7 @@ instance:
 6	.
 ```
 
-That is, we require word indexation and word forms only. Empty words are currently not supported.
+That is, we require word indexation and word forms only. 
 Multi-word tokens are not taken into account by the parsing models but are preserved in the outputs.
 
 HOPS modifies the columns `UPOS`, `HEAD` and `DEPREL`, all the other columns and tree metadata are
@@ -125,9 +125,9 @@ If you want a development install (so you can modify the code locally and direct
 install it in editable mode with the tests extras after cloning the repository
 
 ```sh
-git clone https://github.com/hopsparser/npdependency
-cd npdependency
-pip install -e .[tests]
+git clone https://github.com/hopsparser/hopsparser
+cd hopsparser
+pip install -e ".[tests,traintools]"
 ```
 
 In that case, you can run the smoke tests with `tox` to ensure that everything works on your end.
