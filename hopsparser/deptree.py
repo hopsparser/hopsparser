@@ -16,8 +16,6 @@ from typing import (
 )
 
 from loguru import logger
-from numpy import empty
-
 
 _T_Misc = TypeVar("_T_Misc", bound="Misc")
 

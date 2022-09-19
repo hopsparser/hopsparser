@@ -16,6 +16,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
 )
 
 import fasttext
@@ -558,9 +559,6 @@ class BertLexerBatch(NamedTuple):
             self.subword_alignments,
         )
 
-    def size(self, *args, **kwargs):
-        return self.word_indices.size(*args, **kwargs)
-
 
 class BertLexerSentence(NamedTuple):
     encoding: BatchEncoding
@@ -569,7 +567,7 @@ class BertLexerSentence(NamedTuple):
 
 def align_with_special_tokens(
     word_lengths: Sequence[int],
-    mask=Sequence[int],
+    mask: Sequence[int],
     special_tokens_code: int = 1,
     sequence_tokens_code: int = 0,
 ) -> List[TokenSpan]:
@@ -628,9 +626,12 @@ class BertLexer(nn.Module):
         self.output_dim = self.model.config.hidden_size
 
         # 🤗 has no unified API for the number of layers
-        num_layers = min(
-            getattr(model.config, param_name, math.inf)
-            for param_name in ("num_layers", "n_layers", "num_hidden_layers")
+        num_layers = cast(
+            int,
+            min(
+                getattr(model.config, param_name, math.inf)
+                for param_name in ("num_layers", "n_layers", "num_hidden_layers")
+            ),
         )
         if layers is None:
             layers = list(range(num_layers))
