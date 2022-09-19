@@ -17,7 +17,7 @@ def scripts_dir() -> pathlib.Path:
 
 @pytest.fixture(
     params=[
-        "truncated-sv_talbanken-ud-dev-partial.conllu",
+        "truncated-sv_talbanken-ud.conllu",
     ],
     scope="session",
 )
@@ -27,7 +27,7 @@ def treebank(test_data_dir: pathlib.Path, request) -> pathlib.Path:
 
 @pytest.fixture(
     params=[
-        "truncated-sv_talbanken-ud-dev.conllu",
+        "truncated-sv_talbanken-ud.conllu",
     ],
     scope="session",
 )

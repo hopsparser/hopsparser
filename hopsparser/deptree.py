@@ -16,21 +16,7 @@ from typing import (
 )
 
 from loguru import logger
-
-
-class MWERange(NamedTuple):
-    start: int
-    end: int
-    form: str
-
-    def to_conll(self) -> str:
-        return f"{self.start}-{self.end}\t{self.form}\t_\t_\t_\t_\t_\t_\t_\t_"
-
-
-class Edge(NamedTuple):
-    gov: int
-    label: str
-    dep: int
+from numpy import empty
 
 
 _T_Misc = TypeVar("_T_Misc", bound="Misc")
@@ -99,6 +85,47 @@ class Misc(collections.abc.Sequence):
         return cls(s.split("|"))
 
 
+class MWERange(NamedTuple):
+    start: int
+    end: int
+    form: str
+
+    def to_conll(self) -> str:
+        return f"{self.start}-{self.end}\t{self.form}\t_\t_\t_\t_\t_\t_\t_\t_"
+
+
+class EmptyNode(NamedTuple):
+    after_node: int
+    identifier: str
+    form: str
+    lemma: Optional[str]
+    upos: Optional[str]
+    xpos: Optional[str]
+    feats: Optional[str]
+    deps: Optional[str]
+    misc: Misc
+
+    def to_conll(self) -> str:
+        row = [
+            self.identifier,
+            self.form,
+            *(
+                str(c) if c is not None else "_"
+                for c in (
+                    self.lemma,
+                    self.upos,
+                    self.xpos,
+                    self.feats,
+                    None,
+                    None,
+                    self.deps,
+                )
+            ),
+            self.misc.to_conllu(),
+        ]
+        return "\t".join(row)
+
+
 @dataclass(eq=False)
 class DepNode:
     identifier: int
@@ -143,6 +170,7 @@ class DepGraph:
     def __init__(
         self,
         nodes: Iterable[DepNode],
+        empty_nodes: Optional[Iterable[EmptyNode]] = None,
         mwe_ranges: Optional[Iterable[MWERange]] = None,
         metadata: Optional[Iterable[str]] = None,
     ):
@@ -162,6 +190,7 @@ class DepGraph:
                 raise ValueError(f"Malformed tree: unreachable heads: {unreachable_heads}")
 
         self.mwe_ranges = [] if mwe_ranges is None else list(mwe_ranges)
+        self.empty_nodes = [] if empty_nodes is None else list(empty_nodes)
         self.metadata = [] if metadata is None else list(metadata)
 
     @property
@@ -207,7 +236,7 @@ class DepGraph:
 
         if pos_tags is None:
             pos_tags = dict()
-        
+
         if misc is None:
             misc = dict()
 
@@ -227,6 +256,7 @@ class DepGraph:
             for node in self.nodes
         ]
         return type(self)(
+            empty_nodes=self.empty_nodes[:],
             nodes=new_nodes,
             metadata=self.metadata[:],
             mwe_ranges=self.mwe_ranges[:],
@@ -244,6 +274,7 @@ class DepGraph:
             conll.append(line.strip().split("\t"))
 
         mwe_ranges = []
+        empty_nodes = []
         nodes = []
         # FIXME: this is clunky, maybe write a better parser that does validation?
         for row in conll:
@@ -259,6 +290,23 @@ class DepGraph:
             else:
                 processed_row = list(row)
             processed_row[2:9] = [c if c != "_" else None for c in processed_row[2:9]]
+
+            if "." in row[0]:
+                assert processed_row[6] is None and processed_row[7] is None
+                empty_nodes.append(
+                    EmptyNode(
+                        after_node=int(cast(str, processed_row[0]).split(".", maxsplit=1)[0]),
+                        identifier=cast(str, processed_row[0]),
+                        form=cast(str, processed_row[1]),
+                        lemma=processed_row[2],
+                        upos=processed_row[3],
+                        xpos=processed_row[4],
+                        feats=processed_row[5],
+                        deps=processed_row[8],
+                        misc=Misc.from_string(cast(str, processed_row[9])),
+                    )
+                )
+                continue
             node = DepNode(
                 identifier=int(cast(str, processed_row[0])),
                 form=cast(str, processed_row[1]),
@@ -275,6 +323,7 @@ class DepGraph:
                 logger.warning(f"Node with empty head and nonempty deprel: {node}")
             nodes.append(node)
         return cls(
+            empty_nodes=empty_nodes,
             nodes=nodes,
             mwe_ranges=mwe_ranges,
             metadata=metadata,
@@ -288,6 +337,16 @@ class DepGraph:
             for mwe in mwe_list:
                 lines.append(mwe.to_conll())
             lines.append(n.to_conll())
+            empty_nodes_list = sorted(
+                (
+                    empty_node
+                    for empty_node in self.empty_nodes
+                    if empty_node.after_node == n.identifier
+                ),
+                key=lambda x: int(x.identifier.rsplit(".", maxsplit=1)[1]),
+            )
+            for empty_node in empty_nodes_list:
+                lines.append(empty_node.to_conll())
         return "\n".join(lines)
 
     def __str__(self):
