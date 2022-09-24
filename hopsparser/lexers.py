@@ -720,6 +720,9 @@ class BertLexer(nn.Module):
         for sent in batch:
             encodings_lst.append(sent.encoding)
             subwords_alignments.append(sent.subwords_alignments)
+        # TODO: figure out how to disable the warning this triggers with fast
+        # tokenizers
+        # Also why aren't we asking for tensors directly again?
         encoding = self.tokenizer.pad(encodings_lst)
         encoding.convert_to_tensors("pt")
         return BertLexerBatch(
@@ -751,46 +754,45 @@ class BertLexer(nn.Module):
                 bert_encoding.word_to_tokens(i) for i in range(len(unrooted_tok_sequence))
             ]
             i = next((i for i, a in enumerate(alignments) if a is None), None)
-            if i is not None:
+            if i is None:
+                return BertLexerSentence(bert_encoding, cast(List[TokenSpan], alignments))
+
+        # We end up there in two situations: when the tokenizer is not fast, or when it is fast but failed
+        # to encode all tokens and left us empty tokens, forcing us to do its job ourselves a mano
+
+        # NOTE: this might different results than tokenizing the whole sentence
+        # with some tokenizers (e.g. sentencepiece) but as far as I know, all of
+        # these have fast version, so they shouldn't land in this branch anyway.
+        bert_tokens = [self.tokenizer.tokenize(token) for token in unrooted_tok_sequence]
+        i = next((i for i, s in enumerate(bert_tokens) if not s), None)
+        if i is not None:
+            if self.tokenizer.unk_token is None:
                 raise LexingError(
                     f"Unencodable token {unrooted_tok_sequence[i]!r} at {i}",
                     str(unrooted_tok_sequence),
                 )
-        else:
-            # NOTE: this might different results than tokenizing the whole sentence
-            # with some tokenizers (e.g. sentencepiece) but as far as I know, all of
-            # these have fast version, so they shouldn't land in this branch anyway.
-            bert_tokens = [self.tokenizer.tokenize(token) for token in unrooted_tok_sequence]
-            i = next((i for i, s in enumerate(bert_tokens) if not s), None)
-            if i is not None:
-                if self.tokenizer.unk_token is None:
-                    raise LexingError(
-                        f"Unencodable token {unrooted_tok_sequence[i]!r} at {i}",
-                        str(unrooted_tok_sequence),
-                    )
-                else:
-                    logger.warning(
-                        f"Replacing empty words by  {self.tokenizer.unk_token} in {unrooted_tok_sequence}"
-                    )
-                    bert_tokens = [
-                        tokens if tokens else [self.tokenizer.unk_token] for tokens in bert_tokens
-                    ]
-            subtokens_sequence = [subtoken for token in bert_tokens for subtoken in token]
-            if len(subtokens_sequence) > self.max_length:
-                raise LexingError(
-                    f"Sentence too long for this transformer model ({len(subtokens_sequence)} tokens > {self.max_length})",
-                    str(unrooted_tok_sequence),
+            else:
+                logger.warning(
+                    f"Replacing empty words by {self.tokenizer.unk_token!r} in {unrooted_tok_sequence}"
                 )
-            bert_encoding = self.tokenizer.encode_plus(
-                subtokens_sequence,
-                return_special_tokens_mask=True,
+                bert_tokens = [
+                    tokens if tokens else [self.tokenizer.unk_token] for tokens in bert_tokens
+                ]
+        subtokens_sequence = [subtoken for token in bert_tokens for subtoken in token]
+        if len(subtokens_sequence) > self.max_length:
+            raise LexingError(
+                f"Sentence too long for this transformer model ({len(subtokens_sequence)} tokens > {self.max_length})",
+                str(unrooted_tok_sequence),
             )
-            bert_word_lengths = [len(word) for word in bert_tokens]
-            alignments = align_with_special_tokens(
-                bert_word_lengths,
-                bert_encoding["special_tokens_mask"],
-            )
-
+        bert_encoding = self.tokenizer.encode_plus(
+            subtokens_sequence,
+            return_special_tokens_mask=True,
+        )
+        bert_word_lengths = [len(word) for word in bert_tokens]
+        alignments = align_with_special_tokens(
+            bert_word_lengths,
+            bert_encoding["special_tokens_mask"],
+        )
         return BertLexerSentence(bert_encoding, alignments)
 
     def save(self, model_path: pathlib.Path, save_weights: bool = True):
