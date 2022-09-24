@@ -1286,6 +1286,9 @@ def train(
     devset: Optional[DependencyDataset]
     if dev_file is not None:
         with open(dev_file) as in_stream:
+            # NOTE: skip_unencodable here **could** make sense, but in most cases we will want to
+            # parse the whole dev set to get comparable global metrics anyway, so it's better to
+            # fail here.
             devset = DependencyDataset(
                 parser,
                 list(DepGraph.read_conll(in_stream)),
