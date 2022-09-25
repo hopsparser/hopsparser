@@ -784,8 +784,9 @@ class BertLexer(nn.Module):
                 f"Sentence too long for this transformer model ({len(subtokens_sequence)} tokens > {self.max_length})",
                 str(unrooted_tok_sequence),
             )
-        bert_encoding = self.tokenizer.encode_plus(
+        bert_encoding = self.tokenizer(
             subtokens_sequence,
+            is_split_into_words=True,
             return_special_tokens_mask=True,
         )
         bert_word_lengths = [len(word) for word in bert_tokens]
