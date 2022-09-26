@@ -742,11 +742,12 @@ class BertLexer(nn.Module):
             bert_encoding = self.tokenizer(
                 unrooted_tok_sequence,
                 is_split_into_words=True,
+                return_length=True,
                 return_special_tokens_mask=True,
             )
-            if len(bert_encoding.data["input_ids"]) > self.max_length:
+            if bert_encoding.length > self.max_length:
                 raise LexingError(
-                    f"Sentence too long for this transformer model ({len(bert_encoding.data['input_ids'])} tokens > {self.max_length})",
+                    f"Sentence too long for this transformer model ({bert_encoding.length} tokens > {self.max_length})",
                     str(unrooted_tok_sequence),
                 )
             # TODO: there might be a better way to do this?
@@ -760,9 +761,6 @@ class BertLexer(nn.Module):
         # We end up there in two situations: when the tokenizer is not fast, or when it is fast but failed
         # to encode all tokens and left us empty tokens, forcing us to do its job ourselves a mano
 
-        # NOTE: this might different results than tokenizing the whole sentence
-        # with some tokenizers (e.g. sentencepiece) but as far as I know, all of
-        # these have fast version, so they shouldn't land in this branch anyway.
         bert_tokens = [self.tokenizer.tokenize(token) for token in unrooted_tok_sequence]
         i = next((i for i, s in enumerate(bert_tokens) if not s), None)
         if i is not None:
@@ -778,22 +776,29 @@ class BertLexer(nn.Module):
                 bert_tokens = [
                     tokens if tokens else [self.tokenizer.unk_token] for tokens in bert_tokens
                 ]
-        subtokens_sequence = [subtoken for token in bert_tokens for subtoken in token]
-        if len(subtokens_sequence) > self.max_length:
-            raise LexingError(
-                f"Sentence too long for this transformer model ({len(subtokens_sequence)} tokens > {self.max_length})",
-                str(unrooted_tok_sequence),
-            )
         bert_encoding = self.tokenizer(
-            subtokens_sequence,
+            unrooted_tok_sequence,
             is_split_into_words=True,
+            return_length=True,
             return_special_tokens_mask=True,
         )
+        if bert_encoding.length > self.max_length:
+            raise LexingError(
+                f"Sentence too long for this transformer model ({bert_encoding.length} subtokens > {self.max_length})",
+                str(unrooted_tok_sequence),
+            )
         bert_word_lengths = [len(word) for word in bert_tokens]
-        alignments = align_with_special_tokens(
-            bert_word_lengths,
-            bert_encoding["special_tokens_mask"],
-        )
+        try:
+            alignments = align_with_special_tokens(
+                bert_word_lengths,
+                bert_encoding["special_tokens_mask"],
+            )
+        except ValueError as e:
+            # Non-fast tokenizers shouldn't be prone to this
+            raise LexingError(
+                "Sentence level tokenization different from aggregated token-level tokenization.",
+                str(unrooted_tok_sequence),
+            ) from e
         return BertLexerSentence(bert_encoding, alignments)
 
     def save(self, model_path: pathlib.Path, save_weights: bool = True):
