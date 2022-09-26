@@ -745,7 +745,12 @@ class BertLexer(nn.Module):
                 return_length=True,
                 return_special_tokens_mask=True,
             )
-            if bert_encoding.length > self.max_length:
+            # Inconsistent API ugh
+            if isinstance(bert_encoding.length, list):
+                bert_encoding_length = bert_encoding.length[0]
+            else:
+                bert_encoding_length = bert_encoding.length
+            if bert_encoding_length > self.max_length:
                 raise LexingError(
                     f"Sentence too long for this transformer model ({bert_encoding.length} tokens > {self.max_length})",
                     str(unrooted_tok_sequence),
@@ -785,7 +790,11 @@ class BertLexer(nn.Module):
             return_length=True,
             return_special_tokens_mask=True,
         )
-        if bert_encoding.length > self.max_length:
+        if isinstance(bert_encoding.length, list):
+            bert_encoding_length = bert_encoding.length[0]
+        else:
+            bert_encoding_length = bert_encoding.length
+        if bert_encoding_length > self.max_length:
             raise LexingError(
                 f"Sentence too long for this transformer model ({bert_encoding.length} subtokens > {self.max_length})",
                 str(unrooted_tok_sequence),
