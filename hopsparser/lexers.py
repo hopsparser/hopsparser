@@ -762,8 +762,8 @@ class BertLexer(nn.Module):
         # to encode all tokens and left us empty tokens, forcing us to do its job ourselves a mano
 
         bert_tokens = [self.tokenizer.tokenize(token) for token in unrooted_tok_sequence]
-        i = next((i for i, s in enumerate(bert_tokens) if not s), None)
-        if i is not None:
+        cleaned_up_unrooted_tok_sequence: Sequence[str]
+        if (i := next((i for i, s in enumerate(bert_tokens) if not s), None)) is not None:
             if self.tokenizer.unk_token is None:
                 raise LexingError(
                     f"Unencodable token {unrooted_tok_sequence[i]!r} at {i}",
@@ -773,11 +773,14 @@ class BertLexer(nn.Module):
                 logger.warning(
                     f"Replacing empty words by {self.tokenizer.unk_token!r} in {unrooted_tok_sequence}"
                 )
-                bert_tokens = [
-                    tokens if tokens else [self.tokenizer.unk_token] for tokens in bert_tokens
+                cleaned_up_unrooted_tok_sequence = [
+                    token if subtokens else self.tokenizer.unk_token
+                    for token, subtokens in zip(unrooted_tok_sequence, bert_tokens)
                 ]
+        else:
+            cleaned_up_unrooted_tok_sequence = unrooted_tok_sequence
         bert_encoding = self.tokenizer(
-            unrooted_tok_sequence,
+            cleaned_up_unrooted_tok_sequence,
             is_split_into_words=True,
             return_length=True,
             return_special_tokens_mask=True,
