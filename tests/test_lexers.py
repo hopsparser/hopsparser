@@ -162,7 +162,7 @@ def transformer_model(
     data=st.data(),
     subwords_reduction=st.one_of([st.just("first"), st.just("mean")]),
     test_text=st.lists(
-        st.text(alphabet=st.characters(blacklist_categories=["Cs"]), min_size=1),
+        st.text(alphabet=st.characters(blacklist_categories=["Cs", "Zl", "Zp", "Zs"]), min_size=1),
         min_size=1,
     ),
     weight_layers=st.booleans(),
@@ -192,7 +192,7 @@ def test_bert_embeddings_create_save_load(
     )
     lexer = lexers.BertLexer(
         layers=layers,
-        model=transformer_model[0],
+        model=model,
         subwords_reduction=subwords_reduction,
         tokenizer=tokenizer,
         weight_layers=weight_layers,
