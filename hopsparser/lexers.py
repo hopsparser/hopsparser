@@ -27,7 +27,11 @@ from bidict import BidirectionalMapping, bidict
 from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
-from transformers.tokenization_utils_base import BatchEncoding, TokenSpan
+from transformers.tokenization_utils_base import (
+    BatchEncoding,
+    PreTokenizedInput,
+    TokenSpan,
+)
 
 
 class LexingError(Exception):
@@ -740,7 +744,7 @@ class BertLexer(nn.Module):
         # awkward dance. Eventually we should be able to remove the non-fast branch here.
         if self.tokenizer.is_fast:
             bert_encoding = self.tokenizer(
-                unrooted_tok_sequence,
+                cast(PreTokenizedInput, unrooted_tok_sequence),
                 is_split_into_words=True,
                 return_length=True,
                 return_special_tokens_mask=True,
@@ -766,6 +770,8 @@ class BertLexer(nn.Module):
         # We end up there in two situations: when the tokenizer is not fast, or when it is fast but failed
         # to encode all tokens and left us empty tokens, forcing us to do its job ourselves a mano
 
+        # It's annotying to have to tokenize twice but we have not better way at this point to align
+        # subtokens with the original tokens
         bert_tokens = [self.tokenizer.tokenize(token) for token in unrooted_tok_sequence]
         cleaned_up_unrooted_tok_sequence: Sequence[str]
         if (i := next((i for i, s in enumerate(bert_tokens) if not s), None)) is not None:
@@ -785,7 +791,7 @@ class BertLexer(nn.Module):
         else:
             cleaned_up_unrooted_tok_sequence = unrooted_tok_sequence
         bert_encoding = self.tokenizer(
-            cleaned_up_unrooted_tok_sequence,
+            cast(PreTokenizedInput, cleaned_up_unrooted_tok_sequence),
             is_split_into_words=True,
             return_length=True,
             return_special_tokens_mask=True,
