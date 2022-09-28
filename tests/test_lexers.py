@@ -158,12 +158,15 @@ def transformer_model(
 @settings(deadline=2000)
 # FIXME: should we really skip control characters and whitespaces? We do now because most 🤗
 # tokenizers strip them out instead of rendering them as unk
+# Also formatters ? This forbids ZWNJ??
 @given(
     data=st.data(),
     subwords_reduction=st.one_of([st.just("first"), st.just("mean")]),
     test_text=st.lists(
         st.text(
-            alphabet=st.characters(blacklist_categories=["Cc", "Cs", "Cn", "Co", "Zl", "Zp", "Zs"]),
+            alphabet=st.characters(
+                blacklist_categories=["Cc", "Cf", "Cs", "Cn", "Co", "Zl", "Zp", "Zs"]
+            ),
             min_size=1,
         ),
         min_size=1,
