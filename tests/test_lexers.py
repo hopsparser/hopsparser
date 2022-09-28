@@ -163,7 +163,7 @@ def transformer_model(
     subwords_reduction=st.one_of([st.just("first"), st.just("mean")]),
     test_text=st.lists(
         st.text(
-            alphabet=st.characters(blacklist_categories=["Cc", "Cs", "Cn", "Zl", "Zp", "Zs"]),
+            alphabet=st.characters(blacklist_categories=["Cc", "Cs", "Cn", "Co", "Zl", "Zp", "Zs"]),
             min_size=1,
         ),
         min_size=1,
