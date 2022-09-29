@@ -119,6 +119,11 @@ def main(
             test_files.append((treebank_lang, test))
             logger.debug(f"test {treebank_lang} treebank: {test}")
 
+    # This changes nothing to training since we shuffle at sample level
+    train_files.sort()
+    dev_files.sort()
+    test_files.sort()
+
     concat_train_file = output_dir / "train.conllu"
     with open(concat_train_file, "w") as out_stream:
         for label, path in train_files:
