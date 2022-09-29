@@ -123,7 +123,7 @@ def setup_logging(verbose: bool, logfile: Optional[pathlib.Path] = None):
 
             logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
-    transformers.utils.logging.disable_default_handler
+    transformers.utils.logging.disable_default_handler()
     transformers.utils.logging.add_handler(InterceptHandler())
 
 
