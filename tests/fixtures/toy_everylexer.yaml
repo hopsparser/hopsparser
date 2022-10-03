@@ -13,6 +13,7 @@ lr:
   schedule:
     shape: linear
     warmup_steps: 100
+max_gradient_norm: 1.0
 lexers:
   - name: word_embeddings
     type: words
