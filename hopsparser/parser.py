@@ -105,14 +105,12 @@ class MLP(nn.Module):
 class BiAffine(nn.Module):
     """Biaffine attention layer.
 
-    Inputs
-    ------
+    ## Inputs
 
     - `d` a tensor of shape `batch_size×num_dependents×input_dim
     - `h` a tensor of shape `batch_size×num_heads×input_dim
 
-    Outputs
-    -------
+    ## Outputs
 
     A tensor of shape `batch_size×num_dependents×num_heads×output_dim`.
     """
@@ -618,6 +616,7 @@ class BiAffineParser(nn.Module):
         train_set: "DependencyDataset",
         batch_size: Optional[int] = None,
         dev_set: Optional["DependencyDataset"] = None,
+        max_grad_norm: Optional[float] = None,
         log_epoch: Callable[[str, Dict[str, str]], Any] = lambda x, y: None,
     ):
         model_path = pathlib.Path(model_path)
@@ -680,6 +679,8 @@ class BiAffineParser(nn.Module):
 
                 optimizer.zero_grad()
                 loss.backward()
+                if max_grad_norm is not None:
+                    nn.utils.clip_grad_norm_(self.parameters(), max_norm=max_grad_norm)
                 optimizer.step()
                 scheduler.step()
 
@@ -1304,6 +1305,7 @@ def train(
         log_epoch=log_epoch,
         lr=lr_config["base"],
         lr_schedule=lr_config.get("schedule", {"shape": "exponential", "warmup_steps": 0}),
+        max_grad_norm=hp.get("max_grad_norm"),
         model_path=model_path,
         train_set=trainset,
     )
