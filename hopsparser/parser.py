@@ -1158,7 +1158,6 @@ class BiAffineParser(nn.Module):
         for lexer_name, lexer_type in config.lexers.items():
             lexer_class = lexers.LEXER_TYPES[lexer_type]
             parser_lexers[lexer_name] = lexer_class.load(lexers_path / lexer_name)
-        parser_lexers
 
         parser = cls(
             extra_annotations=config.extra_annotations,

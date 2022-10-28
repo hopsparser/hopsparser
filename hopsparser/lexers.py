@@ -456,7 +456,7 @@ class WordEmbeddingsLexer(nn.Module):
         except ValueError as e:
             raise ValueError("Duplicated words in vocabulary") from e
         self.embedding = nn.Embedding(len(self.vocabulary) + 1, embeddings_dim, padding_idx=0)
-        self.output_dim = embeddings_dim
+        self.output_dim: Final[int] = embeddings_dim
         self.unk_word_idx = self.vocabulary[unk_word]
         self.word_dropout = word_dropout
         self._dpout = 0.0
@@ -627,7 +627,7 @@ class BertLexer(nn.Module):
             - self.tokenizer.num_special_tokens_to_add(pair=False),
         )
 
-        self.output_dim = self.model.config.hidden_size
+        self.output_dim: Final[int] = self.model.config.hidden_size
 
         # 🤗 has no unified API for the number of layers
         num_layers = cast(
