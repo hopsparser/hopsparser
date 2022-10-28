@@ -1,0 +1,24 @@
+# This one is made to work with the `train_multi` command. If you run it on unmodified UD treebank
+# files with the `train` command it WILL **FAIL**
+# Layer dimensions
+mlp_input: 1024
+mlp_tag_hidden: 16
+mlp_arc_hidden: 512
+mlp_lab_hidden: 128
+# Lexers
+lexers:
+  - name: xlm-roberta-base
+    type: bert
+    model: "xlm-roberta-base"
+    layers: "*"
+    subwords_reduction: "mean"
+# Training hyperparameters
+encoder_dropout: 0.5
+mlp_dropout: 0.5
+batch_size: 8
+epochs: 64
+lr:
+  base: 0.00003
+  schedule:
+    shape: linear
+    warmup_steps: 100
