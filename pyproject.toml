@@ -1,7 +1,7 @@
 [project]
 authors = [
-    {name = "Benoît Crabbé", email = "benoit.crabbe@univ-paris-diderot.fr"},
-    {name = "Loïc Grobol", email = "lgrobol@parisnanterre.fr"},
+    { name = "Benoît Crabbé", email = "benoit.crabbe@univ-paris-diderot.fr" },
+    { name = "Loïc Grobol", email = "lgrobol@parisnanterre.fr" },
 ]
 dependencies = [
     "bidict",
@@ -22,22 +22,16 @@ dependencies = [
     "uvicorn",
 ]
 description = "A graph dependency parser to tinker with"
-keywords = [
-    "nlp",
-    "parsing",
-]
-license = {text = "MIT"}
+keywords = ["nlp", "parsing"]
+license = { text = "MIT" }
 name = "hopsparser"
 readme = "README.md"
 requires-python = ">=3.8"
-urls = {repository = "https://github.com/hopsparser/hopsparser"}
+urls = { repository = "https://github.com/hopsparser/hopsparser" }
 version = "0.6.0"
 
 [project.optional-dependencies]
-traintools = [
-    "httpx[http2]",
-    "pandas",
-]
+traintools = ["httpx[http2]", "pandas"]
 tests = [
     "hypothesis",
     "pytest",
