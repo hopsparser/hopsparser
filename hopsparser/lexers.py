@@ -33,6 +33,8 @@ from transformers.tokenization_utils_base import (
     TokenSpan,
 )
 
+from typing_extensions import Self
+
 
 class LexingError(Exception):
     def __init__(self, message: str, sentence: Optional[str] = None):
@@ -47,23 +49,17 @@ def integer_dropout(t: torch.Tensor, fill_value: int, p: float) -> torch.Tensor:
     return t.masked_fill(mask, fill_value)
 
 
-_T_SupportsTo = TypeVar("_T_SupportsTo", bound="SupportsTo")
-
-
 class SupportsTo(Protocol):
     @abstractmethod
-    def to(self: _T_SupportsTo, device: Union[str, torch.device]) -> _T_SupportsTo:
+    def to(self, device: Union[str, torch.device]) -> Self:
         raise NotImplementedError
 
 
 _T_LEXER_SENT = TypeVar("_T_LEXER_SENT")
 _T_LEXER_BATCH = TypeVar("_T_LEXER_BATCH")
 
-_T_Lexer = TypeVar("_T_Lexer", bound="Lexer")
-
 
 class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH]):
-
     output_dim: int
 
     @abstractmethod
@@ -80,7 +76,7 @@ class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH]):
 
     @classmethod
     @abstractmethod
-    def load(cls: Type[_T_Lexer], model_path: pathlib.Path) -> _T_Lexer:
+    def load(cls, model_path: pathlib.Path) -> Self:
         raise NotImplementedError
 
     @abstractmethod
@@ -88,23 +84,17 @@ class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH]):
         raise NotImplementedError
 
 
-_T_CharRNNLexerBatch = TypeVar("_T_CharRNNLexerBatch", bound="CharRNNLexerBatch")
-
-
 class CharRNNLexerBatch(NamedTuple):
     encoding: torch.Tensor
     sent_lengths: List[int]
     word_lengths: torch.Tensor
 
-    def to(self: _T_CharRNNLexerBatch, device: Union[str, torch.device]) -> _T_CharRNNLexerBatch:
+    def to(self, device: Union[str, torch.device]) -> self:
         return type(self)(
             encoding=self.encoding.to(device=device),
             sent_lengths=self.sent_lengths,
             word_lengths=self.word_lengths,
         )
-
-
-_T_CharRNNLexer = TypeVar("_T_CharRNNLexer", bound="CharRNNLexer")
 
 
 class CharRNNLexer(nn.Module):
@@ -240,7 +230,7 @@ class CharRNNLexer(nn.Module):
             torch.save(self.state_dict(), model_path / "weights.pt")
 
     @classmethod
-    def load(cls: Type[_T_CharRNNLexer], model_path: pathlib.Path) -> _T_CharRNNLexer:
+    def load(cls, model_path: pathlib.Path) -> Self:
         with open(model_path / "config.json") as in_stream:
             config = json.load(in_stream)
         res = cls(**config)
@@ -250,14 +240,11 @@ class CharRNNLexer(nn.Module):
         return res
 
     @classmethod
-    def from_chars(cls: Type[_T_CharRNNLexer], chars: Iterable[str], **kwargs) -> _T_CharRNNLexer:
+    def from_chars(cls, chars: Iterable[str], **kwargs) -> Self:
         charset = sorted(set(chars))
         if wrong := [c for c in charset if len(c) > 1]:
             raise ValueError(f"Characters of length > 1 in charset: {wrong}")
         return cls(charset=["<pad>", "<special>", *charset], **kwargs)
-
-
-_T_FastTextLexer = TypeVar("_T_FastTextLexer", bound="FastTextLexer")
 
 
 class FastTextLexer(nn.Module):
@@ -379,9 +366,9 @@ class FastTextLexer(nn.Module):
 
     @classmethod
     def load(
-        cls: Type[_T_FastTextLexer],
+        cls,
         model_path: pathlib.Path,
-    ) -> _T_FastTextLexer:
+    ) -> Self:
         with open(model_path / "config.json") as in_stream:
             config = json.load(in_stream)
         res = cls.from_fasttext_model(model_path / "fasttext_model.bin", **config)
@@ -391,17 +378,15 @@ class FastTextLexer(nn.Module):
         return res
 
     @classmethod
-    def from_fasttext_model(
-        cls: Type[_T_FastTextLexer], model_file: Union[str, pathlib.Path], **kwargs
-    ) -> _T_FastTextLexer:
+    def from_fasttext_model(cls, model_file: Union[str, pathlib.Path], **kwargs) -> Self:
         return cls(fasttext.load_model(str(model_file)), **kwargs)
 
     @classmethod
     def from_raw(
-        cls: Type[_T_FastTextLexer],
+        cls,
         raw_text_path: Union[str, pathlib.Path],
         **kwargs,
-    ) -> _T_FastTextLexer:
+    ) -> Self:
         logger.info("Training fasttext model")
         # TODO: make the hyperparameters here configurable?
         model = fasttext.train_unsupervised(
@@ -411,10 +396,10 @@ class FastTextLexer(nn.Module):
 
     @classmethod
     def from_sents(
-        cls: Type[_T_FastTextLexer],
+        cls,
         sents: Iterable[List[str]],
         **kwargs,
-    ) -> _T_FastTextLexer:
+    ) -> Self:
         with tempfile.TemporaryDirectory() as tmp_dir:
             train_file = pathlib.Path(tmp_dir) / "train.txt"
             with open(train_file, "w") as out_stream:
@@ -422,9 +407,6 @@ class FastTextLexer(nn.Module):
                     out_stream.write(" ".join(s))
                     out_stream.write("\n")
             return cls.from_raw(train_file, **kwargs)
-
-
-_T_WordEmbeddingsLexer = TypeVar("_T_WordEmbeddingsLexer", bound="WordEmbeddingsLexer")
 
 
 class WordEmbeddingsLexer(nn.Module):
@@ -461,7 +443,7 @@ class WordEmbeddingsLexer(nn.Module):
         self.word_dropout = word_dropout
         self._dpout = 0.0
 
-    def train(self: _T_WordEmbeddingsLexer, mode: bool = True) -> _T_WordEmbeddingsLexer:
+    def train(self, mode: bool = True) -> Self:
         if mode:
             self._dpout = self.word_dropout
         else:
@@ -505,7 +487,7 @@ class WordEmbeddingsLexer(nn.Module):
             torch.save(self.state_dict(), model_path / "weights.pt")
 
     @classmethod
-    def load(cls: Type[_T_WordEmbeddingsLexer], model_path: pathlib.Path) -> _T_WordEmbeddingsLexer:
+    def load(cls, model_path: pathlib.Path) -> Self:
         with open(model_path / "config.json") as in_stream:
             config = json.load(in_stream)
         res = cls(**config)
@@ -516,9 +498,7 @@ class WordEmbeddingsLexer(nn.Module):
 
     # FIXME: probably add thresholds here, at least to filter out hapax?
     @classmethod
-    def from_words(
-        cls: Type[_T_WordEmbeddingsLexer], words: Iterable[str], **kwargs
-    ) -> _T_WordEmbeddingsLexer:
+    def from_words(cls, words: Iterable[str], **kwargs) -> Self:
         vocabulary = sorted(set(words))
         return cls(vocabulary=vocabulary, **kwargs)
 
@@ -550,14 +530,11 @@ def freeze_module(module: nn.Module, freezing: bool = True):
         module.train = type(module).train  # type: ignore[assignment]
 
 
-_T_BertLexerBatch = TypeVar("_T_BertLexerBatch", bound="BertLexerBatch")
-
-
 class BertLexerBatch(NamedTuple):
     encoding: BatchEncoding
     subword_alignments: Sequence[Sequence[TokenSpan]]
 
-    def to(self: _T_BertLexerBatch, device: Union[str, torch.device]) -> _T_BertLexerBatch:
+    def to(self, device: Union[str, torch.device]) -> Self:
         return type(self)(
             self.encoding.to(device=device),
             self.subword_alignments,
@@ -598,9 +575,6 @@ def align_with_special_tokens(
     return res
 
 
-_T_BertLexer = TypeVar("_T_BertLexer", bound="BertLexer")
-
-
 class BertLexer(nn.Module):
     """
     This Lexer performs tokenization and embedding mapping with BERT
@@ -615,7 +589,6 @@ class BertLexer(nn.Module):
         tokenizer: transformers.PreTrainedTokenizerBase,
         weight_layers: bool,
     ):
-
         super().__init__()
 
         self.model = model
@@ -849,7 +822,7 @@ class BertLexer(nn.Module):
             torch.save(self.state_dict(), model_path / "weights.pt")
 
     @classmethod
-    def load(cls: Type[_T_BertLexer], model_path: pathlib.Path) -> _T_BertLexer:
+    def load(cls, model_path: pathlib.Path) -> Self:
         with open(model_path / "config.json") as in_stream:
             config = json.load(in_stream)
         bert_model_path = model_path / "model"
@@ -871,9 +844,7 @@ class BertLexer(nn.Module):
         return res
 
     @classmethod
-    def from_pretrained(
-        cls: Type[_T_BertLexer], model_name_or_path: Union[str, pathlib.Path], **kwargs
-    ) -> _T_BertLexer:
+    def from_pretrained(cls, model_name_or_path: Union[str, pathlib.Path], **kwargs) -> Self:
         try:
             model = transformers.AutoModel.from_pretrained(model_name_or_path)
         except OSError:
