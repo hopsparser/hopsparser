@@ -60,36 +60,30 @@ _T_LEXER_BATCH = TypeVar("_T_LEXER_BATCH")
 
 
 class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH]):
-    output_dim: int
+    output_dim: Final[int]
 
-    @abstractmethod
     def encode(self, tokens_sequence: Sequence[str]) -> _T_LEXER_SENT:
-        raise NotImplementedError
+        ...
 
-    @abstractmethod
     def make_batch(self, batch: Sequence[_T_LEXER_SENT]) -> _T_LEXER_BATCH:
-        raise NotImplementedError
+        ...
 
-    @abstractmethod
     def save(self, model_path: pathlib.Path, save_weights: bool):
-        raise NotImplementedError
+        ...
+
+    def __call__(self, inpt: _T_LEXER_BATCH) -> torch.Tensor:
+        ...
 
     @classmethod
-    @abstractmethod
     def load(cls, model_path: pathlib.Path) -> Self:
-        raise NotImplementedError
-
-    @abstractmethod
-    def __call__(self, inpt: _T_LEXER_BATCH) -> torch.Tensor:
-        raise NotImplementedError
-
+        ...
 
 class CharRNNLexerBatch(NamedTuple):
     encoding: torch.Tensor
     sent_lengths: List[int]
     word_lengths: torch.Tensor
 
-    def to(self, device: Union[str, torch.device]) -> self:
+    def to(self, device: Union[str, torch.device]) -> Self:
         return type(self)(
             encoding=self.encoding.to(device=device),
             sent_lengths=self.sent_lengths,
@@ -281,7 +275,7 @@ class FastTextLexer(nn.Module):
         self.embeddings = nn.Embedding.from_pretrained(weights, padding_idx=self.vocab_size)
         self.special_tokens: Set = set([] if special_tokens is None else special_tokens)
         self.special_tokens_idx: Final[int] = self.vocab_size + 1
-        self.pad_idx: Final[int] = self.embeddings.padding_idx
+        self.pad_idx: Final[int] = cast(int, self.embeddings.padding_idx)
 
     def subwords_idxes(self, token: str) -> torch.Tensor:
         """Returns a list of ft subwords indexes a token"""
@@ -465,7 +459,7 @@ class WordEmbeddingsLexer(nn.Module):
 
     def make_batch(self, batch: Sequence[torch.Tensor]) -> torch.Tensor:
         """Pad a batch of sentences with zeros."""
-        return pad_sequence(batch, padding_value=0, batch_first=True)
+        return pad_sequence(cast(List, batch), padding_value=0, batch_first=True)
 
     def save(self, model_path: pathlib.Path, save_weights: bool = True):
         model_path.mkdir(exist_ok=True, parents=True)
@@ -586,7 +580,7 @@ class BertLexer(nn.Module):
         layers: Optional[Sequence[int]],
         model: transformers.PreTrainedModel,
         subwords_reduction: Literal["first", "mean"],
-        tokenizer: transformers.PreTrainedTokenizerBase,
+        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
         weight_layers: bool,
     ):
         super().__init__()
@@ -619,7 +613,7 @@ class BertLexer(nn.Module):
         self.layers = layers
         # Deactivate layerdrop if available
         if hasattr(self.model, "layerdrop"):
-            self.model.layerdrop = 0.0
+            self.model.layerdrop = 0.0  # type: ignore
         # TODO: check if the value is allowed?
         self.subwords_reduction = subwords_reduction
         self.weight_layers = weight_layers
@@ -790,7 +784,7 @@ class BertLexer(nn.Module):
         try:
             alignments = align_with_special_tokens(
                 bert_word_lengths,
-                bert_encoding["special_tokens_mask"],
+                bert_encoding["special_tokens_mask"],  # type: ignore
             )
         except ValueError as e:
             # Non-fast tokenizers shouldn't be prone to this
