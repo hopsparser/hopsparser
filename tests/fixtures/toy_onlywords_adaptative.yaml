@@ -8,7 +8,7 @@ encoder_dropout: 0.6
 mlp_dropout: 0.5
 batch_size: 32
 epochs: 2
-multitask_loss: weighted
+multitask_loss: adaptative
 lr:
   base: 0.001
 lexers:
@@ -16,6 +16,3 @@ lexers:
     type: words
     embedding_size: 128
     word_dropout: 0.6
-extra_annotations:
-  "SpaceAfter":
-    hidden_layer_dim: 16

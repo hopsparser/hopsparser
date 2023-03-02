@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 [Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.6.0...HEAD
 
+### Added
+
+- Options for using weighted multitask losses.
+
 ## [v0.6.0] — 2022-07-28
 
 [v0.6.0]: https://github.com/hopsparser/hopsparser/compare/v0.5.0...v0.6.0
