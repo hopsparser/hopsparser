@@ -17,6 +17,7 @@ encoder_dropout: 0.5
 mlp_dropout: 0.5
 batch_size: 8
 epochs: 64
+multitask_loss: "weighted"
 lr:
   base: 0.00003
   schedule:
@@ -27,3 +28,4 @@ extra_annotations:
   # This is the default name used by the `train_multi` command
   original_treebank:
     hidden_layer_dim: 16
+    loss_weight: 0.5

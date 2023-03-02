@@ -138,9 +138,6 @@ class EncodedSentence(NamedTuple):
     sent_len: int
 
 
-_T_SentencesBatch = TypeVar("_T_SentencesBatch", bound="SentencesBatch")
-
-
 class SentencesBatch(NamedTuple):
     """Batched and padded sentences.
 
@@ -156,7 +153,7 @@ class SentencesBatch(NamedTuple):
     encodings: Dict[str, SupportsTo]
     sent_lengths: torch.Tensor
 
-    def to(self: _T_SentencesBatch, device: Union[str, torch.device]) -> _T_SentencesBatch:
+    def to(self: Self, device: Union[str, torch.device]) -> Self:
         return type(self)(
             encodings={
                 lexer_name: encoded_batch.to(device)
@@ -188,9 +185,6 @@ class EncodedTree(NamedTuple):
     annotations: Dict[str, torch.Tensor]
 
 
-_T_DependencyBatch = TypeVar("_T_DependencyBatch", bound="DependencyBatch")
-
-
 class DependencyBatch(NamedTuple):
     """Encoded, padded and batched trees.
 
@@ -215,7 +209,7 @@ class DependencyBatch(NamedTuple):
     labels: torch.Tensor
     annotations: Dict[str, torch.Tensor]
 
-    def to(self: _T_DependencyBatch, device: Union[str, torch.device]) -> _T_DependencyBatch:
+    def to(self: Self, device: Union[str, torch.device]) -> Self:
         return type(self)(
             trees=self.trees,
             sentences=self.sentences.to(device),
@@ -251,6 +245,7 @@ class BiAffineParserConfig(pydantic.BaseModel):
     mlp_dropout: float
     tagset: List[str]
     lexers: Dict[str, str]
+    multitask_loss: str
 
 
 class BiaffineParserOutput(NamedTuple):
@@ -321,7 +316,7 @@ class BiAffineParser(nn.Module):
         mlp_dropout: float,
         tagset: Sequence[str],
         extra_annotations: Optional[Mapping[str, AnnotationConfig]] = None,
-        mulitask_loss: Literal["adaptative", "mean", "sum", "weighted"] = "sum",
+        multitask_loss: Literal["adaptative", "mean", "sum", "weighted"] = "sum",
     ):
         super(BiAffineParser, self).__init__()
         self.default_batch_size = default_batch_size
@@ -377,7 +372,7 @@ class BiAffineParser(nn.Module):
         self.lab_biaffine = BiAffine(self.mlp_input, len(self.labels), bias=biased_biaffine)
 
         # Extra annotations
-        self.loss_weights = {
+        _loss_weights = {
             "tag": 1.0,
             "head": 1.0,
             "deprel": 1.0,
@@ -407,7 +402,7 @@ class BiAffineParser(nn.Module):
                     for name, conf in extra_annotations.items()
                 }
             )
-            self.loss_weights.update(
+            _loss_weights.update(
                 {name: conf.loss_weight for name, conf in extra_annotations.items()}
             )
         else:
@@ -417,7 +412,14 @@ class BiAffineParser(nn.Module):
         self.annotations_order = sorted(self.annotation_lexicons.keys())
 
         self.marginal_loss = nn.CrossEntropyLoss(reduction="sum", ignore_index=self.LABEL_PADDING)
-        self.multitask_loss = mulitask_loss
+        self.multitask_loss = multitask_loss
+        self.loss_weights = torch.tensor(
+            [_loss_weights[name] for name in ["tag", "head", "deprel", *self.annotations_order]],
+        )
+        # NOTE: we really don't use the weights in the same way in adaptive mode, see
+        # <https://aclanthology.org/2022.findings-acl.190>
+        if self.multitask_loss == "adaptative":
+            self.loss_weights = torch.nn.Parameter(self.loss_weights)
 
     def save_params(self, path: Union[str, pathlib.Path, BinaryIO]):
         torch.save(self.state_dict(), path)
@@ -519,25 +521,21 @@ class BiAffineParser(nn.Module):
             labels_scores_flat = labels_scores.view(-1, labels_scores.size(-1))
             all_loss[annotation_name] = self.marginal_loss(labels_scores_flat, labels.view(-1))
 
-        weights = torch.tensor(
-            [
-                self.loss_weights[name]
-                for name in ["tag", "head", "deprel", *self.annotations_order]
-            ],
-            device=tagger_scores_flat.device,
-        )
         loss = torch.stack(
             [all_loss[name] for name in ["tag", "head", "deprel", *self.annotations_order]]
         )
-        # TODO: see if other loss combination functions wouldn't help here, e.g.
-        # <https://arxiv.org/abs/1805.06334> or <https://arxiv.org/abs/1209.2784>
-        # tracked at <https://github.com/hopsparser/npdependency/issues/59>
+        # TODO: see if other loss combination functions wouldn't help here, tracked at
+        # <https://github.com/hopsparser/npdependency/issues/59>
         if self.multitask_loss == "sum":
             return loss.sum()
         elif self.multitask_loss == "mean":
             return loss.sum() / len(batch.trees)
         elif self.multitask_loss == "weighted":
-            return (weights * loss) / len(batch.trees)
+            return torch.inner(self.loss_weights, loss) / len(batch.trees)
+        elif self.multitask_loss == "adaptative":
+            return (
+                torch.inner(1 / self.loss_weights**2, loss) + torch.log(self.loss_weights)
+            ).sum()
         else:
             raise ValueError(f"Unknown loss type {self.multitask_loss}")
 
@@ -1059,6 +1057,7 @@ class BiAffineParser(nn.Module):
                 lexer_name: lexers.LEXER_TYPES.inverse[type(lexer)]
                 for lexer_name, lexer in self.lexers.items()
             },
+            multitask_loss=self.multitask_loss,
         )
         config_file = model_path / "config.json"
         with open(config_file, "w") as out_stream:
@@ -1081,6 +1080,7 @@ class BiAffineParser(nn.Module):
             config = yaml.load(in_stream, Loader=yaml.SafeLoader)
         config.setdefault("biased_biaffine", True)
         config.setdefault("batch_size", 1)
+        config.setdefault("multitask_loss", "sum")
 
         corpus_words = [word for tree in treebank for word in tree.words[1:]]
         parser_lexers: Dict[str, Lexer] = dict()
@@ -1147,10 +1147,7 @@ class BiAffineParser(nn.Module):
                 treebank, sorted(extra_annotations_config.keys())
             )
             extra_annotations = {
-                name: AnnotationConfig(
-                    labels=annotations_labels[name],
-                    hidden_layer_dim=conf["hidden_layer_dim"],
-                )
+                name: AnnotationConfig(labels=annotations_labels[name], **conf)
                 for name, conf in extra_annotations_config.items()
             }
         else:
@@ -1169,6 +1166,7 @@ class BiAffineParser(nn.Module):
             mlp_arc_hidden=config["mlp_arc_hidden"],
             mlp_lab_hidden=config["mlp_lab_hidden"],
             mlp_dropout=config["mlp_dropout"],
+            multitask_loss=config["multitask_loss"],
         )
 
     @classmethod
@@ -1202,6 +1200,7 @@ class BiAffineParser(nn.Module):
             mlp_input=config.mlp_input,
             mlp_lab_hidden=config.mlp_lab_hidden,
             mlp_tag_hidden=config.mlp_tag_hidden,
+            multitask_loss=config.multitask_loss,
             tagset=config.tagset,
         )
         weights_file = model_path / "weights.pt"
