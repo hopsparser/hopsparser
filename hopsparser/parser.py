@@ -36,6 +36,7 @@ from boltons import iterutils as itu
 from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
+from typing_extensions import Self
 
 from hopsparser import lexers, utils
 from hopsparser.deptree import DepGraph
@@ -233,6 +234,7 @@ class LRSchedule(TypedDict):
 class AnnotationConfig(pydantic.BaseModel):
     hidden_layer_dim: int
     labels: List[str]
+    loss_weight: float = 1.0
 
 
 # TODO: look into <https://github.com/lincolnloop/goodconf/>
@@ -295,9 +297,6 @@ class ParserEvalOutput(NamedTuple):
     extra_annotations_accuracy: Dict[str, float]
 
 
-_T_BiAffineParser = TypeVar("_T_BiAffineParser", bound="BiAffineParser")
-
-
 class BiAffineParser(nn.Module):
     """Biaffine Dependency Parser."""
 
@@ -322,8 +321,8 @@ class BiAffineParser(nn.Module):
         mlp_dropout: float,
         tagset: Sequence[str],
         extra_annotations: Optional[Mapping[str, AnnotationConfig]] = None,
+        mulitask_loss: Literal["adaptative", "mean", "sum", "weighted"] = "sum",
     ):
-
         super(BiAffineParser, self).__init__()
         self.default_batch_size = default_batch_size
         self.tagset: BidirectionalMapping[str, int] = bidict((t, i) for i, t in enumerate(tagset))
@@ -378,9 +377,20 @@ class BiAffineParser(nn.Module):
         self.lab_biaffine = BiAffine(self.mlp_input, len(self.labels), bias=biased_biaffine)
 
         # Extra annotations
+        self.loss_weights = {
+            "tag": 1.0,
+            "head": 1.0,
+            "deprel": 1.0,
+        }
         # This makes us store the list of labels twice but makes it less clunky to __init__ and save
         self.annotation_lexicons: Dict[str, BidirectionalMapping[str, int]]
         if extra_annotations is not None:
+            if (
+                reserved := next(
+                    (a for a in {"tag", "head", "deprel"} if a in extra_annotations), None
+                )
+            ) is not None:
+                raise ValueError(f"Reserved name used in extra annotations: {reserved!r}")
             self.extra_annotations = extra_annotations
             self.annotation_lexicons = {
                 name: bidict((l, i) for i, l in enumerate(conf.labels))
@@ -397,6 +407,9 @@ class BiAffineParser(nn.Module):
                     for name, conf in extra_annotations.items()
                 }
             )
+            self.loss_weights.update(
+                {name: conf.loss_weight for name, conf in extra_annotations.items()}
+            )
         else:
             self.extra_annotations = dict()
             self.annotation_lexicons = dict()
@@ -404,6 +417,7 @@ class BiAffineParser(nn.Module):
         self.annotations_order = sorted(self.annotation_lexicons.keys())
 
         self.marginal_loss = nn.CrossEntropyLoss(reduction="sum", ignore_index=self.LABEL_PADDING)
+        self.multitask_loss = mulitask_loss
 
     def save_params(self, path: Union[str, pathlib.Path, BinaryIO]):
         torch.save(self.state_dict(), path)
@@ -468,6 +482,8 @@ class BiAffineParser(nn.Module):
         parser_output: BiaffineParserOutput,
         batch: DependencyBatch,
     ) -> torch.Tensor:
+        all_loss: dict[str, torch.Tensor] = dict()
+
         batch_size = batch.heads.shape[0]
         num_padded_deps = batch.heads.shape[1]
         num_deprels = parser_output.deprel_scores.shape[-1]
@@ -475,19 +491,12 @@ class BiAffineParser(nn.Module):
         # TAGGER_LOSS
         # [batch×sent_length, num_tags]
         tagger_scores_flat = parser_output.tag_scores.view(-1, parser_output.tag_scores.size(-1))
-        tagger_loss = self.marginal_loss(tagger_scores_flat, batch.tags.view(-1))
-
-        # Extra annotations loss
-        extra_annotations_loss = torch.zeros_like(tagger_loss)
-        for annotation_name, labels in batch.annotations.items():
-            labels_scores = parser_output.extra_labels_scores[annotation_name]
-            labels_scores_flat = labels_scores.view(-1, labels_scores.size(-1))
-            extra_annotations_loss += self.marginal_loss(labels_scores_flat, labels.view(-1))
+        all_loss["tag"] = self.marginal_loss(tagger_scores_flat, batch.tags.view(-1))
 
         # ARC LOSS
         # [batch×num_deps, num_heads]
         head_scores_flat = parser_output.head_scores.view(-1, parser_output.head_scores.size(-1))
-        head_loss = self.marginal_loss(head_scores_flat, batch.heads.view(-1))
+        all_loss["head"] = self.marginal_loss(head_scores_flat, batch.heads.view(-1))
 
         # LABEL LOSS We will select the labels for the gold heads, so we have to provide one when
         # there is none (either it is absent from the data or this is a padding token) to even if
@@ -502,12 +511,35 @@ class BiAffineParser(nn.Module):
 
         # [batch×sent_len, n_labels]
         predicted_labels_scores_flat = predicted_labels_scores.view(-1, num_deprels)
-        lab_loss = self.marginal_loss(predicted_labels_scores_flat, batch.labels.view(-1))
+        all_loss["deprel"] = self.marginal_loss(predicted_labels_scores_flat, batch.labels.view(-1))
 
+        # Extra annotations loss
+        for annotation_name, labels in batch.annotations.items():
+            labels_scores = parser_output.extra_labels_scores[annotation_name]
+            labels_scores_flat = labels_scores.view(-1, labels_scores.size(-1))
+            all_loss[annotation_name] = self.marginal_loss(labels_scores_flat, labels.view(-1))
+
+        weights = torch.tensor(
+            [
+                self.loss_weights[name]
+                for name in ["tag", "head", "deprel", *self.annotations_order]
+            ],
+            device=tagger_scores_flat.device,
+        )
+        loss = torch.stack(
+            [all_loss[name] for name in ["tag", "head", "deprel", *self.annotations_order]]
+        )
         # TODO: see if other loss combination functions wouldn't help here, e.g.
         # <https://arxiv.org/abs/1805.06334> or <https://arxiv.org/abs/1209.2784>
         # tracked at <https://github.com/hopsparser/npdependency/issues/59>
-        return tagger_loss + extra_annotations_loss + head_loss + lab_loss
+        if self.multitask_loss == "sum":
+            return loss.sum()
+        elif self.multitask_loss == "mean":
+            return loss.sum() / len(batch.trees)
+        elif self.multitask_loss == "weighted":
+            return (weights * loss) / len(batch.trees)
+        else:
+            raise ValueError(f"Unknown loss type {self.multitask_loss}")
 
     def eval_model(
         self, dev_set: Iterable[DependencyBatch], batch_size: Optional[int] = None
@@ -535,7 +567,6 @@ class BiAffineParser(nn.Module):
 
         with torch.inference_mode():
             for batch in dev_set:
-
                 batch = batch.to(device)
 
                 # workaround since the design of torch modules makes it hard
@@ -897,7 +928,7 @@ class BiAffineParser(nn.Module):
                     trees = batch.trees
                 else:
                     trees = [DepGraph.from_words(words) for words in batch.words]
-                for (tree, tree_scores) in zip(
+                for tree, tree_scores in zip(
                     trees, output.unbatch(sentence_lengths=batch_sentences.sent_lengths.tolist())
                 ):
                     result_tree = self._scores_to_tree(
@@ -1041,10 +1072,10 @@ class BiAffineParser(nn.Module):
     # FIXME: allow passing a config dict directly
     @classmethod
     def initialize(
-        cls: Type[_T_BiAffineParser],
+        cls: Type[Self],
         config_path: pathlib.Path,
         treebank: List[DepGraph],
-    ) -> _T_BiAffineParser:
+    ) -> Self:
         logger.info(f"Initializing a parser from {config_path}")
         with open(config_path) as in_stream:
             config = yaml.load(in_stream, Loader=yaml.SafeLoader)
@@ -1142,9 +1173,9 @@ class BiAffineParser(nn.Module):
 
     @classmethod
     def load(
-        cls: Type[_T_BiAffineParser],
+        cls: Type[Self],
         model_path: Union[str, pathlib.Path],
-    ) -> _T_BiAffineParser:
+    ) -> Self:
         model_path = pathlib.Path(model_path)
         config_path = model_path / "config.json"
 
