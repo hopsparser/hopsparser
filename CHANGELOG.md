@@ -12,7 +12,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Options for using weighted multitask losses.
+- Options for using weighted multitask losses, including the adaptative strategy used in Candito
+  ([2022](https://aclanthology.org/2022.findings-acl.190)).
 
 ## [v0.6.0] — 2022-07-28
 
