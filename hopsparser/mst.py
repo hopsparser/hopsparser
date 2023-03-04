@@ -148,7 +148,9 @@ def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
 # ===============================================================
 def chuliu_edmonds_one_root(scores: np.ndarray) -> np.ndarray:
     """Repeatedly Use the Chu‑Liu/Edmonds algorithm to find a maximum spanning dependency tree from
-    the weight matrix of a rooted weighted directed graph
+    the weight matrix of a rooted weighted directed graph.
+
+    **ATTENTION: this modifies `scores` in place.**
 
     ## Input
 
@@ -177,7 +179,7 @@ def chuliu_edmonds_one_root(scores: np.ndarray) -> np.ndarray:
         scores[root, 0] = 0
         return scores, root_score
 
-    # We find the maximum spanning dependency tree by try every possible root
+    # We find the maximum spanning dependenc_treey tree by try every possible root
     best_score, best_tree = -np.inf, None  # This is what's causing it to crash
     for root in roots_to_try:
         _scores, root_score = set_root(scores, root)
