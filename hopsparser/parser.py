@@ -1042,7 +1042,7 @@ class BiAffineParser(nn.Module):
             trees = DepGraph.read_conll(inpt)
             batches = (
                 self.batch_trees(batch)
-                for batch in cast(Iterable[List[Tree]], itu.chunked_iter(trees, size=batch_size))
+                for batch in cast(Iterable[List[DepGraph]], itu.chunked_iter(trees, size=batch_size))
             )
         yield from self.batched_predict(batches, greedy=False)
 
