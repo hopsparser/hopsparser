@@ -31,7 +31,9 @@ urls = { repository = "https://github.com/hopsparser/hopsparser" }
 version = "0.6.0"
 
 [project.optional-dependencies]
-traintools = ["httpx[http2]", "pandas"]
+spacy = [
+    "spacy >= 3.5",
+]
 tests = [
     "hypothesis",
     "networkx",
@@ -40,6 +42,7 @@ tests = [
     "pytest-console-scripts",
     "pytest-lazy-fixture",
 ]
+traintools = ["httpx[http2]", "pandas"]
 
 [project.scripts]
 hopsparser = "hopsparser.main:cli"
