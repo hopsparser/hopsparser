@@ -1005,11 +1005,9 @@ class BiAffineParser(nn.Module):
 
         return result_tree
 
-    # FIXME: this is awkward when parsing pre-tokenized input: we should accept something like `inpt:
-    # Iterable[Sequence[str]]`
     def parse(
         self,
-        inpt: Iterable[str],
+        inpt: Iterable[Union[str, Sequence[str]]],
         batch_size: Optional[int] = None,
         raw: bool = False,
         strict: bool = True,
@@ -1021,21 +1019,30 @@ class BiAffineParser(nn.Module):
             sentences = (
                 encoded
                 for line in inpt
-                if line and not line.isspace()
-                for encoded in [self.encode_sentence(line.strip().split(), strict=strict)]
+                if line and not (isinstance(line, str) and line.isspace())
+                for encoded in [
+                    self.encode_sentence(
+                        line.strip().split() if isinstance(line, str) else list(line), strict=strict
+                    )
+                ]
                 if encoded is not None
             )
             batches = (
-                self.batch_sentences(sentences)
-                for sentences in itu.chunked_iter(
-                    sentences,
-                    size=batch_size,
+                self.batch_sentences(sentences_slice)
+                for sentences_slice in cast(
+                    Iterable[List[EncodedSentence]],
+                    itu.chunked_iter(
+                        sentences,
+                        size=batch_size,
+                    ),
                 )
             )
         else:
+            assert isinstance(inpt, str)
             trees = DepGraph.read_conll(inpt)
             batches = (
-                self.batch_trees(batch) for batch in itu.chunked_iter(trees, size=batch_size)
+                self.batch_trees(batch)
+                for batch in cast(Iterable[List[Tree]], itu.chunked_iter(trees, size=batch_size))
             )
         yield from self.batched_predict(batches, greedy=False)
 
