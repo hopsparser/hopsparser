@@ -32,6 +32,7 @@ def test_CLE(adjacency: NDArray):
     adjacency[0] = -np.inf
     adjacency[0, 0] = 0.0
 
+    # TODO: this could also test CLE one root if we use the big M trick
     graph = nx.from_numpy_array(adjacency.T, create_using=nx.DiGraph)
     edmonds = nx.algorithms.tree.branchings.Edmonds(graph)
     nx_arborescence = edmonds.find_optimum(kind="max", style="arborescence")
