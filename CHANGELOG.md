@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- HOPS as custom spaCy component to use in spaCy pipelines.
 - Options for using weighted multitask losses, including the adaptative strategy used in Candito
   ([2022](https://aclanthology.org/2022.findings-acl.190)).
 

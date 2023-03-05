@@ -63,6 +63,33 @@ Depending on the model, the parser will be more or less fast and more or less ac
 however expect the parser to process several hundred sentences per second with a decent GPU. The GPU
 actually used for performing computations can be specified using the `--device` command line option.
 
+### Use as a spaCy component
+
+HOPS is usable as a component for [spaCy pipelines](https://spacy.io/usage/processing-pipelines).
+
+This requires to install the spaCy extra `pip install "hopsparser[spacy]"` and downloading a spaCy
+model whose language match the one of the HOPS model you want to use (if you want it to be accurate,
+that is).
+
+```python
+import spacy
+from hopsparser import spacy_component
+
+nlp = spacy.load("fr_core_news_sm")
+nlp.add_pipe("hopsparser", "hopsparser", config={"model_path": path/to/your/model})
+doc = nlp(
+    "Je reconnais l'existence du kiwi. Le petit chat est content. L'acrobate a mordu la pomme et la poussière.
+)
+for sent in doc.sents:
+    print(sent)
+    for token in sent:
+        print(token.i, token.text, token.tag_, token.pos_, token.head.i, token.dep_, sep="\t")
+    print("------")
+```
+
+This only changes the `pos`, `head` and `dep` properties of the tokens in the spaCy `Document`.
+
+
 ## Running in server mode
 
 See [the server mode documentation](https://github.com/hopsparser/hopsparser/blob/master/docs/server.md).
