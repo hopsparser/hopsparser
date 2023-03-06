@@ -1038,8 +1038,7 @@ class BiAffineParser(nn.Module):
                 )
             )
         else:
-            assert isinstance(inpt, str)
-            trees = DepGraph.read_conll(inpt)
+            trees = DepGraph.read_conll(cast(Iterable[str], inpt))
             batches = (
                 self.batch_trees(batch)
                 for batch in cast(Iterable[List[DepGraph]], itu.chunked_iter(trees, size=batch_size))
