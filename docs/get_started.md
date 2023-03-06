@@ -27,7 +27,7 @@ The `INPUT_FILE` argument is supposed to be the path to a file in the
 [CONLL-U](https://universaldependencies.org/format.html) format, possibly with missing columns. For
 instance:
 
-```conllu
+```text
 1	Flaubert
 2	a
 3	écrit
