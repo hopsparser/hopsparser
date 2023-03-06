@@ -21,7 +21,7 @@ After installing `hopsparser[traintools]`, it can be run with
 python scripts/train_models.py {configs_dir} {treebanks_dir} --args "fasttext={fasttext_model}" --devices "{device1},{device2},{…}" --out-dir {out_dir}
 ```
 
-For each `{config_name}.yaml}` file in `{configs_dir}` and each `{treebank_name}` directory in
+For each `{config_name}.yaml` file in `{configs_dir}` and each `{treebank_name}` directory in
 `{treebanks_dir}` (containing files named `/.*(train|dev|test)\.conllu/`), this will create a
 `{out_dir}/{treebank_name}-{config_name}` directory containing the trained model and the parsed
 train and test set. It will also create a summary of the performances of the various runs in
