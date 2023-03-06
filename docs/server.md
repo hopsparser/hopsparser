@@ -55,7 +55,7 @@ The `process` method is called with a `POST` request
 ```json
 {
   "model": "Model used",
-  "acknowledgements": ["URL with acknowledgements", ...],
+  "acknowledgements": ["URL with acknowledgements"],
   "result": "processed_output"
 }
 ```
