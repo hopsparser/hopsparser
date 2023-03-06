@@ -18,7 +18,7 @@ languages without difficulties.
 
 ## Getting Started
 
-Check out [*Geting started*](get_started.md).
+Check out [*Getting started*](get_started.md).
 
 ## Citation
 
