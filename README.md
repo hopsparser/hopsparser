@@ -68,8 +68,8 @@ actually used for performing computations can be specified using the `--device` 
 HOPS is usable as a component for [spaCy pipelines](https://spacy.io/usage/processing-pipelines).
 
 This requires to install the spaCy extra `pip install "hopsparser[spacy]"` and downloading a spaCy
-model whose language match the one of the HOPS model you want to use (if you want it to be accurate,
-that is).
+model whose language matches the one of the HOPS model you want to use (if you want it to be
+accurate, that is).
 
 ```python
 import spacy
@@ -87,7 +87,8 @@ for sent in doc.sents:
     print("------")
 ```
 
-This only changes the `pos`, `head` and `dep` properties of the tokens in the spaCy `Document`.
+This only changes the `pos`, `head` and `dep` properties of the tokens of the spaCy `Doc` and
+respects the predicted sentence boundaries.
 
 
 ## Running in server mode
