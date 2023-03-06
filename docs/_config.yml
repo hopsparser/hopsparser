@@ -1,0 +1,26 @@
+title: HOPS documentation
+author: Loïc Grobol
+logo: logo.png
+repository:
+  url: https://github.com/hopsparser/hopsparser
+  path_to_book: docs
+  branch: main
+
+html:
+  use_issues_button: true
+  use_repository_button: true
+  use_edit_page_button: true
+  baseurl: https://hopsparser.readthedocs.io/
+  favicon: "favicon.ico"
+
+pdf: {}
+
+execute:
+  execute_notebooks: force
+
+bibtex_bibfiles:
+  - zeldarose.bib
+
+sphinx:
+  config:
+    bibtex_reference_style: author_year
