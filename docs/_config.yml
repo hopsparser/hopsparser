@@ -21,6 +21,6 @@ execute:
 # bibtex_bibfiles:
 #   - zeldarose.bib
 
-sphinx:
-  config:
-    bibtex_reference_style: author_year
+# sphinx:
+#   config:
+#     bibtex_reference_style: author_year
