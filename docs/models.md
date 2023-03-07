@@ -12,62 +12,58 @@ running them on CPUs is still possible, albeit slow.
 
 | Model name                   | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) |             Download             |
 | :--------------------------- | :--------: | :-------: | :---------: | :--------: | :------------------------------: |
-| UD_French-FTB-2.9-camembert  |   98.50    |   88.37   |    98.57    |   88.50    | [link][UD_French-FTB-camembert]  |
-| UD_French-FTB-2.9-flaubert   |   98.47    |   88.58   |    98.57    |   88.55    |  [link][UD_French-FTB-flaubert]  |
-| UD_French-FTB-2.9-nobert-all |   98.11    |   85.35   |    98.17    |   84.79    | [link][UD_French-FTB-nobert-all] |
+| UD_French-FTB-2.9-camembert  |   98.43    |   88.24   |    98.57    |   88.50    | [link][UD_French-FTB-camembert]  |
+| UD_French-FTB-2.9-flaubert   |   98.46    |   88.46   |    98.55    |   88.60    |  [link][UD_French-FTB-flaubert]  |
 
 [UD_French-FTB-camembert]:
-    https://zenodo.org/record/6525682/files/UD_French-FTB-camembert.tar.xz?download=1
+    https://zenodo.org/record/7703346/files/UD_French-FTB-camembert.tar.xz?download=1
 [UD_French-FTB-flaubert]:
-    https://zenodo.org/record/6525682/files/UD_French-FTB-flaubert.tar.xz?download=1
-[UD_French-FTB-nobert-all]:
-    https://zenodo.org/record/6525682/files/UD_French-FTB-nobert-all.tar.xz?download=1
-
+    https://zenodo.org/record/7703346/files/UD_French-FTB-flaubert.tar.xz?download=1
 
 ### GSD-UD
 
 | Model name                   | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) |             Download             |
 | :--------------------------- | :--------: | :-------: | :---------: | :--------: | :------------------------------: |
-| UD_French-GSD-2.9-camembert  |   98.69    |   95.77   |    98.43    |   93.92    | [link][UD_French-GSD-camembert]  |
-| UD_French-GSD-2.9-flaubert   |   98.64    |   95.72   |    98.51    |   94.19    |  [link][UD_French-GSD-flaubert]  |
-| UD_French-GSD-2.9-nobert-all |   98.28    |   92.81   |    97.75    |   89.99    | [link][UD_French-GSD-nobert-all] |
+| UD_French-GSD-2.9-camembert  |   98.68    |   95.64   |    98.32    |   94.13   | [link][UD_French-GSD-camembert]  |
+| UD_French-GSD-2.9-flaubert   |   98.73    |   95.72   |    98.59    |   94.26    |  [link][UD_French-GSD-flaubert]  |
+| UD_French-GSD-2.9-nobert-all |   98.14    |   92.70   |    97.89    |   90.48    | [link][UD_French-GSD-nobert-all] |
 
 [UD_French-GSD-camembert]:
-    https://zenodo.org/record/6525682/files/UD_French-GSD-camembert.tar.xz?download=1
+    https://zenodo.org/record/7703346/files/UD_French-GSD-camembert.tar.xz?download=1
 [UD_French-GSD-flaubert]:
-    https://zenodo.org/record/6525682/files/UD_French-GSD-flaubert.tar.xz?download=1
+    https://zenodo.org/record/7703346/files/UD_French-GSD-flaubert.tar.xz?download=1
 [UD_French-GSD-nobert-all]:
-    https://zenodo.org/record/6525682/files/UD_French-GSD-nobert-all.tar.xz?download=1
+    https://zenodo.org/record/7703346/files/UD_French-GSD-nobert-all.tar.xz?download=1
 
 ### Sequoia-UD
 
 | Model name                       | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) |               Download               |
 | :------------------------------- | :--------: | :-------: | :---------: | :--------: | :----------------------------------: |
-| UD_French-Sequoia-2.9-camembert  |   98.93    |   93.75   |    99.05    |   93.68    | [link][UD_French-Sequoia-camembert]  |
-| UD_French-Sequoia-2.9-flaubert   |   99.19    |   94.43   |    99.33    |   94.28    |  [link][UD_French-Sequoia-flaubert]  |
-| UD_French-Sequoia-2.9-nobert-all |   97.71    |   87.19   |    97.95    |   86.93    | [link][UD_French-Sequoia-nobert-all] |
+| UD_French-Sequoia-2.9-camembert  |   99.07    |   93.43   |    99.15    |   93.90    | [link][UD_French-Sequoia-camembert]  |
+| UD_French-Sequoia-2.9-flaubert   |   99.13    |   94.42   |    99.31    |   94.78    |  [link][UD_French-Sequoia-flaubert]  |
+| UD_French-Sequoia-2.9-nobert-all |   97.69    |   87.27   |    97.90    |   87.40    | [link][UD_French-Sequoia-nobert-all] |
 
 [UD_French-Sequoia-camembert]:
-    https://zenodo.org/record/6525682/files/UD_French-Sequoia-camembert.tar.xz?download=1
+    https://zenodo.org/record/7703346/files/UD_French-Sequoia-camembert.tar.xz?download=1
 [UD_French-Sequoia-flaubert]:
-    https://zenodo.org/record/6525682/files/UD_French-Sequoia-flaubert.tar.xz?download=1
+    https://zenodo.org/record/7703346/files/UD_French-Sequoia-flaubert.tar.xz?download=1
 [UD_French-Sequoia-nobert-all]:
-    https://zenodo.org/record/6525682/files/UD_French-Sequoia-nobert-all.tar.xz?download=1
+    https://zenodo.org/record/7703346/files/UD_French-Sequoia-nobert-all.tar.xz?download=1
 
-### French-Rhapsodie-UD
+### French-spoken-UD
 
 | Model name                         | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) |                Download                |
 | :--------------------------------- | :--------: | :-------: | :---------: | :--------: | :------------------------------------: |
-| UD_French-Rhapsodie-2.9-camembert  |   97.20    |   83.02   |    96.76    |   82.41    | [link][UD_French-Rhapsodie-camembert]  |
-| UD_French-Rhapsodie-2.9-flaubert   |   97.75    |   84.69   |    97.39    |   83.51    |  [link][UD_French-Rhapsodie-flaubert]  |
-| UD_French-Rhapsodie-2.9-nobert-all |   96.39    |   78.46   |    95.32    |   76.55    | [link][UD_French-Rhapsodie-nobert-all] |
+| UD_French-spoken-2.9-camembert  |   98.03    |   84.07   |    96.85    |   80.33    | [link][UD_French-spoken-camembert]  |
+| UD_French-spoken-2.9-flaubert   |   98.20    |   84.54   |    97.05    |   80.59    |  [link][UD_French-spoken-flaubert]  |
+| UD_French-Rhapsodie-2.9-nobert-all |   96.89    |   80.11   |    96.01    |   75.12    | [link][UD_French-spoken-nobert-all] |
 
 [UD_French-Rhapsodie-camembert]:
-    https://zenodo.org/record/6525682/files/UD_French-Rhapsodie-camembert.tar.xz?download=1
+    https://zenodo.org/record/7703346/files/UD_all_spoken_French-camembert.tar.xz?download=1
 [UD_French-Rhapsodie-flaubert]:
-    https://zenodo.org/record/6525682/files/UD_French-Rhapsodie-flaubert.tar.xz?download=1
+    https://zenodo.org/record/7703346/files/UD_all_spoken_French-flaubert.tar.xz?download=1
 [UD_French-Rhapsodie-nobert-all]:
-    https://zenodo.org/record/6525682/files/UD_French-Rhapsodie-nobert-all.tar.xz?download=1
+    https://zenodo.org/record/7703346/files/UD_all_spoken_French-nobert-all.tar.xz?download=1
 
 ## Old French
 
