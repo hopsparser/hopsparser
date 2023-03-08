@@ -12,9 +12,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- HOPS as custom spaCy component to use in spaCy pipelines.
+- HOPS now provides custom spaCy component to use in spaCy pipelines.
 - Options for using weighted multitask losses, including the adaptative strategy used in Candito
   ([2022](https://aclanthology.org/2022.findings-acl.190)).
+- HOPS will learn and predict token-level labels encoded in the MISC column (as `key=value` if you
+  give it the name of the key in the `extra_annotations` part of the config. See the example
+  mDeBERTa-polyglot
+  [config](https://github.com/hopsparser/hopsparser/blob/main/examples/mdeberta-polyglot.yaml) for
+  an example of such a config
 
 ## [v0.6.0] — 2022-07-28
 
