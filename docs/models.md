@@ -79,11 +79,28 @@ presented in Grobol et al. (2022).
 | UD_Old_French-SRCMF-2.9-camembert_base+mlm-fro      |   97.78    |   90.42   |    97.63    |   91.30    |   [link][UD_Old_French-SRCMF-camembert_base+mlm-fro]    |
 | UD_Old_French-SRCMF-2.9-flaubert_base_cased+mlm-fro |   97.71    |   91.12   |    97.62    |   91.07    | [link][UD_Old_French-SRCMF-flaubert_base_cased+mlm-fro] |
 
+If you use these models, please cite
+
+```bibtex
+@inproceedings{grobol2022BERTradeUsingContextual,
+  title = {{{BERTrade}}: {{Using Contextual Embeddings}} to {{Parse Old French}}},
+  booktitle = {Proceedings of the {{Thirteenth Language Resources}} and {{Evaluation Conference}}},
+  author = {Grobol, Lo{\"i}c and Regnault, Mathilde and Ortiz Su{\'a}rez, Pedro Javier and Sagot, Beno{\^i}t and Romary, Laurent and Crabb{\'e}, Benoit},
+  year = {2022},
+  month = jun,
+  pages = {1104--1113},
+  publisher = {{European Language Resource Association}},
+  langid = {english},
+  venue = {Marseille, France}
+
+}
+```
+
 [UD_Old_French-SRCMF-bertrade_base]:
-    https://zenodo.org/record/6542539/files/UD_Old_French-SRCMF-2.9-bertrade_base.tar.xz?download=1
+    https://zenodo.org/record/7708976/files/UD_Old_French-SRCMF-2.9-bertrade_base.tar.xz?download=1
 [UD_Old_French-SRCMF-bertrade_petit]:
-    https://zenodo.org/record/6542539/files/UD_Old_French-SRCMF-2.9-bertrade_petit.tar.xz?download=1
+    https://zenodo.org/record/7708976/files/UD_Old_French-SRCMF-2.9-bertrade_petit.tar.xz?download=1
 [UD_Old_French-SRCMF-camembert_base+mlm-fro]:
-    https://zenodo.org/record/6542539/files/UD_Old_French-SRCMF-2.9-camembert_base%2Bmlm-fro.tar.xz?download=1
+    https://zenodo.org/record/7708976/files/UD_Old_French-SRCMF-2.9-camembert_base%2Bmlm-fro.tar.xz?download=1
 [UD_Old_French-SRCMF-flaubert_base_cased+mlm-fro]:
-    https://zenodo.org/record/6542539/files/UD_Old_French-SRCMF-2.9-flaubert_base_cased%2Bmlm-fro.tar.xz?download=1
+    https://zenodo.org/record/7708976/files/UD_Old_French-SRCMF-2.9-flaubert_base_cased%2Bmlm-fro.tar.xz?download=1

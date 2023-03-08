@@ -25,7 +25,7 @@ Check out [*Getting started*](get_started.md).
 If you use this parser for your scientific publication, or if you find the resources in this
 repository useful, please cite the following paper
 
-```text
+```bibtex
 @inproceedings{grobol:hal-03223424,
     title = {{Analyse en dépendances du français avec des plongements contextualisés}},
     author = {Grobol, Loïc and Crabbé, Benoît},
