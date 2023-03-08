@@ -57,7 +57,7 @@ class ParseResponse(pydantic.BaseModel):
 
 app = fastapi.FastAPI(
     title="HOPSparser REST endpoint",
-    description="A honest parser of sentences.",
+    description="An honest parser of sentences.",
     version="0.7.0",
 )
 
