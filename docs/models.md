@@ -58,11 +58,11 @@ running them on CPUs is still possible, albeit slow.
 | UD_French-spoken-2.9-flaubert   |   98.20    |   84.54   |    97.05    |   80.59    |  [link][UD_French-spoken-flaubert]  |
 | UD_French-Rhapsodie-2.9-nobert-all |   96.89    |   80.11   |    96.01    |   75.12    | [link][UD_French-spoken-nobert-all] |
 
-[UD_French-Rhapsodie-camembert]:
+[UD_French-spoken-camembert]:
     https://zenodo.org/record/7703346/files/UD_all_spoken_French-camembert.tar.xz?download=1
-[UD_French-Rhapsodie-flaubert]:
-    https://zenodo.org/record/7703346/files/UD_all_spoken_French-flaubert.tar.xz?download=1
-[UD_French-Rhapsodie-nobert-all]:
+[UD_French-spoken-flaubert]:
+    https://zenodo.spokenrg/record/7703346/files/UD_all_spoken_French-flaubert.tar.xz?download=1
+[UD_French-spoken-nobert-all]:
     https://zenodo.org/record/7703346/files/UD_all_spoken_French-nobert-all.tar.xz?download=1
 
 ## Old French
