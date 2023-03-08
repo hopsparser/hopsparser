@@ -85,15 +85,16 @@ If you use these models, please cite
 @inproceedings{grobol2022BERTradeUsingContextual,
   title = {{{BERTrade}}: {{Using Contextual Embeddings}} to {{Parse Old French}}},
   booktitle = {Proceedings of the {{Thirteenth Language Resources}} and {{Evaluation Conference}}},
-  author = {Grobol, Lo{\"i}c and Regnault, Mathilde and Ortiz Su{\'a}rez, Pedro Javier and Sagot, Beno{\^i}t and Romary, Laurent and Crabb{\'e}, Benoit},
-  year = {2022},
-  month = jun,
+  author = {Grobol, Loïc and Regnault, Mathilde and Ortiz Suárez, Pedro Javier and Sagot, Benoît and Romary, Laurent and Crabbé, Benoit},
+  date = {2022-06},
   pages = {1104--1113},
   publisher = {{European Language Resource Association}},
+  url = {https://aclanthology.org/2022.lrec-1.119},
+  eventtitle = {{{LREC}} 2022},
   langid = {english},
   venue = {Marseille, France}
-
 }
+
 ```
 
 [UD_Old_French-SRCMF-bertrade_base]:

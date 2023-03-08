@@ -1,4 +1,4 @@
-Use HOPSparser in server mode
+Use HOPS in server mode
 =============================
 
 For convenience, we provide a server implementing a small subset of the [UDPipe REST
