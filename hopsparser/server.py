@@ -4,7 +4,7 @@ import fastapi
 import pydantic
 import torch
 
-from hopsparser import __version__, parser
+from hopsparser import parser
 
 
 class Settings(pydantic.BaseSettings):
@@ -58,7 +58,7 @@ class ParseResponse(pydantic.BaseModel):
 app = fastapi.FastAPI(
     title="HOPSparser REST endpoint",
     description="A honest parser of sentences.",
-    version=__version__,
+    version="0.7.0",
 )
 
 
