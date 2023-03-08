@@ -66,13 +66,13 @@ Where `processed_output` is the output of parser in the requested output format.
 
 `hopsparser serve` is actually a very thin wrapper for running `hopsparser.server:app` in
 [Uvicorn](https://www.uvicorn.org). `hopsparser.server:app` uses the
-[ASGI](https://asgi.readthedocs.io/en/latest/) interface and you can use it directly for fun and
-profits. For instance you could
+[ASGI](https://asgi.readthedocs.io/en/latest/) interface, and you can use it directly for fun and
+profits. For instance, you could
 
 - Load several models (passing the model mapping using the `MODELS` environment variable)
 - Run several workers using the `--workers` Uvicorn parameter
 - Use another ASGI server such as [Hypercorn](https://pypi.org/project/Hypercorn/)
 
 To avoid pulling too many dependencies, we only depend on the minimal versions of FastAPI and
-Uvicorn, and although it is very unlikeley to be a bottleneck, installing their extra dependencies
+Uvicorn, and although it is very unlikely to be a bottleneck, installing their extra dependencies
 using `fastapi[all]` and `uvicorn[standard]` *might* make the server faster.
