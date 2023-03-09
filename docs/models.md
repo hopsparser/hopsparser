@@ -74,10 +74,9 @@ presented in Grobol et al. (2022).
 
 | Model name                                          | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) |                        Download                         |
 | :-------------------------------------------------- | :--------: | :-------: | :---------: | :--------: | :-----------------------------------------------------: |
-| UD_Old_French-SRCMF-2.9-bertrade_base               |   97.30    |   88.52   |    97.23    |   88.88    |        [link][UD_Old_French-SRCMF-bertrade_base]        |
-| UD_Old_French-SRCMF-2.9-bertrade_petit              |   96.88    |   87.23   |    96.93    |   87.87    |       [link][UD_Old_French-SRCMF-bertrade_petit]        |
-| UD_Old_French-SRCMF-2.9-camembert_base+mlm-fro      |   97.78    |   90.42   |    97.63    |   91.30    |   [link][UD_Old_French-SRCMF-camembert_base+mlm-fro]    |
-| UD_Old_French-SRCMF-2.9-flaubert_base_cased+mlm-fro |   97.71    |   91.12   |    97.62    |   91.07    | [link][UD_Old_French-SRCMF-flaubert_base_cased+mlm-fro] |
+| UD_Old_French-SRCMF-2.9-bertrade_base               |   97.29    |   88.35   |    97.33    |   88.97    |        [link][UD_Old_French-SRCMF-bertrade_base]        |
+| UD_Old_French-SRCMF-2.9-camembert_base+mlm-fro      |   97.61    |   90.37   |    97.66    |   91.19    |   [link][UD_Old_French-SRCMF-camembert_base+mlm-fro]    |
+| UD_Old_French-SRCMF-2.9-flaubert_base_cased+mlm-fro |   97.65    |   90.91   |    97.69    |   91.00    | [link][UD_Old_French-SRCMF-flaubert_base_cased+mlm-fro] |
 
 If you use these models, please cite
 
@@ -98,9 +97,7 @@ If you use these models, please cite
 ```
 
 [UD_Old_French-SRCMF-bertrade_base]:
-    https://zenodo.org/record/7708976/files/UD_Old_French-SRCMF-2.9-bertrade_base.tar.xz?download=1
-[UD_Old_French-SRCMF-bertrade_petit]:
-    https://zenodo.org/record/7708976/files/UD_Old_French-SRCMF-2.9-bertrade_petit.tar.xz?download=1
+    https://zenodo.org/record/7708976/files/UD_Old_French-SRCMF-2.9-bertrade_base-8192-32e_only.tar.xz?download=1
 [UD_Old_French-SRCMF-camembert_base+mlm-fro]:
     https://zenodo.org/record/7708976/files/UD_Old_French-SRCMF-2.9-camembert_base%2Bmlm-fro.tar.xz?download=1
 [UD_Old_French-SRCMF-flaubert_base_cased+mlm-fro]:
