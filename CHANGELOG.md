@@ -8,7 +8,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-[Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.6.0...HEAD
+## [0.7.0] - 2023-03-09
+
+[Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/hopsparser/hopsparser/compare/v0.6.0...v0.7.0
 
 ### Added
 
@@ -21,9 +24,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   [config](https://github.com/hopsparser/hopsparser/blob/main/examples/mdeberta-polyglot.yaml) for
   an example of such a config
 
-## [v0.6.0] — 2022-07-28
+## [0.6.0] — 2022-07-28
 
-[v0.6.0]: https://github.com/hopsparser/hopsparser/compare/v0.5.0...v0.6.0
+[0.6.0]: https://github.com/hopsparser/hopsparser/compare/v0.5.0...v0.6.0
 
 ### Added
 
@@ -36,9 +39,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - We now accept partially annotated CoNLL-U files as input for training: any learnable cell (UPOS,
   HEAD, DEPREL) for which the value is `_` will not contribute to the loss.
 
-## [v0.5.0] — 2022-05-13
+## [0.5.0] — 2022-05-13
 
-[v0.5.0]: https://github.com/hopsparser/hopsparser/compare/v0.4.2...v0.5.0
+[0.5.0]: https://github.com/hopsparser/hopsparser/compare/v0.4.2...v0.5.0
 
 The performances of the contemporary models in this release are improved, most notably for models
 not using BERT.
