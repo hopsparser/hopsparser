@@ -27,8 +27,13 @@ license = { text = "MIT" }
 name = "hopsparser"
 readme = "README.md"
 requires-python = ">=3.8"
-urls = { repository = "https://github.com/hopsparser/hopsparser" }
 version = "0.7.0"
+
+[project.urls]
+"Bug Tracker" = "https://github.com/hopsparser/hopsparser/issues"
+"Changes" = "https://github.com/hopsparser/hopsparser/blob/main/CHANGELOG.md"
+"Documentation" = "https://hopsparser.readthedocs.io"
+"Source Code" = "https://github.com/hopsparser/hopsparser"
 
 [project.optional-dependencies]
 spacy = [
