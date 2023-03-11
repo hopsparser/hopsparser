@@ -19,6 +19,7 @@ from typing import (
     Optional,
     Sequence,
     Set,
+    Tuple,
     Type,
     TypedDict,
     Union,
@@ -27,7 +28,9 @@ from typing import (
 )
 
 import pydantic
-import torch
+
+# import torch
+import torch.utils.data
 import transformers
 import yaml
 from bidict import BidirectionalMapping, bidict
@@ -651,6 +654,11 @@ class BiAffineParser(nn.Module):
         max_grad_norm: Optional[float] = None,
         log_epoch: Callable[[str, Dict[str, str]], Any] = lambda x, y: None,
     ):
+        train_loader = DependencyDataLoader(dataset=train_set, parser=self, shuffle=True)
+        if dev_set is not None:
+            dev_loader = DependencyDataLoader(dataset=dev_set, parser=self)
+        else:
+            dev_loader = None
         model_path = pathlib.Path(model_path)
         weights_file = model_path / "weights.pt"
         if batch_size is None:
@@ -683,13 +691,9 @@ class BiAffineParser(nn.Module):
         for e in range(epochs):
             train_loss = torch.zeros(1, dtype=torch.float, device=device)
             overall_size = torch.zeros(1, dtype=torch.long, device=device)
-            train_batches = train_set.make_batches(
-                batch_size,
-                shuffle_batches=True,
-                shuffle_data=True,
-            )
+
             self.train()
-            for batch in train_batches:
+            for batch in train_loader:
                 overall_size += (
                     batch.tags.ne(self.LABEL_PADDING).sum()
                     + batch.heads.ne(self.LABEL_PADDING).sum()
@@ -716,11 +720,8 @@ class BiAffineParser(nn.Module):
                 optimizer.step()
                 scheduler.step()
 
-            if dev_set is not None:
-                dev_scores = self.eval_model(
-                    dev_set.make_batches(batch_size, shuffle_batches=False, shuffle_data=False),
-                    batch_size=batch_size,
-                )
+            if dev_loader is not None:
+                dev_scores = self.eval_model(dev_loader, batch_size=batch_size)
                 # FIXME: this is not very elegant (2022-07)
                 # FIXME: really not (2022-09)
                 log_epoch(
@@ -1223,9 +1224,7 @@ class BiAffineParser(nn.Module):
         return parser
 
 
-# TODO: replace this by a torch Dataset+Dataloader (or datapipe?)
-# FIXME: why are we not requiring a sequence for treelist again?
-class DependencyDataset:
+class DependencyDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         parser: BiAffineParser,
@@ -1249,29 +1248,31 @@ class DependencyDataset:
             self.treelist.append(tree)
             self.encoded_trees.append(encoded)
 
-    def make_batches(
-        self,
-        batch_size: int,
-        shuffle_batches: bool = False,
-        shuffle_data: bool = True,
-    ) -> Iterable[DependencyBatch]:
-        n = len(self.treelist)
-        order = list(range(n))
-        if shuffle_data:
-            random.shuffle(order)
-
-        batch_order = list(range(0, n, batch_size))
-        if shuffle_batches:
-            random.shuffle(batch_order)
-
-        for i in batch_order:
-            batch_indices = order[i : i + batch_size]
-            trees = [self.treelist[j] for j in batch_indices]
-            encoded_trees = [self.encoded_trees[j] for j in batch_indices]
-            yield self.parser.batch_trees(trees, encoded_trees)
+    def __getitem__(self, index: int) -> Tuple[DepGraph, EncodedTree]:
+        return self.treelist[index], self.encoded_trees[index]
 
     def __len__(self):
         return len(self.treelist)
+
+
+class DependencyDataLoader(torch.utils.data.DataLoader[Tuple[DepGraph, EncodedTree]]):
+    def __init__(
+        self,
+        dataset: torch.utils.data.Dataset[Tuple[DepGraph, EncodedTree]],
+        parser: BiAffineParser,
+        *args,
+        **kwargs,
+    ):
+        self.dataset: torch.utils.data.Dataset[Tuple[DepGraph, EncodedTree]]
+        if "collate_fn" not in kwargs:
+            kwargs["collate_fn"] = self.collate
+        super().__init__(dataset, *args, **kwargs)
+        self.parser = parser
+
+    def collate(self, batch: List[Tuple[DepGraph, EncodedTree]]) -> DependencyBatch:
+        trees = [t for t, _ in batch]
+        encoded_trees = [e for _, e in batch]
+        return self.parser.batch_trees(trees, encoded_trees)
 
 
 def train(
