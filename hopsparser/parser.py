@@ -188,6 +188,7 @@ class EncodedTree(NamedTuple):
     labels: torch.Tensor
     tags: torch.Tensor
     annotations: Dict[str, torch.Tensor]
+    tree: DepGraph
 
 
 class DependencyBatch(NamedTuple):
@@ -250,7 +251,7 @@ class BiAffineParserConfig(pydantic.BaseModel):
     mlp_dropout: float
     tagset: List[str]
     lexers: Dict[str, str]
-    multitask_loss: str
+    multitask_loss: Literal["adaptative", "mean", "sum", "weighted"]
 
 
 class BiaffineParserOutput(NamedTuple):
@@ -654,9 +655,11 @@ class BiAffineParser(nn.Module):
         max_grad_norm: Optional[float] = None,
         log_epoch: Callable[[str, Dict[str, str]], Any] = lambda x, y: None,
     ):
-        train_loader = DependencyDataLoader(dataset=train_set, parser=self, shuffle=True)
+        train_loader = torch.utils.data.DataLoader(
+            dataset=train_set, collate_fn=self.batch_trees, shuffle=True
+        )
         if dev_set is not None:
-            dev_loader = DependencyDataLoader(dataset=dev_set, parser=self)
+            dev_loader = torch.utils.data.DataLoader(dataset=dev_set, collate_fn=self.batch_trees)
         else:
             dev_loader = None
         model_path = pathlib.Path(model_path)
@@ -861,15 +864,14 @@ class BiAffineParser(nn.Module):
             labels=labels,
             tags=tag_idxes,
             annotations=annotations,
+            tree=tree,
         )
 
     def batch_trees(
         self,
-        trees: Sequence[DepGraph],
-        encoded_trees: Optional[Sequence[EncodedTree]] = None,
+        encoded_trees: Sequence[EncodedTree],
     ) -> DependencyBatch:
-        if encoded_trees is None:
-            encoded_trees = [self.encode_tree(tree) for tree in trees]
+        """Batch encoded trees."""
         # FIXME: typing err here because we need to constraint that the encoded trees are all
         # encoded by the same lexer
         sentences = self.batch_sentences([tree.sentence for tree in encoded_trees])
@@ -903,7 +905,7 @@ class BiAffineParser(nn.Module):
             heads=heads,
             labels=labels,
             tags=tags,
-            trees=trees,
+            trees=[t.tree for t in encoded_trees],
             annotations=annotations,
         )
 
@@ -1046,7 +1048,7 @@ class BiAffineParser(nn.Module):
         else:
             trees = DepGraph.read_conll(cast(Iterable[str], inpt))
             batches = (
-                self.batch_trees(batch)
+                self.batch_trees([self.encode_tree(t) for t in batch])
                 for batch in cast(
                     Iterable[List[DepGraph]], itu.chunked_iter(trees, size=batch_size)
                 )
@@ -1245,34 +1247,13 @@ class DependencyDataset(torch.utils.data.Dataset):
                         f"Skipping tree {e.sentence} due to lexing error '{e.message}'.",
                     )
                     continue
-            self.treelist.append(tree)
             self.encoded_trees.append(encoded)
 
-    def __getitem__(self, index: int) -> Tuple[DepGraph, EncodedTree]:
-        return self.treelist[index], self.encoded_trees[index]
+    def __getitem__(self, index: int) -> EncodedTree:
+        return self.encoded_trees[index]
 
     def __len__(self):
-        return len(self.treelist)
-
-
-class DependencyDataLoader(torch.utils.data.DataLoader[Tuple[DepGraph, EncodedTree]]):
-    def __init__(
-        self,
-        dataset: torch.utils.data.Dataset[Tuple[DepGraph, EncodedTree]],
-        parser: BiAffineParser,
-        *args,
-        **kwargs,
-    ):
-        self.dataset: torch.utils.data.Dataset[Tuple[DepGraph, EncodedTree]]
-        if "collate_fn" not in kwargs:
-            kwargs["collate_fn"] = self.collate
-        super().__init__(dataset, *args, **kwargs)
-        self.parser = parser
-
-    def collate(self, batch: List[Tuple[DepGraph, EncodedTree]]) -> DependencyBatch:
-        trees = [t for t, _ in batch]
-        encoded_trees = [e for _, e in batch]
-        return self.parser.batch_trees(trees, encoded_trees)
+        return len(self.encoded_trees)
 
 
 def train(
