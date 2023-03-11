@@ -53,10 +53,6 @@ actually used for performing computations can be specified using the `--device` 
 
 HOPS is usable as a component for [spaCy pipelines](https://spacy.io/usage/processing-pipelines).
 
-This requires to install the spaCy extra `pip install "hopsparser[spacy]"` and downloading a spaCy
-model whose language matches the one of the HOPS model you want to use (if you want it to be
-accurate, that is).
-
 ```python
 import spacy
 from hopsparser import spacy_component
