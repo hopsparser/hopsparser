@@ -47,7 +47,7 @@ tests = [
 ]
 traintools = [
     "httpx[http2]",
-    "lightning",
+    "pytorch-lightning",
     "pandas",
 ]
 
