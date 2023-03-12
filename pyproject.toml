@@ -45,7 +45,11 @@ tests = [
     "pytest-console-scripts",
     "pytest-lazy-fixture",
 ]
-traintools = ["httpx[http2]", "pandas"]
+traintools = [
+    "httpx[http2]",
+    "lightning",
+    "pandas",
+]
 
 [project.readme]
 file = "README.md"
