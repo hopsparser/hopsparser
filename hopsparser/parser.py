@@ -386,6 +386,7 @@ class BiAffineParser(nn.Module):
         }
         # This makes us store the list of labels twice but makes it less clunky to __init__ and save
         self.annotation_lexicons: Dict[str, BidirectionalMapping[str, int]]
+        self.extra_annotations: Dict[str, AnnotationConfig]
         if extra_annotations is not None:
             if (
                 reserved := next(
@@ -393,7 +394,7 @@ class BiAffineParser(nn.Module):
                 )
             ) is not None:
                 raise ValueError(f"Reserved name used in extra annotations: {reserved!r}")
-            self.extra_annotations = extra_annotations
+            self.extra_annotations = dict(extra_annotations)
             self.annotation_lexicons = {
                 name: bidict((l, i) for i, l in enumerate(conf.labels))
                 for name, conf in extra_annotations.items()
@@ -419,7 +420,7 @@ class BiAffineParser(nn.Module):
         self.annotations_order = sorted(self.annotation_lexicons.keys())
 
         self.marginal_loss = nn.CrossEntropyLoss(reduction="sum", ignore_index=self.LABEL_PADDING)
-        self.multitask_loss = multitask_loss
+        self.multitask_loss: Literal["adaptative", "mean", "sum", "weighted"] = multitask_loss
         self.loss_weights = torch.tensor(
             [_loss_weights[name] for name in ["tag", "head", "deprel", *self.annotations_order]],
         )
@@ -849,7 +850,7 @@ class BiAffineParser(nn.Module):
                     self.LABEL_PADDING,
                     *(
                         self.annotation_lexicons[name].get(
-                            node.misc.mapping.get(name), self.LABEL_PADDING
+                            node.misc.mapping.get(name), self.LABEL_PADDING  # type: ignore
                         )
                         for node in tree.nodes
                     ),
