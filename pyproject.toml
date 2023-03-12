@@ -63,12 +63,12 @@ eval_parse = "hopsparser.conll2018_eval:main"
 requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.ruff]
+select = ["A", "B", "C90", "E", "F", "N", "NPY", "PT", "PTH", "PYI", "S", "W"]
+line-length = 100
+
 [tool.setuptools]
 packages = ["hopsparser"]
-
-[tool.ruff]
-line-length = 100
-select = ["A", "B", "C90", "E", "F", "N", "NPY", "PT", "PTH", "PYI", "S", "W"]
 
 [tool.ruff.per-file-ignores]
 "tests/**/*.py" = [

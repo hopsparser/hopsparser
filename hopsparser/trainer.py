@@ -35,8 +35,8 @@ class ParserTrainingModule(pl.LightningModule):
         loss = self.parser.parser_loss(output, x)
         return ParserTrainingModuleForwardOutput(output=output, loss=loss)
 
-    def training_step(self, batch, batch_idx):
-        output = self(batch)
+    def training_step(self, batch: DependencyBatch, batch_idx: int) -> torch.Tensor:
+        output: ParserTrainingModuleForwardOutput = self(batch)
         return output.loss
 
     def configure_optimizers(self):

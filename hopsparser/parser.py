@@ -19,7 +19,6 @@ from typing import (
     Optional,
     Sequence,
     Set,
-    Tuple,
     Type,
     TypedDict,
     Union,
@@ -583,6 +582,7 @@ class BiAffineParser(nn.Module):
 
                 gloss += self.parser_loss(output, batch)
 
+                # TODO: make all this batch-level eval a method
                 # tagger accuracy
                 tags_pred = output.tag_scores.argmax(dim=-1)
                 tags_mask = batch.tags.ne(self.LABEL_PADDING)
