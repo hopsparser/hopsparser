@@ -1,6 +1,6 @@
 from typing import NamedTuple
 
-import lightning.pytorch as pl
+import pytorch_lightning as pl
 import pydantic
 import torch
 import transformers
