@@ -587,7 +587,6 @@ class BiAffineParser(nn.Module):
                 tags_pred = output.tag_scores.argmax(dim=-1)
                 tags_mask = batch.tags.ne(self.LABEL_PADDING)
                 overall_tags_size += tags_mask.sum()
-                # FIXME: weird variable name
                 tags_accuracy = tags_pred.eq(batch.tags).logical_and(tags_mask).sum()
                 tags_tp += tags_accuracy
 
@@ -656,11 +655,19 @@ class BiAffineParser(nn.Module):
         max_grad_norm: Optional[float] = None,
         log_epoch: Callable[[str, Dict[str, str]], Any] = lambda x, y: None,
     ):
-        train_loader = torch.utils.data.DataLoader(
-            dataset=train_set, collate_fn=self.batch_trees, shuffle=True
+        train_loader = cast(
+            torch.utils.data.DataLoader[DepGraph],
+            torch.utils.data.DataLoader(
+                dataset=train_set, batch_size=batch_size, collate_fn=self.batch_trees, shuffle=True
+            ),
         )
         if dev_set is not None:
-            dev_loader = torch.utils.data.DataLoader(dataset=dev_set, collate_fn=self.batch_trees)
+            dev_loader = cast(
+                torch.utils.data.DataLoader[DepGraph],
+                torch.utils.data.DataLoader(
+                    dataset=dev_set, batch_size=batch_size, collate_fn=self.batch_trees
+                ),
+            )
         else:
             dev_loader = None
         model_path = pathlib.Path(model_path)
@@ -705,7 +712,7 @@ class BiAffineParser(nn.Module):
                     + sum(ann.ne(self.LABEL_PADDING).sum() for ann in batch.annotations.values())
                 )
 
-                batch = batch.to(device)
+                batch = cast(DependencyBatch, batch.to(device))
 
                 # FORWARD
                 output: BiaffineParserOutput = self(
@@ -728,6 +735,7 @@ class BiAffineParser(nn.Module):
                 dev_scores = self.eval_model(dev_loader, batch_size=batch_size)
                 # FIXME: this is not very elegant (2022-07)
                 # FIXME: really not (2022-09)
+                # FIXME: it's ok, lightning will save us
                 log_epoch(
                     str(e),
                     {
@@ -1227,7 +1235,7 @@ class BiAffineParser(nn.Module):
         return parser
 
 
-class DependencyDataset(torch.utils.data.Dataset):
+class DependencyDataset(torch.utils.data.Dataset[DepGraph]):
     def __init__(
         self,
         parser: BiAffineParser,
