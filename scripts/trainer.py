@@ -65,3 +65,8 @@ class ParserTrainingModule(pl.LightningModule):
         else:
             raise ValueError(f"Unkown lr schedule shape {self.config.lr_schedule['shape']!r}")
         return [optimizer], schedulers
+
+
+# TODO: small cli that initializes and train a model from the existing initialization file
+# so we can test and gradually improve this
+# then we can move one to refinments
