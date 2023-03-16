@@ -44,15 +44,37 @@ class ParserTrainingModule(pl.LightningModule):
         self.parser = parser
         self.config = config
 
-    def forward(self, x: DependencyBatch) -> ParserTrainingModuleForwardOutput:
-        output = self.parser(x.sentences.encodings, x.sentences.sent_lengths)
-        loss = self.parser.parser_loss(output, x)
+    def forward(self, batch: DependencyBatch) -> ParserTrainingModuleForwardOutput:
+        output = self.parser(batch.sentences.encodings, batch.sentences.sent_lengths)
+        loss = self.parser.parser_loss(output, batch)
         return ParserTrainingModuleForwardOutput(output=output, loss=loss)
 
     def training_step(self, batch: DependencyBatch, batch_idx: int) -> torch.Tensor:
-        # FIXME: why is batch a list of len 1 here??? See the doc
-
         output: ParserTrainingModuleForwardOutput = self(batch)
+
+        self.log(
+            "train/loss",
+            output.loss,
+            batch_size=batch.sentences.sent_lengths.shape[0],
+            reduce_fx=torch.mean,
+            on_epoch=True,
+            sync_dist=True,
+        )
+
+        return output.loss
+
+    def validation_step(self, batch: DependencyBatch, batch_idx: int):
+        output: ParserTrainingModuleForwardOutput = self(batch)
+
+        self.log(
+            "validation/loss",
+            output.loss,
+            batch_size=batch.sentences.sent_lengths.shape[0],
+            reduce_fx=torch.mean,
+            on_epoch=True,
+            sync_dist=True,
+        )
+
         return output.loss
 
     def configure_optimizers(self):
@@ -83,11 +105,6 @@ class ParserTrainingModule(pl.LightningModule):
         return [optimizer], schedulers
 
 
-# TODO: small cli that initializes and train a model from the existing initialization file
-# so we can test and gradually improve this
-# then we can move one to refinments
-
-
 @click.command(help="Train a parsing model")
 @click.argument(
     "config_file",
@@ -101,7 +118,13 @@ class ParserTrainingModule(pl.LightningModule):
     "output_dir",
     type=click.Path(resolve_path=True, file_okay=False, writable=True, path_type=pathlib.Path),
 )
+@click.option(
+    "--dev-file",
+    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
+    help="A CoNLL-U treebank to use as a development dataset.",
+)
 def train(
+    dev_file: Optional[pathlib.Path],
     config_file: pathlib.Path,
     output_dir: pathlib.Path,
     train_file: pathlib.Path,
@@ -122,16 +145,16 @@ def train(
     )
 
     with open(train_file) as in_stream:
-        traintrees = list(DepGraph.read_conll(in_stream))
+        train_trees = list(DepGraph.read_conll(in_stream))
 
     parser = BiAffineParser.initialize(
         config_path=config_file,
-        treebank=traintrees,
+        treebank=train_trees,
     )
 
     train_set = DependencyDataset(
         parser,
-        traintrees,
+        train_trees,
         skip_unencodable=True,
     )
     train_loader = torch.utils.data.DataLoader(
@@ -140,15 +163,34 @@ def train(
         collate_fn=parser.batch_trees,
         shuffle=True,
     )
+    if dev_file is not None:
+        with open(dev_file) as in_stream:
+            dev_trees = list(DepGraph.read_conll(in_stream))
+        dev_set = DependencyDataset(
+            parser,
+            dev_trees,
+            skip_unencodable=True,
+        )
+        dev_loader = torch.utils.data.DataLoader(
+            dataset=dev_set,
+            batch_size=train_config.batch_size,
+            collate_fn=parser.batch_trees,
+            shuffle=True,
+        )
+    else:
+        dev_loader = None
     train_module = ParserTrainingModule(parser=parser, config=train_config)
     callbacks = [
         pl_callbacks.RichProgressBar(console_kwargs={"stderr": True}),
         pl_callbacks.LearningRateMonitor("step"),
     ]
     trainer = pl.Trainer(
-        callbacks=callbacks, default_root_dir=output_dir, max_epochs=train_config.epochs
+        callbacks=callbacks,
+        default_root_dir=output_dir,
+        log_every_n_steps=1,
+        max_epochs=train_config.epochs,
     )
-    trainer.fit(train_module, train_dataloaders=train_loader)
+    trainer.fit(train_module, train_dataloaders=train_loader, val_dataloaders=dev_loader)
     parser.save(model_path)
 
 
