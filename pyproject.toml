@@ -49,6 +49,7 @@ traintools = [
     "httpx[http2]",
     "pytorch-lightning",
     "pandas",
+    "tensorboardx",
 ]
 
 [project.readme]
