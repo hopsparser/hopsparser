@@ -66,6 +66,7 @@ build-backend = "setuptools.build_meta"
 [tool.ruff]
 select = ["A", "B", "C90", "E", "F", "N", "NPY", "PT", "PTH", "PYI", "S", "W"]
 line-length = 100
+ignore = ["PTH123"]
 
 [tool.setuptools]
 packages = ["hopsparser"]
