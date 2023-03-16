@@ -2,10 +2,12 @@ import contextlib
 import datetime
 import logging
 import math
+import os
 import pathlib
 import sys
 import tempfile
 from typing import IO, Any, Dict, Generator, Optional, Sequence, Type, Union, cast
+import warnings
 
 import click
 import rich.progress
@@ -72,42 +74,62 @@ def make_markdown_metrics_table(metrics: Dict[str, float]) -> str:
     return "\n".join(f"|{r}|" for r in (headers, midrule, row))
 
 
-def setup_logging(verbose: bool, logfile: Optional[pathlib.Path] = None):
+def setup_logging(
+    console: Optional[rich.console.Console]=None,
+    verbose: bool=False,
+    log_file: Optional[pathlib.Path] = None,
+    replace_warnings: bool = True,
+):
+    if console is None:
+        console = rich.get_console()
     logger.remove(0)  # Remove the default logger
-    appname = "hops"
+    if "SLURM_JOB_ID" in os.environ:
+        local_id = os.environ.get("SLURM_LOCALID", "someproc")
+        node_name = os.environ.get("SLURMD_NODENAME", "somenode")
+        appname = (
+            f"hops ({os.environ.get('SLURM_PROCID', 'somerank')} [{local_id}@{node_name}])"
+        )
+    else:
+        appname = "hops"
 
     if verbose:
         log_level = "DEBUG"
         log_fmt = (
-            f"[{appname}]"
-            " <green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> |"
-            " <level>{message}</level>"
+            f"\\[{appname}]"
+            " [green]{time:YYYY-MM-DD HH:mm:ss.SSS}[/green] | [blue]{level: <8}[/blue] |"
+            " {message}"
         )
     else:
         logging.getLogger(None).setLevel(logging.CRITICAL)
         log_level = "INFO"
         log_fmt = (
-            f"[{appname}]"
-            " <green>{time:YYYY-MM-DD}T{time:HH:mm:ss}</green> {level}: "
-            " <level>{message}</level>"
+            f"\\[{appname}]"
+            " [green]{time:YYYY-MM-DD}T{time:HH:mm:ss}[/green] {level} "
+            " {message}"
         )
 
     logger.add(
-        sys.stderr,
-        level=log_level,
-        format=log_fmt,
+        lambda m: console.print(m, end=""),
         colorize=True,
+        format=log_fmt,
+        level=log_level,
     )
 
-    if logfile:
+    if log_file:
         logger.add(
-            logfile,
-            level="DEBUG",
-            format=(f"[{appname}]" " {time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} |" " {message}"),
+            log_file,
             colorize=False,
+            format=(f"[{appname}] {{time:YYYY-MM-DD HH:mm:ss.SSS}} | {{level: <8}} | {{message}}"),
+            level="DEBUG",
         )
 
+    # Deal with stdlib.logging
+
     class InterceptHandler(logging.Handler):
+        def __init__(self, wrapped_name: Optional[str] = None, *args, **kwargs):
+            self.wrapped_name = wrapped_name
+            super().__init__(*args, **kwargs)
+
         def emit(self, record):
             # Get corresponding Loguru level if it exists
             try:
@@ -117,14 +139,47 @@ def setup_logging(verbose: bool, logfile: Optional[pathlib.Path] = None):
 
             # Find caller from where originated the logged message
             frame, depth = logging.currentframe(), 2
-            while frame.f_code.co_filename == logging.__file__:
+            while frame is not None and frame.f_code.co_filename == logging.__file__:
                 frame = frame.f_back
                 depth += 1
 
-            logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+            if frame is None:
+                warnings.warn(
+                    "Catching calls to logging is impossible in stackless environment,"
+                    " logging from external libraries might be lost."
+                )
+            else:
+                if self.wrapped_name is not None:
+                    logger.opt(depth=depth, exception=record.exc_info).log(
+                        level, f"[bold]{self.wrapped_name} says:[/bold] {record.getMessage()}"
+                    )
+                else:
+                    logger.opt(depth=depth, exception=record.exc_info).log(
+                        level, record.getMessage()
+                    )
 
-    transformers.utils.logging.disable_default_handler()
-    transformers.utils.logging.add_handler(InterceptHandler())
+    for libname in (
+        "datasets",
+        "huggingface_hub",
+        "lightning_fabric",
+        "pytorch_lightning",
+        "torch",
+        "torchmetrics",
+        "transformers",
+    ):
+        lib_logger = logging.getLogger(libname)
+        # FIXME: ugly, but is there a better way? What if they rely on having other handlers?
+        if lib_logger.handlers:
+            lib_logger.handlers = []
+        lib_logger.addHandler(InterceptHandler(libname))
+        logger.info(f"Intercepting logging from {libname}")
+
+    # Deal with stdlib.warnings
+    def showwarning(message, category, filename, lineno, file=None, line=None):
+        logger.warning(warnings.formatwarning(message, category, filename, lineno, None).strip())
+
+    if replace_warnings:
+        warnings.showwarning = showwarning
 
 
 def log_epoch(epoch_name: str, metrics: Dict[str, str]):

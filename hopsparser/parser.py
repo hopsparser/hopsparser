@@ -327,7 +327,9 @@ class BiAffineParser(nn.Module):
         super(BiAffineParser, self).__init__()
         self.default_batch_size = default_batch_size
         self.tagset: BidirectionalMapping[str, int] = bidict((t, i) for i, t in enumerate(tagset))
-        self.labels: BidirectionalMapping[str, int] = bidict((l, i) for i, l in enumerate(labels))
+        self.labels: BidirectionalMapping[str, int] = bidict(
+            (lab, i) for i, lab in enumerate(labels)
+        )
 
         self.mlp_arc_hidden: Final[int] = mlp_arc_hidden
         self.mlp_input: Final[int] = mlp_input
@@ -395,7 +397,7 @@ class BiAffineParser(nn.Module):
                 raise ValueError(f"Reserved name used in extra annotations: {reserved!r}")
             self.extra_annotations = dict(extra_annotations)
             self.annotation_lexicons = {
-                name: bidict((l, i) for i, l in enumerate(conf.labels))
+                name: bidict((lab, i) for i, lab in enumerate(conf.labels))
                 for name, conf in extra_annotations.items()
             }
             self.annotators = nn.ModuleDict(
@@ -760,7 +762,8 @@ class BiAffineParser(nn.Module):
                 # FIXME: probably change the logic here, esp. for headless data
                 if dev_scores.head_accuracy > best_arc_acc:
                     logger.info(
-                        f"New best model: head accuracy {dev_scores.head_accuracy:.2%} > {best_arc_acc:.2%}"
+                        "New best model: head accuracy"
+                        f" {dev_scores.head_accuracy:.2%} > {best_arc_acc:.2%}"
                     )
                     self.save_params(weights_file)
                     best_arc_acc = dev_scores.head_accuracy
