@@ -12,7 +12,6 @@ import warnings
 import click
 import rich.progress
 import rich.text
-import transformers
 from loguru import logger
 
 
