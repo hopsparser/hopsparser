@@ -50,6 +50,7 @@ traintools = [
     "pytorch-lightning",
     "pandas",
     "tensorboardx",
+    "torchmetrics",
 ]
 
 [project.readme]
