@@ -1,17 +1,21 @@
+import datetime
 import pathlib
 import shutil
 from typing import NamedTuple, Optional
-import click
 
+import click
 import pytorch_lightning as pl
 from pytorch_lightning import callbacks as pl_callbacks
+from pytorch_lightning.loggers.csv_logs import CSVLogger
+from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 import pydantic
 import torch
 import torch.utils.data
+import torchmetrics
 import transformers
 import yaml
-from hopsparser.deptree import DepGraph
 
+from hopsparser.deptree import DepGraph
 from hopsparser.parser import (
     BiAffineParser,
     BiaffineParserOutput,
@@ -39,6 +43,26 @@ class ParserTrainingModule(pl.LightningModule):
         super().__init__()
         self.parser = parser
         self.config = config
+
+        self.val_tags_accuracy = torchmetrics.Accuracy(
+            ignore_index=self.parser.LABEL_PADDING,
+            num_classes=len(self.parser.tagset),
+            task="multiclass",
+        )
+        self.val_heads_accuracy = torchmetrics.MeanMetric()
+        self.val_deprel_accuracy = torchmetrics.Accuracy(
+            ignore_index=self.parser.LABEL_PADDING,
+            num_classes=len(self.parser.labels),
+            task="multiclass",
+        )
+        self.val_extra_labels_accuracy = {
+            name: torchmetrics.Accuracy(
+                ignore_index=self.parser.LABEL_PADDING,
+                num_classes=len(lex),
+                task="multiclass",
+            )
+            for name, lex in self.parser.annotation_lexicons
+        }
 
     def forward(self, batch: DependencyBatch) -> ParserTrainingModuleForwardOutput:
         output = self.parser(batch.sentences.encodings, batch.sentences.sent_lengths)
@@ -71,7 +95,67 @@ class ParserTrainingModule(pl.LightningModule):
             sync_dist=True,
         )
 
-        return output.loss
+        tags_pred = output.output.tag_scores.argmax(dim=-1)
+        self.val_tags_accuracy(tags_pred, batch.tags)
+
+        self.log(
+            "validation/tags_accuracy",
+            self.val_tags_accuracy,
+            on_epoch=True,
+        )
+
+        # greedy head accuracy (without parsing)
+        heads_preds = output.output.head_scores.argmax(dim=-1)
+        heads_mask = batch.heads.ne(self.parser.LABEL_PADDING)
+        n_heads = heads_mask.sum()
+        heads_accuracy = (
+            heads_preds.eq(batch.heads).logical_and(heads_mask).sum().true_divide(n_heads)
+        )
+        self.val_heads_accuracy(heads_accuracy, n_heads)
+
+        self.log(
+            "validation/heads_accuracy",
+            self.val_heads_accuracy,
+            on_epoch=True,
+        )
+
+        # greedy deprel accuracy (without parsing)
+        gold_heads_select = (
+            # We need a non-negatif index for gather
+            batch.heads.masked_fill(batch.heads.eq(self.parser.LABEL_PADDING), 0)
+            # we need to unsqueeze before expanding
+            .view(batch.heads.shape[0], batch.heads.shape[1], 1, 1)
+            # For every head, we will select the score for all labels
+            .expand(
+                batch.heads.shape[0],
+                batch.heads.shape[1],
+                1,
+                output.output.deprel_scores.shape[-1],
+            )
+        )
+        # shape: num_padded_deps×num_padded_heads
+        gold_head_deprels_scores = torch.gather(
+            output.output.deprel_scores, -2, gold_heads_select
+        ).squeeze(-2)
+        deprels_pred = gold_head_deprels_scores.argmax(dim=-1)
+        self.val_deprel_accuracy(deprels_pred, batch.labels)
+
+        self.log(
+            "validation/deprel_accuracy",
+            self.val_deprel_accuracy,
+            on_epoch=True,
+        )
+
+        # extra labels accuracy
+        for name, scores in output.output.extra_labels_scores.items():
+            gold_annotation = batch.annotations[name]
+            annotation_pred = scores.argmax(dim=-1)
+            self.val_extra_labels_accuracy[name](annotation_pred, gold_annotation)
+            self.log(
+                f"validation/{name}_accuracy",
+                self.val_extra_labels_accuracy[name],
+                on_epoch=True,
+            )
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(
@@ -119,9 +203,15 @@ class ParserTrainingModule(pl.LightningModule):
     type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
     help="A CoNLL-U treebank to use as a development dataset.",
 )
+@click.option(
+    "--name",
+    default=datetime.datetime.now().isoformat(),
+    help="The name of the experiment. Defaults to the current datetime.",
+)
 def train(
     dev_file: Optional[pathlib.Path],
     config_file: pathlib.Path,
+    name: str,
     output_dir: pathlib.Path,
     train_file: pathlib.Path,
 ):
@@ -180,10 +270,15 @@ def train(
         pl_callbacks.RichProgressBar(console_kwargs={"stderr": True}),
         pl_callbacks.LearningRateMonitor("step"),
     ]
+    loggers = [
+        CSVLogger(output_dir, version=name),
+        TensorBoardLogger(output_dir, version=name),
+    ]
     trainer = pl.Trainer(
         callbacks=callbacks,
         default_root_dir=output_dir,
         log_every_n_steps=1,
+        logger=loggers,
         max_epochs=train_config.epochs,
     )
     trainer.fit(train_module, train_dataloaders=train_loader, val_dataloaders=dev_loader)

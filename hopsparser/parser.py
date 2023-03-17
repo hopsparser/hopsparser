@@ -488,6 +488,8 @@ class BiAffineParser(nn.Module):
 
     # TODO: make this an independent function
     # TODO: JIT this (or split it and jit the marginals?)
+    # FIXME: the way we compute means here seems strange, it should be over the number of items
+    # (annotated words), not the number of trees
     def parser_loss(
         self,
         parser_output: BiaffineParserOutput,
