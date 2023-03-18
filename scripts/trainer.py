@@ -31,8 +31,7 @@ from hopsparser.utils import setup_logging
 class TrainConfig(pydantic.BaseModel):
     batch_size: int = 1
     epochs: int
-    lr_schedule: LRSchedule
-    lr: float
+    lr: LRSchedule
 
 
 class ParserTrainingModuleForwardOutput(NamedTuple):
@@ -161,29 +160,29 @@ class ParserTrainingModule(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(
-            self.parameters(), betas=(0.9, 0.9), lr=self.config.lr, eps=1e-09
+            self.parameters(), betas=(0.9, 0.9), lr=self.config.lr.base, eps=1e-09
         )
 
-        if self.config.lr_schedule["shape"] == "exponential":
+        if self.config.lr.shape == "exponential":
             scheduler = torch.optim.lr_scheduler.LambdaLR(
                 optimizer,
                 (lambda n: 0.95**n),
             )
             schedulers = [{"scheduler": scheduler, "interval": "epoch"}]
-        elif self.config.lr_schedule["shape"] == "linear":
+        elif self.config.lr.shape == "linear":
             scheduler = transformers.get_linear_schedule_with_warmup(
                 optimizer,
-                self.config.lr_schedule["warmup_steps"],
+                self.config.lr.warmup_steps,
                 self.trainer.estimated_stepping_batches,
             )
             schedulers = [{"scheduler": scheduler, "interval": "step"}]
-        elif self.config.lr_schedule["shape"] == "constant":
+        elif self.config.lr.shape == "constant":
             scheduler = transformers.get_constant_schedule_with_warmup(
-                optimizer, self.config.lr_schedule["warmup_steps"]
+                optimizer, self.config.lr.warmup_steps
             )
             schedulers = [{"scheduler": scheduler, "interval": "step"}]
         else:
-            raise ValueError(f"Unkown lr schedule shape {self.config.lr_schedule['shape']!r}")
+            raise ValueError(f"Unkown lr schedule shape {self.config.lr.shape!r}")
         return [optimizer], schedulers
 
 
@@ -254,12 +253,10 @@ def train(
     with open(config_file) as in_stream:
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
 
-    lr_config = hp["lr"]
     train_config = TrainConfig(
         batch_size=hp["batch_size"],
         epochs=hp["epochs"],
-        lr=lr_config["base"],
-        lr_schedule=lr_config.get("schedule", {"shape": "exponential", "warmup_steps": 0}),
+        lr=LRSchedule.parse_obj(hp["lr"]),
     )
 
     with open(train_file) as in_stream:
