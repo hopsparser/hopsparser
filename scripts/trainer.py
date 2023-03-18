@@ -1,9 +1,11 @@
 import datetime
 import pathlib
 import shutil
-from typing import NamedTuple, Optional
+from typing import Any, Dict, Literal, NamedTuple, Optional, Union
 
 import click
+from lightning_utilities.core.rank_zero import rank_zero_only
+from loguru import logger
 import pytorch_lightning as pl
 from pytorch_lightning import callbacks as pl_callbacks
 from pytorch_lightning.loggers.csv_logs import CSVLogger
@@ -61,7 +63,7 @@ class ParserTrainingModule(pl.LightningModule):
                 num_classes=len(lex),
                 task="multiclass",
             )
-            for name, lex in self.parser.annotation_lexicons
+            for name, lex in self.parser.annotation_lexicons.items()
         }
 
     def forward(self, batch: DependencyBatch) -> ParserTrainingModuleForwardOutput:
@@ -185,6 +187,18 @@ class ParserTrainingModule(pl.LightningModule):
         return [optimizer], schedulers
 
 
+class SaveModelCallback(pl.Callback):
+    def __init__(self, save_dir: pathlib.Path):
+        self.save_dir = save_dir
+
+    @rank_zero_only
+    def on_save_checkpoint(
+        self, trainer: pl.Trainer, pl_module: ParserTrainingModule, checkpoint: Dict[str, Any]
+    ):
+        logger.info(f"Saving model to {self.save_dir}")
+        pl_module.parser.save(self.save_dir)
+
+
 @click.command(help="Train a parsing model")
 @click.argument(
     "config_file",
@@ -199,9 +213,20 @@ class ParserTrainingModule(pl.LightningModule):
     type=click.Path(resolve_path=True, file_okay=False, writable=True, path_type=pathlib.Path),
 )
 @click.option(
+    "--accelerator",
+    default="cpu",
+    help="The type device to use for the parsing model. (cpu, gpu, …).",
+    show_default=True,
+)
+@click.option(
     "--dev-file",
     type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
     help="A CoNLL-U treebank to use as a development dataset.",
+)
+@click.option(
+    "--device",
+    help="The device to use for the parsing model.",
+    type=click.IntRange(0),
 )
 @click.option(
     "--name",
@@ -209,12 +234,19 @@ class ParserTrainingModule(pl.LightningModule):
     help="The name of the experiment. Defaults to the current datetime.",
 )
 def train(
+    accelerator: str,
     dev_file: Optional[pathlib.Path],
+    device: Optional[int],
     config_file: pathlib.Path,
     name: str,
     output_dir: pathlib.Path,
     train_file: pathlib.Path,
 ):
+    _device: Union[Literal["auto"], int]
+    if device is None:
+        _device = "auto"
+    else:
+        _device = device
     setup_logging()
     output_dir.mkdir(exist_ok=True, parents=True)
     model_path = output_dir / "model"
@@ -269,14 +301,23 @@ def train(
     callbacks = [
         pl_callbacks.RichProgressBar(console_kwargs={"stderr": True}),
         pl_callbacks.LearningRateMonitor("step"),
+        SaveModelCallback(save_dir=output_dir / "model"),
     ]
+    if dev_loader is not None:
+        callbacks.append(
+            pl_callbacks.ModelCheckpoint(save_top_k=1, monitor="validation/heads_accuracy")
+        )
+    else:
+        callbacks.append(pl_callbacks.ModelCheckpoint(save_top_k=1, monitor="train/loss"))
     loggers = [
         CSVLogger(output_dir, version=name),
         TensorBoardLogger(output_dir, version=name),
     ]
     trainer = pl.Trainer(
+        accelerator=accelerator,
         callbacks=callbacks,
         default_root_dir=output_dir,
+        devices=_device,
         log_every_n_steps=1,
         logger=loggers,
         max_epochs=train_config.epochs,
