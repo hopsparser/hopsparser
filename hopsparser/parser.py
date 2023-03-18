@@ -225,9 +225,10 @@ class DependencyBatch(NamedTuple):
         )
 
 
-class LRSchedule(TypedDict):
-    shape: Literal["exponential", "linear", "constant"]
-    warmup_steps: int
+class LRSchedule(pydantic.BaseModel):
+    base: float
+    shape: Literal["exponential", "linear", "constant"] = "exponential"
+    warmup_steps: int = 0
 
 
 class AnnotationConfig(pydantic.BaseModel):
@@ -650,7 +651,6 @@ class BiAffineParser(nn.Module):
     def train_model(
         self,
         epochs: int,
-        lr: float,
         lr_schedule: LRSchedule,
         model_path: Union[str, pathlib.Path],
         train_set: "DependencyDataset",
@@ -682,25 +682,27 @@ class BiAffineParser(nn.Module):
         logger.info(f"Start training on {device}")
 
         # TODO: make these configurable?
-        optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr=lr, eps=1e-09)
+        optimizer = torch.optim.Adam(
+            self.parameters(), betas=(0.9, 0.9), lr=lr_schedule.base, eps=1e-09
+        )
 
-        if lr_schedule["shape"] == "exponential":
+        if lr_schedule.shape == "exponential":
             scheduler = torch.optim.lr_scheduler.LambdaLR(
                 optimizer,
                 (lambda n: 0.95 ** (n // (math.ceil(len(train_set) / batch_size)))),
             )
-        elif lr_schedule["shape"] == "linear":
+        elif lr_schedule.shape == "linear":
             scheduler = transformers.get_linear_schedule_with_warmup(
                 optimizer,
-                lr_schedule["warmup_steps"],
+                lr_schedule.warmup_steps,
                 epochs * math.ceil(len(train_set) / batch_size) + 1,
             )
-        elif lr_schedule["shape"] == "constant":
+        elif lr_schedule.shape == "constant":
             scheduler = transformers.get_constant_schedule_with_warmup(
-                optimizer, lr_schedule["warmup_steps"]
+                optimizer, lr_schedule.warmup_steps
             )
         else:
-            raise ValueError(f"Unkown lr schedule shape {lr_schedule['shape']!r}")
+            raise ValueError(f"Unkown lr schedule shape {lr_schedule.shape!r}")
 
         best_arc_acc = 0.0
         for e in range(epochs):
@@ -1335,14 +1337,12 @@ def train(
     else:
         devset = None
 
-    lr_config = hp["lr"]
     parser.train_model(
         batch_size=hp["batch_size"],
         dev_set=devset,
         epochs=hp["epochs"],
         log_epoch=log_epoch,
-        lr=lr_config["base"],
-        lr_schedule=lr_config.get("schedule", {"shape": "exponential", "warmup_steps": 0}),
+        lr_schedule=LRSchedule.parse_obj(hp["lr"]),
         max_grad_norm=hp.get("max_grad_norm"),
         model_path=model_path,
         train_set=trainset,
