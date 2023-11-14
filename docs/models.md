@@ -99,6 +99,6 @@ If you use these models, please cite
 [UD_Old_French-SRCMF-bertrade_base]:
     https://zenodo.org/record/7708976/files/UD_Old_French-SRCMF-2.9-bertrade_base-8192-32e_only.tar.xz?download=1
 [UD_Old_French-SRCMF-camembert_base+mlm-fro]:
-    https://zenodo.org/record/7708976/files/UD_Old_French-SRCMF-2.9-camembert_base%2Bmlm-fro.tar.xz?download=1
+    https://zenodo.org/record/7708976/files/UD_Old_French-SRCMF-2.9-camembert_base.tar.xz?download=1
 [UD_Old_French-SRCMF-flaubert_base_cased+mlm-fro]:
-    https://zenodo.org/record/7708976/files/UD_Old_French-SRCMF-2.9-flaubert_base_cased%2Bmlm-fro.tar.xz?download=1
+    https://zenodo.org/record/7708976/files/UD_Old_French-SRCMF-2.9-flaubert_base_cased.tar.xz?download=1
