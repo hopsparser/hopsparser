@@ -20,7 +20,6 @@ from typing import (
     Sequence,
     Set,
     Type,
-    TypedDict,
     Union,
     cast,
     overload,
@@ -1292,7 +1291,7 @@ def train(
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
 
     with open(train_file) as in_stream:
-        traintrees = list(DepGraph.read_conll(in_stream, max_tree_length=max_tree_length))
+        train_trees = list(DepGraph.read_conll(in_stream, max_tree_length=max_tree_length))
     model_path_not_empty = model_path.exists() and any(model_path.iterdir())
     if model_path_not_empty and not overwrite:
         logger.info(f"Continuing training from {model_path}")
@@ -1308,7 +1307,7 @@ def train(
                 logger.warning(f"--overwrite asked but {model_path} does not exist or is empty")
         parser = BiAffineParser.initialize(
             config_path=config_file,
-            treebank=traintrees,
+            treebank=train_trees,
         )
     parser = parser.to(device)
     for lexer_to_freeze_name in hp.get("freeze", []):
@@ -1321,7 +1320,7 @@ def train(
 
     trainset = DependencyDataset(
         parser,
-        traintrees,
+        train_trees,
         skip_unencodable=skip_unencodable,
     )
     devset: Optional[DependencyDataset]
