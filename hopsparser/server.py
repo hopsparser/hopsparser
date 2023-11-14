@@ -4,10 +4,12 @@ import fastapi
 import pydantic
 import torch
 
+from pydantic_settings import BaseSettings
+
 from hopsparser import parser
 
 
-class Settings(pydantic.BaseSettings):
+class Settings(BaseSettings):
     device: str = "cpu"
     models: Dict[str, str]
 
