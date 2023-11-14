@@ -4,19 +4,23 @@ import shutil
 from typing import Any, Dict, Literal, NamedTuple, Optional, Union
 
 import click
-from lightning_utilities.core.rank_zero import rank_zero_only
-from loguru import logger
-import pytorch_lightning as pl
-from pytorch_lightning import callbacks as pl_callbacks
-from pytorch_lightning.loggers.csv_logs import CSVLogger
-from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 import pydantic
+import pytorch_lightning as pl
 import torch
 import torch.utils.data
 import torchmetrics
 import transformers
 import yaml
+from lightning_utilities.core.rank_zero import rank_zero_only
+from loguru import logger
+from pytorch_lightning import callbacks as pl_callbacks
+from pytorch_lightning.loggers.csv_logs import CSVLogger
+from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
+from rich import box
+from rich.console import Console
+from rich.table import Column, Table
 
+from hopsparser import conll2018_eval as evaluator
 from hopsparser.deptree import DepGraph
 from hopsparser.parser import (
     BiAffineParser,
@@ -24,6 +28,7 @@ from hopsparser.parser import (
     DependencyBatch,
     DependencyDataset,
     LRSchedule,
+    parse,
 )
 from hopsparser.utils import setup_logging
 
@@ -232,6 +237,11 @@ class SaveModelCallback(pl.Callback):
     default=datetime.datetime.now().isoformat(),
     help="The name of the experiment. Defaults to the current datetime.",
 )
+@click.option(
+    "--test-file",
+    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
+    help="A CoNLL-U treebank to use as a development dataset.",
+)
 def train(
     accelerator: str,
     dev_file: Optional[pathlib.Path],
@@ -239,6 +249,7 @@ def train(
     config_file: pathlib.Path,
     name: str,
     output_dir: pathlib.Path,
+    test_file: pathlib.Path,
     train_file: pathlib.Path,
 ):
     _device: Union[Literal["auto"], int]
@@ -253,11 +264,7 @@ def train(
     with open(config_file) as in_stream:
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
 
-    train_config = TrainConfig(
-        batch_size=hp["batch_size"],
-        epochs=hp["epochs"],
-        lr=LRSchedule.parse_obj(hp["lr"]),
-    )
+    train_config = TrainConfig.parse_obj(hp)
 
     with open(train_file) as in_stream:
         train_trees = list(DepGraph.read_conll(in_stream))
@@ -320,7 +327,34 @@ def train(
         max_epochs=train_config.epochs,
     )
     trainer.fit(train_module, train_dataloaders=train_loader, val_dataloaders=dev_loader)
-    parser.save(model_path)
+
+    metrics = ("UPOS", "UAS", "LAS")
+    metrics_table = Table(
+        "Split",
+        *(Column(header=m, justify="center") for m in metrics),
+        box=box.HORIZONTALS,
+        title="Evaluation metrics",
+    )
+
+    if dev_file is not None:
+        parsed_devset_path = output_dir / f"{dev_file.stem}.parsed.conllu"
+        parse(model_path, dev_file, parsed_devset_path)
+        gold_devset = evaluator.load_conllu_file(dev_file)
+        syst_devset = evaluator.load_conllu_file(parsed_devset_path)
+        dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
+        metrics_table.add_row("Dev", *(f"{100*dev_metrics[m].f1:.2f}" for m in metrics))
+
+    if test_file is not None:
+        parsed_testset_path = output_dir / f"{test_file.stem}.parsed.conllu"
+        parse(model_path, test_file, parsed_testset_path)
+        gold_testset = evaluator.load_conllu_file(test_file)
+        syst_testset = evaluator.load_conllu_file(parsed_testset_path)
+        test_metrics = evaluator.evaluate(gold_testset, syst_testset)
+        metrics_table.add_row("Test", *(f"{100*test_metrics[m].f1:.2f}" for m in metrics))
+
+    if metrics_table.rows:
+        console = Console()
+        console.print(metrics_table)
 
 
 if __name__ == "__main__":
