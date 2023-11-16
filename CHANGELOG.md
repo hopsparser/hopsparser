@@ -8,13 +8,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.7.1] - 2023-11-16
+
+[Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/hopsparser/hopsparser/compare/v0.7.0...v0.7.1
+
 ### Fixed
 
 - Update to pydantic 2 to fix breaking changes and pin it.
 
 ## [0.7.0] - 2023-03-09
 
-[Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.7.0...HEAD
 [0.7.0]: https://github.com/hopsparser/hopsparser/compare/v0.6.0...v0.7.0
 
 ### Added
@@ -22,7 +26,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - HOPS now provides custom spaCy component to use in spaCy pipelines.
 - Options for using weighted multitask losses, including the adaptative strategy used in Candito
   ([2022](https://aclanthology.org/2022.findings-acl.190)).
-- HOPS will learn and predict token-level labels encoded in the MISC column (as `key=value` if you
+- HOPS will learn and predict token-level labels encoded in the MISC column (as `key=value`) if you
   give it the name of the key in the `extra_annotations` part of the config. See the example
   mDeBERTa-polyglot
   [config](https://github.com/hopsparser/hopsparser/blob/main/examples/mdeberta-polyglot.yaml) for
