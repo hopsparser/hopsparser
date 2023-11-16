@@ -142,10 +142,11 @@ class SpeedColumn(rich.progress.ProgressColumn):
             return rich.text.Text(f"{datetime.timedelta(seconds=math.ceil(1/task.speed))} /it")
 
 
-# NOTE: if the need arise, using a separator regex instead of string would not be very hard but for now
-# we don't need the extra complexity.
+# NOTE: if the need arise, using a separator regex instead of string would not be very hard but for
+# now we don't need the extra complexity.
 class SeparatedTuple(click.ParamType):
-    """A click parameters type that accept tuples formatted as strings spearated by an arbitrary separator.
+    """A click parameters type that accept tuples formatted as strings spearated by an arbitrary
+    separator.
 
     This is particularly useful to make variadic composite parameters. For instance, this is how we
     specify tagged paths for the `train_multi` command:
@@ -154,7 +155,10 @@ class SeparatedTuple(click.ParamType):
     @click.argument(
         "train_files", type=SeparatedTuple(
             ":",
-            (str, click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path)),
+            (
+                str,
+                click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path)
+            ),
         ),
         nargs=-1,
     )

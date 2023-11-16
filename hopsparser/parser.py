@@ -262,10 +262,10 @@ class BiaffineParserOutput(NamedTuple):
         # FIXME: this is too clunky
         if self.extra_labels_scores:
             for name, scores in self.extra_labels_scores.items():
-                for scores_dict, scores, sent_len in zip(
+                for scores_dict, label_scores, sent_len in zip(
                     transposed_extra_labels_scores, scores.unbind(0), sentence_lengths
                 ):
-                    scores_dict[name] = scores[:sent_len, :]
+                    scores_dict[name] = label_scores[:sent_len, :]
 
         return [
             type(self)(
@@ -1189,7 +1189,7 @@ class BiAffineParser(nn.Module):
 
         with open(config_path) as in_stream:
             config_dict = json.load(in_stream)
-        config = BiAffineParserConfig.parse_obj(config_dict)
+        config = BiAffineParserConfig.model_validate(config_dict)
 
         lexers_path = model_path / "lexers"
 
