@@ -284,9 +284,9 @@ class DepGraph:
             processed_row[2:9] = [c if c != "_" else None for c in processed_row[2:9]]
 
             if "." in row[0]:
-                if processed_row[6] is None:
+                if processed_row[6] is not None:
                     raise ValueError("Empty tokens can't have a head")
-                if processed_row[7] is None:
+                if processed_row[7] is not None:
                     raise ValueError("Empty tokens can't have a deprel")
                 empty_nodes.append(
                     EmptyNode(
