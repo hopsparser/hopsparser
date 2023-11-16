@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-### Changed
+### Fixed
 
 - Update to pydantic 2 to fix breaking changes and pin it.
 
