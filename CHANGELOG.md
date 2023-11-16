@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Update to pydantic 2 to fix breaking changes and pin it.
+
 ## [0.7.0] - 2023-03-09
 
 [Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.7.0...HEAD

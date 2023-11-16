@@ -10,14 +10,12 @@ from typing import (
     NamedTuple,
     Optional,
     Sequence,
-    Type,
-    TypeVar,
     cast,
 )
 
-from loguru import logger
+from typing_extensions import Self
 
-_T_Misc = TypeVar("_T_Misc", bound="Misc")
+from loguru import logger
 
 
 # FIXME: This should be `collections.abc.Sequence[str]` as soon as we can drop py38
@@ -36,7 +34,7 @@ class Misc(collections.abc.Sequence):
                 mapping[m.group("key")] = m.group("value")
         self.mapping = mapping
 
-    def replace(self: _T_Misc, mapping: Mapping[str, str]) -> _T_Misc:
+    def replace(self, mapping: Mapping[str, str]) -> Self:
         new_elements = []
         modified = set()
         for e in self._lst:
@@ -77,7 +75,7 @@ class Misc(collections.abc.Sequence):
         return "|".join(self._lst)
 
     @classmethod
-    def from_string(cls: Type[_T_Misc], s: str) -> _T_Misc:
+    def from_string(cls, s: str) -> Self:
         if s == "_":
             return cls([])
         return cls(s.split("|"))
@@ -158,12 +156,8 @@ class DepNode:
         return "\t".join(row)
 
 
-_T_DEPGRAPH = TypeVar("_T_DEPGRAPH", bound="DepGraph")
-
-
 class DepGraph:
-
-    ROOT_TOKEN = "<root>"
+    ROOT_TOKEN = "<root>"  # noqa: S105
 
     def __init__(
         self,
@@ -172,7 +166,6 @@ class DepGraph:
         mwe_ranges: Optional[Iterable[MWERange]] = None,
         metadata: Optional[Iterable[str]] = None,
     ):
-
         self.nodes = list(nodes)
 
         govs = {n.identifier: n.head for n in self.nodes}
@@ -205,12 +198,13 @@ class DepGraph:
 
     @property
     def heads(self) -> List[Optional[int]]:
-        """A list where each element list[i] is the index of the position of the governor of the word at position i."""
+        """A list where each element list[i] is the index of the position of the governor of the
+        word at position i."""
         return [None, *(n.head for n in self.nodes)]
 
     @property
     def deprels(self) -> List[Optional[str]]:
-        """A list where each element list[i] is the dependency label of of the word at position i."""
+        """A list where each element list[i] is the dependency label of the word at position i."""
         return [None, *(n.deprel for n in self.nodes)]
 
     def replace(
@@ -261,7 +255,7 @@ class DepGraph:
         )
 
     @classmethod
-    def from_conllu(cls: Type[_T_DEPGRAPH], istream: Iterable[str]) -> _T_DEPGRAPH:
+    def from_conllu(cls, istream: Iterable[str]) -> Self:
         """Read a conll tree from an input stream"""
         conll = []
         metadata = []
@@ -290,7 +284,10 @@ class DepGraph:
             processed_row[2:9] = [c if c != "_" else None for c in processed_row[2:9]]
 
             if "." in row[0]:
-                assert processed_row[6] is None and processed_row[7] is None
+                if processed_row[6] is None:
+                    raise ValueError("Empty tokens can't have a head")
+                if processed_row[7] is None:
+                    raise ValueError("Empty tokens can't have a deprel")
                 empty_nodes.append(
                     EmptyNode(
                         after_node=int(cast(str, processed_row[0]).split(".", maxsplit=1)[0]),
@@ -355,10 +352,10 @@ class DepGraph:
 
     @classmethod
     def read_conll(
-        cls: Type[_T_DEPGRAPH],
+        cls,
         lines: Iterable[str],
         max_tree_length: Optional[int] = None,
-    ) -> Iterable[_T_DEPGRAPH]:
+    ) -> Iterable[Self]:
         current_tree_lines: List[str] = []
         # Add a dummy empty line to flush the last tree even if the CoNLL-U mandatory empty last
         # line is absent
@@ -377,9 +374,9 @@ class DepGraph:
 
     @classmethod
     def from_words(
-        cls: Type[_T_DEPGRAPH],
+        cls,
         words: Iterable[str],
-    ) -> _T_DEPGRAPH:
+    ) -> Self:
         return cls(
             nodes=[
                 DepNode(

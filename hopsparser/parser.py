@@ -21,7 +21,6 @@ from typing import (
     Set,
     Type,
     TypedDict,
-    TypeVar,
     Union,
     cast,
     overload,
@@ -255,7 +254,8 @@ class BiaffineParserOutput(NamedTuple):
     extra_labels_scores: Dict[str, torch.Tensor]
 
     def unbatch(self, sentence_lengths: Sequence[int]) -> List["BiaffineParserOutput"]:
-        """Return individual scores for every sentence in the batch, properly truncated to the sentence length."""
+        """Return individual scores for every sentence in the batch, properly truncated to the
+        sentence length."""
         transposed_extra_labels_scores: List[Dict[str, torch.Tensor]] = [
             dict() for _ in sentence_lengths
         ]
@@ -299,8 +299,8 @@ class BiAffineParser(nn.Module):
     # Labels that are -100 are ignored in torch crossentropy (we still set it explicitely)
     LABEL_PADDING: Final[int] = -100
 
-    # FIXME: `mlp_input` here is conterintuitive: the actual MLP input dim will be twice that, this is
-    # more accurately the dimension of the outputs of each direction of the LSTM
+    # FIXME: `mlp_input` here is conterintuitive: the actual MLP input dim will be twice that, this
+    # is more accurately the dimension of the outputs of each direction of the LSTM
     # FIXME: `default_batch_size` is discutable, since it's heavily machine-dependent
     def __init__(
         self,
@@ -832,8 +832,10 @@ class BiAffineParser(nn.Module):
         # TODO: at this point we probably want to implement a strict mode to be safe
         # Double get here: this way, if the annotation isn't present in the MISC column OR if it's
         # present but with an unknown value
-        # FIXME: maybe not a good idea actually since some labels might be implicit (like SpaceAfter=yes)
-        # FIXME: Padding for the root node, but probably a better idea to not even predict any label for it if we can avoid it
+        # FIXME: maybe not a good idea actually since some labels might be implicit (like
+        # SpaceAfter=yes)
+        # FIXME: Padding for the root node, but probably a better idea to not even predict any label
+        # for it if we can avoid it
         annotations = {
             name: torch.tensor(
                 [
@@ -1041,7 +1043,9 @@ class BiAffineParser(nn.Module):
             trees = DepGraph.read_conll(cast(Iterable[str], inpt))
             batches = (
                 self.batch_trees(batch)
-                for batch in cast(Iterable[List[DepGraph]], itu.chunked_iter(trees, size=batch_size))
+                for batch in cast(
+                    Iterable[List[DepGraph]], itu.chunked_iter(trees, size=batch_size)
+                )
             )
         yield from self.batched_predict(batches, greedy=False)
 
@@ -1177,7 +1181,7 @@ class BiAffineParser(nn.Module):
 
     @classmethod
     def load(
-        cls: Type[Self],
+        cls,
         model_path: Union[str, pathlib.Path],
     ) -> Self:
         model_path = pathlib.Path(model_path)
@@ -1248,12 +1252,12 @@ class DependencyDataset:
         shuffle_batches: bool = False,
         shuffle_data: bool = True,
     ) -> Iterable[DependencyBatch]:
-        N = len(self.treelist)
-        order = list(range(N))
+        n = len(self.treelist)
+        order = list(range(n))
         if shuffle_data:
             random.shuffle(order)
 
-        batch_order = list(range(0, N, batch_size))
+        batch_order = list(range(0, n, batch_size))
         if shuffle_batches:
             random.shuffle(batch_order)
 
