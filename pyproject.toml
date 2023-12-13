@@ -60,7 +60,7 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["zeldarose", "zeldarose.tasks", "zeldarose.datasets"]
+packages = ["hopsparser"]
 
 [tool.ruff]
 line-length = 100
