@@ -26,7 +26,6 @@ description = "A graph dependency parser to tinker with"
 keywords = ["nlp", "parsing"]
 license = { text = "MIT" }
 name = "hopsparser"
-readme = "README.md"
 requires-python = ">=3.8"
 version = "0.7.1"
 
@@ -48,6 +47,10 @@ tests = [
 ]
 traintools = ["httpx[http2]", "pandas"]
 
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
 [project.scripts]
 hopsparser = "hopsparser.main:cli"
 eval_parse = "hopsparser.conll2018_eval:main"
@@ -55,6 +58,9 @@ eval_parse = "hopsparser.conll2018_eval:main"
 [build-system]
 requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["zeldarose", "zeldarose.tasks", "zeldarose.datasets"]
 
 [tool.ruff]
 line-length = 100
