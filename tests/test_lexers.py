@@ -131,7 +131,7 @@ def remote_transformer_model(
     return (model, tokenizer)
 
 
-@pytest.fixture
+@pytest.fixture()
 def local_transformer_model(
     test_data_dir: pathlib.Path,
 ) -> Tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase]:
