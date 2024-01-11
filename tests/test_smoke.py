@@ -21,17 +21,19 @@ def test_train_parse(
     test_treebank: pathlib.Path,
 ):
     ret = script_runner.run(
-        "hopsparser",
-        "train",
-        "--device",
-        device,
-        str(train_config),
-        str(treebank),
-        str(tmp_path),
-        "--dev-file",
-        str(test_treebank),
-        "--test-file",
-        str(test_treebank),
+        [
+            "hopsparser",
+            "train",
+            "--device",
+            device,
+            str(train_config),
+            str(treebank),
+            str(tmp_path),
+            "--dev-file",
+            str(test_treebank),
+            "--test-file",
+            str(test_treebank),
+        ]
     )
     assert ret.success
     ret = script_runner.run(
@@ -96,26 +98,28 @@ def test_train_multi_parse(
     test_treebank: pathlib.Path,
 ):
     ret = script_runner.run(
-        "hopsparser",
-        "train-multi",
-        "--device",
-        device,
-        str(train_config),
-        f"one:{treebank}",
-        f"two:{treebank}",
-        str(tmp_path),
-        "--dev-file",
-        f"one:{test_treebank}",
-        "--dev-file",
-        f"two:{test_treebank}",
-        "--dev-file",
-        f"three:{test_treebank}",
-        "--test-file",
-        f"one:{test_treebank}",
-        "--test-file",
-        f"three:{test_treebank}",
-        "--test-file",
-        f"four:{test_treebank}",
+        [
+            "hopsparser",
+            "train-multi",
+            "--device",
+            device,
+            str(train_config),
+            f"one:{treebank}",
+            f"two:{treebank}",
+            str(tmp_path),
+            "--dev-file",
+            f"one:{test_treebank}",
+            "--dev-file",
+            f"two:{test_treebank}",
+            "--dev-file",
+            f"three:{test_treebank}",
+            "--test-file",
+            f"one:{test_treebank}",
+            "--test-file",
+            f"three:{test_treebank}",
+            "--test-file",
+            f"four:{test_treebank}",
+        ]
     )
     assert ret.success
     ret = script_runner.run(
@@ -198,15 +202,17 @@ def test_train_script(
     tmp_path: pathlib.Path,
 ):
     ret = script_runner.run(
-        "python",
-        str(scripts_dir / "train_models.py"),
-        str(test_data_dir / "train_script" / "configs"),
-        str(test_data_dir / "train_script" / "treebanks"),
-        "--devices",
-        f"{device},{device}",
-        "--rand-seeds",
-        "0,1",
-        "--out-dir",
-        str(tmp_path / "train_script_output"),
+        [
+            "python",
+            str(scripts_dir / "train_models.py"),
+            str(test_data_dir / "train_script" / "configs"),
+            str(test_data_dir / "train_script" / "treebanks"),
+            "--devices",
+            f"{device},{device}",
+            "--rand-seeds",
+            "0,1",
+            "--out-dir",
+            str(tmp_path / "train_script_output"),
+        ]
     )
     assert ret.success
