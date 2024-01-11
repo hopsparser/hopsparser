@@ -31,7 +31,7 @@ def test_initialize_save_load(
     target_device_d = torch.device(target_device)
     parser = BiAffineParser.initialize(
         config_path=train_config,
-        treebank=list(DepGraph.read_conll(open(treebank))),
+        treebank=list(DepGraph.read_conll(treebank.open())),
     )
     parser.to(source_device_d)
     for _, p in parser.named_parameters():
