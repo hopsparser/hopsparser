@@ -35,7 +35,10 @@ from hopsparser.utils import setup_logging
 )
 @click.option(
     "--lang",
-    help="Use all the treebanks for this language. Can be given multiple times. Not providing any lang means training on every treebank.",
+    help=(
+        "Use all the treebanks for this language. Can be given multiple times."
+        "Not providing any lang means training on every treebank."
+    ),
     multiple=True,
 )
 @click.option(
@@ -47,20 +50,27 @@ from hopsparser.utils import setup_logging
     "--origin-label-name",
     default="original_treebank",
     help=(
-        "The label name to use for marking the treebank of origin in the MISC column of the input and output CoNLL-U files."
-        " If origin prediction is desired, this label should be present in the `extra_annotations` field of the parser config."
+        "The label name to use for marking the treebank of origin in the MISC column of the input"
+        " and output CoNLL-U files. If origin prediction is desired, this label should be present"
+        " in the `extra_annotations` field of the parser config."
     ),
     show_default=True,
 )
 @click.option(
     "--overwrite",
     is_flag=True,
-    help="If a model already in the output directory, restart training from scratch instead of continuing.",
+    help=(
+        "If a model already in the output directory, restart training from scratch instead of"
+        "continuing.",
+    ),
 )
 @click.option(
     "--rand-seed",
     type=int,
-    help="Force the random seed fo Python and Pytorch (see <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)",
+    help=(
+        "Force the random seed fo Python and Pytorch (see"
+        " <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)"
+    ),
 )
 @click.option(
     "--skip-unencodable",
@@ -125,9 +135,9 @@ def main(
     test_files.sort()
 
     concat_train_file = output_dir / "train.conllu"
-    with open(concat_train_file, "w") as out_stream:
+    with concat_train_file.open("w") as out_stream:
         for label, path in train_files:
-            with open(path) as in_stream:
+            with path.open() as in_stream:
                 for tree in deptree.DepGraph.read_conll(in_stream, max_tree_length=max_tree_length):
                     if train_with_lang_labels:
                         labelled_tree = tree.replace(
@@ -142,9 +152,9 @@ def main(
 
     if dev_files:
         concat_dev_file = output_dir / "dev.conllu"
-        with open(concat_dev_file, "w") as out_stream:
+        with concat_dev_file.open("w") as out_stream:
             for label, path in dev_files:
-                with open(path) as in_stream:
+                with path.open() as in_stream:
                     for tree in deptree.DepGraph.read_conll(
                         in_stream, max_tree_length=max_tree_length
                     ):
