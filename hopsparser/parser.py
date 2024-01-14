@@ -101,7 +101,7 @@ class MLP(nn.Module):
         return self.w_up(self.dropout(self.g(self.w_down(inpt))))
 
 
-# Note: This is the biaffine layer used in Qi et al. (2018) and Dozat and Manning (2017).
+# NOTE: This is the biaffine layer used in Qi et al. (2018) and Dozat and Manning (2017).
 class BiAffine(nn.Module):
     """Biaffine attention layer.
 
@@ -126,6 +126,7 @@ class BiAffine(nn.Module):
 
     def forward(self, d: torch.Tensor, h: torch.Tensor) -> torch.Tensor:
         if self.bias:
+            # TODO: can we avoid a copy here
             d = torch.cat((d, d.new_ones((*d.shape[:-1], 1))), dim=-1)
             h = torch.cat((h, h.new_ones((*h.shape[:-1], 1))), dim=-1)
         return torch.einsum("bxi,oij,byj->bxyo", d, self.weight, h)

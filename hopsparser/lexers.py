@@ -465,7 +465,8 @@ class WordEmbeddingsLexer(nn.Module):
         model_path.mkdir(exist_ok=True, parents=True)
         config_file = model_path / "config.json"
         with open(config_file, "w") as out_stream:
-            # FIXME: range(1, len())… here is inelegant and is unnecessary if the inverse has ordered values
+            # FIXME: range(1, len())… here is inelegant and is unnecessary if the inverse has
+            # ordered values
             json.dump(
                 {
                     "embeddings_dim": self.output_dim,
@@ -638,8 +639,9 @@ class BertLexer(nn.Module):
 
         if self.weight_layers:
             # Torch has no equivalent to `np.average` so this is somewhat annoying
-            # ! FIXME: recomputing the softmax for every batch is needed at train time but is wasting
-            # ! time in eval
+
+            # FIXME: recomputing the softmax for every batch is needed at train time but is wasting
+            # time in eval
             # Shape: layers
             normal_weights = self.layer_weights.softmax(dim=0)
             # shape: batch×subwords_sequence×features
@@ -660,7 +662,7 @@ class BertLexer(nn.Module):
         # FIXME: this loop is embarassingly parallel, there must be a way to parallelize it
         for sent_n, alignment in enumerate(inpt.subword_alignments):
             # TODO: If we revise the alignment format, this could probably be made faster using
-            # <https://pytorch.org/docs/stable/generated/torch.scatter.htmlW or
+            # <https://pytorch.org/docs/stable/generated/torch.scatter.html> or
             # <https://pytorch-scatter.readthedocs.io/en/latest/functions/scatter.html>
             # The word indices start at 1 because word 0 is the root token
             for word_n, span in enumerate(alignment, start=1):
@@ -737,8 +739,9 @@ class BertLexer(nn.Module):
                 "Unencodable tokens, switching to non-fast tokenization for sentence {unrooted_tok_sequence[i]!r}."
             )
 
-        # We end up there in two situations: when the tokenizer is not fast, or when it is fast but failed
-        # to encode all tokens and left us empty tokens, forcing us to do its job ourselves a mano
+        # We end up there in two situations: when the tokenizer is not fast, or when it is fast but
+        # failed to encode all tokens and left us empty tokens, forcing us to do its job ourselves a
+        # mano
 
         # It's annoying to have to tokenize twice but we have not better way at this point to align
         # subtokens with the original tokens
