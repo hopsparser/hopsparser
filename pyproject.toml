@@ -40,7 +40,7 @@ spacy = ["spacy >= 3.5"]
 tests = [
     "hypothesis",
     "networkx",
-    "pytest",
+    "pytest >= 7.0 , < 8.0",
     "pytest-assert-utils",
     "pytest-console-scripts",
     "pytest-lazy-fixture",
