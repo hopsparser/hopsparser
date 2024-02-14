@@ -67,7 +67,9 @@ def gen_annotations_labels(
                 if (node_label := node.misc.mapping.get(name)) is not None:
                     labels.add(node_label)
     if (
-        name_nolabel := next((name for name, labels in label_sets.items() if not labels), None)
+        name_nolabel := next(
+            (name for name, labels in label_sets.items() if len(labels) <= 1), None
+        )
     ) is not None:
         # No iterable unpacking for poor walrus :( (<https://bugs.python.org/issue43143>)
         labels = label_sets[name_nolabel]
