@@ -20,14 +20,15 @@ from typing import (
     Sequence,
     Set,
     Type,
-    TypedDict,
     Union,
     cast,
     overload,
 )
 
 import pydantic
-import torch
+
+# import torch
+import torch.utils.data
 import transformers
 import yaml
 from bidict import BidirectionalMapping, bidict
@@ -185,6 +186,7 @@ class EncodedTree(NamedTuple):
     labels: torch.Tensor
     tags: torch.Tensor
     annotations: Dict[str, torch.Tensor]
+    tree: DepGraph
 
 
 class DependencyBatch(NamedTuple):
@@ -222,9 +224,10 @@ class DependencyBatch(NamedTuple):
         )
 
 
-class LRSchedule(TypedDict):
-    shape: Literal["exponential", "linear", "constant"]
-    warmup_steps: int
+class LRSchedule(pydantic.BaseModel):
+    base: float
+    shape: Literal["exponential", "linear", "constant"] = "exponential"
+    warmup_steps: int = 0
 
 
 class AnnotationConfig(pydantic.BaseModel):
@@ -247,7 +250,7 @@ class BiAffineParserConfig(pydantic.BaseModel):
     mlp_dropout: float
     tagset: List[str]
     lexers: Dict[str, str]
-    multitask_loss: str
+    multitask_loss: Literal["adaptative", "mean", "sum", "weighted"]
 
 
 class BiaffineParserOutput(NamedTuple):
@@ -324,7 +327,9 @@ class BiAffineParser(nn.Module):
         super(BiAffineParser, self).__init__()
         self.default_batch_size = default_batch_size
         self.tagset: BidirectionalMapping[str, int] = bidict((t, i) for i, t in enumerate(tagset))
-        self.labels: BidirectionalMapping[str, int] = bidict((l, i) for i, l in enumerate(labels))
+        self.labels: BidirectionalMapping[str, int] = bidict(
+            (lab, i) for i, lab in enumerate(labels)
+        )
 
         self.mlp_arc_hidden: Final[int] = mlp_arc_hidden
         self.mlp_input: Final[int] = mlp_input
@@ -382,6 +387,7 @@ class BiAffineParser(nn.Module):
         }
         # This makes us store the list of labels twice but makes it less clunky to __init__ and save
         self.annotation_lexicons: Dict[str, BidirectionalMapping[str, int]]
+        self.extra_annotations: Dict[str, AnnotationConfig]
         if extra_annotations is not None:
             if (
                 reserved := next(
@@ -389,9 +395,9 @@ class BiAffineParser(nn.Module):
                 )
             ) is not None:
                 raise ValueError(f"Reserved name used in extra annotations: {reserved!r}")
-            self.extra_annotations = extra_annotations
+            self.extra_annotations = dict(extra_annotations)
             self.annotation_lexicons = {
-                name: bidict((l, i) for i, l in enumerate(conf.labels))
+                name: bidict((lab, i) for i, lab in enumerate(conf.labels))
                 for name, conf in extra_annotations.items()
             }
             self.annotators = nn.ModuleDict(
@@ -415,7 +421,7 @@ class BiAffineParser(nn.Module):
         self.annotations_order = sorted(self.annotation_lexicons.keys())
 
         self.marginal_loss = nn.CrossEntropyLoss(reduction="sum", ignore_index=self.LABEL_PADDING)
-        self.multitask_loss = multitask_loss
+        self.multitask_loss: Literal["adaptative", "mean", "sum", "weighted"] = multitask_loss
         self.loss_weights = torch.tensor(
             [_loss_weights[name] for name in ["tag", "head", "deprel", *self.annotations_order]],
         )
@@ -482,6 +488,8 @@ class BiAffineParser(nn.Module):
 
     # TODO: make this an independent function
     # TODO: JIT this (or split it and jit the marginals?)
+    # FIXME: the way we compute means here seems strange, it should be over the number of items
+    # (annotated words), not the number of trees
     def parser_loss(
         self,
         parser_output: BiaffineParserOutput,
@@ -578,11 +586,11 @@ class BiAffineParser(nn.Module):
 
                 gloss += self.parser_loss(output, batch)
 
+                # TODO: make all this batch-level eval a method
                 # tagger accuracy
                 tags_pred = output.tag_scores.argmax(dim=-1)
                 tags_mask = batch.tags.ne(self.LABEL_PADDING)
                 overall_tags_size += tags_mask.sum()
-                # FIXME: weird variable name
                 tags_accuracy = tags_pred.eq(batch.tags).logical_and(tags_mask).sum()
                 tags_tp += tags_accuracy
 
@@ -642,7 +650,6 @@ class BiAffineParser(nn.Module):
     def train_model(
         self,
         epochs: int,
-        lr: float,
         lr_schedule: LRSchedule,
         model_path: Union[str, pathlib.Path],
         train_set: "DependencyDataset",
@@ -651,6 +658,21 @@ class BiAffineParser(nn.Module):
         max_grad_norm: Optional[float] = None,
         log_epoch: Callable[[str, Dict[str, str]], Any] = lambda x, y: None,
     ):
+        train_loader = cast(
+            torch.utils.data.DataLoader[DepGraph],
+            torch.utils.data.DataLoader(
+                dataset=train_set, batch_size=batch_size, collate_fn=self.batch_trees, shuffle=True
+            ),
+        )
+        if dev_set is not None:
+            dev_loader = cast(
+                torch.utils.data.DataLoader[DepGraph],
+                torch.utils.data.DataLoader(
+                    dataset=dev_set, batch_size=batch_size, collate_fn=self.batch_trees
+                ),
+            )
+        else:
+            dev_loader = None
         model_path = pathlib.Path(model_path)
         weights_file = model_path / "weights.pt"
         if batch_size is None:
@@ -659,37 +681,35 @@ class BiAffineParser(nn.Module):
         logger.info(f"Start training on {device}")
 
         # TODO: make these configurable?
-        optimizer = torch.optim.Adam(self.parameters(), betas=(0.9, 0.9), lr=lr, eps=1e-09)
+        optimizer = torch.optim.Adam(
+            self.parameters(), betas=(0.9, 0.9), lr=lr_schedule.base, eps=1e-09
+        )
 
-        if lr_schedule["shape"] == "exponential":
+        if lr_schedule.shape == "exponential":
             scheduler = torch.optim.lr_scheduler.LambdaLR(
                 optimizer,
                 (lambda n: 0.95 ** (n // (math.ceil(len(train_set) / batch_size)))),
             )
-        elif lr_schedule["shape"] == "linear":
+        elif lr_schedule.shape == "linear":
             scheduler = transformers.get_linear_schedule_with_warmup(
                 optimizer,
-                lr_schedule["warmup_steps"],
+                lr_schedule.warmup_steps,
                 epochs * math.ceil(len(train_set) / batch_size) + 1,
             )
-        elif lr_schedule["shape"] == "constant":
+        elif lr_schedule.shape == "constant":
             scheduler = transformers.get_constant_schedule_with_warmup(
-                optimizer, lr_schedule["warmup_steps"]
+                optimizer, lr_schedule.warmup_steps
             )
         else:
-            raise ValueError(f"Unkown lr schedule shape {lr_schedule['shape']!r}")
+            raise ValueError(f"Unkown lr schedule shape {lr_schedule.shape!r}")
 
         best_arc_acc = 0.0
         for e in range(epochs):
             train_loss = torch.zeros(1, dtype=torch.float, device=device)
             overall_size = torch.zeros(1, dtype=torch.long, device=device)
-            train_batches = train_set.make_batches(
-                batch_size,
-                shuffle_batches=True,
-                shuffle_data=True,
-            )
+
             self.train()
-            for batch in train_batches:
+            for batch in train_loader:
                 overall_size += (
                     batch.tags.ne(self.LABEL_PADDING).sum()
                     + batch.heads.ne(self.LABEL_PADDING).sum()
@@ -697,7 +717,7 @@ class BiAffineParser(nn.Module):
                     + sum(ann.ne(self.LABEL_PADDING).sum() for ann in batch.annotations.values())
                 )
 
-                batch = batch.to(device)
+                batch = cast(DependencyBatch, batch.to(device))
 
                 # FORWARD
                 output: BiaffineParserOutput = self(
@@ -716,13 +736,11 @@ class BiAffineParser(nn.Module):
                 optimizer.step()
                 scheduler.step()
 
-            if dev_set is not None:
-                dev_scores = self.eval_model(
-                    dev_set.make_batches(batch_size, shuffle_batches=False, shuffle_data=False),
-                    batch_size=batch_size,
-                )
+            if dev_loader is not None:
+                dev_scores = self.eval_model(dev_loader, batch_size=batch_size)
                 # FIXME: this is not very elegant (2022-07)
                 # FIXME: really not (2022-09)
+                # FIXME: it's ok, lightning will save us
                 log_epoch(
                     str(e),
                     {
@@ -747,7 +765,8 @@ class BiAffineParser(nn.Module):
                 # FIXME: probably change the logic here, esp. for headless data
                 if dev_scores.head_accuracy > best_arc_acc:
                     logger.info(
-                        f"New best model: head accuracy {dev_scores.head_accuracy:.2%} > {best_arc_acc:.2%}"
+                        "New best model: head accuracy"
+                        f" {dev_scores.head_accuracy:.2%} > {best_arc_acc:.2%}"
                     )
                     self.save_params(weights_file)
                     best_arc_acc = dev_scores.head_accuracy
@@ -845,7 +864,7 @@ class BiAffineParser(nn.Module):
                     self.LABEL_PADDING,
                     *(
                         self.annotation_lexicons[name].get(
-                            node.misc.mapping.get(name), self.LABEL_PADDING
+                            node.misc.mapping.get(name), self.LABEL_PADDING  # type: ignore
                         )
                         for node in tree.nodes
                     ),
@@ -860,15 +879,14 @@ class BiAffineParser(nn.Module):
             labels=labels,
             tags=tag_idxes,
             annotations=annotations,
+            tree=tree,
         )
 
     def batch_trees(
         self,
-        trees: Sequence[DepGraph],
-        encoded_trees: Optional[Sequence[EncodedTree]] = None,
+        encoded_trees: Sequence[EncodedTree],
     ) -> DependencyBatch:
-        if encoded_trees is None:
-            encoded_trees = [self.encode_tree(tree) for tree in trees]
+        """Batch encoded trees."""
         # FIXME: typing err here because we need to constraint that the encoded trees are all
         # encoded by the same lexer
         sentences = self.batch_sentences([tree.sentence for tree in encoded_trees])
@@ -902,7 +920,7 @@ class BiAffineParser(nn.Module):
             heads=heads,
             labels=labels,
             tags=tags,
-            trees=trees,
+            trees=[t.tree for t in encoded_trees],
             annotations=annotations,
         )
 
@@ -1045,7 +1063,7 @@ class BiAffineParser(nn.Module):
         else:
             trees = DepGraph.read_conll(cast(Iterable[str], inpt))
             batches = (
-                self.batch_trees(batch)
+                self.batch_trees([self.encode_tree(t) for t in batch])
                 for batch in cast(
                     Iterable[List[DepGraph]], itu.chunked_iter(trees, size=batch_size)
                 )
@@ -1223,9 +1241,7 @@ class BiAffineParser(nn.Module):
         return parser
 
 
-# TODO: replace this by a torch Dataset+Dataloader (or datapipe?)
-# FIXME: why are we not requiring a sequence for treelist again?
-class DependencyDataset:
+class DependencyDataset(torch.utils.data.Dataset[DepGraph]):
     def __init__(
         self,
         parser: BiAffineParser,
@@ -1246,32 +1262,13 @@ class DependencyDataset:
                         f"Skipping tree {e.sentence} due to lexing error '{e.message}'.",
                     )
                     continue
-            self.treelist.append(tree)
             self.encoded_trees.append(encoded)
 
-    def make_batches(
-        self,
-        batch_size: int,
-        shuffle_batches: bool = False,
-        shuffle_data: bool = True,
-    ) -> Iterable[DependencyBatch]:
-        n = len(self.treelist)
-        order = list(range(n))
-        if shuffle_data:
-            random.shuffle(order)
-
-        batch_order = list(range(0, n, batch_size))
-        if shuffle_batches:
-            random.shuffle(batch_order)
-
-        for i in batch_order:
-            batch_indices = order[i : i + batch_size]
-            trees = [self.treelist[j] for j in batch_indices]
-            encoded_trees = [self.encoded_trees[j] for j in batch_indices]
-            yield self.parser.batch_trees(trees, encoded_trees)
+    def __getitem__(self, index: int) -> EncodedTree:
+        return self.encoded_trees[index]
 
     def __len__(self):
-        return len(self.treelist)
+        return len(self.encoded_trees)
 
 
 def train(
@@ -1294,7 +1291,7 @@ def train(
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
 
     with open(train_file) as in_stream:
-        traintrees = list(DepGraph.read_conll(in_stream, max_tree_length=max_tree_length))
+        train_trees = list(DepGraph.read_conll(in_stream, max_tree_length=max_tree_length))
     model_path_not_empty = model_path.exists() and any(model_path.iterdir())
     if model_path_not_empty and not overwrite:
         logger.info(f"Continuing training from {model_path}")
@@ -1310,7 +1307,7 @@ def train(
                 logger.warning(f"--overwrite asked but {model_path} does not exist or is empty")
         parser = BiAffineParser.initialize(
             config_path=config_file,
-            treebank=traintrees,
+            treebank=train_trees,
         )
     parser = parser.to(device)
     for lexer_to_freeze_name in hp.get("freeze", []):
@@ -1323,7 +1320,7 @@ def train(
 
     trainset = DependencyDataset(
         parser,
-        traintrees,
+        train_trees,
         skip_unencodable=skip_unencodable,
     )
     devset: Optional[DependencyDataset]
@@ -1339,14 +1336,12 @@ def train(
     else:
         devset = None
 
-    lr_config = hp["lr"]
     parser.train_model(
         batch_size=hp["batch_size"],
         dev_set=devset,
         epochs=hp["epochs"],
         log_epoch=log_epoch,
-        lr=lr_config["base"],
-        lr_schedule=lr_config.get("schedule", {"shape": "exponential", "warmup_steps": 0}),
+        lr_schedule=LRSchedule.parse_obj(hp["lr"]),
         max_grad_norm=hp.get("max_grad_norm"),
         model_path=model_path,
         train_set=trainset,

@@ -146,7 +146,7 @@ def train(
     verbose: bool,
 ):
     output_dir.mkdir(exist_ok=True, parents=True)
-    setup_logging(verbose=verbose, logfile=output_dir / "train.log")
+    setup_logging(verbose=verbose, log_file=output_dir / "train.log")
     model_path = output_dir / "model"
     shutil.copy(config_file, output_dir / config_file.name)
     parser.train(
@@ -262,7 +262,7 @@ def train_multi(
     verbose: bool,
 ):
     output_dir.mkdir(exist_ok=True, parents=True)
-    setup_logging(verbose=verbose, logfile=output_dir / "train.log")
+    setup_logging(verbose=verbose, log_file=output_dir / "train.log")
     model_path = output_dir / "model"
     shutil.copy(config_file, output_dir / config_file.name)
 

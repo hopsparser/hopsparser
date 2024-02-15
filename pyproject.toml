@@ -45,7 +45,13 @@ tests = [
     "pytest-console-scripts",
     "pytest-lazy-fixture",
 ]
-traintools = ["httpx[http2]", "pandas"]
+traintools = [
+    "httpx[http2]",
+    "pytorch-lightning",
+    "pandas",
+    "tensorboardx",
+    "torchmetrics",
+]
 
 [project.readme]
 file = "README.md"
@@ -63,6 +69,7 @@ build-backend = "setuptools.build_meta"
 packages = ["hopsparser"]
 
 [tool.ruff]
+ignore = ["PTH123"]
 line-length = 100
 select = ["A", "B", "C90", "E", "F", "N", "NPY", "PT", "PTH", "PYI", "S", "W"]
 
