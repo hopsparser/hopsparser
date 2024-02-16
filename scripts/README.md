@@ -27,6 +27,12 @@ For each `{config_name}.yaml` file in `{configs_dir}` and each `{treebank_name}`
 train and test set. It will also create a summary of the performances of the various runs in
 `{out_dir}/summary.tsv`.
 
+Treebank-specific configs can be provided by putting them in sub-directories of `{config_dir}`:
+config files in `{config_dir}/{prefix}` will only be used for treebanks with names starting with
+`{prefix}`. This is useful for instance when working with UD data, where file names start with a
+langcode. In that case, config files found in `{config_dir}/en` will be used for
+`en_ewt-ud-{train,dev,test}` but not for `fr_gsd-ud-{train,dev,test}`.
+
 You can also specify a number of rand seeds with `--rand-seeds seed1,seed2,…`, in which case the
 summary will report descriptive statistics (mean, standard deviation…) for every configuration,
 treebank and additional args combination and `{out_dir}/best` will contain the results of the best
