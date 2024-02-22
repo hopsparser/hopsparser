@@ -333,7 +333,7 @@ def main(
     out_dir.mkdir(parents=True, exist_ok=True)
     treebanks = [train.parent for train in treebanks_dir.glob("**/*train.conllu")]
     logger.info(f"Training on {len(treebanks)} treebanks.")
-    configs = list(configs_dir.glob("*.yaml"))
+    configs = list(configs_dir.glob("**/*.yaml"))
     logger.info(f"Training using {len(configs)} configs.")
     if rand_seeds is not None:
         args = [
@@ -359,6 +359,14 @@ def main(
             train_file = next(t.glob("*train.conllu"))
             dev_file = next(t.glob("*dev.conllu"))
             test_file = next(t.glob("*test.conllu"))
+            # TODO: make this cleaner
+            # Skip configs that are not for this lang
+            if (
+                c.parent != configs_dir
+                and c.parent.name != "*"
+                and not train_file.stem.startswith(c.parent.name)
+            ):
+                continue
             common_params = {
                 "train_file": train_file,
                 "dev_file": dev_file,
@@ -411,12 +419,14 @@ def main(
                         )
                         skipped_res.append((run_name, skip_res))
                         logger.info(
-                            f"{run_out_dir} already exists, skipping run {run_name}. Results were {skip_res}"
+                            f"{run_out_dir} already exists, skipping run {run_name}."
+                            f" Results were {skip_res}"
                         )
                         continue
                     else:
                         logger.warning(
-                            f"Incomplete run in {run_out_dir}, skipping it. You will probably want to delete it and rerun."
+                            f"Incomplete run in {run_out_dir}, skipping it."
+                            " You will probably want to delete it and rerun."
                         )
                         continue
 
