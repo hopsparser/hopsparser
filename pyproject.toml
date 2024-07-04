@@ -12,7 +12,7 @@ dependencies = [
     "loguru",
     "pooch",
     "protobuf",
-    "pydantic >= 2.0, < 2.7",
+    "pydantic >= 2.8.2, < 2.9",
     "pydantic-settings >= 2.0, < 2.2",
     "pyyaml",
     "rich",
