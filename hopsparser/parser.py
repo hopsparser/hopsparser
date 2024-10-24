@@ -434,7 +434,7 @@ class BiAffineParser(nn.Module):
         torch.save(self.state_dict(), path)
 
     def load_params(self, path: Union[str, pathlib.Path, BinaryIO]):
-        state_dict = torch.load(path, map_location="cpu")
+        state_dict = torch.load(path, map_location="cpu", weights_only=True)
         self.load_state_dict(state_dict)
 
     def forward(
@@ -864,7 +864,8 @@ class BiAffineParser(nn.Module):
                     self.LABEL_PADDING,
                     *(
                         self.annotation_lexicons[name].get(
-                            node.misc.mapping.get(name), self.LABEL_PADDING  # type: ignore
+                            node.misc.mapping.get(name),
+                            self.LABEL_PADDING,  # type: ignore
                         )
                         for node in tree.nodes
                     ),
@@ -1092,7 +1093,7 @@ class BiAffineParser(nn.Module):
         )
         config_file = model_path / "config.json"
         with open(config_file, "w") as out_stream:
-            json.dump(config.dict(), out_stream)
+            json.dump(config.model_dump(), out_stream)
         lexers_path = model_path / "lexers"
         for lexer_name, lexer in self.lexers.items():
             lexer.save(model_path=lexers_path / lexer_name, save_weights=False)

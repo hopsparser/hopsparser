@@ -62,21 +62,17 @@ _T_LEXER_BATCH = TypeVar("_T_LEXER_BATCH")
 class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH]):
     output_dim: Final[int]
 
-    def encode(self, tokens_sequence: Sequence[str]) -> _T_LEXER_SENT:
-        ...
+    def encode(self, tokens_sequence: Sequence[str]) -> _T_LEXER_SENT: ...
 
-    def make_batch(self, batch: Sequence[_T_LEXER_SENT]) -> _T_LEXER_BATCH:
-        ...
+    def make_batch(self, batch: Sequence[_T_LEXER_SENT]) -> _T_LEXER_BATCH: ...
 
-    def save(self, model_path: pathlib.Path, save_weights: bool):
-        ...
+    def save(self, model_path: pathlib.Path, save_weights: bool): ...
 
-    def __call__(self, inpt: _T_LEXER_BATCH) -> torch.Tensor:
-        ...
+    def __call__(self, inpt: _T_LEXER_BATCH) -> torch.Tensor: ...
 
     @classmethod
-    def load(cls, model_path: pathlib.Path) -> Self:
-        ...
+    def load(cls, model_path: pathlib.Path) -> Self: ...
+
 
 class CharRNNLexerBatch(NamedTuple):
     encoding: torch.Tensor
@@ -230,7 +226,7 @@ class CharRNNLexer(nn.Module):
         res = cls(**config)
         weight_file = model_path / "weights.pt"
         if weight_file.exists():
-            res.load_state_dict(torch.load(weight_file, map_location="cpu"))
+            res.load_state_dict(torch.load(weight_file, map_location="cpu", weights_only=True))
         return res
 
     @classmethod
@@ -368,7 +364,7 @@ class FastTextLexer(nn.Module):
         res = cls.from_fasttext_model(model_path / "fasttext_model.bin", **config)
         weight_file = model_path / "weights.pt"
         if weight_file.exists():
-            res.load_state_dict(torch.load(weight_file, map_location="cpu"))
+            res.load_state_dict(torch.load(weight_file, map_location="cpu", weights_only=True))
         return res
 
     @classmethod
@@ -488,7 +484,7 @@ class WordEmbeddingsLexer(nn.Module):
         res = cls(**config)
         weight_file = model_path / "weights.pt"
         if weight_file.exists():
-            res.load_state_dict(torch.load(weight_file, map_location="cpu"))
+            res.load_state_dict(torch.load(weight_file, map_location="cpu", weights_only=True))
         return res
 
     # FIXME: probably add thresholds here, at least to filter out hapax?
@@ -837,7 +833,7 @@ class BertLexer(nn.Module):
         res = cls(model=model, tokenizer=tokenizer, **config)
         weight_file = model_path / "weights.pt"
         if weight_file.exists():
-            res.load_state_dict(torch.load(weight_file, map_location="cpu"))
+            res.load_state_dict(torch.load(weight_file, map_location="cpu", weights_only=True))
         return res
 
     @classmethod
