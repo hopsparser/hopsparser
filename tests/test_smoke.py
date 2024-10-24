@@ -222,15 +222,17 @@ def test_train_script(
     tmp_path: pathlib.Path,
 ):
     ret = script_runner.run(
-        "python",
-        str(scripts_dir / "train_models.py"),
-        str(test_data_dir / "train_script" / "configs"),
-        str(test_data_dir / "train_script" / "treebanks"),
-        "--devices",
-        f"{device},{device}",
-        "--rand-seeds",
-        "0,1",
-        "--out-dir",
-        str(tmp_path / "train_script_output"),
+        [
+            "python",
+            str(scripts_dir / "train_models.py"),
+            str(test_data_dir / "train_script" / "configs"),
+            str(test_data_dir / "train_script" / "treebanks"),
+            "--devices",
+            f"{device},{device}",
+            "--rand-seeds",
+            "0,1",
+            "--out-dir",
+            str(tmp_path / "train_script_output"),
+        ]
     )
     assert ret.success

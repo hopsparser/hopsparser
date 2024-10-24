@@ -30,7 +30,7 @@ from hopsparser.utils import setup_logging
 @click.option(
     "--device",
     default="cpu",
-    help="The device to use for the parsing model. (cpu, gpu:0, …).",
+    help="The device to use for the parsing model. (cpu, cuda:0, …).",
     show_default=True,
 )
 @click.option(
@@ -61,7 +61,7 @@ from hopsparser.utils import setup_logging
     is_flag=True,
     help=(
         "If a model already in the output directory, restart training from scratch instead of"
-        "continuing.",
+        "continuing."
     ),
 )
 @click.option(
