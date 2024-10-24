@@ -28,7 +28,7 @@ class ParseRequest(pydantic.BaseModel):
     data: str = pydantic.Field(
         ...,
         description="Input data in UTF-8.",
-        example="Je reconnais l'existence du kiwi.",
+        json_schema_extra={"example": "Je reconnais l'existence du kiwi."},
     )
     input: Literal["conllu", "horizontal"] = pydantic.Field(
         "conllu", description="Input data in UTF-8."
