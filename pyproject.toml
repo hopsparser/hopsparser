@@ -42,7 +42,7 @@ tests = [
     "networkx >= 3.2, < 3.5",
     "pytest >= 7.0 , < 8.0",
     "pytest-assert-utils",
-    "pytest-console-scripts",
+    "pytest-console-scripts >= 1.4, < 1.5",
     "pytest-lazy-fixture",
 ]
 traintools = [
