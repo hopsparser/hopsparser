@@ -205,10 +205,12 @@ def test_gold_evaluation(
     script_runner: pytest_console_scripts.ScriptRunner, test_treebank: pathlib.Path
 ):
     ret = script_runner.run(
-        "eval_parse",
-        "-v",
-        str(test_treebank),
-        str(test_treebank),
+        [
+            "eval_parse",
+            "-v",
+            str(test_treebank),
+            str(test_treebank),
+        ]
     )
     assert ret.success
 
