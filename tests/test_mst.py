@@ -33,7 +33,7 @@ def test_CLE(adjacency: NDArray):
 
     # TODO: this could also test CLE one root if we use the big M trick
     graph = nx.from_numpy_array(adjacency.T, create_using=nx.DiGraph)
-    nx_arborescence = nx.algorithms.tree.branchings.maximum_spanning_arborescence()
+    nx_arborescence = nx.algorithms.tree.branchings.maximum_spanning_arborescence(graph)
     nx_weight = sum(nx_arborescence.get_edge_data(*e)["weight"] for e in nx_arborescence.edges)
 
     mst_heads = mst.chuliu_edmonds(adjacency)
