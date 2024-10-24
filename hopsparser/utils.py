@@ -81,7 +81,7 @@ def setup_logging(
 ):
     if console is None:
         console = rich.get_console()
-    logger.remove(0)  # Remove the default logger
+    logger.remove()  # Remove the default logger
     if "SLURM_JOB_ID" in os.environ:
         local_id = os.environ.get("SLURM_LOCALID", "someproc")
         node_name = os.environ.get("SLURMD_NODENAME", "somenode")
