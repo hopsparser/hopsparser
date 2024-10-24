@@ -1,0 +1,19 @@
+minversion = "4"
+env_list = ["py312", "py311", "py310", "py39"]
+isolated_build = true
+skip_missing_interpreters = true
+
+[testenv]
+changedir = "tests"
+extras = "tests"
+commands = 'pytest --verbose --basetemp="{envtmpdir}" {posargs}'
+
+[pytest]
+script_launch_mode = "subprocess"
+
+[gh-actions]
+python ="""
+3.9 = py39
+3.10 = py310
+3.11 = py311
+3.12 = py312"""

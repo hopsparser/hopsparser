@@ -131,7 +131,7 @@ def remote_transformer_model(
     return (model, tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 def local_transformer_model(
     test_data_dir: pathlib.Path,
 ) -> Tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase]:
@@ -181,9 +181,11 @@ def test_bert_embeddings_create_save_load(
     weight_layers: bool,
 ):
     model, tokenizer = transformer_model
-    max_num_layers = min(
-        getattr(model.config, param_name, math.inf)
-        for param_name in ("num_layers", "n_layers", "num_hidden_layers")
+    max_num_layers = int(
+        min(
+            getattr(model.config, param_name, math.inf)
+            for param_name in ("num_layers", "n_layers", "num_hidden_layers")
+        )
     )
     layers = data.draw(
         st.one_of(
