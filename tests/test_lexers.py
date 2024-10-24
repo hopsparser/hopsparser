@@ -40,9 +40,10 @@ def test_char_rnn_create_save_load(
         reloaded = lexers.CharRNNLexer.load(tmp_path)
     assert char_lexer.vocabulary == reloaded.vocabulary
     char_lexer.eval()
-    orig_encoding = char_lexer(char_lexer.make_batch([char_lexer.encode(test_text)]))
     reloaded.eval()
-    reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
+    with torch.inference_mode():
+        orig_encoding = char_lexer(char_lexer.make_batch([char_lexer.encode(test_text)]))
+        reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
     assert torch.equal(orig_encoding, reloaded_encoding)
 
 
@@ -86,9 +87,12 @@ def test_fasttext_train_create_save_load(
         reloaded = lexers.FastTextLexer.load(tmp_path)
     assert fasttext_lexer.special_tokens == reloaded.special_tokens
     fasttext_lexer.eval()
-    orig_encoding = fasttext_lexer(fasttext_lexer.make_batch([fasttext_lexer.encode(test_text)]))
     reloaded.eval()
-    reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
+    with torch.inference_mode():
+        orig_encoding = fasttext_lexer(
+            fasttext_lexer.make_batch([fasttext_lexer.encode(test_text)])
+        )
+        reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
     assert torch.equal(orig_encoding, reloaded_encoding)
 
 
@@ -116,9 +120,10 @@ def test_word_embeddings_create_save_load(
         reloaded = lexers.WordEmbeddingsLexer.load(tmp_path)
     assert lexer.vocabulary == reloaded.vocabulary
     lexer.eval()
-    orig_encoding = lexer(lexer.make_batch([lexer.encode(test_text)]))
     reloaded.eval()
-    reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
+    with torch.inference_mode():
+        orig_encoding = lexer(lexer.make_batch([lexer.encode(test_text)]))
+        reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
     assert torch.equal(orig_encoding, reloaded_encoding)
 
 
@@ -213,11 +218,12 @@ def test_bert_embeddings_create_save_load(
     test_text = ["", *test_text]
     lexer.eval()
     reloaded.eval()
-    try:
-        orig_encoding = lexer(lexer.make_batch([lexer.encode(test_text)]))
-    except lexers.LexingError:
-        with pytest.raises(lexers.LexingError):
-            reloaded.encode(test_text)
-    else:
-        reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
-        assert torch.equal(orig_encoding, reloaded_encoding)
+    with torch.inference_mode():
+        try:
+            orig_encoding = lexer(lexer.make_batch([lexer.encode(test_text)]))
+        except lexers.LexingError:
+            with pytest.raises(lexers.LexingError):
+                reloaded.encode(test_text)
+        else:
+            reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
+            assert torch.equal(orig_encoding, reloaded_encoding)
