@@ -26,7 +26,6 @@ from hopsparser import mst
     ),
 )
 def test_CLE(adjacency: NDArray):
-
     # Parsing setting: no self-loop, 0 is the root
     np.fill_diagonal(adjacency, -np.inf)
     adjacency[0] = -np.inf
@@ -34,8 +33,7 @@ def test_CLE(adjacency: NDArray):
 
     # TODO: this could also test CLE one root if we use the big M trick
     graph = nx.from_numpy_array(adjacency.T, create_using=nx.DiGraph)
-    edmonds = nx.algorithms.tree.branchings.Edmonds(graph)
-    nx_arborescence = edmonds.find_optimum(kind="max", style="arborescence")
+    nx_arborescence = nx.algorithms.tree.branchings.maximum_spanning_arborescence()
     nx_weight = sum(nx_arborescence.get_edge_data(*e)["weight"] for e in nx_arborescence.edges)
 
     mst_heads = mst.chuliu_edmonds(adjacency)
