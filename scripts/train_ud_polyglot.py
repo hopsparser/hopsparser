@@ -73,6 +73,11 @@ from hopsparser.utils import setup_logging
     ),
 )
 @click.option(
+    "--skip-train",
+    help="Don't retrain at all if a model exists, just evaluate.",
+    is_flag=True,
+)
+@click.option(
     "--skip-unencodable",
     is_flag=True,
     help="Skip unencodable trees in the training set",
@@ -96,6 +101,7 @@ def main(
     origin_label_name: str,
     overwrite: bool,
     rand_seed: int,
+    skip_train: bool,
     skip_unencodable: bool,
     train_with_lang_labels: bool,
     ud_dir: pathlib.Path,
@@ -172,17 +178,18 @@ def main(
     else:
         concat_dev_file = None
 
-    parser.train(
-        config_file=config_file,
-        dev_file=concat_dev_file,
-        device=device,
-        train_file=concat_train_file,
-        max_tree_length=max_tree_length,
-        model_path=model_path,
-        overwrite=overwrite,
-        rand_seed=rand_seed,
-        skip_unencodable=skip_unencodable,
-    )
+    if not (skip_train and model_path.exists()):
+        parser.train(
+            config_file=config_file,
+            dev_file=concat_dev_file,
+            device=device,
+            train_file=concat_train_file,
+            max_tree_length=max_tree_length,
+            model_path=model_path,
+            overwrite=overwrite,
+            rand_seed=rand_seed,
+            skip_unencodable=skip_unencodable,
+        )
 
     console = Console()
     metric_names = ("UPOS", "UAS", "LAS", "CLAS")
