@@ -64,12 +64,23 @@ content-type = "text/markdown"
 hopsparser = "hopsparser.main:cli"
 eval_parse = "hopsparser.conll2018_eval:main"
 
+[tool.setuptools]
+packages = ["hopsparser"]
+
 [build-system]
 requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["hopsparser"]
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+check_untyped_defs = true
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+script_launch_mode = "subprocess"
 
 [tool.ruff]
 ignore = ["PTH123"]
@@ -81,14 +92,3 @@ select = ["A", "B", "C90", "E", "F", "N", "NPY", "PT", "PTH", "PYI", "S", "W"]
     "S101", # asserts allowed in tests
     "ARG",  # Unused function args -> fixtures nevertheless are functionally relevant
 ]
-
-[tool.mypy]
-check_untyped_defs = true
-warn_unreachable = true
-plugins = ["pydantic.mypy"]
-
-[tool.black]
-line-length = 100
-
-[tool.isort]
-profile = "black"
