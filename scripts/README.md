@@ -4,11 +4,17 @@ Utility scripts
 This contains utility scripts that are not part of the parser but make its usage easier. They can
 have additional dependencies that you can install using `pip install hopsparser[traintools]`
 
-## `zenodo_upload.py`: upload files to a Zenodo deposit
+## `zenodo_upload.py`
 
-## `test_models.py`: check against performance changes for existing models
+Upload files to a Zenodo deposit
 
-## `train_models.py`: training a treebank×configs matrix
+## `test_models.py`
+
+Check against performance changes for existing models
+
+## `train_models.py`
+
+Training a treebank×configs matrix
 
 `train_models.py` is a utility to train and evaluate models using several configs on several
 treebanks. We use it internally to train the models we provide, and it is not much more flexible
