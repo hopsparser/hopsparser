@@ -53,19 +53,21 @@ def raw_text(test_data_dir: pathlib.Path) -> pathlib.Path:
     ],
     scope="session",
 )
-def train_config(test_data_dir: pathlib.Path, request) -> pathlib.Path:
+def train_config(test_data_dir: pathlib.Path, request: pytest.FixtureRequest) -> pathlib.Path:
     return test_data_dir / f"{request.param}.yaml"
 
 
-@pytest.fixture()
+@pytest.fixture
 def model_path(
     tmp_path: pathlib.Path,
-    train_config: pathlib.Path,
+    test_data_dir: pathlib.Path,
     treebank: pathlib.Path,
 ) -> pathlib.Path:
     model_path = tmp_path / "model"
     with treebank.open() as in_stream:
         trees = list(deptree.DepGraph.read_conll(in_stream))
-    model = parser.BiAffineParser.initialize(config_path=train_config, treebank=trees)
+    model = parser.BiAffineParser.initialize(
+        config_path=test_data_dir / "toy_onlywords.yaml", treebank=trees
+    )
     model.save(model_path)
     return model_path
