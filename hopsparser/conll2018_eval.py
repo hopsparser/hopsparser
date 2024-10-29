@@ -97,8 +97,6 @@
 # inside this span using LCS on their FORMs. The words not intersecting
 # (even partially) any multi-word span are then aligned as tokens.
 
-from __future__ import annotations
-
 import argparse
 import io
 import sys
@@ -168,18 +166,10 @@ UNIVERSAL_FEATURES = {
     "Polite",
 }
 
+
 # UD Error is used when raising exceptions in this module
 class UDError(Exception):
     pass
-
-
-# Conversion methods handling `str` <-> `unicode` conversions in Python2
-def _decode(text):
-    return text if sys.version_info[0] >= 3 or not isinstance(text, str) else text.decode("utf-8")
-
-
-def _encode(text):
-    return text
 
 
 # Internal representation classes
@@ -238,11 +228,8 @@ def load_conllu(file):
 
     # Load the CoNLL-U file
     index, sentence_start = 0, None
-    while True:
-        line = file.readline()
-        if not line:
-            break
-        line = _decode(line.rstrip("\r\n"))
+    for line in file:
+        line = line.rstrip()
 
         # Handle sentence start boundaries
         if sentence_start is None:
@@ -261,9 +248,7 @@ def load_conllu(file):
                     head = int(word.columns[HEAD])
                     if head < 0 or head > len(ud.words) - sentence_start:
                         raise UDError(
-                            "HEAD '{}' points outside of the sentence".format(
-                                _encode(word.columns[HEAD])
-                            )
+                            "HEAD '{}' points outside of the sentence".format(word.columns[HEAD])
                         )
                     if head:
                         parent = ud.words[sentence_start + head - 1]
@@ -291,11 +276,7 @@ def load_conllu(file):
         # Read next token/word
         columns = line.split("\t")
         if len(columns) != 10:
-            raise UDError(
-                "The CoNLL-U line does not contain 10 tab-separated columns: '{}'".format(
-                    _encode(line)
-                )
-            )
+            raise UDError(f"The CoNLL-U line does not contain 10 tab-separated columns: '{line}'")
 
         # Skip empty nodes
         if "." in columns[ID]:
@@ -304,7 +285,7 @@ def load_conllu(file):
         # Delete spaces from FORM, so gold.characters == system.characters
         # even if one of them tokenizes the space. Use any Unicode character
         # with category Zs.
-        columns[FORM] = "".join(filter(lambda c: unicodedata.category(c) != "Zs", columns[FORM]))
+        columns[FORM] = "".join(c for c in columns[FORM] if unicodedata.category(c) != "Zs")
         if not columns[FORM]:
             raise UDError("There is an empty FORM in the CoNLL-U file")
 
@@ -317,45 +298,39 @@ def load_conllu(file):
         if "-" in columns[ID]:
             try:
                 start, end = map(int, columns[ID].split("-"))
-            except:
-                raise UDError("Cannot parse multi-word token ID '{}'".format(_encode(columns[ID])))
+            except ValueError as e:
+                raise UDError(f"Cannot parse multi-word token ID '{columns[ID]}'") from e
 
             for _ in range(start, end + 1):
-                word_line = _decode(file.readline().rstrip("\r\n"))
+                word_line = file.readline().rstrip("\r\n")
                 word_columns = word_line.split("\t")
                 if len(word_columns) != 10:
                     raise UDError(
-                        "The CoNLL-U line does not contain 10 tab-separated columns: '{}'".format(
-                            _encode(word_line)
-                        )
+                        f"The CoNLL-U line does not contain 10 tab-separated columns: '{word_line}'"
                     )
                 ud.words.append(UDWord(ud.tokens[-1], word_columns, is_multiword=True))
         # Basic tokens/words
         else:
             try:
                 word_id = int(columns[ID])
-            except:
-                raise UDError("Cannot parse word ID '{}'".format(_encode(columns[ID])))
-            if word_id != len(ud.words) - sentence_start + 1:
+            except ValueError as e:
+                raise UDError(f"Cannot parse word ID '{columns[ID]}'") from e
+            if word_id != (expected_id := len(ud.words) - sentence_start + 1):
                 raise UDError(
-                    "Incorrect word ID '{}' for word '{}', expected '{}'".format(
-                        _encode(columns[ID]),
-                        _encode(columns[FORM]),
-                        len(ud.words) - sentence_start + 1,
-                    )
+                    f"Incorrect ID '{columns[ID]}' for '{columns[FORM]}', expected '{expected_id}'"
                 )
 
             try:
                 head_id = int(columns[HEAD])
-            except:
-                raise UDError("Cannot parse HEAD '{}'".format(_encode(columns[HEAD])))
+            except ValueError as e:
+                raise UDError(f"Cannot parse HEAD '{columns[HEAD]}'") from e
             if head_id < 0:
                 raise UDError("HEAD cannot be negative")
 
             ud.words.append(UDWord(ud.tokens[-1], columns, is_multiword=False))
 
     if sentence_start is not None:
-        raise UDError("The CoNLL-U file does not end with empty line")
+        raise UDError("The CoNLL-U file does not end with an empty line")
 
     return ud
 
@@ -559,8 +534,8 @@ def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> Dict[str
         raise UDError(
             "The concatenation of tokens in gold file and in system file differ!\n"
             + "First 20 differing characters in gold file: '{}' and system file: '{}'".format(
-                "".join(map(_encode, gold_ud.characters[index : index + 20])),
-                "".join(map(_encode, system_ud.characters[index : index + 20])),
+                "".join(gold_ud.characters[index : index + 20]),
+                "".join(system_ud.characters[index : index + 20]),
             )
         )
 
@@ -616,8 +591,8 @@ def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> Dict[str
 
 
 def load_conllu_file(path):
-    _file = open(path, mode="r", **({"encoding": "utf-8"} if sys.version_info >= (3, 0) else {}))
-    return load_conllu(_file)
+    with open(path) as in_stream:
+        return load_conllu(in_stream)
 
 
 def evaluate_wrapper(args):
@@ -704,6 +679,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 # Tests, which can be executed with `python -m unittest conll18_ud_eval`.
 class TestAlignment(unittest.TestCase):
