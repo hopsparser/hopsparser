@@ -1,3 +1,4 @@
+import json
 import math
 import pathlib
 import tempfile
@@ -213,7 +214,21 @@ def test_bert_embeddings_create_save_load(
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = pathlib.Path(tmp_dir)
         lexer.save(tmp_path, save_weights=True)
+        # The only way I have found to enforce the identity of attention implementation in
+        # roundtripping hf models. ugh.
+        model_config_path = tmp_path / "model" / "config.json"
+        model_config_path.write_text(
+            json.dumps(
+                {
+                    **json.loads(model_config_path.read_text()),
+                    "attn_implementation": lexer.model.config._attn_implementation,
+                    "_attn_implementation_autoset": False,
+                }
+            )
+        )
         reloaded = lexers.BertLexer.load(tmp_path)
+        # Should always be true but lol
+        assert reloaded.model.config._attn_implementation == lexer.model.config._attn_implementation
     # TODO: there must be a better way to deal with roots
     test_text = ["", *test_text]
     lexer.eval()
