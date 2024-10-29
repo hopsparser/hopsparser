@@ -1253,7 +1253,7 @@ class BiAffineParser(nn.Module):
         return parser
 
 
-class DependencyDataset(torch.utils.data.Dataset[DepGraph]):
+class DependencyDataset(torch.utils.data.Dataset[EncodedTree]):
     def __init__(
         self,
         parser: BiAffineParser,

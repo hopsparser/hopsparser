@@ -1,7 +1,7 @@
 import datetime
 import pathlib
 import shutil
-from typing import Any, Dict, Literal, NamedTuple, Optional, Union
+from typing import Any, Dict, Iterable, NamedTuple, Optional
 
 import click
 import pydantic
@@ -16,6 +16,7 @@ from loguru import logger
 from pytorch_lightning import callbacks as pl_callbacks
 from pytorch_lightning.loggers.csv_logs import CSVLogger
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
+from pytorch_lightning.accelerators import AcceleratorRegistry
 from rich import box
 from rich.console import Console
 from rich.table import Column, Table
@@ -203,64 +204,20 @@ class SaveModelCallback(pl.Callback):
         pl_module.parser.save(self.save_dir)
 
 
-@click.command(help="Train a parsing model")
-@click.argument(
-    "config_file",
-    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
-)
-@click.argument(
-    "train_file",
-    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
-)
-@click.argument(
-    "output_dir",
-    type=click.Path(resolve_path=True, file_okay=False, writable=True, path_type=pathlib.Path),
-)
-@click.option(
-    "--accelerator",
-    default="cpu",
-    help="The type device to use for the parsing model. (cpu, gpu, …).",
-    show_default=True,
-)
-@click.option(
-    "--dev-file",
-    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
-    help="A CoNLL-U treebank to use as a development dataset.",
-)
-@click.option(
-    "--device",
-    help="The device to use for the parsing model.",
-    type=click.IntRange(0),
-)
-@click.option(
-    "--name",
-    default=datetime.datetime.now().isoformat(),
-    help="The name of the experiment. Defaults to the current datetime.",
-)
-@click.option(
-    "--test-file",
-    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
-    help="A CoNLL-U treebank to use as a development dataset.",
-)
 def train(
-    accelerator: str,
-    dev_file: Optional[pathlib.Path],
-    device: Optional[int],
-    config_file: pathlib.Path,
-    name: str,
-    output_dir: pathlib.Path,
-    test_file: pathlib.Path,
-    train_file: pathlib.Path,
+    accelerator,
+    dev_file,
+    config_file,
+    name,
+    output_dir,
+    train_file,
+    rand_seed: int,
+    callbacks: Iterable[pl_callbacks.Callback] | None = None,
 ):
-    _device: Union[Literal["auto"], int]
-    if device is None:
-        _device = "auto"
-    else:
-        _device = device
-    setup_logging()
-    output_dir.mkdir(exist_ok=True, parents=True)
-    model_path = output_dir / "model"
-    shutil.copy(config_file, output_dir / config_file.name)
+    logger.info(f"Using random seed {rand_seed}")
+    pl.seed_everything(rand_seed, workers=True)
+    transformers.set_seed(rand_seed)
+
     with open(config_file) as in_stream:
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
 
@@ -302,31 +259,102 @@ def train(
     else:
         dev_loader = None
     train_module = ParserTrainingModule(parser=parser, config=train_config)
-    callbacks = [
-        pl_callbacks.RichProgressBar(console_kwargs={"stderr": True}),
+    _callbacks = [
         pl_callbacks.LearningRateMonitor("step"),
         SaveModelCallback(save_dir=output_dir / "model"),
     ]
+    if callbacks is not None:
+        _callbacks.extend(callbacks)
     if dev_loader is not None:
-        callbacks.append(
+        _callbacks.append(
             pl_callbacks.ModelCheckpoint(save_top_k=1, monitor="validation/heads_accuracy")
         )
     else:
-        callbacks.append(pl_callbacks.ModelCheckpoint(save_top_k=1, monitor="train/loss"))
+        _callbacks.append(pl_callbacks.ModelCheckpoint(save_top_k=1, monitor="train/loss"))
     loggers = [
         CSVLogger(output_dir, version=name),
         TensorBoardLogger(output_dir, version=name),
     ]
     trainer = pl.Trainer(
         accelerator=accelerator,
-        callbacks=callbacks,
+        callbacks=_callbacks,
         default_root_dir=output_dir,
-        devices=_device,
         log_every_n_steps=1,
         logger=loggers,
         max_epochs=train_config.epochs,
     )
     trainer.fit(train_module, train_dataloaders=train_loader, val_dataloaders=dev_loader)
+
+
+@click.command(help="Train a parsing model")
+@click.argument(
+    "config_file",
+    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
+)
+@click.argument(
+    "train_file",
+    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
+)
+@click.argument(
+    "output_dir",
+    type=click.Path(resolve_path=True, file_okay=False, writable=True, path_type=pathlib.Path),
+)
+@click.option(
+    "--accelerator",
+    default="auto",
+    show_default=True,
+    type=click.Choice(["auto", *AcceleratorRegistry.available_accelerators()]),
+    help="The type of devices to use (see pytorch-lightning's doc for details).",
+)
+@click.option(
+    "--dev-file",
+    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
+    help="A CoNLL-U treebank to use as a development dataset.",
+)
+@click.option(
+    "--name",
+    default=datetime.datetime.now().isoformat(),
+    help="The name of the experiment. Defaults to the current datetime.",
+)
+@click.option(
+    "--rand-seed",
+    default=0,
+    help=(
+        "Force the random seed for Python and Pytorch (see"
+        " <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)"
+    ),
+    show_default=True,
+    type=int,
+)
+@click.option(
+    "--test-file",
+    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
+    help="A CoNLL-U treebank to use as a development dataset.",
+)
+def main(
+    accelerator: str,
+    dev_file: Optional[pathlib.Path],
+    config_file: pathlib.Path,
+    name: str,
+    output_dir: pathlib.Path,
+    rand_seed: int,
+    test_file: pathlib.Path,
+    train_file: pathlib.Path,
+):
+    setup_logging()
+    output_dir.mkdir(exist_ok=True, parents=True)
+    model_path = output_dir / "model"
+    shutil.copy(config_file, output_dir / config_file.name)
+    train(
+        accelerator,
+        dev_file,
+        config_file,
+        name,
+        output_dir,
+        train_file,
+        rand_seed=rand_seed,
+        callbacks=[pl_callbacks.RichProgressBar(console_kwargs={"stderr": True})],
+    )
 
     metrics = ("UPOS", "UAS", "LAS")
     metrics_table = Table(
@@ -358,4 +386,4 @@ def train(
 
 
 if __name__ == "__main__":
-    train()
+    main()
