@@ -225,7 +225,6 @@ def test_train_script(
 ):
     ret = script_runner.run(
         [
-            "python",
             str(scripts_dir / "train_models.py"),
             str(test_data_dir / "train_script" / "configs"),
             str(test_data_dir / "train_script" / "treebanks"),
