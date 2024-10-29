@@ -9,6 +9,7 @@ dependencies = [
     "click >= 8.0.4, < 9.0.0",
     "fastapi",
     "fasttext-wheel ~= 0.9",
+    "huggingface-hub",
     "loguru",
     "pooch",
     "protobuf",
