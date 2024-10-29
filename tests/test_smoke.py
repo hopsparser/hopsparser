@@ -216,6 +216,7 @@ def test_gold_evaluation(
 
 
 @pytest.mark.parametrize("device", devices)
+@pytest.mark.script_launch_mode("subprocess")
 def test_train_script(
     device: str,
     scripts_dir: pathlib.Path,
@@ -225,6 +226,7 @@ def test_train_script(
 ):
     ret = script_runner.run(
         [
+            "python",
             str(scripts_dir / "train_models.py"),
             str(test_data_dir / "train_script" / "configs"),
             str(test_data_dir / "train_script" / "treebanks"),
