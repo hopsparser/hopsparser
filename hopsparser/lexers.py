@@ -20,6 +20,8 @@ from typing import (
 )
 
 import fasttext
+from huggingface_hub import hf_hub_download
+from huggingface_hub.errors import EntryNotFoundError, RepositoryNotFoundError
 import torch
 import torch.jit
 import transformers
@@ -361,15 +363,34 @@ class FastTextLexer(nn.Module):
     ) -> Self:
         with open(model_path / "config.json") as in_stream:
             config = json.load(in_stream)
-        res = cls.from_fasttext_model(model_path / "fasttext_model.bin", **config)
+        res = cls.from_fasttext_model(model_path / "fasttext_model.bin", no_remote=True, **config)
         weight_file = model_path / "weights.pt"
         if weight_file.exists():
             res.load_state_dict(torch.load(weight_file, map_location="cpu", weights_only=True))
         return res
 
     @classmethod
-    def from_fasttext_model(cls, model_file: Union[str, pathlib.Path], **kwargs) -> Self:
-        return cls(fasttext.load_model(str(model_file)), **kwargs)
+    def from_fasttext_model(
+        cls, model_file: Union[str, pathlib.Path], no_remote: bool = False, **kwargs
+    ) -> Self:
+        try:
+            model = fasttext.load_model(str(model_file))
+        except ValueError:
+            try:
+                model_path = hf_hub_download(repo=model_file, filename="model.bin")
+            except RepositoryNotFoundError as e2:
+                raise ValueError(
+                    f"{model_file} is not an existing path or 🤗 hub repository"
+                ) from e2
+            except EntryNotFoundError as e2:
+                raise ValueError(
+                    f"{model_file} is an existing 🤗 hub repository but does not contain a `model.bin` file"
+                ) from e2
+            try:
+                model = fasttext.load_model(model_path)
+            except ValueError as e2:
+                raise ValueError(f"{model_file} does not seem to be a FastText model") from e2
+        return cls(model, **kwargs)
 
     @classmethod
     def from_raw(

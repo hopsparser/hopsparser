@@ -27,7 +27,6 @@ from typing import (
 
 import pydantic
 
-# import torch
 import torch.utils.data
 import transformers
 import yaml
@@ -1144,30 +1143,42 @@ class BiAffineParser(nn.Module):
                     weight_layers=lexer_config.get("weighted", False),
                 )
             elif lexer_config["type"] == "fasttext":
-                if (fasttext_model_path := lexer_config.get("source")) is not None:
-                    fasttext_model_path = pathlib.Path(fasttext_model_path)
-                    if not fasttext_model_path.is_absolute():
-                        fasttext_model_path = (config_path.parent / fasttext_model_path).resolve()
-                if fasttext_model_path is None:
+                if (fasttext_model_name_or_path := lexer_config.get("source")) is None:
                     logger.info("Generating a FastText model from the treebank")
                     lexer = FastTextLexer.from_sents(
                         [tree.words[1:] for tree in treebank],
                         special_tokens=[DepGraph.ROOT_TOKEN],
                     )
-                elif fasttext_model_path.exists():
-                    try:
-                        # ugly, but we have no better way of checking if a file is a valid model
-                        lexer = FastTextLexer.from_fasttext_model(
-                            fasttext_model_path, special_tokens=[DepGraph.ROOT_TOKEN]
-                        )
-                    except ValueError:
-                        # FastText couldn't load it, so it should be raw text
-                        logger.info(f"Generating a FastText model from {fasttext_model_path}")
-                        lexer = FastTextLexer.from_raw(
-                            fasttext_model_path, special_tokens=[DepGraph.ROOT_TOKEN]
-                        )
                 else:
-                    raise ValueError(f"{fasttext_model_path} not found")
+                    try:
+                        lexer = FastTextLexer.from_fasttext_model(
+                            fasttext_model_name_or_path, special_tokens=[DepGraph.ROOT_TOKEN]
+                        )
+                    except ValueError as e:
+                        # At this point we know it's not a 🤗 hub identifier so we try loading from path
+                        fasttext_model_path = pathlib.Path(fasttext_model_name_or_path)
+                        if (
+                            not fasttext_model_path.exists()
+                            and not fasttext_model_path.is_absolute()
+                        ):
+                            fasttext_model_path = (
+                                config_path.parent / fasttext_model_path
+                            ).resolve()
+                        if not fasttext_model_path.exists():
+                            raise ValueError(
+                                f"Can't find a way to initialize FastText from {fasttext_model_path}."
+                            ) from e
+                        try:
+                            lexer = FastTextLexer.from_fasttext_model(
+                                fasttext_model_name_or_path,
+                                no_remote=True,
+                                special_tokens=[DepGraph.ROOT_TOKEN],
+                            )
+                        except ValueError:
+                            logger.info(f"Generating a FastText model from {fasttext_model_path}")
+                            lexer = FastTextLexer.from_raw(
+                                fasttext_model_path, special_tokens=[DepGraph.ROOT_TOKEN]
+                            )
             else:
                 raise ValueError(f"Unknown lexer type: {lexer_type!r}")
             parser_lexers[lexer_config["name"]] = lexer
@@ -1342,7 +1353,7 @@ def train(
         dev_set=devset,
         epochs=hp["epochs"],
         log_epoch=log_epoch,
-        lr_schedule=LRSchedule.parse_obj(hp["lr"]),
+        lr_schedule=LRSchedule.model_validate(hp["lr"]),
         max_grad_norm=hp.get("max_grad_norm"),
         model_path=model_path,
         train_set=trainset,

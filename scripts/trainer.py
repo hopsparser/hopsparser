@@ -264,7 +264,7 @@ def train(
     with open(config_file) as in_stream:
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
 
-    train_config = TrainConfig.parse_obj(hp)
+    train_config = TrainConfig.model_validate(hp)
 
     with open(train_file) as in_stream:
         train_trees = list(DepGraph.read_conll(in_stream))
