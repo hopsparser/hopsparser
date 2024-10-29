@@ -4,7 +4,8 @@ isolated_build = true
 skip_missing_interpreters = true
 
 [env_run_base]
-extras = ["spacy", "tests", "traintools"]
+# TODO: only install ci in ci…, maybe using the gh-actions thing?
+extras = ["ci", "spacy", "tests", "traintools"]
 commands = [
     [
         'pytest',

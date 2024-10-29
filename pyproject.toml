@@ -37,6 +37,8 @@ version = "0.7.1"
 "Source Code" = "https://github.com/hopsparser/hopsparser"
 
 [project.optional-dependencies]
+# ci should also imply the other extras, maybe with dependency groups
+ci = ["pytest-github-actions-annotate-failures"]
 spacy = ["spacy >= 3.5"]
 tests = [
     "hypothesis",
