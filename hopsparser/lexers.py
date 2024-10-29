@@ -377,7 +377,7 @@ class FastTextLexer(nn.Module):
             model = fasttext.load_model(str(model_file))
         except ValueError:
             try:
-                model_path = hf_hub_download(_id=model_file, filename="model.bin")
+                model_path = hf_hub_download(repo_id=model_file, filename="model.bin")
             except RepositoryNotFoundError as e2:
                 raise ValueError(
                     f"{model_file} is not an existing path or 🤗 hub repository"
