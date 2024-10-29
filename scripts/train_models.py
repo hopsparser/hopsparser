@@ -328,7 +328,7 @@ def main(
     rand_seeds: Optional[List[int]],
     treebanks_dir: pathlib.Path,
 ):
-    logger.remove(0)
+    logger.remove()
     logging_handler = setup_logging()
     out_dir.mkdir(parents=True, exist_ok=True)
     treebanks = [train.parent for train in treebanks_dir.glob("**/*train.conllu")]
