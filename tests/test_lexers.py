@@ -218,12 +218,17 @@ def test_bert_embeddings_create_save_load(
     test_text = ["", *test_text]
     lexer.eval()
     reloaded.eval()
+    try:
+        l_batch = lexer.make_batch([lexer.encode(test_text)])
+    except lexers.LexingError:
+        with pytest.raises(lexers.LexingError):
+            r_batch = reloaded.make_batch([lexer.encode(test_text)])
+    r_batch = reloaded.make_batch([lexer.encode(test_text)])
+    assert l_batch.subword_alignments == r_batch.subword_alignments
+    assert l_batch.encoding.data.keys() == r_batch.encoding.data.keys()
+    for k, v in l_batch.encoding.data.items():
+        assert torch.equal(v, r_batch.encoding.data[k])
     with torch.inference_mode():
-        try:
-            orig_encoding = lexer(lexer.make_batch([lexer.encode(test_text)]))
-        except lexers.LexingError:
-            with pytest.raises(lexers.LexingError):
-                reloaded.encode(test_text)
-        else:
-            reloaded_encoding = reloaded(reloaded.make_batch([reloaded.encode(test_text)]))
-            assert torch.equal(orig_encoding, reloaded_encoding)
+        orig_encoding = lexer(l_batch)
+        reloaded_encoding = reloaded(r_batch)
+        assert torch.equal(orig_encoding, reloaded_encoding)
