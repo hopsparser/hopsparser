@@ -81,6 +81,8 @@ plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 script_launch_mode = "subprocess"
+tmp_path_retention_policy = "failed"
+tmp_path_retention_count = 1
 
 [tool.ruff]
 ignore = ["PTH123"]
