@@ -62,14 +62,16 @@ class ParserTrainingModule(pl.LightningModule):
             num_classes=len(self.parser.labels),
             task="multiclass",
         )
-        self.val_extra_labels_accuracy = {
-            name: torchmetrics.Accuracy(
-                ignore_index=self.parser.LABEL_PADDING,
-                num_classes=len(lex),
-                task="multiclass",
-            )
-            for name, lex in self.parser.annotation_lexicons.items()
-        }
+        self.val_extra_labels_accuracy = torch.nn.ModuleDict(
+            {
+                name: torchmetrics.Accuracy(
+                    ignore_index=self.parser.LABEL_PADDING,
+                    num_classes=len(lex),
+                    task="multiclass",
+                )
+                for name, lex in self.parser.annotation_lexicons.items()
+            }
+        )
 
     def forward(self, batch: DependencyBatch) -> ParserTrainingModuleForwardOutput:
         output = self.parser(batch.sentences.encodings, batch.sentences.sent_lengths)
