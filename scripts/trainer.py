@@ -214,7 +214,7 @@ def train(
     output_dir,
     train_file,
     rand_seed: int,
-    callbacks: Iterable[pl_callbacks.Callback] | None = None,
+    callbacks: Optional[Iterable[pl_callbacks.Callback]] = None,
 ):
     logger.info(f"Using random seed {rand_seed}")
     pl.seed_everything(rand_seed, workers=True)
