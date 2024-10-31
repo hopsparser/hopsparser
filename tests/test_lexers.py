@@ -10,7 +10,7 @@ import torch
 import transformers
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from pytest_lazyfixture import lazy_fixture
+from pytest_lazy_fixture import lf as lazy_fixture
 
 from hopsparser import lexers
 
