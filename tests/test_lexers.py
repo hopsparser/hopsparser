@@ -8,7 +8,7 @@ import fasttext
 import pytest
 import torch
 import transformers
-from hypothesis import given, settings
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from pytest_lazy_fixtures import lf as lazy_fixture
 
@@ -148,8 +148,8 @@ def local_transformer_model(
     return (model, tokenizer)
 
 
+# TODO: do we really need lazy fixture here?
 @pytest.fixture(
-    scope="session",
     params=[
         lazy_fixture("local_transformer_model"),
         lazy_fixture("remote_transformer_model"),
@@ -161,7 +161,8 @@ def transformer_model(
     return request.param
 
 
-@settings(deadline=2000)
+# NOTE: The transformer models are not reset between examples but that *acceptable* and makes tests faster
+@settings(deadline=2000, suppress_health_check=[HealthCheck.function_scoped_fixture])
 # FIXME: should we really skip control characters and whitespaces? We do now because most 🤗
 # tokenizers strip them out instead of rendering them as unk
 # Also formatters ? This forbids ZWNJ??
