@@ -233,6 +233,9 @@ def train(
         treebank=train_trees,
     )
 
+    # TODO: overwrite logic etc
+    parser.save(output_dir / "model")
+
     train_set = DependencyDataset(
         parser,
         train_trees,

@@ -22,6 +22,7 @@ from typing import (
 import fasttext
 from huggingface_hub import hf_hub_download
 from huggingface_hub.errors import EntryNotFoundError, RepositoryNotFoundError
+import numpy as np
 import torch
 import torch.jit
 import transformers
@@ -253,7 +254,8 @@ class FastTextLexer(nn.Module):
     ):
         super().__init__()
         self.fasttext_model = fasttext_model
-        weights = torch.from_numpy(fasttext_model.get_input_matrix())
+        # FastText `get_input_matrix` copies the data, which we don't want here
+        weights = torch.from_numpy(np.array(fasttext_model.f.getInputMatrix(), copy=False))
         # Note: `vocab_size` is the size of the actual fasttext vocabulary. In pratice, the
         # embeddings here have two more tokens in their vocabulary: one for padding (embedding fixed
         # at 0, since the padding embedding never receive gradient in `nn.Embedding`) and one for
@@ -268,6 +270,10 @@ class FastTextLexer(nn.Module):
         ].unsqueeze(0)
         weights = torch.cat((weights, torch.zeros((1, self.output_dim)), root_embedding), dim=0).to(
             torch.float
+        )
+        # We don't need the original weights anymore, let's save some memory
+        self.fasttext_model.set_matrices(
+            np.zeros((2, 2), dtype=np.float32), np.zeros((2, 2), dtype=np.float32)
         )
         weights.requires_grad = True
         self.embeddings = nn.Embedding.from_pretrained(weights, padding_idx=self.vocab_size)
@@ -378,18 +384,18 @@ class FastTextLexer(nn.Module):
         except ValueError:
             try:
                 model_path = hf_hub_download(repo_id=model_file, filename="model.bin")
-            except RepositoryNotFoundError as e2:
+            except RepositoryNotFoundError as e:
                 raise ValueError(
                     f"{model_file} is not an existing path or 🤗 hub repository"
-                ) from e2
-            except EntryNotFoundError as e2:
+                ) from e
+            except EntryNotFoundError as e:
                 raise ValueError(
                     f"{model_file} is an existing 🤗 hub repository but does not contain a `model.bin` file"
-                ) from e2
+                ) from e
             try:
                 model = fasttext.load_model(model_path)
-            except ValueError as e2:
-                raise ValueError(f"{model_file} does not seem to be a FastText model") from e2
+            except ValueError as e:
+                raise ValueError(f"{model_file} does not seem to be a FastText model") from e
         return cls(model, **kwargs)
 
     @classmethod
@@ -551,6 +557,8 @@ class BertLexerBatch(NamedTuple):
             self.encoding.to(device=device),
             self.subword_alignments,
         )
+
+
 class BertLexerSentence(NamedTuple):
     encoding: BatchEncoding
     subwords_alignments: Sequence[TokenSpan]
