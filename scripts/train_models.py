@@ -12,9 +12,6 @@ from io import StringIO
 from queue import Queue
 from typing import (
     Any,
-    Callable,
-    Dict,
-    List,
     NamedTuple,
     Optional,
     Sequence,
@@ -25,6 +22,9 @@ from typing import (
 
 import click
 import pandas as pd
+from pytorch_lightning import callbacks as pl_callbacks
+import pytorch_lightning as pl
+import torch
 import transformers
 import yaml
 from loguru import logger
@@ -36,6 +36,8 @@ from rich.table import Table
 from hopsparser import conll2018_eval as evaluator
 from hopsparser import parser, utils
 
+from hopsparser.traintools import trainer
+
 
 class Messages(enum.Enum):
     CLOSE = enum.auto()
@@ -43,6 +45,16 @@ class Messages(enum.Enum):
     LOG = enum.auto()
     RUN_DONE = enum.auto()
     RUN_START = enum.auto()
+
+
+class EpochFeedbackCallback(pl_callbacks.Callback):
+    def __init__(self, message_queue: Queue, run_name: str):
+        self.message_queue = message_queue
+        self.run_name = run_name
+
+    def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
+        utils.log_epoch(epoch_name=str(trainer.current_epoch), metrics=trainer.logged_metrics)
+        self.message_queue.put((Messages.EPOCH_END, self.run_name))
 
 
 class TrainResults(NamedTuple):
@@ -53,11 +65,11 @@ class TrainResults(NamedTuple):
 
 
 def train_single_model(
-    additional_args: Dict[str, str],
+    additional_args: dict[str, str],
     config_file: pathlib.Path,
     device: str,
     dev_file: pathlib.Path,
-    log_epoch: Callable[[str, Dict[str, str]], Any],
+    message_queue: Queue,
     output_dir: pathlib.Path,
     run_name: str,
     test_file: pathlib.Path,
@@ -72,14 +84,20 @@ def train_single_model(
     )
     model_path = output_dir / "model"
     shutil.copy(config_file, output_dir / config_file.name)
-    parser.train(
+    # TODO: allow multi-device training? seems overkill for now but
+    device_info = torch.device(device)
+    accelerator = device_info.type
+    devices = 1 if accelerator == "cpu" else [cast(int, device_info.index)]
+    trainer.train(
+        accelerator=accelerator,
+        callbacks=[EpochFeedbackCallback(message_queue=message_queue, run_name=run_name)],
         config_file=config_file,
         dev_file=dev_file,
-        device=device,
+        devices=devices,
+        output_dir=output_dir,
+        run_name=run_name,
         train_file=train_file,
-        model_path=model_path,
         **{k: literal_eval(v) for k, v in additional_args.items()},
-        log_epoch=log_epoch,
     )
     metrics_table = Table(box=box.HORIZONTALS)
     metrics_table.add_column("Split")
@@ -121,25 +139,23 @@ def worker(
     device_queue: Queue,
     monitor_queue: Queue,
     run_name: str,
-    train_kwargs: Dict[str, Any],
+    train_kwargs: dict[str, Any],
 ) -> Tuple[str, TrainResults]:
     # We use no more workers than devices so the queue should never be empty when launching the
     # worker fun so we want to fail early here if the Queue is empty. It does not feel right but it
     # works.
     device = device_queue.get(block=False)
     # TODO: figure out a way to make the run name bubble up here
-    log_handle = setup_logging(lambda m: monitor_queue.put((Messages.LOG, m)), rich_fmt=True)
+    log_handle = utils.setup_logging(
+        appname=f"[hops_trainer({run_name})]",
+        sink=lambda m: monitor_queue.put((Messages.LOG, m)),
+    )[0]
     train_kwargs["device"] = device
     logger.info(f"Start training {run_name} on {device}")
     with open(train_kwargs["config_file"]) as in_stream:
         n_epochs = yaml.load(in_stream, Loader=yaml.SafeLoader)["epochs"]
     monitor_queue.put((Messages.RUN_START, (run_name, n_epochs)))
-
-    def log_epoch(*args, **kwargs):
-        utils.log_epoch(*args, **kwargs)
-        monitor_queue.put((Messages.EPOCH_END, run_name))
-
-    res = train_single_model(**train_kwargs, log_epoch=log_epoch, run_name=run_name)
+    res = train_single_model(**train_kwargs, message_queue=monitor_queue, run_name=run_name)
     device_queue.put(device)
     # logger.info(f"Run {name} finished with results {res}")
     monitor_queue.put((Messages.RUN_DONE, run_name))
@@ -148,9 +164,9 @@ def worker(
 
 
 def run_multi(
-    runs: Sequence[Tuple[str, Dict[str, Any]]],
-    devices: List[str],
-) -> List[Tuple[str, TrainResults]]:
+    runs: Sequence[Tuple[str, dict[str, Any]]],
+    devices: list[str],
+) -> list[Tuple[str, TrainResults]]:
     with multiprocessing.Manager() as manager:
         device_queue = manager.Queue()
         for d in devices:
@@ -186,9 +202,9 @@ def monitor_process(num_runs: int, queue: multiprocessing.Queue):
         refresh_per_second=1.0,
         speed_estimate_period=1800,
     ) as progress:
-        setup_logging(lambda m: progress.console.print(m, end=""), rich_fmt=True)
+        utils.setup_logging(console=progress.console)
         train_task = progress.add_task("Training", total=num_runs)
-        ongoing: Dict[str, TaskID] = dict()
+        ongoing: dict[str, TaskID] = dict()
         while True:
             try:
                 msg_type, msg = queue.get()
@@ -215,66 +231,15 @@ def monitor_process(num_runs: int, queue: multiprocessing.Queue):
 def parse_args_callback(
     _ctx: click.Context,
     _opt: Union[click.Parameter, click.Option],
-    val: Optional[List[str]],
-) -> Optional[List[Tuple[str, List[str]]]]:
+    val: Optional[list[str]],
+) -> Optional[list[Tuple[str, list[str]]]]:
     if val is None:
         return None
-    res: List[Tuple[str, List[str]]] = []
+    res: list[Tuple[str, list[str]]] = []
     for v in val:
         name, values = v.split("=", maxsplit=1)
         res.append((name, values.split(",")))
     return res
-
-
-class InterceptHandler(logging.Handler):
-    def emit(self, record):
-        # Get corresponding Loguru level if it exists
-        try:
-            level = logger.level(record.levelname).name
-        except ValueError:
-            level = record.levelno
-
-        # Find caller from where originated the logged message
-        frame, depth = logging.currentframe(), 2
-        while frame.f_code.co_filename == logging.__file__:
-            frame = frame.f_back
-            depth += 1
-
-        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
-
-
-def setup_logging(sink=sys.stderr, rich_fmt: bool = False):
-    appname = "\\[hops_trainer]" if rich_fmt else "[hops_trainer]"
-
-    log_level = "INFO"
-    log_fmt = (
-        f"{appname}"
-        " <green>{time:YYYY-MM-DD}T{time:HH:mm:ss}</green> {level}: "
-        " <level>{message}</level>"
-    )
-    # FIXME: I hate this but it's the easiest way
-    if rich_fmt:
-        log_fmt = log_fmt.replace("<", "[").replace(">", "]")
-
-    # Deal with stdlib.logging
-
-    transformers.utils.logging.disable_default_handler()
-    transformers.utils.logging.disable_progress_bar()
-    # FIXME: I found no easy public way to avoid reaching to the private interaface here
-    # Avoid adding the intercepter multiple times
-    if not any(
-        isinstance(handler, InterceptHandler)
-        for handler in transformers.utils.logging._get_library_root_logger().handlers
-    ):
-        transformers.utils.logging.add_handler(InterceptHandler())
-
-    return logger.add(
-        sink,
-        colorize=True,
-        enqueue=True,
-        format=log_fmt,
-        level=log_level,
-    )
 
 
 @click.command()
@@ -305,31 +270,36 @@ def setup_logging(sink=sys.stderr, rich_fmt: bool = False):
 )
 @click.option(
     "--out-dir",
-    default=".",
+    default=pathlib.Path.cwd(),
     type=click.Path(resolve_path=True, exists=False, file_okay=False, path_type=pathlib.Path),
 )
 @click.option("--prefix", default="", help="A custom prefix to prepend to run names.")
+# FIXME: we should have to manually set the default like this, see how to uncomment
 @click.option(
     "--rand-seeds",
     callback=(
-        lambda _ctx, _opt, val: None if val is None else [int(v) for v in val.split(",") if v]
+        lambda _ctx, _opt, val: [0] if val is None else [int(v) for v in val.split(",") if v]
     ),
+    # default=[0],
     help=(
         "A comma-separated list of random seeds to try and run stats on."
         " Only the seed with the best result will be kept for every running config."
+        "[default: 0]"
     ),
+    metavar="INT,...",
+    # show_default=True,
 )
 def main(
-    args: Optional[List[Tuple[str, List[str]]]],
+    args: Optional[list[Tuple[str, list[str]]]],
     configs_dir: pathlib.Path,
-    devices: List[str],
+    devices: list[str],
     out_dir: pathlib.Path,
     prefix: str,
-    rand_seeds: Optional[List[int]],
+    rand_seeds: Optional[list[int]],
     treebanks_dir: pathlib.Path,
 ):
     logger.remove()
-    logging_handler = setup_logging()
+    logging_handlers = utils.setup_logging(appname="[hops_trainer]")
     out_dir.mkdir(parents=True, exist_ok=True)
     treebanks = [train.parent for train in treebanks_dir.glob("**/*train.conllu")]
     logger.info(f"Training on {len(treebanks)} treebanks.")
@@ -341,7 +311,7 @@ def main(
             *(args if args is not None else []),
         ]
         logger.info(f"Training with {len(rand_seeds)} rand seeds.")
-    additional_args_combinations: List[Dict[str, str]]
+    additional_args_combinations: list[dict[str, str]]
     if args:
         args_names, all_args_values = map(list, zip(*args))
         additional_args_combinations = [
@@ -351,9 +321,9 @@ def main(
     else:
         args_names = []
         additional_args_combinations = [dict()]
-    runs: List[Tuple[str, Dict[str, Any]]] = []
-    runs_dict: Dict[str, Dict] = dict()
-    skipped_res: List[Tuple[str, TrainResults]] = []
+    runs: list[Tuple[str, dict[str, Any]]] = []
+    runs_dict: dict[str, dict] = dict()
+    skipped_res: list[Tuple[str, TrainResults]] = []
     for t in treebanks:
         for c in configs:
             train_file = next(t.glob("*train.conllu"))
@@ -433,9 +403,10 @@ def main(
                 runs.append((run_name, run_args))
 
     logger.info(f"Starting {len(runs)} runs.")
-    logger.remove(logging_handler)
+    for h in logging_handlers:
+        logger.remove(h)
     res = run_multi(runs, devices)
-    setup_logging()
+    utils.setup_logging(appname="[hops_trainer]")
     logger.info("Done with training")
     res.extend(skipped_res)
 

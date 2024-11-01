@@ -6,10 +6,11 @@ import os
 import pathlib
 import sys
 import tempfile
-from typing import IO, Any, Dict, Generator, Optional, Sequence, Type, Union, cast
+from typing import IO, Any, Callable, Dict, Generator, Optional, Sequence, TextIO, Type, Union, cast
 import warnings
 
 import click
+import loguru
 import rich.progress
 import rich.text
 from loguru import logger
@@ -50,7 +51,7 @@ def smart_open(
 
 @contextlib.contextmanager
 def dir_manager(
-    path: Optional[Union[pathlib.Path, str]] = None
+    path: Optional[Union[pathlib.Path, str]] = None,
 ) -> Generator[pathlib.Path, None, None]:
     """A context manager to deal with a directory, default to a self-destruct temp one."""
     if path is None:
@@ -73,23 +74,68 @@ def make_markdown_metrics_table(metrics: Dict[str, float]) -> str:
     return "\n".join(f"|{r}|" for r in (headers, midrule, row))
 
 
+class InterceptHandler(logging.Handler):
+    def __init__(self, wrapped_name: Optional[str] = None, *args, **kwargs):
+        self.wrapped_name = wrapped_name
+        super().__init__(*args, **kwargs)
+
+    def emit(self, record):
+        # Get corresponding Loguru level if it exists
+        try:
+            level = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        # Find caller from where originated the logged message
+        frame, depth = logging.currentframe(), 2
+        while frame is not None and frame.f_code.co_filename == logging.__file__:
+            frame = frame.f_back
+            depth += 1
+
+        if frame is None:
+            warnings.warn(
+                "Catching calls to logging is impossible in stackless environment,"
+                " logging from external libraries might be lost.",
+                stacklevel=2,
+            )
+        else:
+            if self.wrapped_name is not None:
+                logger.opt(depth=depth, exception=record.exc_info).log(
+                    level, f"[bold]{self.wrapped_name} says:[/bold] {record.getMessage()}"
+                )
+            else:
+                logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+
+
 def setup_logging(
-    console: Optional[rich.console.Console]=None,
-    verbose: bool=False,
+    appname: str = "hops",
+    console: Optional[rich.console.Console] = None,
     log_file: Optional[pathlib.Path] = None,
     replace_warnings: bool = True,
-):
+    sink: Optional[
+        Union[
+            str,
+            "loguru.PathLikeStr",
+            TextIO,
+            "loguru.Writable",
+            Callable[["loguru.Message"], None],
+            logging.Handler,
+        ]
+    ] = None,
+    verbose: bool = False,
+) -> list[int]:
+    res: list[int] = []
     if console is None:
         console = rich.get_console()
+    if sink is None:
+        sink = lambda m: console.print(m, end="")  # noqa: E731
     logger.remove()  # Remove the default logger
     if "SLURM_JOB_ID" in os.environ:
         local_id = os.environ.get("SLURM_LOCALID", "someproc")
         node_name = os.environ.get("SLURMD_NODENAME", "somenode")
         appname = (
-            f"hops ({os.environ.get('SLURM_PROCID', 'somerank')} [{local_id}@{node_name}])"
+            f"{appname} ({os.environ.get('SLURM_PROCID', 'somerank')} [{local_id}@{node_name}])"
         )
-    else:
-        appname = "hops"
 
     if verbose:
         log_level = "DEBUG"
@@ -107,59 +153,34 @@ def setup_logging(
             " {message}"
         )
 
-    logger.add(
-        lambda m: console.print(m, end=""),
-        colorize=True,
-        format=log_fmt,
-        level=log_level,
+    res.append(
+        logger.add(
+            sink,
+            colorize=True,
+            enqueue=True,
+            format=log_fmt,
+            level=log_level,
+        )
     )
 
     if log_file:
-        logger.add(
-            log_file,
-            colorize=False,
-            format=(f"[{appname}] {{time:YYYY-MM-DD HH:mm:ss.SSS}} | {{level: <8}} | {{message}}"),
-            level="DEBUG",
+        res.append(
+            logger.add(
+                log_file,
+                colorize=False,
+                enqueue=True,
+                format=(
+                    f"[{appname}] {{time:YYYY-MM-DD HH:mm:ss.SSS}} | {{level: <8}} | {{message}}"
+                ),
+                level="DEBUG",
+            )
         )
 
     # Deal with stdlib.logging
-
-    class InterceptHandler(logging.Handler):
-        def __init__(self, wrapped_name: Optional[str] = None, *args, **kwargs):
-            self.wrapped_name = wrapped_name
-            super().__init__(*args, **kwargs)
-
-        def emit(self, record):
-            # Get corresponding Loguru level if it exists
-            try:
-                level = logger.level(record.levelname).name
-            except ValueError:
-                level = record.levelno
-
-            # Find caller from where originated the logged message
-            frame, depth = logging.currentframe(), 2
-            while frame is not None and frame.f_code.co_filename == logging.__file__:
-                frame = frame.f_back
-                depth += 1
-
-            if frame is None:
-                warnings.warn(
-                    "Catching calls to logging is impossible in stackless environment,"
-                    " logging from external libraries might be lost."
-                )
-            else:
-                if self.wrapped_name is not None:
-                    logger.opt(depth=depth, exception=record.exc_info).log(
-                        level, f"[bold]{self.wrapped_name} says:[/bold] {record.getMessage()}"
-                    )
-                else:
-                    logger.opt(depth=depth, exception=record.exc_info).log(
-                        level, record.getMessage()
-                    )
-
     for libname in (
         "datasets",
         "huggingface_hub",
+        "lightning",
         "lightning_fabric",
         "pytorch_lightning",
         "torch",
@@ -179,6 +200,8 @@ def setup_logging(
 
     if replace_warnings:
         warnings.showwarning = showwarning
+
+    return res
 
 
 def log_epoch(epoch_name: str, metrics: Dict[str, str]):
@@ -221,6 +244,7 @@ class SeparatedTuple(click.ParamType):
     This parses argumenst of the form `somelabel:/path/to/something` and returns a couple `(label:
     str, path: pathlib.Path)`.
     """
+
     name = "separated tuple"
 
     def __init__(self, separator: str, types: Sequence[Union[Type, click.ParamType]]):

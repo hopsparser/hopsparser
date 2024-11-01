@@ -739,7 +739,8 @@ class BiAffineParser(nn.Module):
                 dev_scores = self.eval_model(dev_loader, batch_size=batch_size)
                 # FIXME: this is not very elegant (2022-07)
                 # FIXME: really not (2022-09)
-                # FIXME: it's ok, lightning will save us
+                # FIXME: it's ok, lightning will save us (2023-03)
+                # FIXME: almost there, lads (2024-11)
                 log_epoch(
                     str(e),
                     {
