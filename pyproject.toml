@@ -65,7 +65,7 @@ hopsparser = "hopsparser.main:cli"
 eval_parse = "hopsparser.conll2018_eval:main"
 
 [tool.setuptools]
-packages = ["hopsparser"]
+packages = ["hopsparser", "hopsparser.traintools"]
 
 [build-system]
 requires = ["setuptools>=64", "wheel"]
