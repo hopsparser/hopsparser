@@ -12,6 +12,7 @@ on:
         required: true
 env:
   main-python-version: "3.12"
+  FORCE_COLOR: "1"
 
 jobs:
   lint:
