@@ -1,7 +1,7 @@
 import datetime
 import pathlib
 import shutil
-from typing import Any, Dict, Iterable, NamedTuple, Optional
+from typing import Any, Dict, Iterable, NamedTuple, Optional, Union
 
 import click
 import pydantic
@@ -85,8 +85,9 @@ class ParserTrainingModule(pl.LightningModule):
             "train/loss",
             output.loss,
             batch_size=batch.sentences.sent_lengths.shape[0],
-            reduce_fx=torch.mean,
+            logger=True,
             on_epoch=True,
+            reduce_fx=torch.mean,
             sync_dist=True,
         )
 
@@ -99,8 +100,9 @@ class ParserTrainingModule(pl.LightningModule):
             "validation/loss",
             output.loss,
             batch_size=batch.sentences.sent_lengths.shape[0],
-            reduce_fx=torch.mean,
+            logger=True,
             on_epoch=True,
+            reduce_fx=torch.mean,
             sync_dist=True,
         )
 
@@ -110,6 +112,7 @@ class ParserTrainingModule(pl.LightningModule):
         self.log(
             "validation/tags_accuracy",
             self.val_tags_accuracy,
+            logger=True,
             on_epoch=True,
         )
 
@@ -125,6 +128,7 @@ class ParserTrainingModule(pl.LightningModule):
         self.log(
             "validation/heads_accuracy",
             self.val_heads_accuracy,
+            logger=True,
             on_epoch=True,
         )
 
@@ -152,6 +156,7 @@ class ParserTrainingModule(pl.LightningModule):
         self.log(
             "validation/deprel_accuracy",
             self.val_deprel_accuracy,
+            logger=True,
             on_epoch=True,
         )
 
@@ -163,10 +168,12 @@ class ParserTrainingModule(pl.LightningModule):
             self.log(
                 f"validation/{name}_accuracy",
                 self.val_extra_labels_accuracy[name],
+                logger=True,
                 on_epoch=True,
             )
 
     def configure_optimizers(self):
+        # TODO: use modern Adam/other opts and allow tweaking the betas
         optimizer = torch.optim.Adam(
             self.parameters(), betas=(0.9, 0.9), lr=self.config.lr.base, eps=1e-09
         )
@@ -207,15 +214,22 @@ class SaveModelCallback(pl.Callback):
 
 
 def train(
-    accelerator,
-    dev_file,
-    config_file,
-    name,
-    output_dir,
-    train_file,
+    accelerator: str,
+    config_file: pathlib.Path,
+    dev_file: Optional[pathlib.Path],
+    output_dir: pathlib.Path,
     rand_seed: int,
+    run_name: str,
+    train_file: pathlib.Path,
+    devices: Union[int, str, list[int]] = 0,
     callbacks: Optional[Iterable[pl_callbacks.Callback]] = None,
+    overwrite: bool = False,
 ):
+    output_dir.mkdir(exist_ok=True, parents=True)
+    # TODO: rollback in case of failure?
+    shutil.copy(config_file, output_dir / config_file.name)
+    model_path = output_dir / "model"
+
     logger.info(f"Using random seed {rand_seed}")
     pl.seed_everything(rand_seed, workers=True)
     transformers.set_seed(rand_seed)
@@ -228,12 +242,23 @@ def train(
     with open(train_file) as in_stream:
         train_trees = list(DepGraph.read_conll(in_stream))
 
-    parser = BiAffineParser.initialize(
-        config_path=config_file,
-        treebank=train_trees,
-    )
+    if model_path.exists():
+        if overwrite:
+            logger.info(
+                f"Erasing existing trained model in {model_path} since overwrite was asked",
+            )
+            shutil.rmtree(model_path)
+        else:
+            logger.info(f"Continuing training from {model_path}")
+            parser = BiAffineParser.load(model_path)
+    else:
+        if overwrite:
+            logger.warning(f"Overwrite asked but {model_path} does not exist or is empty")
+        parser = BiAffineParser.initialize(
+            config_path=config_file,
+            treebank=train_trees,
+        )
 
-    # TODO: overwrite logic etc
     parser.save(output_dir / "model")
 
     train_set = DependencyDataset(
@@ -264,26 +289,28 @@ def train(
     else:
         dev_loader = None
     train_module = ParserTrainingModule(parser=parser, config=train_config)
-    _callbacks = [
+    base_callbacks = [
         pl_callbacks.LearningRateMonitor("step"),
-        SaveModelCallback(save_dir=output_dir / "model"),
+        SaveModelCallback(save_dir=model_path),
     ]
     if callbacks is not None:
-        _callbacks.extend(callbacks)
+        base_callbacks.extend(callbacks)
     if dev_loader is not None:
-        _callbacks.append(
+        base_callbacks.append(
             pl_callbacks.ModelCheckpoint(save_top_k=1, monitor="validation/heads_accuracy")
         )
     else:
-        _callbacks.append(pl_callbacks.ModelCheckpoint(save_top_k=1, monitor="train/loss"))
+        base_callbacks.append(pl_callbacks.ModelCheckpoint(save_top_k=1, monitor="train/loss"))
     loggers = [
-        CSVLogger(output_dir, version=name),
-        TensorBoardLogger(output_dir, version=name),
+        CSVLogger(output_dir, version=run_name),
+        TensorBoardLogger(output_dir, version=run_name),
     ]
     trainer = pl.Trainer(
         accelerator=accelerator,
-        callbacks=_callbacks,
+        callbacks=base_callbacks,
         default_root_dir=output_dir,
+        devices=devices,
+        enable_progress_bar=False,
         log_every_n_steps=1,
         logger=loggers,
         max_epochs=train_config.epochs,
@@ -317,8 +344,8 @@ def train(
     help="A CoNLL-U treebank to use as a development dataset.",
 )
 @click.option(
-    "--name",
-    default=datetime.datetime.now().isoformat(),
+    "--run-name",
+    default=datetime.datetime.now().replace(microsecond=0).isoformat(),
     help="The name of the experiment. Defaults to the current datetime.",
 )
 @click.option(
@@ -340,7 +367,7 @@ def main(
     accelerator: str,
     dev_file: Optional[pathlib.Path],
     config_file: pathlib.Path,
-    name: str,
+    run_name: str,
     output_dir: pathlib.Path,
     rand_seed: int,
     test_file: pathlib.Path,
@@ -351,12 +378,13 @@ def main(
     model_path = output_dir / "model"
     shutil.copy(config_file, output_dir / config_file.name)
     train(
-        accelerator,
-        dev_file,
-        config_file,
-        name,
-        output_dir,
-        train_file,
+        accelerator=accelerator,
+        dev_file=dev_file,
+        devices=[0],
+        config_file=config_file,
+        run_name=run_name,
+        output_dir=output_dir,
+        train_file=train_file,
         rand_seed=rand_seed,
         callbacks=[pl_callbacks.RichProgressBar(console_kwargs={"stderr": True})],
     )

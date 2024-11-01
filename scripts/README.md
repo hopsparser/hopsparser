@@ -56,7 +56,7 @@ this doesn't require access to GPUs.
 For reference, we train our models using
 
 ```console
-python scripts/train_models.py {repo_root}/examples/ {resource_dir}/treebanks --devices "cuda:0,cuda:1" --rand_seeds "0,1,2,3" --out-dir {output_dir}/newmodels" --args "max_tree_length=150"
+python scripts/train_models.py {repo_root}/examples/ {resource_dir}/treebanks --devices "cuda:0,cuda:1" --rand_seeds "0,1,2,3" --out-dir {output_dir}/newmodels"
 ```
 
 For our contemporary French models, the whole procedure takes around 36h/seed on our machine.

@@ -144,8 +144,8 @@ class CharRNNLexer(nn.Module):
         )
 
     def forward(self, inpt: CharRNNLexerBatch) -> torch.Tensor:
-        """
-        Predicts the word embedding from the token characters.
+        """Predicts the word embedding from the token characters.
+
         :param inpt: is a tensor of char indexes encoding a batch of tokens *×token_len
         :return: a word embedding tensor
         """
@@ -263,7 +263,7 @@ class FastTextLexer(nn.Module):
         self.vocab_size: Final[int] = weights.shape[0]
         self.output_dim: Final[int] = weights.shape[1]
         # FIXME: this should really be called `special_tokens_embedding`
-        # NOTE: I haven't thought too hard about this, maybe it's a bad idea
+        # NOTE: I haven't thought too hard about this, maybe it's a bad idea.
         root_embedding = weights[
             torch.randint(high=self.vocab_size, size=(self.output_dim,)),
             torch.arange(self.output_dim),
@@ -271,7 +271,9 @@ class FastTextLexer(nn.Module):
         weights = torch.cat((weights, torch.zeros((1, self.output_dim)), root_embedding), dim=0).to(
             torch.float
         )
-        # We don't need the original weights anymore, let's save some memory
+        # We don't need the original weights anymore, let's save some memory. Note that doing this
+        # before `cat` is at best useless (since the cat is the only point where the data is copied)
+        # and at worst might lead to strange errors due to unclear memory ownership.
         self.fasttext_model.set_matrices(
             np.zeros((2, 2), dtype=np.float32), np.zeros((2, 2), dtype=np.float32)
         )
