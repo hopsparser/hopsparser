@@ -147,7 +147,7 @@ def worker(
     device = device_queue.get(block=False)
     # TODO: figure out a way to make the run name bubble up here
     log_handle = utils.setup_logging(
-        appname=f"[hops_trainer({run_name})]",
+        appname=f"hops_trainer({run_name})",
         sink=lambda m: monitor_queue.put((Messages.LOG, m)),
     )[0]
     train_kwargs["device"] = device
@@ -202,7 +202,6 @@ def monitor_process(num_runs: int, queue: multiprocessing.Queue):
         refresh_per_second=1.0,
         speed_estimate_period=1800,
     ) as progress:
-        utils.setup_logging(console=progress.console)
         train_task = progress.add_task("Training", total=num_runs)
         ongoing: dict[str, TaskID] = dict()
         while True:
@@ -216,7 +215,7 @@ def monitor_process(num_runs: int, queue: multiprocessing.Queue):
             elif msg_type is Messages.EPOCH_END:
                 progress.advance(ongoing[msg])
             elif msg_type is Messages.LOG:
-                logger.log(msg.record["level"].name, msg.record["message"])
+                progress.console.print(msg, end="")
             elif msg_type is Messages.RUN_DONE:
                 progress.advance(train_task)
                 progress.remove_task(ongoing[msg])
@@ -299,7 +298,7 @@ def main(
     treebanks_dir: pathlib.Path,
 ):
     logger.remove()
-    logging_handlers = utils.setup_logging(appname="[hops_trainer]")
+    logging_handlers = utils.setup_logging(appname="hops_trainer")
     out_dir.mkdir(parents=True, exist_ok=True)
     treebanks = [train.parent for train in treebanks_dir.glob("**/*train.conllu")]
     logger.info(f"Training on {len(treebanks)} treebanks.")
@@ -406,7 +405,7 @@ def main(
     for h in logging_handlers:
         logger.remove(h)
     res = run_multi(runs, devices)
-    utils.setup_logging(appname="[hops_trainer]")
+    utils.setup_logging(appname="hops_trainer")
     logger.info("Done with training")
     res.extend(skipped_res)
 

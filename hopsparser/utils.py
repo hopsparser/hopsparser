@@ -180,7 +180,6 @@ def setup_logging(
     for libname in (
         "datasets",
         "huggingface_hub",
-        "lightning",
         "lightning_fabric",
         "pytorch_lightning",
         "torch",
@@ -192,7 +191,7 @@ def setup_logging(
         if lib_logger.handlers:
             lib_logger.handlers = []
         lib_logger.addHandler(InterceptHandler(libname))
-        logger.info(f"Intercepting logging from {libname}")
+        logger.debug(f"Intercepting logging from {libname}")
 
     # Deal with stdlib.warnings
     def showwarning(message, category, filename, lineno, file=None, line=None):
