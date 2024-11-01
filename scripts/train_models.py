@@ -21,11 +21,10 @@ from typing import (
 )
 
 import click
-import pandas as pd
+import polars as pol
 from pytorch_lightning import callbacks as pl_callbacks
 import pytorch_lightning as pl
 import torch
-import transformers
 import yaml
 from loguru import logger
 from rich import box
@@ -241,6 +240,21 @@ def parse_args_callback(
     return res
 
 
+def to_describe(col: str, prefix=""):
+    prefix = prefix or f"{col}_"
+    return [
+        pol.col(col).count().alias(f"{prefix}count"),
+        pol.col(col).is_null().sum().alias(f"{prefix}null_count"),
+        pol.col(col).mean().alias(f"{prefix}mean"),
+        pol.col(col).std().alias(f"{prefix}std"),
+        pol.col(col).min().alias(f"{prefix}min"),
+        pol.col(col).quantile(0.25).alias(f"{prefix}25%"),
+        pol.col(col).quantile(0.5).alias(f"{prefix}50%"),
+        pol.col(col).quantile(0.75).alias(f"{prefix}75%"),
+        pol.col(col).max().alias(f"{prefix}max"),
+    ]
+
+
 @click.command()
 @click.argument(
     "configs_dir",
@@ -437,20 +451,29 @@ def main(
                     out_stream.write(f"\t{100*report['results'][s]:.2f}")
                 out_stream.write("\n")
     else:
-        df_dict = {
-            run_name: {
+        df_dicts = [
+            {
+                "run_name": run_name,
                 **{k: v for k, v in run_report.items() if k not in ("additional_args", "results")},
                 **run_report["additional_args"],
                 **run_report["results"],
             }
             for run_name, run_report in report_dict.items()
-        }
-        df = pd.DataFrame.from_dict(df_dict, orient="index")
-        df.to_csv(out_dir / "full_report.csv")
-        grouped = df.groupby(
-            ["config", "treebank", *(a for a in args_names if a != "rand_seed")],
-        )
-        grouped[["dev_upos", "dev_las", "test_upos", "test_las"]].describe().to_csv(summary_file)
+        ]
+        df = pol.from_records(df_dicts)
+        df.write_csv(out_dir / "full_report.csv")
+        group_cols = [
+            "config",
+            "treebank",
+            *(a for a in args_names if a != "rand_seed"),
+        ]
+        df.group_by(*group_cols).agg(
+            *(
+                c
+                for col in ["dev_upos", "dev_las", "test_upos", "test_las"]
+                for c in to_describe(col)
+            )
+        ).write_csv(summary_file)
         best_dir = out_dir / "best"
         best_dir.mkdir(exist_ok=True, parents=True)
         with open(best_dir / "models.md", "w") as out_stream:
@@ -458,9 +481,17 @@ def main(
                 "| Model name | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download |\n"
                 "|:-----------|:----------:|:---------:|:-----------:|:----------:|:--------:|\n"
             )
-            for run_name, report in sorted(df.loc[grouped["dev_las"].idxmax()].iterrows()):
-                shutil.copytree(report["output_dir"], best_dir / run_name, dirs_exist_ok=True)
-                model_name = run_name.split("+", maxsplit=1)[0]
+            for report in (
+                df.group_by(*group_cols)
+                .agg(pol.all().top_k_by("dev_las", 1))
+                .explode(pol.all().exclude(*group_cols))
+                .sort(pol.col("run_name"))
+                .iter_rows(named=True)
+            ):
+                shutil.copytree(
+                    report["output_dir"], best_dir / report["run_name"], dirs_exist_ok=True
+                )
+                model_name = report["run_name"].split("+", maxsplit=1)[0]
                 out_stream.write("| ")
                 out_stream.write(
                     " | ".join(
