@@ -35,7 +35,7 @@ from rich.table import Table
 from hopsparser import conll2018_eval as evaluator
 from hopsparser import parser, utils
 
-from hopsparser.traintools import trainer
+import hopsparser.traintools.trainer as trainer
 
 
 class Messages(enum.Enum):
@@ -467,12 +467,14 @@ def main(
             "treebank",
             *(a for a in args_names if a != "rand_seed"),
         ]
+        summary_columns = [
+            "dev_upos",
+            "dev_las",
+            "test_upos",
+            "test_las",
+        ]
         df.group_by(*group_cols).agg(
-            *(
-                c
-                for col in ["dev_upos", "dev_las", "test_upos", "test_las"]
-                for c in to_describe(col)
-            )
+            *(c for col in summary_columns for c in to_describe(col))
         ).write_csv(summary_file)
         best_dir = out_dir / "best"
         best_dir.mkdir(exist_ok=True, parents=True)
@@ -493,19 +495,12 @@ def main(
                 )
                 model_name = report["run_name"].split("+", maxsplit=1)[0]
                 out_stream.write("| ")
+
                 out_stream.write(
                     " | ".join(
                         [
                             model_name,
-                            *(
-                                f"{100*report[v]:.2f}"
-                                for v in [
-                                    "dev_upos",
-                                    "dev_las",
-                                    "test_upos",
-                                    "test_las",
-                                ]
-                            ),
+                            *(f"{100*report[v]:.2f}" for v in summary_columns),
                         ]
                     )
                 )
