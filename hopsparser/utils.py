@@ -6,7 +6,8 @@ import os
 import pathlib
 import sys
 import tempfile
-from typing import IO, Any, Callable, Dict, Generator, Optional, Sequence, TextIO, Type, Union, cast
+from types import FrameType
+from typing import IO, Any, Callable, Generator, Optional, Sequence, TextIO, Type, Union, cast
 import warnings
 
 import click
@@ -65,7 +66,7 @@ def dir_manager(
 
 
 # TODO: use rich table markdown style for this instead
-def make_markdown_metrics_table(metrics: Dict[str, float]) -> str:
+def make_markdown_metrics_table(metrics: dict[str, float]) -> str:
     column_width = max(7, *(len(k) for k in metrics.keys()))
     keys, values = zip(*metrics.items())
     headers = "|".join(k.center(column_width) for k in keys)
@@ -87,7 +88,8 @@ class InterceptHandler(logging.Handler):
             level = record.levelno
 
         # Find caller from where originated the logged message
-        frame, depth = logging.currentframe(), 2
+        frame: Optional[FrameType] = logging.currentframe()
+        depth = 2
         while frame is not None and frame.f_code.co_filename == logging.__file__:
             frame = frame.f_back
             depth += 1
@@ -101,7 +103,7 @@ class InterceptHandler(logging.Handler):
         else:
             if self.wrapped_name is not None:
                 logger.opt(depth=depth, exception=record.exc_info).log(
-                    level, f"[bold]{self.wrapped_name} says:[/bold] {record.getMessage()}"
+                    level, f"({self.wrapped_name}) {record.getMessage()}"
                 )
             else:
                 logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
@@ -177,9 +179,12 @@ def setup_logging(
         )
 
     # Deal with stdlib.logging
+    # Yes, listing them all is annoying
     for libname in (
         "datasets",
         "huggingface_hub",
+        "lightning",
+        "lightning.pytorch",
         "lightning_fabric",
         "pytorch_lightning",
         "torch",
@@ -203,7 +208,7 @@ def setup_logging(
     return res
 
 
-def log_epoch(epoch_name: str, metrics: Dict[str, str]):
+def log_epoch(epoch_name: str, metrics: dict[str, Any]):
     metrics_table = "\t".join(f"{k} {v}" for k, v in metrics.items())
     logger.info(f"Epoch {epoch_name}: {metrics_table}")
 
@@ -250,13 +255,13 @@ class SeparatedTuple(click.ParamType):
         self.separator = separator
         self.types = [click.types.convert_type(ty) for ty in types]
 
-    def to_info_dict(self) -> Dict[str, Any]:
+    def to_info_dict(self) -> dict[str, Any]:
         info_dict = super().to_info_dict()
         info_dict["types"] = [t.to_info_dict() for t in self.types]
         return info_dict
 
     @property  # type: ignore[no-redef]
-    def name(self) -> str:  # type: ignore[override]
+    def name(self) -> str:  # type: ignore[override]  # noqa: F811
         return f"<{' '.join(ty.name for ty in self.types)}>"
 
     # NOTE: the way this is written forbids using the separator character in the values at all.

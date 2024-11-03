@@ -1,8 +1,8 @@
 # Layer dimensions
-mlp_input: 512
+mlp_input: 64
 mlp_tag_hidden: 16
-mlp_arc_hidden: 512
-mlp_lab_hidden: 128
+mlp_arc_hidden: 128
+mlp_lab_hidden: 32
 # Training hyperparameters
 encoder_dropout: 0.6
 mlp_dropout: 0.5
@@ -13,5 +13,5 @@ lr:
 lexers:
   - name: char_level_embeddings
     type: chars_rnn
-    embedding_size: 64
-    lstm_output_size: 128
+    embedding_size: 4
+    lstm_output_size: 8

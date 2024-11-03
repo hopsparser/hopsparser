@@ -50,6 +50,7 @@ tests = [
 ]
 traintools = [
     "httpx[http2]",
+    "lightning",
     "pytorch-lightning",
     "polars >=  1.12, < 1.13",
     "tensorboardx",
