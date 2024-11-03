@@ -27,7 +27,7 @@ description = "A graph dependency parser to tinker with"
 keywords = ["nlp", "parsing"]
 license = { text = "MIT" }
 name = "hopsparser"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 version = "0.7.1"
 
 [project.urls]
@@ -71,9 +71,6 @@ packages = ["hopsparser", "hopsparser.traintools"]
 [build-system]
 requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
-
-[tool.isort]
-profile = "black"
 
 [tool.mypy]
 check_untyped_defs = true
