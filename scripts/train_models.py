@@ -1,12 +1,10 @@
 import enum
 import itertools
 import json
-import logging
 import multiprocessing
 import os.path
 import pathlib
 import shutil
-import sys
 from ast import literal_eval
 from io import StringIO
 from queue import Queue
@@ -21,29 +19,28 @@ from typing import (
 )
 
 import click
-import polars as pol
-from pytorch_lightning import callbacks as pl_callbacks
 import pytorch_lightning as pl
+import polars as pol
 import torch
-import yaml
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 from loguru import logger
+from pytorch_lightning import callbacks as pl_callbacks
 from rich import box
 from rich.console import Console
 from rich.progress import MofNCompleteColumn, Progress, TaskID, TimeElapsedColumn
 from rich.table import Table
 
+import hopsparser.traintools.trainer as trainer
 from hopsparser import conll2018_eval as evaluator
 from hopsparser import parser, utils
-
-import hopsparser.traintools.trainer as trainer
 
 
 class Messages(enum.Enum):
     CLOSE = enum.auto()
-    EPOCH_END = enum.auto()
     LOG = enum.auto()
     RUN_DONE = enum.auto()
     RUN_START = enum.auto()
+    PROGRESS = enum.auto()
 
 
 class EpochFeedbackCallback(pl_callbacks.Callback):
@@ -51,9 +48,54 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
         self.message_queue = message_queue
         self.run_name = run_name
 
+    def on_train_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
+        self.message_queue.put((Messages.RUN_START, (self.run_name, trainer.num_training_batches)))
+
+    def on_train_batch_end(
+        self,
+        trainer: pl.Trainer,
+        pl_module: pl.LightningModule,
+        outputs: STEP_OUTPUT,
+        batch: Any,
+        batch_idx: int,
+    ):
+        self.message_queue.put(
+            (
+                Messages.PROGRESS,
+                (
+                    self.run_name,
+                    (None, batch_idx + 1),
+                ),
+            )
+        )
+
+    def on_train_epoch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
+        self.message_queue.put(
+            (
+                Messages.PROGRESS,
+                (
+                    self.run_name,
+                    (f"{self.run_name}: train {trainer.current_epoch+1}/{trainer.max_epochs}", None),
+                ),
+            )
+        )
+
     def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
-        utils.log_epoch(epoch_name=str(trainer.current_epoch), metrics=trainer.logged_metrics)
-        self.message_queue.put((Messages.EPOCH_END, self.run_name))
+        if not trainer.sanity_checking:
+            utils.log_epoch(epoch_name=str(trainer.current_epoch), metrics=trainer.logged_metrics)
+            # TODO: a validation progress bar would be nice
+            self.message_queue.put(
+                (
+                    Messages.PROGRESS,
+                    (
+                        self.run_name,
+                        (
+                            f"{self.run_name}: eval {trainer.current_epoch+1}/{trainer.max_epochs}",
+                            None,
+                        ),
+                    ),
+                )
+            )
 
 
 class TrainResults(NamedTuple):
@@ -151,9 +193,6 @@ def worker(
     )[0]
     train_kwargs["device"] = device
     logger.info(f"Start training {run_name} on {device}")
-    with open(train_kwargs["config_file"]) as in_stream:
-        n_epochs = yaml.load(in_stream, Loader=yaml.SafeLoader)["epochs"]
-    monitor_queue.put((Messages.RUN_START, (run_name, n_epochs)))
     res = train_single_model(**train_kwargs, message_queue=monitor_queue, run_name=run_name)
     device_queue.put(device)
     # logger.info(f"Run {name} finished with results {res}")
@@ -192,6 +231,7 @@ def run_multi(
     return res
 
 
+# TODO: use a dict for queue content
 def monitor_process(num_runs: int, queue: multiprocessing.Queue):
     with Progress(
         *Progress.get_default_columns(),
@@ -210,9 +250,8 @@ def monitor_process(num_runs: int, queue: multiprocessing.Queue):
                 break
 
             if msg_type is Messages.CLOSE:
+                progress.remove_task(train_task)
                 break
-            elif msg_type is Messages.EPOCH_END:
-                progress.advance(ongoing[msg])
             elif msg_type is Messages.LOG:
                 progress.console.print(msg, end="")
             elif msg_type is Messages.RUN_DONE:
@@ -221,6 +260,8 @@ def monitor_process(num_runs: int, queue: multiprocessing.Queue):
                 ongoing.pop(msg)
             elif msg_type is Messages.RUN_START:
                 ongoing[msg[0]] = progress.add_task(msg[0], total=msg[1])
+            elif msg_type is Messages.PROGRESS:
+                progress.update(ongoing[msg[0]], description=msg[1][0], completed=msg[1][1])
             else:
                 raise ValueError("Unknown message")
         logger.complete()

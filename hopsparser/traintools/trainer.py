@@ -284,7 +284,6 @@ def train(
             dataset=dev_set,
             batch_size=train_config.batch_size,
             collate_fn=parser.batch_trees,
-            shuffle=True,
         )
     else:
         dev_loader = None

@@ -8,7 +8,7 @@ have additional dependencies that you can install using `pip install hopsparser[
 
 Upload files to a Zenodo deposit
 
-## `test_models.py`
+## `check_models.py`
 
 Check against performance changes for existing models
 
@@ -24,7 +24,7 @@ error management so if any train run fails it will just hang until you SIGINT or
 After installing `hopsparser[traintools]`, it can be run with
 
 ```console
-python scripts/train_models.py {configs_dir} {treebanks_dir} --args "fasttext={fasttext_model}" --devices "{device1},{device2},{…}" --out-dir {out_dir}
+python scripts/train_models.py {configs_dir} {treebanks_dir} --devices "{device1},{device2},{…}" --out-dir {out_dir}
 ```
 
 For each `{config_name}.yaml` file in `{configs_dir}` and each `{treebank_name}` directory in

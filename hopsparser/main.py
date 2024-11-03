@@ -118,8 +118,10 @@ def parse(
 )
 @click.option(
     "--rand-seed",
-    type=int,
+    default=0,
     help="Force the random seed fo Python and Pytorch (see <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)",
+    show_default=True,
+    type=int,
 )
 @click.option(
     "--test-file",
@@ -229,8 +231,10 @@ def train(
 )
 @click.option(
     "--rand-seed",
-    type=int,
+    default=0,
     help="Force the random seed fo Python and Pytorch (see <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)",
+    show_default=True,
+    type=int,
 )
 @click.option(
     "--test-file",
