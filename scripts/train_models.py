@@ -49,7 +49,7 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
         self.run_name = run_name
 
     def on_train_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
-        self.message_queue.put((Messages.RUN_START, (self.run_name, trainer.num_training_batches)))
+        self.message_queue.put((Messages.RUN_START, (self.run_name, trainer.estimated_stepping_batches)))
 
     def on_train_batch_end(
         self,
@@ -64,7 +64,7 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
                 Messages.PROGRESS,
                 (
                     self.run_name,
-                    (None, batch_idx + 1),
+                    (None, trainer.global_step),
                 ),
             )
         )
