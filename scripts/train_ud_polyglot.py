@@ -1,16 +1,20 @@
+import datetime
 import pathlib
 import re
 import shutil
-from typing import Optional, Sequence
+from typing import Optional, Sequence, cast
 
 import click
 from loguru import logger
+from pytorch_lightning import callbacks as pl_callbacks
 from rich import box
 from rich.console import Console
 from rich.table import Column, Table
+import torch
 
 from hopsparser import conll2018_eval as evaluator
 from hopsparser import deptree, parser
+from hopsparser.traintools import trainer
 from hopsparser.utils import setup_logging
 
 
@@ -42,11 +46,6 @@ from hopsparser.utils import setup_logging
     multiple=True,
 )
 @click.option(
-    "--max-tree-length",
-    type=int,
-    help="The maximum length for trees to be taken into account in the training dataset.",
-)
-@click.option(
     "--origin-label-name",
     default="original_treebank",
     help=(
@@ -67,20 +66,22 @@ from hopsparser.utils import setup_logging
 @click.option(
     "--rand-seed",
     type=int,
+    default=0,
+    show_default=True,
     help=(
         "Force the random seed fo Python and Pytorch (see"
         " <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)"
     ),
 )
 @click.option(
+    "--run-name",
+    default=datetime.datetime.now().replace(microsecond=0).isoformat(),
+    help="The name of the experiment. Defaults to the current datetime.",
+)
+@click.option(
     "--skip-train",
     help="Don't retrain at all if a model exists, just evaluate.",
     is_flag=True,
-)
-@click.option(
-    "--skip-unencodable",
-    is_flag=True,
-    help="Skip unencodable trees in the training set",
 )
 @click.option(
     "--train-with-lang-labels",
@@ -97,12 +98,11 @@ def main(
     output_dir: pathlib.Path,
     device: str,
     lang: Optional[Sequence[str]],
-    max_tree_length: Optional[int],
     origin_label_name: str,
     overwrite: bool,
     rand_seed: int,
+    run_name: str,
     skip_train: bool,
-    skip_unencodable: bool,
     train_with_lang_labels: bool,
     ud_dir: pathlib.Path,
     verbose: bool,
@@ -144,7 +144,7 @@ def main(
     with concat_train_file.open("w") as out_stream:
         for label, path in train_files:
             with path.open() as in_stream:
-                for tree in deptree.DepGraph.read_conll(in_stream, max_tree_length=max_tree_length):
+                for tree in deptree.DepGraph.read_conll(in_stream):
                     if train_with_lang_labels:
                         labelled_tree = tree.replace(
                             misc={
@@ -161,9 +161,7 @@ def main(
         with concat_dev_file.open("w") as out_stream:
             for label, path in dev_files:
                 with path.open() as in_stream:
-                    for tree in deptree.DepGraph.read_conll(
-                        in_stream, max_tree_length=max_tree_length
-                    ):
+                    for tree in deptree.DepGraph.read_conll(in_stream):
                         if train_with_lang_labels:
                             labelled_tree = tree.replace(
                                 misc={
@@ -179,16 +177,21 @@ def main(
         concat_dev_file = None
 
     if not (skip_train and model_path.exists()):
-        parser.train(
+        device_info = torch.device(device)
+        accelerator = device_info.type
+        devices = 1 if accelerator == "cpu" else [cast(int, device_info.index)]
+
+        trainer.train(
+            accelerator=accelerator,
+            callbacks=[pl_callbacks.RichProgressBar(console_kwargs={"stderr": True})],
             config_file=config_file,
             dev_file=concat_dev_file,
-            device=device,
-            train_file=concat_train_file,
-            max_tree_length=max_tree_length,
-            model_path=model_path,
+            devices=devices,
+            output_dir=output_dir,
             overwrite=overwrite,
             rand_seed=rand_seed,
-            skip_unencodable=skip_unencodable,
+            run_name=run_name,
+            train_file=concat_train_file,
         )
 
     console = Console()
