@@ -2,6 +2,7 @@ import enum
 import itertools
 import json
 import multiprocessing
+import multiprocessing.pool
 import os.path
 import pathlib
 import shutil
@@ -201,6 +202,23 @@ def worker(
     return (run_name, res)
 
 
+class NoDaemonProcess(multiprocessing.Process):
+    # make 'daemon' attribute always return False
+    def _get_daemon(self):
+        return False
+
+    def _set_daemon(self, value):
+        pass
+
+    daemon = property(_get_daemon, _set_daemon)
+
+class NoDaemonPool(multiprocessing.pool.Pool):
+    @staticmethod
+    def Process(ctx, *args, **kwargs):
+        print(args, kwargs)
+        return NoDaemonProcess(*args, **kwargs)
+
+
 def run_multi(
     runs: Sequence[Tuple[str, dict[str, Any]]],
     devices: list[str],
@@ -219,7 +237,7 @@ def run_multi(
         )
         monitor.start()
 
-        with multiprocessing.Pool(len(devices)) as pool:
+        with NoDaemonPool(len(devices)) as pool:
             res_future = pool.starmap_async(
                 worker,
                 ((device_queue, monitor_queue, *r) for r in runs),
