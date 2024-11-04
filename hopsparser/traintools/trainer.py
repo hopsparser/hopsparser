@@ -288,28 +288,28 @@ def train(
     else:
         dev_loader = None
     train_module = ParserTrainingModule(parser=parser, config=train_config)
-    base_callbacks = [
+    all_callbacks = [
         pl_callbacks.LearningRateMonitor("step"),
         SaveModelCallback(save_dir=model_path),
     ]
     if callbacks is not None:
-        base_callbacks.extend(callbacks)
+        all_callbacks.extend(callbacks)
     if dev_loader is not None:
-        base_callbacks.append(
+        all_callbacks.append(
             pl_callbacks.ModelCheckpoint(save_top_k=1, monitor="validation/heads_accuracy")
         )
     else:
-        base_callbacks.append(pl_callbacks.ModelCheckpoint(save_top_k=1, monitor="train/loss"))
+        all_callbacks.append(pl_callbacks.ModelCheckpoint(save_top_k=1, monitor="train/loss"))
     loggers = [
         CSVLogger(output_dir, version=run_name),
         TensorBoardLogger(output_dir, version=run_name),
     ]
     trainer = pl.Trainer(
         accelerator=accelerator,
-        callbacks=base_callbacks,
+        callbacks=all_callbacks,
         default_root_dir=output_dir,
         devices=devices,
-        enable_progress_bar=False,
+        enable_progress_bar=any(isinstance(c, pl_callbacks.ProgressBar) for c in all_callbacks),
         log_every_n_steps=1,
         logger=loggers,
         max_epochs=train_config.epochs,
