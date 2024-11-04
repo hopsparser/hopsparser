@@ -271,6 +271,7 @@ def train(
         batch_size=train_config.batch_size,
         collate_fn=parser.batch_trees,
         shuffle=True,
+        num_workers=2,
     )
     if dev_file is not None:
         with open(dev_file) as in_stream:
@@ -284,6 +285,7 @@ def train(
             dataset=dev_set,
             batch_size=train_config.batch_size,
             collate_fn=parser.batch_trees,
+            num_workers=2,
         )
     else:
         dev_loader = None
