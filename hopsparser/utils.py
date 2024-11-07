@@ -182,6 +182,7 @@ def setup_logging(
     # Yes, listing them all is annoying
     for libname in (
         "datasets",
+        "huggingface/tokenizers",
         "huggingface_hub",
         "lightning",
         "lightning.pytorch",
