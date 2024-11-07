@@ -298,10 +298,26 @@ def train(
         all_callbacks.extend(callbacks)
     if dev_loader is not None:
         all_callbacks.append(
-            pl_callbacks.ModelCheckpoint(save_top_k=1, monitor="validation/heads_accuracy")
+            pl_callbacks.ModelCheckpoint(
+                auto_insert_metric_name=False,
+                dirpath=output_dir / "lightning_checkpoints",
+                filename="epoch={epoch}-dev_heads_acc={validation/heads_accuracy:06.2%}",
+                mode="max",
+                monitor="validation/heads_accuracy",
+                save_top_k=1,
+            ),
         )
     else:
-        all_callbacks.append(pl_callbacks.ModelCheckpoint(save_top_k=1, monitor="train/loss"))
+        all_callbacks.append(
+            pl_callbacks.ModelCheckpoint(
+                auto_insert_metric_name=False,
+                dirpath=output_dir / "lightning_checkpoints",
+                filename="epoch={epoch}-train_loss={train/loss:.6f}",
+                mode="max",
+                monitor="train/loss",
+                save_top_k=1,
+            ),
+        )
     loggers = [
         CSVLogger(output_dir, version=run_name),
         TensorBoardLogger(output_dir, version=run_name),
