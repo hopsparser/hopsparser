@@ -4,10 +4,10 @@ import pathlib
 import shutil
 import subprocess
 import sys
-import warnings
 from typing import Literal, Optional, Sequence, TextIO, Tuple
 
 import click
+from loguru import logger
 from rich import box
 from rich.console import Console
 from rich.table import Column, Table
@@ -24,7 +24,7 @@ from hopsparser.utils import (
 device_opt = click.option(
     "--device",
     default="cpu",
-    help="The device to use for the parsing model. (cpu, gpu:0, …).",
+    help="The device to use for the parsing model. (cpu, cuda:0, …).",
     show_default=True,
 )
 
@@ -58,7 +58,6 @@ def cli():
 @click.option(
     "--batch-size",
     type=click.IntRange(min=1),
-    help="In raw mode, silently ignore sentences that can't be encoded (for instance too long sentences when using a transformer model).",
 )
 @click.option(
     "--ignore-unencodable",
@@ -79,8 +78,9 @@ def parse(
     model_path: pathlib.Path,
     raw: bool,
 ):
+     setup_logging()
     if ignore_unencodable and not raw:
-        warnings.warn("--ignore-unencodable is only meaningful in raw mode")
+        logger.warning("--ignore-unencodable is only meaningful in raw mode")
 
     parser.parse(
         batch_size=batch_size,

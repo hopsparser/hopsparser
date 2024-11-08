@@ -1,4 +1,5 @@
 import datetime
+import math
 import os
 import pathlib
 import shutil
@@ -181,10 +182,10 @@ class ParserTrainingModule(pl.LightningModule):
 
         if self.config.lr.shape == "exponential":
             scheduler = torch.optim.lr_scheduler.LambdaLR(
-                lr_lambda=(lambda n: 0.95 ** (n // self.trainer.estimated_stepping_batches)),
+                lr_lambda=(lambda n: 0.95**n),
                 optimizer=optimizer,
             )
-            schedulers = [{"scheduler": scheduler, "interval": "step"}]
+            schedulers = [{"scheduler": scheduler, "interval": "epoch"}]
         elif self.config.lr.shape == "linear":
             scheduler = transformers.get_linear_schedule_with_warmup(
                 optimize=optimizer,
