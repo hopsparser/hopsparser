@@ -194,7 +194,7 @@ class ParserTrainingModule(pl.LightningModule):
             schedulers = [{"scheduler": scheduler, "interval": "step"}]
         elif self.config.lr.shape == "constant":
             scheduler = transformers.get_constant_schedule_with_warmup(
-                optimizer=optimizer, ,num_warmup_steps=self.config.lr.warmup_steps
+                optimizer=optimizer, num_warmup_steps=self.config.lr.warmup_steps
             )
             schedulers = [{"scheduler": scheduler, "interval": "step"}]
         else:
