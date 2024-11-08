@@ -1,4 +1,5 @@
 import datetime
+import os
 import pathlib
 import shutil
 from typing import Any, Dict, Iterable, NamedTuple, Optional, Union
@@ -260,12 +261,13 @@ def train(
         )
 
     parser.save(output_dir / "model")
-
     train_set = DependencyDataset(
         parser,
         train_trees,
         skip_unencodable=True,
     )
+    # We need this since we use multiple workers
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
     train_loader = torch.utils.data.DataLoader(
         dataset=train_set,
         batch_size=train_config.batch_size,
