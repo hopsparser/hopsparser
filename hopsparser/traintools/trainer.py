@@ -181,20 +181,20 @@ class ParserTrainingModule(pl.LightningModule):
 
         if self.config.lr.shape == "exponential":
             scheduler = torch.optim.lr_scheduler.LambdaLR(
-                optimizer,
-                (lambda n: 0.95**n),
+                lr_lambda=(lambda n: 0.95 ** (n // self.trainer.estimated_stepping_batches)),
+                optimizer=optimizer,
             )
             schedulers = [{"scheduler": scheduler, "interval": "epoch"}]
         elif self.config.lr.shape == "linear":
             scheduler = transformers.get_linear_schedule_with_warmup(
-                optimizer,
-                self.config.lr.warmup_steps,
-                self.trainer.estimated_stepping_batches,
+                optimize=optimizer,
+                num_warmup_steps=self.config.lr.warmup_steps,
+                num_training_steps=self.trainer.estimated_stepping_batches,
             )
             schedulers = [{"scheduler": scheduler, "interval": "step"}]
         elif self.config.lr.shape == "constant":
             scheduler = transformers.get_constant_schedule_with_warmup(
-                optimizer, self.config.lr.warmup_steps
+                optimizer=optimizer, ,num_warmup_steps=self.config.lr.warmup_steps
             )
             schedulers = [{"scheduler": scheduler, "interval": "step"}]
         else:
