@@ -11,6 +11,7 @@ batch_size: 32
 epochs: 2
 lr:
   base: 0.001
+  shape: linear
 lexers:
   - name: word_embeddings
     type: words

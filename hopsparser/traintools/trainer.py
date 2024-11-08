@@ -74,6 +74,8 @@ class ParserTrainingModule(pl.LightningModule):
                 for name, lex in self.parser.annotation_lexicons.items()
             }
         )
+        logger.debug(f"Using train config {config}")
+        self.save_hyperparameters("config")
 
     def forward(self, batch: DependencyBatch) -> ParserTrainingModuleForwardOutput:
         output = self.parser(batch.sentences.encodings, batch.sentences.sent_lengths)
@@ -188,14 +190,15 @@ class ParserTrainingModule(pl.LightningModule):
             schedulers = [{"scheduler": scheduler, "interval": "epoch"}]
         elif self.config.lr.shape == "linear":
             scheduler = transformers.get_linear_schedule_with_warmup(
-                optimize=optimizer,
-                num_warmup_steps=self.config.lr.warmup_steps,
                 num_training_steps=self.trainer.estimated_stepping_batches,
+                num_warmup_steps=self.config.lr.warmup_steps,
+                optimizer=optimizer,
             )
             schedulers = [{"scheduler": scheduler, "interval": "step"}]
         elif self.config.lr.shape == "constant":
             scheduler = transformers.get_constant_schedule_with_warmup(
-                optimizer=optimizer, num_warmup_steps=self.config.lr.warmup_steps
+                num_warmup_steps=self.config.lr.warmup_steps,
+                optimizer=optimizer,
             )
             schedulers = [{"scheduler": scheduler, "interval": "step"}]
         else:
