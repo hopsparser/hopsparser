@@ -613,6 +613,8 @@ class BertLexer(nn.Module):
 
         self.model = model
         self.tokenizer = tokenizer
+        # See <https://github.com/huggingface/transformers/issues/22638#issuecomment-1560406455>
+        self.tokenizer.deprecation_warnings["Asking-to-pad-a-fast-tokenizer"] = True
 
         self.max_length = min(
             self.tokenizer.max_len_single_sentence,
