@@ -202,19 +202,21 @@ def worker(
     return (run_name, res)
 
 
+# Currently the easiest way to have a pool of nondemonic process (which we need since they
+# themselves will fork their dataloading workers)
 class NoDaemonProcess(multiprocessing.Process):
     # make 'daemon' attribute always return False
     def _get_daemon(self):
         return False
-
+ 
     def _set_daemon(self, value):
         pass
 
-    daemon = property(_get_daemon, _set_daemon)
+    daemon = property(_get_daemon, _set_daemon)  # type: ignore
 
 class NoDaemonPool(multiprocessing.pool.Pool):
     @staticmethod
-    def Process(ctx, *args, **kwargs):
+    def Process(ctx, *args, **kwargs):  # noqa: N802
         return NoDaemonProcess(*args, **kwargs)
 
 
