@@ -78,7 +78,7 @@ def parse(
     model_path: pathlib.Path,
     raw: bool,
 ):
-     setup_logging()
+    setup_logging()
     if ignore_unencodable and not raw:
         logger.warning("--ignore-unencodable is only meaningful in raw mode")
 
