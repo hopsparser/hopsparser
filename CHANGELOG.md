@@ -11,10 +11,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Emit a warning if an extra label only has one observed value.
+- The obsolete `lr/schedule` config parameter will now correctly cause config loading to fail
+  instead of silently using exponential.
 
-## Changed
+### Changed
 
 - Minimum torch version bumped to `2.0`
+- **BREAKING** Default LR schedule changed to constant.
+
 
 ## [0.7.1] - 2023-11-16
 

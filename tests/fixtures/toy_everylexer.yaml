@@ -10,9 +10,8 @@ batch_size: 8
 epochs: 2
 lr:
   base: 0.00003
-  schedule:
-    shape: linear
-    warmup_steps: 100
+  shape: linear
+  warmup_steps: 100
 max_gradient_norm: 1.0
 lexers:
   - name: word_embeddings

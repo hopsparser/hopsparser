@@ -225,14 +225,16 @@ class DependencyBatch(NamedTuple):
 
 class LRSchedule(pydantic.BaseModel):
     base: float
-    shape: Literal["exponential", "linear", "constant"] = "exponential"
+    shape: Literal["exponential", "linear", "constant"] = "constant"
     warmup_steps: int = 0
+    model_config = pydantic.ConfigDict(extra="forbid")
 
 
 class AnnotationConfig(pydantic.BaseModel):
     hidden_layer_dim: int
     labels: List[str]
     loss_weight: float = 1.0
+    model_config = pydantic.ConfigDict(extra="forbid")
 
 
 # TODO: look into <https://github.com/lincolnloop/goodconf/>
