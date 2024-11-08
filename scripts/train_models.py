@@ -215,7 +215,6 @@ class NoDaemonProcess(multiprocessing.Process):
 class NoDaemonPool(multiprocessing.pool.Pool):
     @staticmethod
     def Process(ctx, *args, **kwargs):
-        print(args, kwargs)
         return NoDaemonProcess(*args, **kwargs)
 
 
