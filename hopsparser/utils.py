@@ -210,7 +210,7 @@ def setup_logging(
 
 
 def log_epoch(epoch_name: str, metrics: dict[str, Any]):
-    metrics_table = "\t".join(f"{k}={v:.8f}" for k, v in metrics.items())
+    metrics_table = "\t".join(f"{k}={v}" for k, v in metrics.items())
     logger.info(f"Epoch {epoch_name}: {metrics_table}")
 
 
