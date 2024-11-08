@@ -184,7 +184,7 @@ class ParserTrainingModule(pl.LightningModule):
                 lr_lambda=(lambda n: 0.95 ** (n // self.trainer.estimated_stepping_batches)),
                 optimizer=optimizer,
             )
-            schedulers = [{"scheduler": scheduler, "interval": "epoch"}]
+            schedulers = [{"scheduler": scheduler, "interval": "step"}]
         elif self.config.lr.shape == "linear":
             scheduler = transformers.get_linear_schedule_with_warmup(
                 optimize=optimizer,
