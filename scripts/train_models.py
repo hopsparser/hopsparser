@@ -50,7 +50,9 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
         self.run_name = run_name
 
     def on_train_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
-        self.message_queue.put((Messages.RUN_START, (self.run_name, trainer.estimated_stepping_batches)))
+        self.message_queue.put(
+            (Messages.RUN_START, (self.run_name, trainer.estimated_stepping_batches))
+        )
 
     def on_train_batch_end(
         self,
@@ -76,14 +78,23 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
                 Messages.PROGRESS,
                 (
                     self.run_name,
-                    (f"{self.run_name}: train {trainer.current_epoch+1}/{trainer.max_epochs}", None),
+                    (
+                        f"{self.run_name}: train {trainer.current_epoch+1}/{trainer.max_epochs}",
+                        None,
+                    ),
                 ),
             )
         )
 
     def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
         if not trainer.sanity_checking:
-            utils.log_epoch(epoch_name=str(trainer.current_epoch), metrics=trainer.logged_metrics)
+            utils.log_epoch(
+                epoch_name=str(trainer.current_epoch),
+                metrics={
+                    k: (f"{v:.08f}" if "loss" in k else f"{v:06.2%}")
+                    for k, v in trainer.logged_metrics.items()
+                },
+            )
             # TODO: a validation progress bar would be nice
             self.message_queue.put(
                 (
@@ -208,11 +219,12 @@ class NoDaemonProcess(multiprocessing.Process):
     # make 'daemon' attribute always return False
     def _get_daemon(self):
         return False
- 
+
     def _set_daemon(self, value):
         pass
 
     daemon = property(_get_daemon, _set_daemon)  # type: ignore
+
 
 class NoDaemonPool(multiprocessing.pool.Pool):
     @staticmethod
