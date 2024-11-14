@@ -547,8 +547,8 @@ def main(
         best_dir.mkdir(exist_ok=True, parents=True)
         with open(best_dir / "models.md", "w") as out_stream:
             out_stream.write(
-                "| Model name | UPOS (dev) | LAS (dev) | UPOS (test) | LAS (test) | Download |\n"
-                "|:-----------|:----------:|:---------:|:-----------:|:----------:|:--------:|\n"
+                "| Treebank | Model name | dev UPOS | dev LAS | test UPOS | test LAS | Download |\n"
+                "|:---------|:-----------|:--------:|:-------:|:---------:|:--------:|:--------:|\n"
             )
             for report in (
                 df.group_by("treebank")
@@ -566,8 +566,9 @@ def main(
                 out_stream.write(
                     " | ".join(
                         [
+                            report["treebank"],
                             model_name,
-                            *(f"{100*report[v]:.2f}" for v in summary_columns),
+                            *(f"{report[v]:06.2%}"[:-1] for v in summary_columns),
                         ]
                     )
                 )
