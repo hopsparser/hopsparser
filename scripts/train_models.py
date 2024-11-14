@@ -534,18 +534,13 @@ def main(
         ]
         df = pol.from_records(df_dicts)
         df.write_csv(out_dir / "full_report.csv")
-        group_cols = [
-            "config",
-            "treebank",
-            *(a for a in args_names if a != "rand_seed"),
-        ]
         summary_columns = [
             "dev_upos",
             "dev_las",
             "test_upos",
             "test_las",
         ]
-        df.group_by(*group_cols).agg(
+        df.group_by("treebank").agg(
             *(c for col in summary_columns for c in to_describe(col))
         ).write_csv(summary_file)
         best_dir = out_dir / "best"
@@ -556,9 +551,9 @@ def main(
                 "|:-----------|:----------:|:---------:|:-----------:|:----------:|:--------:|\n"
             )
             for report in (
-                df.group_by(*group_cols)
+                df.group_by("treebank")
                 .agg(pol.all().top_k_by("dev_las", 1))
-                .explode(pol.all().exclude(*group_cols))
+                .explode(pol.all().exclude("treebank"))
                 .sort(pol.col("run_name"))
                 .iter_rows(named=True)
             ):
