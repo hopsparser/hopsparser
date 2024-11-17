@@ -30,23 +30,21 @@ python scripts/train_models.py {configs_dir} {treebanks_dir} --devices "{device1
 For each `{config_name}.yaml` file in `{configs_dir}` and each `{treebank_name}` directory in
 `{treebanks_dir}` (containing files named `/.*(train|dev|test)\.conllu/`), this will create a
 `{out_dir}/{treebank_name}-{config_name}` directory containing the trained model and the parsed
-train and test set. It will also create a summary of the performances of the various runs in
-`{out_dir}/summary.tsv`.
+train and test set and a `{out_dir}/best` directory containing the results of the best runs for each
+treebank.
 
 Treebank-specific configs can be provided by putting them in sub-directories of `{config_dir}`:
 config files in `{config_dir}/{prefix}` will only be used for treebanks with names starting with
-`{prefix}`. This is useful for instance when working with UD data, where file names start with a
-langcode. In that case, config files found in `{config_dir}/en` will be used for
+`{prefix}`. This is useful for instance when working with UD data, where file names start with an
+ISO 639 language code. In that case, config files found in `{config_dir}/en` will be used for
 `en_ewt-ud-{train,dev,test}` but not for `fr_gsd-ud-{train,dev,test}`.
 
-You can also specify a number of rand seeds with `--rand-seeds seed1,seed2,…`, in which case the
-summary will report descriptive statistics (mean, standard deviation…) for every configuration,
-treebank and additional args combination and `{out_dir}/best` will contain the results of the best
-runs.
+You can also specify a number of rand seeds with `--rand-seeds seed1,seed2,…`.
 
 The `--device` flag is used to specify the devices available to train on as comma-separated list.
-The script runs in a rudimentary task queue which distributes the train runs among these devices: every
-run waits until a device is available, then grab it, trains on it and releases it once it is done.
+The script runs in a rudimentary task queue which distributes the train runs among these devices:
+every run waits until a device is available, then grab it, trains on it and releases it once it is
+done.
 
 To make several runs happen concurrently on the same device, just specify it several times e.g.
 `--devices "cuda:1,cuda:1"` will maintain two training process on the GPU with index 1. `"cpu"` is

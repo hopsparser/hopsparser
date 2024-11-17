@@ -57,7 +57,7 @@ def upload(
     with httpx.Client(
         http2=True,
         params={"access_token": access_token},
-        timeout=None,
+        timeout=None,  # noqa: S113
     ) as client:
         deposit_url = base_url.join("deposit/depositions/").join(
             urllib.parse.quote(deposit_id, safe="")
