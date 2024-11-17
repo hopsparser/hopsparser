@@ -398,6 +398,7 @@ def evaluate(
         gold_set = evaluator.load_conllu_file(str(input_file))
         syst_set = evaluator.load_conllu_file(str(output_file))
     metrics = evaluator.evaluate(gold_set, syst_set)
+    # TODO: harmonize this with what we have in the train script
     metrics_names = ("UPOS", "UAS", "LAS")
     if out_format == "md":
         output_metrics = {n: metrics[n].f1 for n in metrics_names}

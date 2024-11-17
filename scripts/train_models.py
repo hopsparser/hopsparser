@@ -1,35 +1,24 @@
 import enum
-import itertools
-import json
 import multiprocessing
 import multiprocessing.pool
-import os.path
 import pathlib
 import shutil
-from ast import literal_eval
-from io import StringIO
 from queue import Queue
 from typing import (
     Any,
-    NamedTuple,
     Optional,
-    Sequence,
-    Tuple,
-    Union,
     cast,
 )
 
 import click
-import pytorch_lightning as pl
 import polars as pol
+import pytorch_lightning as pl
 import torch
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from loguru import logger
 from pytorch_lightning import callbacks as pl_callbacks
-from rich import box
-from rich.console import Console
 from rich.progress import MofNCompleteColumn, Progress, TaskID, TimeElapsedColumn
-from rich.table import Table
+from tabulate2 import tabulate
 
 import hopsparser.traintools.trainer as trainer
 from hopsparser import conll2018_eval as evaluator
@@ -91,7 +80,7 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
             utils.log_epoch(
                 epoch_name=str(trainer.current_epoch),
                 metrics={
-                    k: (f"{v:.08f}" if "loss" in k else f"{v:06.2%}")
+                    k: (f"{v:.08f}" if "loss" in k else f"")
                     for k, v in trainer.logged_metrics.items()
                 },
             )
@@ -110,11 +99,31 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
             )
 
 
-class TrainResults(NamedTuple):
-    dev_upos: float
-    dev_las: float
-    test_upos: float
-    test_las: float
+def evaluate_single(
+    model_path: pathlib.Path,
+    parsed_dir: pathlib.Path,
+    treebanks: dict[str, pathlib.Path],
+    device: str = "cpu",
+    metrics: Optional[list[str]] = None,
+    reparse: bool = False,
+) -> dict[str, dict[str, float]]:
+    model = parser.BiAffineParser.load(model_path).to(device)
+    res: dict[str, dict[str, float]] = dict()
+    for treebank_name, treebank_path in treebanks.items():
+        parsed_path = parsed_dir / f"{treebank_path.stem}.parsed.conllu"
+        if not parsed_path.exists() or reparse:
+            with treebank_path.open() as in_stream, parsed_path.open("w") as out_stream:
+                # TODO: The batch size will be 1 by default, how to make it customizable?
+                for tree in model.parse(inpt=in_stream, batch_size=None):
+                    out_stream.write(tree.to_conllu())
+                    out_stream.write("\n\n")
+        gold_set = evaluator.load_conllu_file(treebank_path)
+        syst_set = evaluator.load_conllu_file(parsed_path)
+        eval_res = evaluator.evaluate(gold_set, syst_set)
+        if metrics is None:
+            metrics = eval_res.keys()
+        res[treebank_name] = {m: eval_res[m].f1 for m in metrics}
+    return res
 
 
 def train_single_model(
@@ -123,11 +132,12 @@ def train_single_model(
     device: str,
     dev_file: pathlib.Path,
     message_queue: Queue,
+    metrics: list[str],
     output_dir: pathlib.Path,
     run_name: str,
     test_file: pathlib.Path,
     train_file: pathlib.Path,
-) -> TrainResults:
+) -> dict[str, dict[str, float]]:
     output_dir.mkdir(exist_ok=True, parents=True)
     log_handler = logger.add(
         output_dir / "train.log",
@@ -150,42 +160,29 @@ def train_single_model(
         output_dir=output_dir,
         run_name=run_name,
         train_file=train_file,
-        **{k: literal_eval(v) for k, v in additional_args.items()},
+        **{k: v for k, v in additional_args.items()},
     )
-    metrics_table = Table(box=box.HORIZONTALS)
-    metrics_table.add_column("Split")
-    metrics = ("UPOS", "UAS", "LAS")
-    for m in metrics:
-        metrics_table.add_column(m, justify="center")
-    if dev_file is not None:
-        parsed_devset_path = output_dir / f"{dev_file.stem}.parsed.conllu"
-        parser.parse(model_path, dev_file, parsed_devset_path, device=device)
-        gold_devset = evaluator.load_conllu_file(dev_file)
-        syst_devset = evaluator.load_conllu_file(parsed_devset_path)
-        dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
-        metrics_table.add_row("Dev", *(f"{100*dev_metrics[m].f1:.2f}" for m in metrics))
 
-    if test_file is not None:
-        parsed_testset_path = output_dir / f"{test_file.stem}.parsed.conllu"
-        parser.parse(model_path, test_file, parsed_testset_path, device=device)
-        gold_testset = evaluator.load_conllu_file(test_file)
-        syst_testset = evaluator.load_conllu_file(parsed_testset_path)
-        test_metrics = evaluator.evaluate(gold_testset, syst_testset)
-        metrics_table.add_row("Test", *(f"{100*test_metrics[m].f1:.2f}" for m in metrics))
+    eval_res = evaluate_single(
+        device=device,
+        metrics=metrics,
+        model_path=model_path,
+        parsed_dir=output_dir,
+        treebanks={"Dev": dev_file, "Test": test_file},
+    )
 
-    if metrics_table.rows:
-        out = Console(file=StringIO())
-        out.print(metrics_table)
-        logger.info(f"Metrics for {run_name}\n{cast(StringIO, out.file).getvalue()}")
+    table = tabulate(
+        [{"Split": k, **{m: f"{v[m]:06.2%}"[:-1] for m in metrics}} for k, v in eval_res.items()],
+        floatfmt="05.2f",
+        headers="keys",
+        headersglobalalign="center",
+        tablefmt="pipe",
+    )
+    logger.info(f"Metrics for {run_name}:\n{table}")
 
     logger.remove(log_handler)
 
-    return TrainResults(
-        dev_upos=dev_metrics["UPOS"].f1,
-        dev_las=dev_metrics["LAS"].f1,
-        test_upos=test_metrics["UPOS"].f1,
-        test_las=test_metrics["LAS"].f1,
-    )
+    return {t: {m: r[m] for m in metrics} for t, r in eval_res.items()}
 
 
 def worker(
@@ -193,12 +190,11 @@ def worker(
     monitor_queue: Queue,
     run_name: str,
     train_kwargs: dict[str, Any],
-) -> Tuple[str, TrainResults]:
+) -> tuple[str, dict[str, float]]:
     # We use no more workers than devices so the queue should never be empty when launching the
     # worker fun so we want to fail early here if the Queue is empty. It does not feel right but it
     # works.
     device = device_queue.get(block=False)
-    # TODO: figure out a way to make the run name bubble up here
     log_handle = utils.setup_logging(
         appname=f"hops_trainer({run_name})",
         sink=lambda m: monitor_queue.put((Messages.LOG, m)),
@@ -232,10 +228,11 @@ class NoDaemonPool(multiprocessing.pool.Pool):
         return NoDaemonProcess(*args, **kwargs)
 
 
+# TODO: allow simulating multiprocessing for debugging purposes?
 def run_multi(
-    runs: Sequence[Tuple[str, dict[str, Any]]],
+    runs: dict[str, dict[str, Any]],
     devices: list[str],
-) -> list[Tuple[str, TrainResults]]:
+) -> dict[str, dict[str, float]]:
     with multiprocessing.Manager() as manager:
         device_queue = manager.Queue()
         for d in devices:
@@ -253,13 +250,16 @@ def run_multi(
         with NoDaemonPool(len(devices)) as pool:
             res_future = pool.starmap_async(
                 worker,
-                ((device_queue, monitor_queue, *r) for r in runs),
+                (
+                    (device_queue, monitor_queue, run_name, run_args)
+                    for run_name, run_args in runs.items()
+                ),
             )
             res = res_future.get()
         monitor_queue.put((Messages.CLOSE, None))
         monitor.join()
         monitor.close()
-    return res
+    return {run_name: run_res for run_name, run_res in res}
 
 
 # TODO: use a dict for queue content
@@ -298,35 +298,6 @@ def monitor_process(num_runs: int, queue: multiprocessing.Queue):
         logger.complete()
 
 
-def parse_args_callback(
-    _ctx: click.Context,
-    _opt: Union[click.Parameter, click.Option],
-    val: Optional[list[str]],
-) -> Optional[list[Tuple[str, list[str]]]]:
-    if val is None:
-        return None
-    res: list[Tuple[str, list[str]]] = []
-    for v in val:
-        name, values = v.split("=", maxsplit=1)
-        res.append((name, values.split(",")))
-    return res
-
-
-def to_describe(col: str, prefix=""):
-    prefix = prefix or f"{col}_"
-    return [
-        pol.col(col).count().alias(f"{prefix}count"),
-        pol.col(col).is_null().sum().alias(f"{prefix}null_count"),
-        pol.col(col).mean().alias(f"{prefix}mean"),
-        pol.col(col).std().alias(f"{prefix}std"),
-        pol.col(col).min().alias(f"{prefix}min"),
-        pol.col(col).quantile(0.25).alias(f"{prefix}25%"),
-        pol.col(col).quantile(0.5).alias(f"{prefix}50%"),
-        pol.col(col).quantile(0.75).alias(f"{prefix}75%"),
-        pol.col(col).max().alias(f"{prefix}max"),
-    ]
-
-
 @click.command()
 @click.argument(
     "configs_dir",
@@ -337,21 +308,23 @@ def to_describe(col: str, prefix=""):
     type=click.Path(resolve_path=True, exists=True, file_okay=False, path_type=pathlib.Path),
 )
 @click.option(
-    "--args",
-    multiple=True,
-    callback=parse_args_callback,
-    help=(
-        "An additional list of values for an argument, given as `name=value,value2,…`."
-        " Leave a trailing comma to also run the default value of the argument"
-        " Can be provided several times for different arguments."
-        " Path options should have different file names."
-    ),
-)
-@click.option(
     "--devices",
     default="cpu",
     callback=(lambda _ctx, _opt, val: val.split(",")),
     help="A comma-separated list of devices to run on.",
+    metavar="STR,...",
+    show_default=True,
+)
+@click.option(
+    "--metrics",
+    default="UPOS,UAS,LAS",
+    callback=(lambda _ctx, _opt, val: val.split(",")),
+    help=(
+        "A comma-separated list of metrics to use for evaluation."
+        " The last one will be use to select dev-best models."
+    ),
+    metavar="STR,...",
+    show_default=True,
 )
 @click.option(
     "--out-dir",
@@ -362,25 +335,22 @@ def to_describe(col: str, prefix=""):
 # FIXME: we should have to manually set the default like this, see how to uncomment
 @click.option(
     "--rand-seeds",
-    callback=(
-        lambda _ctx, _opt, val: [0] if val is None else [int(v) for v in val.split(",") if v]
-    ),
-    # default=[0],
+    callback=(lambda _ctx, _opt, val: [int(v) for v in val.split(",")]),
+    default="0",
     help=(
         "A comma-separated list of random seeds to try and run stats on."
         " Only the seed with the best result will be kept for every running config."
-        "[default: 0]"
     ),
     metavar="INT,...",
-    # show_default=True,
+    show_default=True,
 )
 def main(
-    args: Optional[list[Tuple[str, list[str]]]],
     configs_dir: pathlib.Path,
     devices: list[str],
+    metrics: list[str],
     out_dir: pathlib.Path,
     prefix: str,
-    rand_seeds: Optional[list[int]],
+    rand_seeds: list[int],
     treebanks_dir: pathlib.Path,
 ):
     logger.remove()
@@ -390,25 +360,9 @@ def main(
     logger.info(f"Training on {len(treebanks)} treebanks.")
     configs = list(configs_dir.glob("**/*.yaml"))
     logger.info(f"Training using {len(configs)} configs.")
-    if rand_seeds is not None:
-        args = [
-            ("rand_seed", [str(s) for s in rand_seeds]),
-            *(args if args is not None else []),
-        ]
-        logger.info(f"Training with {len(rand_seeds)} rand seeds.")
-    additional_args_combinations: list[dict[str, str]]
-    if args:
-        args_names, all_args_values = map(list, zip(*args))
-        additional_args_combinations = [
-            dict(zip(args_names, args_values))
-            for args_values in itertools.product(*all_args_values)
-        ]
-    else:
-        args_names = []
-        additional_args_combinations = [dict()]
-    runs: list[Tuple[str, dict[str, Any]]] = []
-    runs_dict: dict[str, dict] = dict()
-    skipped_res: list[Tuple[str, TrainResults]] = []
+    logger.info(f"Training with rand seeds: {','.join(str(s) for s in rand_seeds)}.")
+
+    runs: dict[str, dict] = dict()
     for t in treebanks:
         for c in configs:
             train_file = next(t.glob("*train.conllu"))
@@ -416,163 +370,122 @@ def main(
             test_file = next(t.glob("*test.conllu"))
             # TODO: make this cleaner
             # Skip configs that are not for this lang
-            if (
-                c.parent != configs_dir
-                and c.parent.name != "*"
-                and not train_file.stem.startswith(c.parent.name)
-            ):
+            # UD treebankfiles start with the iso langcode (like en_ewt, etc.)
+            if c.parent != configs_dir and not train_file.stem.startswith(c.parent.name):
                 continue
             common_params = {
                 "train_file": train_file,
                 "dev_file": dev_file,
                 "test_file": test_file,
                 "config_file": c,
+                "metrics": metrics,
             }
             run_base_name = f"{prefix}{t.name}-{c.stem}"
             run_out_root_dir = out_dir / run_base_name
-            for additional_args in additional_args_combinations:
-                if not additional_args:
-                    run_out_dir = run_out_root_dir
-                    run_name = run_base_name
-                else:
-                    args_combination_str = "+".join(
-                        f"{n}={os.path.basename(v)}" if v else f"no{n}"
-                        for n, v in additional_args.items()
-                    )
-                    run_out_dir = run_out_root_dir / args_combination_str
-                    run_name = f"{run_base_name}+{args_combination_str}"
+            for r in rand_seeds:
+                run_suffix = f"rand_seed={r}"
+                run_out_dir = run_out_root_dir / run_suffix
+                run_name = f"{run_base_name}+{run_suffix}"
                 run_args = {
                     **common_params,
-                    "additional_args": additional_args,
+                    "additional_args": {"rand_seed": r},
                     "output_dir": run_out_dir,
                 }
-                runs_dict[run_name] = run_args
-                if run_out_dir.exists():
-                    parsed_dev = run_out_dir / f"{dev_file.stem}.parsed.conllu"
-                    parsed_test = run_out_dir / f"{test_file.stem}.parsed.conllu"
+                runs[run_name] = run_args
 
-                    if parsed_dev.exists() and parsed_test.exists():
-                        try:
-                            gold_devset = evaluator.load_conllu_file(dev_file)
-                            syst_devset = evaluator.load_conllu_file(parsed_dev)
-                            dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
-                        except evaluator.UDError as e:
-                            raise ValueError(f"Corrupted parsed dev file for {run_out_dir}") from e
+    missing_runs: dict[str, dict[str, Any]] = {}
+    res: dict[str, dict[str, dict[str, float]]] = {}
+    for run_name, run_args in runs.items():
+        if (run_out_dir := run_args["output_dir"]).exists():
+            parsed_dev = run_out_dir / f"{dev_file.stem}.parsed.conllu"
+            parsed_test = run_out_dir / f"{test_file.stem}.parsed.conllu"
 
-                        try:
-                            gold_testset = evaluator.load_conllu_file(test_file)
-                            syst_testset = evaluator.load_conllu_file(parsed_test)
-                            test_metrics = evaluator.evaluate(gold_testset, syst_testset)
-                        except evaluator.UDError as e:
-                            raise ValueError(f"Corrupted parsed test file for {run_out_dir}") from e
+            if parsed_dev.exists() and parsed_test.exists():
+                try:
+                    # FIXME: don't hardcode the model path this way?
+                    prev_metrics = evaluate_single(
+                        metrics=metrics,
+                        model_path=run_out_dir / "model",
+                        parsed_dir=run_out_dir,
+                        treebanks={"Dev": run_args["dev_file"], "Test": run_args["test_file"]},
+                        reparse=False,
+                    )
+                except evaluator.UDError as e:
+                    raise ValueError(f"Corrupted parsed file for {run_out_dir}") from e
 
-                        skip_res = TrainResults(
-                            dev_upos=dev_metrics["UPOS"].f1,
-                            dev_las=dev_metrics["LAS"].f1,
-                            test_upos=test_metrics["UPOS"].f1,
-                            test_las=test_metrics["LAS"].f1,
-                        )
-                        skipped_res.append((run_name, skip_res))
-                        logger.info(
-                            f"{run_out_dir} already exists, skipping run {run_name}."
-                            f" Results were {skip_res}"
-                        )
-                        continue
-                    else:
-                        logger.warning(
-                            f"Incomplete run in {run_out_dir}, skipping it."
-                            " You will probably want to delete it and rerun."
-                        )
-                        continue
+                res[run_name] = prev_metrics
+                logger.info(
+                    f"{run_out_dir} already exists, skipping run {run_name}."
+                    f" Results were {prev_metrics}"
+                )
+            else:
+                logger.warning(
+                    f"Incomplete run in {run_out_dir}, skipping it."
+                    " You probably want to delete it and rerun."
+                )
+        else:
+            missing_runs[run_name] = run_args
 
-                runs.append((run_name, run_args))
-
-    logger.info(f"Starting {len(runs)} runs.")
+    logger.info(f"Starting {len(missing_runs)} runs.")
     for h in logging_handlers:
         logger.remove(h)
-    res = run_multi(runs, devices)
+    new_res = run_multi(missing_runs, devices)
     utils.setup_logging(appname="hops_trainer")
     logger.info("Done with training")
-    res.extend(skipped_res)
+    res.update(new_res)
 
-    report_file = out_dir / "full_report.json"
-    if report_file.exists():
-        with open(report_file) as in_stream:
-            report_dict = json.load(in_stream)
-    else:
-        report_dict = dict()
-    for name, scores in res:
-        run = runs_dict[name]
-        report_dict[name] = {
-            "additional_args": run["additional_args"],
-            "config": str(run["config_file"]),
-            "output_dir": str(run["output_dir"]),
-            "results": scores._asdict(),
-            "treebank": run["train_file"].parent.name,
-        }
-    with open(report_file, "w") as out_stream:
-        json.dump(report_dict, out_stream)
-
-    summary_file = out_dir / "summary.tsv"
-    if rand_seeds is None:
-        with open(summary_file, "w") as out_stream:
-            summary_file.write_text("run\tdev UPOS\tdev LAS\ttest UPOS\ttest LAS\n")
-            for name, report in report_dict.items():
-                out_stream.write(name)
-                for s in ("dev_upos", "dev_las", "test_upos", "test_las"):
-                    out_stream.write(f"\t{100*report['results'][s]:.2f}")
-                out_stream.write("\n")
-    else:
-        df_dicts = [
+    train_results_df = pol.from_records(
+        [
             {
-                "run_name": run_name,
-                **{k: v for k, v in run_report.items() if k not in ("additional_args", "results")},
-                **run_report["additional_args"],
-                **run_report["results"],
+                "run_name": name,
+                "additional_args": runs[name]["additional_args"],
+                "config": str(runs[name]["config_file"]),
+                "output_dir": str(runs[name]["output_dir"]),
+                "results": scores,
+                "treebank": runs[name]["train_file"].parent.name,
             }
-            for run_name, run_report in report_dict.items()
+            for name, scores in res.items()
         ]
-        df = pol.from_records(df_dicts)
-        df.write_csv(out_dir / "full_report.csv")
-        summary_columns = [
-            "dev_upos",
-            "dev_las",
-            "test_upos",
-            "test_las",
-        ]
-        df.group_by("treebank").agg(
-            *(c for col in summary_columns for c in to_describe(col))
-        ).write_csv(summary_file)
-        best_dir = out_dir / "best"
-        best_dir.mkdir(exist_ok=True, parents=True)
-        with open(best_dir / "models.md", "w") as out_stream:
-            out_stream.write(
-                "| Treebank | Model name | dev UPOS | dev LAS | test UPOS | test LAS | Download |\n"
-                "|:---------|:-----------|:--------:|:-------:|:---------:|:--------:|:--------:|\n"
-            )
-            for report in (
-                df.group_by("treebank")
-                .agg(pol.all().top_k_by("dev_las", 1))
-                .explode(pol.all().exclude("treebank"))
-                .sort(pol.col("run_name"))
-                .iter_rows(named=True)
-            ):
-                shutil.copytree(
-                    report["output_dir"], best_dir / report["run_name"], dirs_exist_ok=True
-                )
-                model_name = report["run_name"].split("+", maxsplit=1)[0]
-                out_stream.write("| ")
+    )
+    train_results_df.write_ndjson(out_dir / "full_report.jsonl")
 
-                out_stream.write(
-                    " | ".join(
-                        [
-                            report["treebank"],
-                            model_name,
-                            *(f"{report[v]:06.2%}"[:-1] for v in summary_columns),
-                        ]
-                    )
+    best_df = (
+        train_results_df.group_by("treebank")
+        .agg(pol.all().top_k_by(pol.col("results").struct["Dev"].struct[metrics[-1]], 1))
+        .explode(pol.all().exclude("treebank"))
+        .sort(pol.col("run_name"))
+    )
+    best_dir = out_dir / "best"
+    best_dir.mkdir(exist_ok=True, parents=True)
+    (best_dir / "models.md").write_text(
+        tabulate(
+            (
+                best_df.select(
+                    pol.col("output_dir"),
+                    pol.col("run_name"),
+                    pol.col("treebank").alias("Treebank"),
+                    pol.col("run_name").str.splitn("+", n=2).struct[0].alias("Model Name"),
+                    *(
+                        (
+                            pol.col("results").struct[split].struct[metric].round_sig_figs(4) * 100
+                        ).alias(f"{split} {metric}")
+                        for split in ("Dev", "Test")
+                        for metric in metrics
+                    ),
                 )
-                out_stream.write(f" | [link][{model_name}] |\n")
+                .with_columns(pol.format("[link][{}]", pol.col("Model Name")).alias("Download"))
+                .select(pol.all().exclude("output_dir", "run_name"))
+                .to_dict(as_series=False)
+            ),
+            floatfmt="05.2f",
+            headers="keys",
+            headersglobalalign="center",
+            tablefmt="pipe",
+        )
+    )
+
+    for report in best_df.iter_rows(named=True):
+        shutil.copytree(report["output_dir"], best_dir / report["run_name"], dirs_exist_ok=True)
 
 
 if __name__ == "__main__":
