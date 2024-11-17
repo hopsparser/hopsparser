@@ -80,7 +80,7 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
             utils.log_epoch(
                 epoch_name=str(trainer.current_epoch),
                 metrics={
-                    k: (f"{v:.08f}" if "loss" in k else f"")
+                    k: (f"{v:.08f}" if "loss" in k else f"{v:06.2%}"[:-1])
                     for k, v in trainer.logged_metrics.items()
                 },
             )
