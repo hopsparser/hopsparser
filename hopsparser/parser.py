@@ -681,9 +681,13 @@ class BiAffineParser(nn.Module):
         device = next(self.parameters()).device
         logger.info(f"Start training on {device}")
 
-        # TODO: make these configurable?
+        # TODO: make the hyperparams configurable?
         optimizer = torch.optim.Adam(
-            self.parameters(), betas=(0.9, 0.9), lr=lr_schedule.base, eps=1e-09
+            self.parameters(),
+            betas=(0.9, 0.9),
+            lr=lr_schedule.base,
+            eps=1e-09,
+            fused=True,
         )
 
         if lr_schedule.shape == "exponential":
@@ -1374,7 +1378,7 @@ def parse(
 ):
     parser = BiAffineParser.load(model_path)
     parser = parser.to(device)
-    with smart_open(in_file) as in_stream, smart_open(out_file, "w") as ostream:
+    with smart_open(in_file) as in_stream, smart_open(out_file, "w") as out_stream:
         for tree in parser.parse(inpt=in_stream, batch_size=batch_size, raw=raw, strict=strict):
-            ostream.write(tree.to_conllu())
-            ostream.write("\n\n")
+            out_stream.write(tree.to_conllu())
+            out_stream.write("\n\n")

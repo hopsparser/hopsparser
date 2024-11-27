@@ -181,9 +181,13 @@ def main(
         accelerator = device_info.type
         devices = 1 if accelerator == "cpu" else [cast(int, device_info.index)]
 
+        # TODO: log per-treebanck dev metrics?
         trainer.train(
             accelerator=accelerator,
-            callbacks=[pl_callbacks.RichProgressBar(console_kwargs={"stderr": True})],
+            callbacks=[
+                pl_callbacks.RichProgressBar(console_kwargs={"stderr": True}),
+                trainer.RichFeedbackCallback(),
+            ],
             config_file=config_file,
             dev_file=concat_dev_file,
             devices=devices,

@@ -1,5 +1,4 @@
 import datetime
-import math
 import os
 import pathlib
 import shutil
@@ -24,6 +23,7 @@ from rich.console import Console
 from rich.table import Column, Table
 
 from hopsparser import conll2018_eval as evaluator
+from hopsparser import utils
 from hopsparser.deptree import DepGraph
 from hopsparser.parser import (
     BiAffineParser,
@@ -179,7 +179,7 @@ class ParserTrainingModule(pl.LightningModule):
     def configure_optimizers(self):
         # TODO: use modern Adam/other opts and allow tweaking the betas
         optimizer = torch.optim.Adam(
-            self.parameters(), betas=(0.9, 0.9), lr=self.config.lr.base, eps=1e-09
+            self.parameters(), betas=(0.9, 0.9), lr=self.config.lr.base, eps=1e-09, fused=True
         )
 
         if self.config.lr.shape == "exponential":
@@ -216,6 +216,18 @@ class SaveModelCallback(pl.Callback):
     ):
         logger.info(f"Saving model to {self.save_dir}")
         pl_module.parser.save(self.save_dir)
+
+
+class RichFeedbackCallback(pl_callbacks.Callback):
+    def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
+        if not trainer.sanity_checking:
+            utils.log_epoch(
+                epoch_name=str(trainer.current_epoch),
+                metrics={
+                    k: (f"{v:.08f}" if "loss" in k else f"{v:06.2%}"[:-1])
+                    for k, v in trainer.logged_metrics.items()
+                },
+            )
 
 
 def train(
@@ -409,7 +421,10 @@ def main(
         output_dir=output_dir,
         train_file=train_file,
         rand_seed=rand_seed,
-        callbacks=[pl_callbacks.RichProgressBar(console_kwargs={"stderr": True})],
+        callbacks=[
+            pl_callbacks.RichProgressBar(console_kwargs={"stderr": True}),
+            RichFeedbackCallback(),
+        ],
     )
 
     metrics = ("UPOS", "UAS", "LAS")
