@@ -34,7 +34,7 @@ class Messages(enum.Enum):
 
 
 class EpochFeedbackCallback(pl_callbacks.Callback):
-    def __init__(self, message_queue: Queue[tuple[Messages, Any]], run_name: str):
+    def __init__(self, message_queue: "Queue[tuple[Messages, Any]]", run_name: str):
         self.message_queue = message_queue
         self.run_name = run_name
 
@@ -120,7 +120,7 @@ def evaluate_model(
         syst_set = evaluator.load_conllu_file(parsed_path)
         eval_res = evaluator.evaluate(gold_set, syst_set)
         if metrics is None:
-            metrics = eval_res.keys()
+            metrics = list(eval_res.keys())
         res[treebank_name] = {m: eval_res[m].f1 for m in metrics}
     return res
 
@@ -130,7 +130,7 @@ def train_single_model(
     config_file: pathlib.Path,
     device: str,
     dev_file: pathlib.Path,
-    message_queue: Queue[tuple[Messages, Any]],
+    message_queue: "Queue[tuple[Messages, Any]]",
     metrics: list[str],
     output_dir: pathlib.Path,
     run_name: str,
@@ -185,8 +185,8 @@ def train_single_model(
 
 
 def worker(
-    device_queue: Queue[str],
-    monitor_queue: Queue[tuple[Messages, Any]],
+    device_queue: "Queue[str]",
+    monitor_queue: "Queue[tuple[Messages, Any]]",
     run_name: str,
     train_kwargs: dict[str, Any],
 ) -> tuple[str, dict[str, float]]:
@@ -262,7 +262,7 @@ def run_multi(
 
 
 # TODO: use a dict for queue content
-def monitor_process(num_runs: int, queue: multiprocessing.Queue[tuple[Messages, Any]]):
+def monitor_process(num_runs: int, queue: "Queue[tuple[Messages, Any]]"):
     with Progress(
         *Progress.get_default_columns(),
         MofNCompleteColumn(),
