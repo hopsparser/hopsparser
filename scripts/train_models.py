@@ -34,7 +34,7 @@ class Messages(enum.Enum):
 
 
 class EpochFeedbackCallback(pl_callbacks.Callback):
-    def __init__(self, message_queue: Queue, run_name: str):
+    def __init__(self, message_queue: Queue[tuple[Messages, Any]], run_name: str):
         self.message_queue = message_queue
         self.run_name = run_name
 
@@ -99,7 +99,7 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
             )
 
 
-def evaluate_single(
+def evaluate_model(
     model_path: pathlib.Path,
     parsed_dir: pathlib.Path,
     treebanks: dict[str, pathlib.Path],
@@ -113,7 +113,6 @@ def evaluate_single(
         parsed_path = parsed_dir / f"{treebank_path.stem}.parsed.conllu"
         if not parsed_path.exists() or reparse:
             with treebank_path.open() as in_stream, parsed_path.open("w") as out_stream:
-                # TODO: The batch size will be 1 by default, how to make it customizable?
                 for tree in model.parse(inpt=in_stream, batch_size=None):
                     out_stream.write(tree.to_conllu())
                     out_stream.write("\n\n")
@@ -131,7 +130,7 @@ def train_single_model(
     config_file: pathlib.Path,
     device: str,
     dev_file: pathlib.Path,
-    message_queue: Queue,
+    message_queue: Queue[tuple[Messages, Any]],
     metrics: list[str],
     output_dir: pathlib.Path,
     run_name: str,
@@ -163,7 +162,7 @@ def train_single_model(
         **{k: v for k, v in additional_args.items()},
     )
 
-    eval_res = evaluate_single(
+    eval_res = evaluate_model(
         device=device,
         metrics=metrics,
         model_path=model_path,
@@ -186,8 +185,8 @@ def train_single_model(
 
 
 def worker(
-    device_queue: Queue,
-    monitor_queue: Queue,
+    device_queue: Queue[str],
+    monitor_queue: Queue[tuple[Messages, Any]],
     run_name: str,
     train_kwargs: dict[str, Any],
 ) -> tuple[str, dict[str, float]]:
@@ -263,7 +262,7 @@ def run_multi(
 
 
 # TODO: use a dict for queue content
-def monitor_process(num_runs: int, queue: multiprocessing.Queue):
+def monitor_process(num_runs: int, queue: multiprocessing.Queue[tuple[Messages, Any]]):
     with Progress(
         *Progress.get_default_columns(),
         MofNCompleteColumn(),
@@ -332,7 +331,6 @@ def monitor_process(num_runs: int, queue: multiprocessing.Queue):
     type=click.Path(resolve_path=True, exists=False, file_okay=False, path_type=pathlib.Path),
 )
 @click.option("--prefix", default="", help="A custom prefix to prepend to run names.")
-# FIXME: we should have to manually set the default like this, see how to uncomment
 @click.option(
     "--rand-seeds",
     callback=(lambda _ctx, _opt, val: [int(v) for v in val.split(",")]),
@@ -370,7 +368,7 @@ def main(
             test_file = next(t.glob("*test.conllu"))
             # TODO: make this cleaner
             # Skip configs that are not for this lang
-            # UD treebankfiles start with the iso langcode (like en_ewt, etc.)
+            # UD treebank files start with the iso langcode (like en_ewt, etc.)
             if c.parent != configs_dir and not train_file.stem.startswith(c.parent.name):
                 continue
             common_params = {
@@ -403,7 +401,7 @@ def main(
             if parsed_dev.exists() and parsed_test.exists():
                 try:
                     # FIXME: don't hardcode the model path this way?
-                    prev_metrics = evaluate_single(
+                    prev_metrics = evaluate_model(
                         metrics=metrics,
                         model_path=run_out_dir / "model",
                         parsed_dir=run_out_dir,
