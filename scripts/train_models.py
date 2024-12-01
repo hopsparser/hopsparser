@@ -405,7 +405,6 @@ def main(
                 try:
                     # FIXME: don't hardcode the model path this way?
                     prev_metrics = evaluate_model(
-                        device=devices[0],
                         metrics=metrics,
                         model_path=run_out_dir / "model",
                         parsed_dir=run_out_dir,
@@ -491,5 +490,4 @@ def main(
 
 
 if __name__ == "__main__":
-    multiprocessing.set_start_method("spawn")
     main()
