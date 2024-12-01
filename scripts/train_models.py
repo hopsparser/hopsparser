@@ -363,6 +363,8 @@ def main(
     runs: dict[str, dict] = dict()
     for t in treebanks:
         for c in configs:
+            # TODO: logic for treebank dirs that don't have a test etc. Doesn't happen in UD (train
+            # implies dev and test but could in other contexts)
             train_file = next(t.glob("*train.conllu"))
             dev_file = next(t.glob("*dev.conllu"))
             test_file = next(t.glob("*test.conllu"))
@@ -395,8 +397,9 @@ def main(
     res: dict[str, dict[str, dict[str, float]]] = {}
     for run_name, run_args in runs.items():
         if (run_out_dir := run_args["output_dir"]).exists():
-            parsed_dev = run_out_dir / f"{dev_file.stem}.parsed.conllu"
-            parsed_test = run_out_dir / f"{test_file.stem}.parsed.conllu"
+            # FIXME: the logic here is brittle and feels redundant too
+            parsed_dev = next(run_out_dir.glob("*dev.parsed.conllu"))
+            parsed_test = next(run_out_dir.glob("*test.parsed.conllu"))
 
             if parsed_dev.exists() and parsed_test.exists():
                 try:
