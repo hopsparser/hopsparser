@@ -398,10 +398,10 @@ def main(
     for run_name, run_args in runs.items():
         if (run_out_dir := run_args["output_dir"]).exists():
             # FIXME: the logic here is brittle and feels redundant too
-            parsed_dev = next(run_out_dir.glob("*dev.parsed.conllu"))
-            parsed_test = next(run_out_dir.glob("*test.parsed.conllu"))
+            parsed_dev = next(run_out_dir.glob("*dev.parsed.conllu"), None)
+            parsed_test = next(run_out_dir.glob("*test.parsed.conllu"), None)
 
-            if parsed_dev.exists() and parsed_test.exists():
+            if parsed_dev is not None and parsed_test is not None:
                 try:
                     # FIXME: don't hardcode the model path this way?
                     prev_metrics = evaluate_model(
