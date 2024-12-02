@@ -265,6 +265,11 @@ def train(
                 f"Erasing existing trained model in {model_path} since overwrite was asked",
             )
             shutil.rmtree(model_path)
+            parser = BiAffineParser.initialize(
+                config_path=config_file,
+                treebank=train_trees,
+            )
+
         else:
             logger.info(f"Continuing training from {model_path}")
             parser = BiAffineParser.load(model_path)
