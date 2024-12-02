@@ -126,7 +126,7 @@ def evaluate_model(
 
 
 def train_single_model(
-    additional_args: dict[str, str],
+    additional_args: dict[str, Any],
     config_file: pathlib.Path,
     device: str,
     dev_file: pathlib.Path,
@@ -189,7 +189,7 @@ def worker(
     monitor_queue: "Queue[tuple[Messages, Any]]",
     run_name: str,
     train_kwargs: dict[str, Any],
-) -> tuple[str, dict[str, float]]:
+) -> tuple[str, dict[str, dict[str, float]]]:
     # We use no more workers than devices so the queue should never be empty when launching the
     # worker fun so we want to fail early here if the Queue is empty. It does not feel right but it
     # works.
@@ -201,9 +201,9 @@ def worker(
     train_kwargs["device"] = device
     logger.info(f"Start training {run_name} on {device}")
     res = train_single_model(**train_kwargs, message_queue=monitor_queue, run_name=run_name)
-    device_queue.put(device)
-    # logger.info(f"Run {name} finished with results {res}")
+    logger.info(f"Run {run_name} finished.")
     monitor_queue.put((Messages.RUN_DONE, run_name))
+    device_queue.put(device)
     logger.remove(log_handle)
     return (run_name, res)
 
@@ -231,7 +231,7 @@ class NoDaemonPool(multiprocessing.pool.Pool):
 def run_multi(
     runs: dict[str, dict[str, Any]],
     devices: list[str],
-) -> dict[str, dict[str, float]]:
+) -> dict[str, dict[str, dict[str, float]]]:
     with multiprocessing.Manager() as manager:
         device_queue = manager.Queue()
         for d in devices:
