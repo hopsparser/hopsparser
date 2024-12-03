@@ -112,6 +112,7 @@ def evaluate_model(
     for treebank_name, treebank_path in treebanks.items():
         parsed_path = parsed_dir / f"{treebank_path.stem}.parsed.conllu"
         if not parsed_path.exists() or reparse:
+            logger.debug(f"Parsing {treebank_path}.")
             with treebank_path.open() as in_stream, parsed_path.open("w") as out_stream:
                 for tree in model.parse(inpt=in_stream, batch_size=None):
                     out_stream.write(tree.to_conllu())
@@ -120,8 +121,10 @@ def evaluate_model(
         syst_set = evaluator.load_conllu_file(parsed_path)
         eval_res = evaluator.evaluate(gold_set, syst_set)
         if metrics is None:
-            metrics = list(eval_res.keys())
-        res[treebank_name] = {m: eval_res[m].f1 for m in metrics}
+            res_metrics = list(eval_res.keys())
+        else:
+            res_metrics = metrics
+        res[treebank_name] = {m: eval_res[m].f1 for m in res_metrics}
     return res
 
 
@@ -161,6 +164,8 @@ def train_single_model(
         train_file=train_file,
         **{k: v for k, v in additional_args.items()},
     )
+
+    logger.info(f"Training done for {run_name}, running a full evaluation on the dev-best model.")
 
     eval_res = evaluate_model(
         device=device,
