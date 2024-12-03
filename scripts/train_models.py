@@ -107,14 +107,19 @@ def evaluate_model(
     metrics: Optional[list[str]] = None,
     reparse: bool = False,
 ) -> dict[str, dict[str, float]]:
-    logger.debug(f"Loading {model_path} for evaluation.")
-    model = parser.BiAffineParser.load(model_path).to(device)
-    model.eval()
+    logger.debug(f"Evaluating {model_path} on {treebanks}.")
+    # Avoid loading the model right now in case we don't need to reparse anything. This removes a
+    # security (ensuring the model actually loads) but eh.
+    model = None
     res: dict[str, dict[str, float]] = dict()
     for treebank_name, treebank_path in treebanks.items():
         parsed_path = parsed_dir / f"{treebank_path.stem}.parsed.conllu"
         if not parsed_path.exists() or reparse:
             logger.debug(f"Parsing {treebank_path}.")
+            if model is None:
+                logger.debug(f"Loading {model_path} for evaluation.")
+                model = parser.BiAffineParser.load(model_path).to(device)
+                model.eval()
             with treebank_path.open() as in_stream, parsed_path.open("w") as out_stream:
                 with torch.inference_mode():
                     for tree in model.parse(inpt=in_stream, batch_size=None):
