@@ -19,7 +19,7 @@ from loguru import logger
 
 @contextlib.contextmanager
 def smart_open(
-    f: Union[pathlib.Path, str, IO], mode: str = "r", *args, **kwargs
+    f: str | pathlib.Path | IO, mode: str = "r", *args, **kwargs
 ) -> Generator[IO, None, None]:
     """Open files, paths and i/o streams transparently."""
     fh: IO
@@ -37,7 +37,7 @@ def smart_open(
         fh = cast(IO, f)
         close = False
     else:
-        fh = open(cast(Union[pathlib.Path, str], f), mode, *args, **kwargs)
+        fh = open(cast(pathlib.Path | str, f), mode, *args, **kwargs)
         close = True
 
     try:
@@ -52,7 +52,7 @@ def smart_open(
 
 @contextlib.contextmanager
 def dir_manager(
-    path: Optional[Union[pathlib.Path, str]] = None,
+    path: Optional[pathlib.Path | str] = None,
 ) -> Generator[pathlib.Path, None, None]:
     """A context manager to deal with a directory, default to a self-destruct temp one."""
     if path is None:
@@ -252,7 +252,7 @@ class SeparatedTuple(click.ParamType):
 
     name = "separated tuple"
 
-    def __init__(self, separator: str, types: Sequence[Union[Type, click.ParamType]]):
+    def __init__(self, separator: str, types: Sequence[Type | click.ParamType]):
         self.separator = separator
         self.types = [click.types.convert_type(ty) for ty in types]
 

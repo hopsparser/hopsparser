@@ -161,7 +161,7 @@ def transformer_model(
     return request.param
 
 
-# NOTE: The transformer models are not reset between examples but that *acceptable* and makes tests faster
+# NOTE: The transformer models are not reset between examples but that *acceptable* and makes tests faster
 @settings(deadline=2000, suppress_health_check=[HealthCheck.function_scoped_fixture])
 # FIXME: should we really skip control characters and whitespaces? We do now because most 🤗
 # tokenizers strip them out instead of rendering them as unk
@@ -184,7 +184,10 @@ def test_bert_embeddings_create_save_load(
     data: st.DataObject,
     subwords_reduction: Literal["first", "mean"],
     test_text: List[str],
-    transformer_model: Tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase],
+    transformer_model: Tuple[
+        transformers.PreTrainedModel,
+        transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast,
+    ],
     weight_layers: bool,
 ):
     model, tokenizer = transformer_model
@@ -239,6 +242,7 @@ def test_bert_embeddings_create_save_load(
     except lexers.LexingError:
         with pytest.raises(lexers.LexingError):
             r_batch = reloaded.make_batch([lexer.encode(test_text)])
+        return
     r_batch = reloaded.make_batch([lexer.encode(test_text)])
     assert l_batch.subword_alignments == r_batch.subword_alignments
     assert l_batch.encoding.data.keys() == r_batch.encoding.data.keys()

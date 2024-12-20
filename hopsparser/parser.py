@@ -5,7 +5,6 @@ import random
 import shutil
 import warnings
 from typing import (
-    IO,
     Any,
     BinaryIO,
     Callable,
@@ -19,8 +18,8 @@ from typing import (
     Optional,
     Sequence,
     Set,
+    TextIO,
     Type,
-    Union,
     cast,
     overload,
 )
@@ -155,7 +154,7 @@ class SentencesBatch(NamedTuple):
     encodings: Dict[str, SupportsTo]
     sent_lengths: torch.Tensor
 
-    def to(self: Self, device: Union[str, torch.device]) -> Self:
+    def to(self: Self, device: str | torch.device) -> Self:
         return type(self)(
             encodings={
                 lexer_name: encoded_batch.to(device)
@@ -212,7 +211,7 @@ class DependencyBatch(NamedTuple):
     labels: torch.Tensor
     annotations: Dict[str, torch.Tensor]
 
-    def to(self: Self, device: Union[str, torch.device]) -> Self:
+    def to(self: Self, device: str | torch.device) -> Self:
         return type(self)(
             trees=self.trees,
             sentences=self.sentences.to(device),
@@ -431,10 +430,10 @@ class BiAffineParser(nn.Module):
         if self.multitask_loss == "adaptative":
             self.loss_weights = torch.nn.Parameter(self.loss_weights)
 
-    def save_params(self, path: Union[str, pathlib.Path, BinaryIO]):
+    def save_params(self, path: str | pathlib.Path | BinaryIO):
         torch.save(self.state_dict(), path)
 
-    def load_params(self, path: Union[str, pathlib.Path, BinaryIO]):
+    def load_params(self, path: str | pathlib.Path | BinaryIO):
         state_dict = torch.load(path, map_location="cpu", weights_only=True)
         self.load_state_dict(state_dict)
 
@@ -652,7 +651,7 @@ class BiAffineParser(nn.Module):
         self,
         epochs: int,
         lr_schedule: LRSchedule,
-        model_path: Union[str, pathlib.Path],
+        model_path: str | pathlib.Path,
         train_set: "DependencyDataset",
         batch_size: Optional[int] = None,
         dev_set: Optional["DependencyDataset"] = None,
@@ -933,7 +932,7 @@ class BiAffineParser(nn.Module):
 
     def batched_predict(
         self,
-        batch_lst: Union[Iterable[DependencyBatch], Iterable[SentencesBatch]],
+        batch_lst: Iterable[DependencyBatch] | Iterable[SentencesBatch],
         greedy: bool = False,
     ) -> Iterable[DepGraph]:
         self.eval()
@@ -1037,14 +1036,14 @@ class BiAffineParser(nn.Module):
 
     def parse(
         self,
-        inpt: Iterable[Union[str, Sequence[str]]],
+        inpt: Iterable[str | Sequence[str]],
         batch_size: Optional[int] = None,
         raw: bool = False,
         strict: bool = True,
     ) -> Iterable[DepGraph]:
         if batch_size is None:
             batch_size = self.default_batch_size
-        batches: Union[Iterable[DependencyBatch], Iterable[SentencesBatch]]
+        batches: Iterable[DependencyBatch] | Iterable[SentencesBatch]
         if raw:
             sentences = (
                 encoded
@@ -1222,7 +1221,7 @@ class BiAffineParser(nn.Module):
     @classmethod
     def load(
         cls,
-        model_path: Union[str, pathlib.Path],
+        model_path: str | pathlib.Path,
     ) -> Self:
         model_path = pathlib.Path(model_path)
         config_path = model_path / "config.json"
@@ -1296,7 +1295,7 @@ def train(
     train_file: pathlib.Path,
     dev_file: Optional[pathlib.Path] = None,
     skip_unencodable: bool = True,
-    device: Union[str, torch.device] = "cpu",
+    device: str | torch.device = "cpu",
     max_tree_length: Optional[int] = None,
     log_epoch: Callable[[str, Dict[str, str]], Any] = utils.log_epoch,
     overwrite: bool = False,
@@ -1368,10 +1367,10 @@ def train(
 
 
 def parse(
-    model_path: Union[str, pathlib.Path],
-    in_file: Union[str, pathlib.Path, IO[str]],
-    out_file: Union[str, pathlib.Path, IO[str]],
-    device: Union[str, torch.device] = "cpu",
+    model_path: str | pathlib.Path,
+    in_file: str | pathlib.Path | TextIO],
+    out_file: str | pathlib.Path | TextIO],
+    device: str | torch.device = "cpu",
     batch_size: Optional[int] = None,
     raw: bool = False,
     strict: bool = True,

@@ -1,5 +1,5 @@
 import pathlib
-from typing import Callable, Union, cast
+from typing import Callable, cast
 
 from spacy.language import Language
 from spacy.tokens import Doc
@@ -9,7 +9,7 @@ from hopsparser.parser import BiAffineParser
 
 @Language.factory("hopsparser", assigns=["token.pos", "token.head", "token.dep"])
 def hopsparser(
-    nlp: Language, name: str, model_path: Union[str, pathlib.Path]
+    nlp: Language, name: str, model_path: str | pathlib.Path
 ) -> Callable[[Doc], Doc]:
     parser = BiAffineParser.load(model_path)
 

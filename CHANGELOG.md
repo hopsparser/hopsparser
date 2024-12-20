@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - The `train_models` script has been considerably changed, most notably it now only keeps a single
   config *per treebank*. Check the scripts readme for more details.
 - **BREAKING** Default LR schedule changed to constant.
+- Fully stop supporting Python 3.9
 
 
 ## [0.7.1] - 2023-11-16

@@ -15,7 +15,6 @@ from typing import (
     Set,
     Type,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -54,7 +53,7 @@ def integer_dropout(t: torch.Tensor, fill_value: int, p: float) -> torch.Tensor:
 
 class SupportsTo(Protocol):
     @abstractmethod
-    def to(self, device: Union[str, torch.device]) -> Self:
+    def to(self, device: str | torch.device) -> Self:
         raise NotImplementedError
 
 
@@ -82,7 +81,7 @@ class CharRNNLexerBatch(NamedTuple):
     sent_lengths: List[int]
     word_lengths: torch.Tensor
 
-    def to(self, device: Union[str, torch.device]) -> Self:
+    def to(self, device: str | torch.device) -> Self:
         return type(self)(
             encoding=self.encoding.to(device=device),
             sent_lengths=self.sent_lengths,
@@ -379,7 +378,7 @@ class FastTextLexer(nn.Module):
 
     @classmethod
     def from_fasttext_model(
-        cls, model_file: Union[str, pathlib.Path], no_remote: bool = False, **kwargs
+        cls, model_file: str | pathlib.Path, no_remote: bool = False, **kwargs
     ) -> Self:
         try:
             model = fasttext.load_model(str(model_file))
@@ -403,7 +402,7 @@ class FastTextLexer(nn.Module):
     @classmethod
     def from_raw(
         cls,
-        raw_text_path: Union[str, pathlib.Path],
+        raw_text_path: str | pathlib.Path,
         **kwargs,
     ) -> Self:
         logger.info("Training fasttext model")
@@ -554,7 +553,7 @@ class BertLexerBatch(NamedTuple):
     encoding: BatchEncoding
     subword_alignments: Sequence[Sequence[TokenSpan]]
 
-    def to(self, device: Union[str, torch.device]) -> Self:
+    def to(self, device: str | torch.device) -> Self:
         return type(self)(
             self.encoding.to(device=device),
             self.subword_alignments,
@@ -606,7 +605,7 @@ class BertLexer(nn.Module):
         layers: Optional[Sequence[int]],
         model: transformers.PreTrainedModel,
         subwords_reduction: Literal["first", "mean"],
-        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+        tokenizer: transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast,
         weight_layers: bool,
     ):
         super().__init__()
@@ -868,7 +867,7 @@ class BertLexer(nn.Module):
         return res
 
     @classmethod
-    def from_pretrained(cls, model_name_or_path: Union[str, pathlib.Path], **kwargs) -> Self:
+    def from_pretrained(cls, model_name_or_path: str | pathlib.Path, **kwargs) -> Self:
         try:
             model = transformers.AutoModel.from_pretrained(model_name_or_path)
         except OSError:

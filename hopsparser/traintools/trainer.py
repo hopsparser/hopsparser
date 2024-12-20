@@ -2,8 +2,7 @@ import datetime
 import os
 import pathlib
 import shutil
-from typing import Any, Dict, Iterable, NamedTuple, Optional, Union
-
+from typing import Any, Dict, Iterable, NamedTuple, Optional
 import click
 import pydantic
 import pytorch_lightning as pl
@@ -238,7 +237,7 @@ def train(
     rand_seed: int,
     run_name: str,
     train_file: pathlib.Path,
-    devices: Union[int, str, list[int]] = 0,
+    devices: int | str | list[int] = 0,
     callbacks: Optional[Iterable[pl_callbacks.Callback]] = None,
     overwrite: bool = False,
 ):
