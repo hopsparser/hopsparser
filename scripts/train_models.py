@@ -379,7 +379,9 @@ def main(
             # TODO: logic for treebank dirs that don't have a test etc. Doesn't happen in UD (train
             # implies dev and test but could in other contexts)
             train_file = next(t.glob("*train.conllu"))
+            # TODO: allow multiple dev??????
             dev_file = next(t.glob("*dev.conllu"))
+            # TODO: deal with having multiple test files
             test_file = next(t.glob("*test.conllu"))
             # TODO: make this cleaner
             # Skip configs that are not for this lang

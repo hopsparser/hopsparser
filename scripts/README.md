@@ -4,13 +4,17 @@ Utility scripts
 This contains utility scripts that are not part of the parser but make its usage easier. They can
 have additional dependencies that you can install using `pip install hopsparser[traintools]`
 
+## `get_UD_data.py`
+
+Download Universal Dependencies treebanks and prepare them for model training.
+
 ## `zenodo_upload.py`
 
-Upload files to a Zenodo deposit
+Upload files to a Zenodo deposit.
 
 ## `check_models.py`
 
-Check against performance changes for existing models
+Check against performance changes for existing models.
 
 ## `train_models.py`
 
