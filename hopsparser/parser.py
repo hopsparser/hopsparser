@@ -869,8 +869,8 @@ class BiAffineParser(nn.Module):
                     self.LABEL_PADDING,
                     *(
                         self.annotation_lexicons[name].get(
-                            node.misc.mapping.get(name),
-                            self.LABEL_PADDING,  # type: ignore
+                            node.misc.mapping.get(name),  # type: ignore  # This is funky but ok, since get(None) will always fail
+                            self.LABEL_PADDING,
                         )
                         for node in tree.nodes
                     ),
@@ -1368,8 +1368,8 @@ def train(
 
 def parse(
     model_path: str | pathlib.Path,
-    in_file: str | pathlib.Path | TextIO],
-    out_file: str | pathlib.Path | TextIO],
+    in_file: str | pathlib.Path | TextIO,
+    out_file: str | pathlib.Path | TextIO,
     device: str | torch.device = "cpu",
     batch_size: Optional[int] = None,
     raw: bool = False,

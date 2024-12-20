@@ -380,23 +380,28 @@ class FastTextLexer(nn.Module):
     def from_fasttext_model(
         cls, model_file: str | pathlib.Path, no_remote: bool = False, **kwargs
     ) -> Self:
+        if isinstance(model_file, pathlib.Path) and not model_file.exists():
+            raise FileNotFoundError(f"File does not exist {model_file}.")
         try:
             model = fasttext.load_model(str(model_file))
         except ValueError:
-            try:
-                model_path = hf_hub_download(repo_id=model_file, filename="model.bin")
-            except RepositoryNotFoundError as e:
-                raise ValueError(
-                    f"{model_file} is not an existing path or 🤗 hub repository"
-                ) from e
-            except EntryNotFoundError as e:
-                raise ValueError(
-                    f"{model_file} is an existing 🤗 hub repository but does not contain a `model.bin` file"
-                ) from e
-            try:
-                model = fasttext.load_model(model_path)
-            except ValueError as e:
-                raise ValueError(f"{model_file} does not seem to be a FastText model") from e
+            if isinstance(model_file, str):
+                try:
+                    model_path = hf_hub_download(repo_id=model_file, filename="model.bin")
+                except RepositoryNotFoundError as e:
+                    raise ValueError(
+                        f"{model_file} is not an existing path or 🤗 hub repository"
+                    ) from e
+                except EntryNotFoundError as e:
+                    raise ValueError(
+                        f"{model_file} is an existing 🤗 hub repository but does not contain a `model.bin` file"
+                    ) from e
+                try:
+                    model = fasttext.load_model(model_path)
+                except ValueError as e:
+                    raise ValueError(f"{model_file} does not seem to be a FastText model") from e
+            else:
+                raise ValueError(f"{model_file} is not a valid fasttext model.") from None
         return cls(model, **kwargs)
 
     @classmethod
@@ -784,10 +789,13 @@ class BertLexer(nn.Module):
                 logger.warning(
                     f"Replacing empty words by {self.tokenizer.unk_token!r} in {unrooted_tok_sequence}"
                 )
-                cleaned_up_unrooted_tok_sequence = [
-                    token if subtokens else self.tokenizer.unk_token
-                    for token, subtokens in zip(unrooted_tok_sequence, bert_tokens)
-                ]
+                cleaned_up_unrooted_tok_sequence = cast(
+                    list[str],
+                    [
+                        token if subtokens else self.tokenizer.unk_token
+                        for token, subtokens in zip(unrooted_tok_sequence, bert_tokens)
+                    ],
+                )
                 bert_tokens = [
                     subtokens if subtokens else [self.tokenizer.unk_token]
                     for subtokens in bert_tokens

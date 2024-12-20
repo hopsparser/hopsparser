@@ -250,8 +250,6 @@ class SeparatedTuple(click.ParamType):
     str, path: pathlib.Path)`.
     """
 
-    name = "separated tuple"
-
     def __init__(self, separator: str, types: Sequence[Type | click.ParamType]):
         self.separator = separator
         self.types = [click.types.convert_type(ty) for ty in types]
