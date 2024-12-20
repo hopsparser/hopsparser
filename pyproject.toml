@@ -40,20 +40,21 @@ version = "0.7.1"
 [project.optional-dependencies]
 # ci should also imply the other extras, maybe with dependency groups
 ci = ["pytest-github-actions-annotate-failures"]
-spacy = ["spacy >= 3.5"]
+spacy = ["spacy >= 3.8, < 4.0"]
 tests = [
-    "hypothesis",
+    "hypothesis >= 6.0, < 7.0",
     "networkx >= 3.2, < 3.5",
     "pytest >= 7.0 , < 9.0",
     "pytest-assert-utils",
     "pytest-console-scripts >= 1.4, < 1.5",
-    "pytest-lazy-fixtures",
+    "pytest-github-actions-annotate-failures",
+    "pytest-lazy-fixtures >= 1.1, < 2",
 ]
 traintools = [
     "httpx[http2]",
     "lightning",
-    "pytorch-lightning",
     "polars >=  1.12, < 1.13",
+    "pytorch-lightning >= 2.4, < 3.0",
     "tensorboardx",
     "torchmetrics",
 ]
