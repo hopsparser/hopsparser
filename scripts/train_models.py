@@ -192,6 +192,10 @@ def train_single_model(
     )
     logger.info(f"Metrics for {run_name}:\n{table}")
 
+    checkpoints_dir = output_dir / "lightning_checkpoints"
+    logger.debug(f"Deleting lightning checkpoint at {checkpoints_dir} to save disk space.")
+    shutil.rmtree(checkpoints_dir)
+
     logger.remove(log_handler)
 
     return {t: {m: r[m] for m in metrics} for t, r in eval_res.items()}
@@ -379,9 +383,7 @@ def main(
             # TODO: logic for treebank dirs that don't have a test etc. Doesn't happen in UD (train
             # implies dev and test but could in other contexts)
             train_file = next(t.glob("*train.conllu"))
-            # TODO: allow multiple dev??????
             dev_file = next(t.glob("*dev.conllu"))
-            # TODO: deal with having multiple test files
             test_file = next(t.glob("*test.conllu"))
             # TODO: make this cleaner
             # Skip configs that are not for this lang
