@@ -1,5 +1,6 @@
 import enum
 import multiprocessing
+import multiprocessing.managers
 import multiprocessing.pool
 import pathlib
 import shutil
@@ -244,17 +245,17 @@ class NoDaemonPool(multiprocessing.pool.Pool):
         return NoDaemonProcess(*args, **kwargs)
 
 
-# TODO: allow simulating multiprocessing for debugging purposes?
 def run_multi(
     runs: dict[str, dict[str, Any]],
     devices: list[str],
 ) -> dict[str, dict[str, dict[str, float]]]:
-    with multiprocessing.Manager() as manager:
+    ctx = multiprocessing.get_context("forkserver")
+    with multiprocessing.managers.SyncManager(ctx=ctx) as manager:
         device_queue = manager.Queue()
         for d in devices:
             device_queue.put(d)
         monitor_queue = manager.Queue()
-        monitor = multiprocessing.Process(
+        monitor = ctx.Process(
             target=monitor_process,
             kwargs={
                 "num_runs": len(runs),
@@ -263,7 +264,7 @@ def run_multi(
         )
         monitor.start()
 
-        with NoDaemonPool(len(devices)) as pool:
+        with NoDaemonPool(len(devices), context=ctx) as pool:
             res_future = pool.starmap_async(
                 worker,
                 (
