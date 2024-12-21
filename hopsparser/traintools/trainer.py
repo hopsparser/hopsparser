@@ -350,7 +350,7 @@ def train(
         default_root_dir=output_dir,
         devices=devices,
         enable_progress_bar=any(isinstance(c, pl_callbacks.ProgressBar) for c in all_callbacks),
-        log_every_n_steps=1,
+        log_every_n_steps=128,
         logger=loggers,
         max_epochs=train_config.epochs,
     )
