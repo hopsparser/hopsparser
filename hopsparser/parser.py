@@ -511,7 +511,9 @@ class BiAffineParser(nn.Module):
         head_scores_flat = parser_output.head_scores.view(-1, parser_output.head_scores.size(-1))
         all_loss["head"] = self.marginal_loss(head_scores_flat, batch.heads.view(-1))
 
-        # LABEL LOSS We will select the labels for the gold heads, so we have to provide one when
+        # LABEL LOSS
+
+        # We will select the labels for the gold heads, so we have to provide one when
         # there is none (either it is absent from the data or this is a padding token) to even if
         # they will be ignored in the crossentropy since the true label for that head is set to -100
         # so we give them the root.
@@ -535,8 +537,7 @@ class BiAffineParser(nn.Module):
         loss = torch.stack(
             [all_loss[name] for name in ["tag", "head", "deprel", *self.annotations_order]]
         )
-        # TODO: see if other loss combination functions wouldn't help here, tracked at
-        # <https://github.com/hopsparser/npdependency/issues/59>
+
         if self.multitask_loss == "sum":
             return loss.sum()
         elif self.multitask_loss == "mean":
@@ -852,7 +853,7 @@ class BiAffineParser(nn.Module):
                 self.labels.get(lab, self.LABEL_PADDING)
                 if lab is not None and h is not None
                 else self.LABEL_PADDING
-                for h, lab in zip(tree.heads, tree.deprels)
+                for h, lab in zip(tree.heads, tree.deprels, strict=True)
             ],
             dtype=torch.long,
         )
@@ -1001,21 +1002,22 @@ class BiAffineParser(nn.Module):
         misc_idx = {n: s.argmax(dim=1).tolist() for n, s in scores.extra_labels_scores.items()}
 
         # `[1:]` to ignore the root node's tag
-        # TODO: use zip strict when we can drop py38 and py39, for this and the following
         # TODO: does tolist slow us down, here?
         # TODO: should we maintain a `node.identifier: index_in_tensor` dict for this? It's
         # unnecsesary right now but would make the management of the root cleaner and allow non-int
         # identifiers in the future
         pos_tags = {
             node.identifier: self.tagset.inverse[idx]
-            for node, idx in zip(tree.nodes, tag_idxes[1:].tolist())
+            for node, idx in zip(tree.nodes, tag_idxes[1:].tolist(), strict=True)
         }
         # `[1:]` to ignore the root node's head
-        heads = {node.identifier: h for node, h in zip(tree.nodes, mst_heads[1:].tolist())}
+        heads = {
+            node.identifier: h for node, h in zip(tree.nodes, mst_heads[1:].tolist(), strict=True)
+        }
         # `[1:]` to ignore the root node's deprel
         deprels = {
             node.identifier: self.labels.inverse[lbl]
-            for node, lbl in zip(tree.nodes, mst_labels[1:].tolist())
+            for node, lbl in zip(tree.nodes, mst_labels[1:].tolist(), strict=True)
         }
 
         misc = {
