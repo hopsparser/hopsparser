@@ -3,6 +3,7 @@ import os
 import pathlib
 import shutil
 from typing import Any, Dict, Iterable, NamedTuple, Optional
+
 import click
 import pydantic
 import pytorch_lightning as pl
@@ -11,12 +12,13 @@ import torch.utils.data
 import torchmetrics
 import transformers
 import yaml
+from lightning.pytorch.utilities.types import LRSchedulerConfigType
 from lightning_utilities.core.rank_zero import rank_zero_only
 from loguru import logger
 from pytorch_lightning import callbacks as pl_callbacks
+from pytorch_lightning.accelerators import AcceleratorRegistry
 from pytorch_lightning.loggers.csv_logs import CSVLogger
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
-from pytorch_lightning.accelerators import AcceleratorRegistry
 from rich import box
 from rich.console import Console
 from rich.table import Column, Table
@@ -35,6 +37,57 @@ from hopsparser.parser import (
 from hopsparser.utils import setup_logging
 
 
+# TODO: in Python 3.12+, this could be typed much more elegantly:
+# <https://typing.readthedocs.io/en/latest/spec/generics.html#user-defined-generic-classes>
+class HarmonicMeanAggregateMetric(torchmetrics.Metric):
+    """An aggregator of metric replicas that returns their harmonic mean. Only works for metrics
+    returning their output as a torch Tensor."""
+
+    is_differentiable: bool | None = False
+
+    def __init__(
+        self,
+        n_datasets: int,
+        metric_class: type[torchmetrics.Metric],
+        *args,
+        **kwargs,
+    ) -> None:
+        super().__init__()
+
+        self.wrapped_metrics = torch.nn.ModuleList(
+            [metric_class(*args, **kwargs) for _ in range(n_datasets)]
+        )
+
+    def update(self, dataset_idx: int, *args, **kwargs) -> None:
+        self.wrapped_metrics[dataset_idx].update(*args, **kwargs)
+
+    def _agg(self, values: list[torch.Tensor]) -> torch.Tensor:
+        if len(values) == 1:
+            return values[0]
+        with torch.inference_mode():
+            # This can result in inf values. It's OK.
+            return torch.stack(values, dim=0).reciprocal().nanmean(dim=0).reciprocal()
+
+    def forward(self, dataset_idx: int, *args, **kwargs) -> torch.Tensor:
+        """Call underlying forward methods for the targeted metric. The return value does not
+        necessarily make a lot of sense."""
+        # This method is overridden because we do not need the complex version defined in Metric,
+        # that relies on the value of full_state_update, and that also accumulates the results.
+        # Here, all computations are handled by the underlying metrics, which all have their own
+        # value of full_state_update, and which all accumulate the results by themselves.
+        return self.wrapped_metrics[dataset_idx](*args, **kwargs)
+
+    def compute(self) -> torch.Tensor:
+        """Compute metrics for all tasks."""
+        return self._agg([m.compute() for m in self.wrapped_metrics])
+
+    def reset(self) -> None:
+        """Reset all underlying metrics."""
+        for metric in self.wrapped_metrics:
+            metric.reset()
+        super().reset()
+
+
 class TrainConfig(pydantic.BaseModel):
     batch_size: int = 1
     epochs: int
@@ -47,25 +100,33 @@ class ParserTrainingModuleForwardOutput(NamedTuple):
 
 
 class ParserTrainingModule(pl.LightningModule):
-    def __init__(self, parser: BiAffineParser, config: TrainConfig):
+    def __init__(self, parser: BiAffineParser, config: TrainConfig, n_dev: int = 1):
         super().__init__()
         self.parser = parser
         self.config = config
 
-        self.val_tags_accuracy = torchmetrics.Accuracy(
+        self.val_tags_accuracy = HarmonicMeanAggregateMetric(
+            n_datasets=n_dev,
+            metric_class=torchmetrics.Accuracy,
             ignore_index=self.parser.LABEL_PADDING,
             num_classes=len(self.parser.tagset),
             task="multiclass",
         )
-        self.val_heads_accuracy = torchmetrics.MeanMetric()
-        self.val_deprel_accuracy = torchmetrics.Accuracy(
+        self.val_heads_accuracy = HarmonicMeanAggregateMetric(
+            n_datasets=n_dev, metric_class=torchmetrics.MeanMetric
+        )
+        self.val_deprel_accuracy = HarmonicMeanAggregateMetric(
+            n_datasets=n_dev,
+            metric_class=torchmetrics.Accuracy,
             ignore_index=self.parser.LABEL_PADDING,
             num_classes=len(self.parser.labels),
             task="multiclass",
         )
         self.val_extra_labels_accuracy = torch.nn.ModuleDict(
             {
-                name: torchmetrics.Accuracy(
+                name: HarmonicMeanAggregateMetric(
+                    n_datasets=n_dev,
+                    metric_class=torchmetrics.Accuracy,
                     ignore_index=self.parser.LABEL_PADDING,
                     num_classes=len(lex),
                     task="multiclass",
@@ -96,7 +157,7 @@ class ParserTrainingModule(pl.LightningModule):
 
         return output.loss
 
-    def validation_step(self, batch: DependencyBatch, batch_idx: int):
+    def validation_step(self, batch: DependencyBatch, batch_idx: int, dataloader_idx: int = 0):
         output: ParserTrainingModuleForwardOutput = self(batch)
 
         self.log(
@@ -110,7 +171,7 @@ class ParserTrainingModule(pl.LightningModule):
         )
 
         tags_pred = output.output.tag_scores.argmax(dim=-1)
-        self.val_tags_accuracy(tags_pred, batch.tags)
+        self.val_tags_accuracy(dataloader_idx, tags_pred, batch.tags)
 
         self.log(
             "validation/tags_accuracy",
@@ -126,7 +187,7 @@ class ParserTrainingModule(pl.LightningModule):
         heads_accuracy = (
             heads_preds.eq(batch.heads).logical_and(heads_mask).sum().true_divide(n_heads)
         )
-        self.val_heads_accuracy(heads_accuracy, n_heads)
+        self.val_heads_accuracy(dataloader_idx, heads_accuracy, n_heads)
 
         self.log(
             "validation/heads_accuracy",
@@ -154,7 +215,7 @@ class ParserTrainingModule(pl.LightningModule):
             output.output.deprel_scores, -2, gold_heads_select
         ).squeeze(-2)
         deprels_pred = gold_head_deprels_scores.argmax(dim=-1)
-        self.val_deprel_accuracy(deprels_pred, batch.labels)
+        self.val_deprel_accuracy(dataloader_idx, deprels_pred, batch.labels)
 
         self.log(
             "validation/deprel_accuracy",
@@ -167,7 +228,7 @@ class ParserTrainingModule(pl.LightningModule):
         for name, scores in output.output.extra_labels_scores.items():
             gold_annotation = batch.annotations[name]
             annotation_pred = scores.argmax(dim=-1)
-            self.val_extra_labels_accuracy[name](annotation_pred, gold_annotation)
+            self.val_extra_labels_accuracy[name](dataloader_idx, annotation_pred, gold_annotation)
             self.log(
                 f"validation/{name}_accuracy",
                 self.val_extra_labels_accuracy[name],
@@ -181,6 +242,7 @@ class ParserTrainingModule(pl.LightningModule):
             self.parameters(), betas=(0.9, 0.9), lr=self.config.lr.base, eps=1e-09, fused=True
         )
 
+        schedulers: list[LRSchedulerConfigType]
         if self.config.lr.shape == "exponential":
             scheduler = torch.optim.lr_scheduler.LambdaLR(
                 lr_lambda=(lambda n: 0.95**n),
