@@ -1,0 +1,7 @@
+- group: toys
+  configs:
+    - "configs/*.yaml"
+  train_treebanks:
+    - "toy_*"
+  eval_treebanks:
+    - "toy_*"

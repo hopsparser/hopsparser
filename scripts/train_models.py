@@ -13,6 +13,7 @@ from typing import (
 
 import click
 import polars as pol
+from pydantic import BaseModel, TypeAdapter
 import pytorch_lightning as pl
 import torch
 from lightning.pytorch.utilities.types import STEP_OUTPUT
@@ -20,6 +21,7 @@ from loguru import logger
 from pytorch_lightning import callbacks as pl_callbacks
 from rich.progress import MofNCompleteColumn, Progress, TaskID, TimeElapsedColumn
 from tabulate2 import tabulate
+import yaml
 
 import hopsparser.traintools.trainer as trainer
 from hopsparser import conll2018_eval as evaluator
@@ -321,10 +323,17 @@ def monitor_process(num_runs: int, queue: "Queue[tuple[Messages, Any]]"):
         logger.complete()
 
 
+class TrainGroup(BaseModel):
+    group: str
+    configs: list[str]
+    train_treebanks: list[str]
+    eval_treebanks: list[str]
+
+
 @click.command()
 @click.argument(
-    "configs_dir",
-    type=click.Path(resolve_path=True, exists=True, file_okay=False, path_type=pathlib.Path),
+    "config_file",
+    type=click.Path(resolve_path=True, exists=True, dir_okay=False, path_type=pathlib.Path),
 )
 @click.argument(
     "treebanks_dir",
@@ -367,7 +376,7 @@ def monitor_process(num_runs: int, queue: "Queue[tuple[Messages, Any]]"):
     show_default=True,
 )
 def main(
-    configs_dir: pathlib.Path,
+    config_file: pathlib.Path,
     devices: list[str],
     metrics: list[str],
     out_dir: pathlib.Path,
@@ -377,46 +386,46 @@ def main(
 ):
     logger.remove()
     logging_handlers = utils.setup_logging(appname="hops_trainer")
+    configs_dir = config_file.parent
+    groups = TypeAdapter(list[TrainGroup]).validate_python(yaml.safe_load(config_file.read_text()))
+    logger.info(f"Training for {len({g.group for g in groups})} groups.")
     out_dir.mkdir(parents=True, exist_ok=True)
-    treebanks = [train.parent for train in treebanks_dir.glob("**/*train.conllu")]
-    logger.info(f"Training on {len(treebanks)} treebanks.")
-    configs = list(configs_dir.glob("**/*.yaml"))
-    logger.info(f"Training using {len(configs)} configs.")
     logger.info(f"Training with rand seeds: {','.join(str(s) for s in rand_seeds)}.")
 
     runs: dict[str, dict] = dict()
-    for t in treebanks:
-        for c in configs:
-            # TODO: logic for treebank dirs that don't have a test etc. Doesn't happen in UD (train
-            # implies dev and test but could in other contexts)
-            train_file = next(t.glob("*train.conllu"))
-            dev_files = list(t.glob("*dev.conllu"))
-            test_files = list(t.glob("*test.conllu"))
-            # TODO: make this cleaner
-            # Skip configs that are not for this lang
-            # UD treebank files start with the iso langcode (like en_ewt, etc.)
-            if c.parent != configs_dir and not train_file.stem.startswith(c.parent.name):
-                continue
-            common_params = {
-                "train_file": train_file,
-                "train_treebank": t.name,
-                "dev_files": dev_files,
-                "test_files": test_files,
-                "config_file": c,
-                "metrics": metrics,
-            }
-            run_base_name = f"{prefix}{t.name}-{c.stem}"
-            run_out_root_dir = out_dir / run_base_name
-            for r in rand_seeds:
-                run_suffix = f"rand_seed={r}"
-                run_out_dir = run_out_root_dir / run_suffix
-                run_name = f"{run_base_name}+{run_suffix}"
-                run_args = {
-                    **common_params,
-                    "additional_args": {"rand_seed": r},
-                    "output_dir": run_out_dir,
+    for g in groups:
+        train_treebanks = [t for pattern in g.train_treebanks for t in treebanks_dir.glob(pattern)]
+        configs = [c for pattern in g.configs for c in configs_dir.glob(pattern)]
+        for t in train_treebanks:
+            for c in configs:
+                # TODO: logic for treebank dirs that don't have a test etc. Doesn't happen in UD
+                # (train implies dev and test but could in other contexts)
+                train_file = next(t.glob("*train.conllu"))
+                dev_files = list(t.glob("*dev.conllu"))
+                test_files = list(t.glob("*test.conllu"))
+                common_params = {
+                    "train_file": train_file,
+                    "dev_files": dev_files,
+                    "test_files": test_files,
+                    "config_file": c,
+                    "metrics": metrics,
+                    "metadata": {
+                        "train_treebank": t.name,
+                        "group": g.group,
+                    },
                 }
-                runs[run_name] = run_args
+                run_base_name = f"{prefix}{t.name}-{c.stem}"
+                run_out_root_dir = out_dir / run_base_name
+                for r in rand_seeds:
+                    run_suffix = f"rand_seed={r}"
+                    run_out_dir = run_out_root_dir / run_suffix
+                    run_name = f"{run_base_name}+{run_suffix}"
+                    run_args = {
+                        **common_params,
+                        "additional_args": {"rand_seed": r},
+                        "output_dir": run_out_dir,
+                    }
+                    runs[run_name] = run_args
 
     missing_runs: dict[str, dict[str, Any]] = {}
     res: dict[str, dict[str, dict[str, float]]] = {}
@@ -456,7 +465,8 @@ def main(
                 f" Results were {prev_metrics}"
             )
         else:
-            missing_runs[run_name] = run_args
+            # TODO: better run args/metadata separation
+            missing_runs[run_name] = {k: v for k, v in run_args.items() if k != "metadata"}
 
     logger.info(f"Starting {len(missing_runs)} runs.")
     for h in logging_handlers:
@@ -471,12 +481,13 @@ def main(
             {
                 "run_name": run_name,
                 "config": str(runs[run_name]["config_file"]),
-                "train_treebank": runs[run_name]["train_treebank"],
+                "train_treebank": runs[run_name]["metadata"]["train_treebank"],
                 "additional_args": runs[run_name]["additional_args"],
                 "results": reults,
                 "split": split,
                 "treebank": treebank,
                 "output_dir": str(runs[run_name]["output_dir"]),
+                "group": runs[run_name]["metadata"]["group"],
             }
             for run_name, scores in res.items()
             for (treebank, split), reults in scores.items()
