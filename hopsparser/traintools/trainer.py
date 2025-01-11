@@ -2,7 +2,7 @@ import datetime
 import os
 import pathlib
 import shutil
-from typing import Any, Dict, Iterable, NamedTuple, Optional
+from typing import Any, Iterable, Mapping, NamedTuple, Optional, cast
 
 import click
 import pydantic
@@ -105,6 +105,11 @@ class ParserTrainingModule(pl.LightningModule):
         self.parser = parser
         self.config = config
 
+        self.val_loss = HarmonicMeanAggregateMetric(
+            n_datasets=n_dev,
+            metric_class=torchmetrics.MeanMetric,
+        )
+
         self.val_tags_accuracy = HarmonicMeanAggregateMetric(
             n_datasets=n_dev,
             metric_class=torchmetrics.Accuracy,
@@ -112,6 +117,7 @@ class ParserTrainingModule(pl.LightningModule):
             num_classes=len(self.parser.tagset),
             task="multiclass",
         )
+
         self.val_heads_accuracy = HarmonicMeanAggregateMetric(
             n_datasets=n_dev, metric_class=torchmetrics.MeanMetric
         )
@@ -122,17 +128,21 @@ class ParserTrainingModule(pl.LightningModule):
             num_classes=len(self.parser.labels),
             task="multiclass",
         )
-        self.val_extra_labels_accuracy = torch.nn.ModuleDict(
-            {
-                name: HarmonicMeanAggregateMetric(
-                    n_datasets=n_dev,
-                    metric_class=torchmetrics.Accuracy,
-                    ignore_index=self.parser.LABEL_PADDING,
-                    num_classes=len(lex),
-                    task="multiclass",
-                )
-                for name, lex in self.parser.annotation_lexicons.items()
-            }
+        # We need a cast here because ModuleDict does not subclass dict
+        self.val_extra_labels_accuracy = cast(
+            Mapping[str, torchmetrics.Metric],
+            torch.nn.ModuleDict(
+                {
+                    name: HarmonicMeanAggregateMetric(
+                        n_datasets=n_dev,
+                        metric_class=torchmetrics.Accuracy,
+                        ignore_index=self.parser.LABEL_PADDING,
+                        num_classes=len(lex),
+                        task="multiclass",
+                    )
+                    for name, lex in self.parser.annotation_lexicons.items()
+                }
+            ),
         )
         logger.debug(f"Using train config {config}")
         self.save_hyperparameters("config")
@@ -157,21 +167,15 @@ class ParserTrainingModule(pl.LightningModule):
 
         return output.loss
 
-    def validation_step(self, batch: DependencyBatch, batch_idx: int, dataloader_idx: int = 0):
-        output: ParserTrainingModuleForwardOutput = self(batch)
-
+    # This should be done in the validation_step hook but see
+    # <https://github.com/Lightning-AI/pytorch-lightning/issues/11126#issuecomment-1504866597>
+    def on_validation_epoch_end(self):
         self.log(
             "validation/loss",
-            output.loss,
-            batch_size=batch.sentences.sent_lengths.shape[0],
+            self.val_loss,
             logger=True,
             on_epoch=True,
-            reduce_fx=torch.mean,
-            sync_dist=True,
         )
-
-        tags_pred = output.output.tag_scores.argmax(dim=-1)
-        self.val_tags_accuracy(dataloader_idx, tags_pred, batch.tags)
 
         self.log(
             "validation/tags_accuracy",
@@ -179,6 +183,36 @@ class ParserTrainingModule(pl.LightningModule):
             logger=True,
             on_epoch=True,
         )
+
+        self.log(
+            "validation/heads_accuracy",
+            self.val_heads_accuracy,
+            logger=True,
+            on_epoch=True,
+        )
+
+        self.log(
+            "validation/deprel_accuracy",
+            self.val_deprel_accuracy,
+            logger=True,
+            on_epoch=True,
+        )
+
+        for name, metric in self.val_extra_labels_accuracy.items():
+            self.log(
+                f"validation/{name}_accuracy",
+                metric,
+                logger=True,
+                on_epoch=True,
+            )
+
+    def validation_step(self, batch: DependencyBatch, batch_idx: int, dataloader_idx: int = 0):
+        output: ParserTrainingModuleForwardOutput = self(batch)
+
+        self.val_loss(dataloader_idx, output.loss)
+
+        tags_pred = output.output.tag_scores.argmax(dim=-1)
+        self.val_tags_accuracy(dataloader_idx, tags_pred, batch.tags)
 
         # greedy head accuracy (without parsing)
         heads_preds = output.output.head_scores.argmax(dim=-1)
@@ -188,13 +222,6 @@ class ParserTrainingModule(pl.LightningModule):
             heads_preds.eq(batch.heads).logical_and(heads_mask).sum().true_divide(n_heads)
         )
         self.val_heads_accuracy(dataloader_idx, heads_accuracy, n_heads)
-
-        self.log(
-            "validation/heads_accuracy",
-            self.val_heads_accuracy,
-            logger=True,
-            on_epoch=True,
-        )
 
         # greedy deprel accuracy (without parsing)
         gold_heads_select = (
@@ -217,24 +244,11 @@ class ParserTrainingModule(pl.LightningModule):
         deprels_pred = gold_head_deprels_scores.argmax(dim=-1)
         self.val_deprel_accuracy(dataloader_idx, deprels_pred, batch.labels)
 
-        self.log(
-            "validation/deprel_accuracy",
-            self.val_deprel_accuracy,
-            logger=True,
-            on_epoch=True,
-        )
-
         # extra labels accuracy
         for name, scores in output.output.extra_labels_scores.items():
             gold_annotation = batch.annotations[name]
             annotation_pred = scores.argmax(dim=-1)
             self.val_extra_labels_accuracy[name](dataloader_idx, annotation_pred, gold_annotation)
-            self.log(
-                f"validation/{name}_accuracy",
-                self.val_extra_labels_accuracy[name],
-                logger=True,
-                on_epoch=True,
-            )
 
     def configure_optimizers(self):
         # TODO: use modern Adam/other opts and allow tweaking the betas
@@ -273,7 +287,7 @@ class SaveModelCallback(pl.Callback):
 
     @rank_zero_only
     def on_save_checkpoint(
-        self, trainer: pl.Trainer, pl_module: ParserTrainingModule, checkpoint: Dict[str, Any]
+        self, trainer: pl.Trainer, pl_module: ParserTrainingModule, checkpoint: dict[str, Any]
     ):
         logger.info(f"Saving model to {self.save_dir}")
         pl_module.parser.save(self.save_dir)
@@ -294,7 +308,7 @@ class RichFeedbackCallback(pl_callbacks.Callback):
 def train(
     accelerator: str,
     config_file: pathlib.Path,
-    dev_file: Optional[pathlib.Path],
+    dev_file: pathlib.Path | list[pathlib.Path] | None,
     output_dir: pathlib.Path,
     rand_seed: int,
     run_name: str,
@@ -357,30 +371,34 @@ def train(
         shuffle=True,
         num_workers=2,
     )
+    dev_loaders: list[torch.utils.data.DataLoader] = []
     if dev_file is not None:
-        with open(dev_file) as in_stream:
-            dev_trees = list(DepGraph.read_conll(in_stream))
-        dev_set = DependencyDataset(
-            parser,
-            dev_trees,
-            skip_unencodable=True,
-        )
-        dev_loader = torch.utils.data.DataLoader(
-            dataset=dev_set,
-            batch_size=train_config.batch_size,
-            collate_fn=parser.batch_trees,
-            num_workers=2,
-        )
-    else:
-        dev_loader = None
-    train_module = ParserTrainingModule(parser=parser, config=train_config)
+        if isinstance(dev_file, pathlib.Path):
+            dev_file = [dev_file]
+        for f in dev_file:
+            with f.open() as in_stream:
+                dev_trees = list(DepGraph.read_conll(in_stream))
+            dev_set = DependencyDataset(
+                parser,
+                dev_trees,
+                skip_unencodable=True,
+            )
+            dev_loaders.append(
+                torch.utils.data.DataLoader(
+                    dataset=dev_set,
+                    batch_size=train_config.batch_size,
+                    collate_fn=parser.batch_trees,
+                    num_workers=2,
+                )
+            )
+    train_module = ParserTrainingModule(config=train_config, n_dev=len(dev_loaders), parser=parser)
     all_callbacks = [
         pl_callbacks.LearningRateMonitor("step"),
         SaveModelCallback(save_dir=model_path),
     ]
     if callbacks is not None:
         all_callbacks.extend(callbacks)
-    if dev_loader is not None:
+    if len(dev_loaders) > 0:
         all_callbacks.append(
             pl_callbacks.ModelCheckpoint(
                 auto_insert_metric_name=False,
@@ -416,7 +434,7 @@ def train(
         logger=loggers,
         max_epochs=train_config.epochs,
     )
-    trainer.fit(train_module, train_dataloaders=train_loader, val_dataloaders=dev_loader)
+    trainer.fit(train_module, train_dataloaders=train_loader, val_dataloaders=dev_loaders)
 
 
 @click.command(help="Train a parsing model")

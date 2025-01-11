@@ -25,7 +25,6 @@ from typing import (
 )
 
 import pydantic
-
 import torch.utils.data
 import transformers
 import yaml
@@ -269,7 +268,7 @@ class BiaffineParserOutput(NamedTuple):
         if self.extra_labels_scores:
             for name, scores in self.extra_labels_scores.items():
                 for scores_dict, label_scores, sent_len in zip(
-                    transposed_extra_labels_scores, scores.unbind(0), sentence_lengths
+                    transposed_extra_labels_scores, scores.unbind(0), sentence_lengths, strict=True
                 ):
                     scores_dict[name] = label_scores[:sent_len, :]
 
@@ -286,6 +285,7 @@ class BiaffineParserOutput(NamedTuple):
                 self.deprel_scores.unbind(0),
                 transposed_extra_labels_scores,
                 sentence_lengths,
+                strict=True,
             )
         ]
 
