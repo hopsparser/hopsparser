@@ -483,37 +483,56 @@ def main(
         ]
     )
     train_results_df.write_ndjson(out_dir / "full_report.jsonl")
-    print(train_results_df)
 
     dev_best_df = (
         train_results_df.filter(pol.col("split") == "dev")
-        .group_by("treebank")
-        .agg(
-            pol.all().top_k_by(pol.col("results").struct[metrics[-1]], k=1),
+        .with_columns(pol.col("results").struct[metrics[-1]].alias("dev_agg"))
+        .group_by("run_name")
+        .agg(pol.col("dev_agg"), pol.col("train_treebank").first())
+        .with_columns(
+            pol.col("dev_agg")
+            .list.len()
+            .truediv(pol.col("dev_agg").list.eval(1 / pol.element()).list.sum())
         )
-        .explode(pol.all().exclude("treebank"))
+        .group_by("train_treebank")
+        .agg(pol.all().top_k_by(pol.col("dev_agg"), k=1))
+        .explode(pol.all().exclude("train_treebank"))
     )
 
-    best_models_all_results = train_results_df.join(dev_best_df, on="run_name", how="semi")
+    best_models_results_wide = (
+        train_results_df.join(dev_best_df, on="run_name", how="semi")
+        .group_by("train_treebank", "split")
+        .agg(pol.all().exclude("results", "treebank").first(), pol.col("results"))
+        .with_columns(
+            pol.struct(
+                **{
+                    m: pol.col("results")
+                    .list.len()
+                    .truediv(pol.col("results").list.eval(1 / pol.element().struct[m]).list.sum())
+                    for m in metrics
+                },
+                eager=False,  # Shut Pylance up
+                schema=None,
+            ).alias("results")
+        )
+    ).pivot(on="split", values="results")
 
-    print(best_models_all_results)
-
-    best_df = best_df.sort(pol.col("run_name"))
+    best_models_results_wide = best_models_results_wide.sort(pol.col("run_name"))
     best_dir = out_dir / "best"
     best_dir.mkdir(exist_ok=True, parents=True)
     (best_dir / "models.md").write_text(
         tabulate(
             (
-                best_df.select(
+                best_models_results_wide.select(
                     pol.col("output_dir"),
                     pol.col("run_name"),
-                    pol.col("treebank").alias("Treebank"),
+                    pol.col("train_treebank").alias("Treebank"),
                     pol.col("run_name").str.splitn("+", n=2).struct[0].alias("Model Name"),
                     *(
-                        (
-                            pol.col("results").struct[split].struct[metric].round_sig_figs(4) * 100
-                        ).alias(f"{split} {metric}")
-                        for split in ("Dev", "Test")
+                        (pol.col(split).struct[metric].round_sig_figs(4) * 100).alias(
+                            f"{split} {metric}"
+                        )
+                        for split in ("dev", "test")
                         for metric in metrics
                     ),
                 )
@@ -528,7 +547,7 @@ def main(
         )
     )
 
-    for report in best_df.iter_rows(named=True):
+    for report in best_models_results_wide.iter_rows(named=True):
         shutil.copytree(report["output_dir"], best_dir / report["run_name"], dirs_exist_ok=True)
 
 
