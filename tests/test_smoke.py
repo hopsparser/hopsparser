@@ -227,7 +227,7 @@ def test_train_script(
         [
             "python",
             str(scripts_dir / "train_models.py"),
-            str(test_data_dir / "train_script" / "configs"),
+            str(test_data_dir / "train_script" / "train_config"),
             str(test_data_dir / "train_script" / "treebanks"),
             "--devices",
             f"{device},{device}",
