@@ -69,7 +69,7 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
                 (
                     self.run_name,
                     (
-                        f"{self.run_name}: train {trainer.current_epoch+1}/{trainer.max_epochs}",
+                        f"{self.run_name}: train {trainer.current_epoch + 1}/{trainer.max_epochs}",
                         None,
                     ),
                 ),
@@ -92,7 +92,7 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
                     (
                         self.run_name,
                         (
-                            f"{self.run_name}: eval {trainer.current_epoch+1}/{trainer.max_epochs}",
+                            f"{self.run_name}: eval {trainer.current_epoch + 1}/{trainer.max_epochs}",
                             None,
                         ),
                     ),
@@ -103,7 +103,7 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
 def evaluate_model(
     model_path: pathlib.Path,
     parsed_dir: pathlib.Path,
-    treebanks: dict[str, pathlib.Path],
+    treebanks: dict[Any, pathlib.Path],
     device: str = "cpu",
     metrics: Optional[list[str]] = None,
     reparse: bool = False,
@@ -141,12 +141,12 @@ def train_single_model(
     additional_args: dict[str, Any],
     config_file: pathlib.Path,
     device: str,
-    dev_file: pathlib.Path,
+    dev_files: list[pathlib.Path],
     message_queue: "Queue[tuple[Messages, Any]]",
     metrics: list[str],
     output_dir: pathlib.Path,
     run_name: str,
-    test_file: pathlib.Path,
+    test_files: list[pathlib.Path],
     train_file: pathlib.Path,
 ) -> dict[str, dict[str, float]]:
     output_dir.mkdir(exist_ok=True, parents=True)
@@ -166,7 +166,7 @@ def train_single_model(
         accelerator=accelerator,
         callbacks=[EpochFeedbackCallback(message_queue=message_queue, run_name=run_name)],
         config_file=config_file,
-        dev_file=dev_file,
+        dev_file=dev_files,
         devices=devices,
         output_dir=output_dir,
         run_name=run_name,
@@ -181,11 +181,17 @@ def train_single_model(
         metrics=metrics,
         model_path=model_path,
         parsed_dir=output_dir,
-        treebanks={"Dev": dev_file, "Test": test_file},
+        treebanks={
+            **{(f.stem, "dev"): f for f in dev_files},
+            **{(f.stem, "test"): f for f in test_files},
+        },
     )
 
     table = tabulate(
-        [{"Split": k, **{m: f"{v[m]:06.2%}"[:-1] for m in metrics}} for k, v in eval_res.items()],
+        [
+            {"Treebank": treebank, "Split": split, **{m: f"{v[m]:06.2%}"[:-1] for m in metrics}}
+            for (treebank, split), v in eval_res.items()
+        ],
         floatfmt="05.2f",
         headers="keys",
         headersglobalalign="center",
@@ -384,8 +390,8 @@ def main(
             # TODO: logic for treebank dirs that don't have a test etc. Doesn't happen in UD (train
             # implies dev and test but could in other contexts)
             train_file = next(t.glob("*train.conllu"))
-            dev_file = next(t.glob("*dev.conllu"))
-            test_file = next(t.glob("*test.conllu"))
+            dev_files = list(t.glob("*dev.conllu"))
+            test_files = list(t.glob("*test.conllu"))
             # TODO: make this cleaner
             # Skip configs that are not for this lang
             # UD treebank files start with the iso langcode (like en_ewt, etc.)
@@ -393,8 +399,9 @@ def main(
                 continue
             common_params = {
                 "train_file": train_file,
-                "dev_file": dev_file,
-                "test_file": test_file,
+                "train_treebank": t.name,
+                "dev_files": dev_files,
+                "test_files": test_files,
                 "config_file": c,
                 "metrics": metrics,
             }
@@ -415,33 +422,39 @@ def main(
     res: dict[str, dict[str, dict[str, float]]] = {}
     for run_name, run_args in runs.items():
         if (run_out_dir := run_args["output_dir"]).exists():
-            # FIXME: the logic here is brittle and feels redundant too
-            parsed_dev = next(run_out_dir.glob("*dev.parsed.conllu"), None)
-            parsed_test = next(run_out_dir.glob("*test.parsed.conllu"), None)
-
-            if parsed_dev is not None and parsed_test is not None:
-                try:
-                    # FIXME: don't hardcode the model path this way?
-                    prev_metrics = evaluate_model(
-                        metrics=metrics,
-                        model_path=run_out_dir / "model",
-                        parsed_dir=run_out_dir,
-                        treebanks={"Dev": run_args["dev_file"], "Test": run_args["test_file"]},
-                        reparse=False,
-                    )
-                except evaluator.UDError as e:
-                    raise ValueError(f"Corrupted parsed file for {run_out_dir}") from e
-
-                res[run_name] = prev_metrics
-                logger.info(
-                    f"{run_out_dir} already exists, skipping run {run_name}."
-                    f" Results were {prev_metrics}"
-                )
-            else:
+            # FIXME: the logic here is brittle
+            parsed = {
+                f.name.removesuffix(".parsed.conllu") for f in run_out_dir.glob("*.parsed.conllu")
+            }
+            if parsed.symmetric_difference(
+                f.stem for f in (*run_args["dev_files"], *run_args["test_files"])
+            ):
                 logger.warning(
-                    f"Incomplete run in {run_out_dir}, skipping it."
+                    f"Incomplete or corrupted run in {run_out_dir}, skipping it."
                     " You probably want to delete it and rerun."
                 )
+                continue
+
+            try:
+                # FIXME: don't hardcode the model path this way?
+                prev_metrics = evaluate_model(
+                    metrics=metrics,
+                    model_path=run_out_dir / "model",
+                    parsed_dir=run_out_dir,
+                    treebanks={
+                        **{(f.stem, "dev"): f for f in run_args["dev_files"]},
+                        **{(f.stem, "test"): f for f in run_args["test_files"]},
+                    },
+                    reparse=False,
+                )
+            except evaluator.UDError as e:
+                raise ValueError(f"Corrupted parsed file for {run_out_dir}") from e
+
+            res[run_name] = prev_metrics
+            logger.info(
+                f"{run_out_dir} already exists, skipping run {run_name}."
+                f" Results were {prev_metrics}"
+            )
         else:
             missing_runs[run_name] = run_args
 
@@ -456,24 +469,36 @@ def main(
     train_results_df = pol.from_records(
         [
             {
-                "run_name": name,
-                "additional_args": runs[name]["additional_args"],
-                "config": str(runs[name]["config_file"]),
-                "output_dir": str(runs[name]["output_dir"]),
-                "results": scores,
-                "treebank": runs[name]["train_file"].parent.name,
+                "run_name": run_name,
+                "config": str(runs[run_name]["config_file"]),
+                "train_treebank": runs[run_name]["train_treebank"],
+                "additional_args": runs[run_name]["additional_args"],
+                "results": reults,
+                "split": split,
+                "treebank": treebank,
+                "output_dir": str(runs[run_name]["output_dir"]),
             }
-            for name, scores in res.items()
+            for run_name, scores in res.items()
+            for (treebank, split), reults in scores.items()
         ]
     )
     train_results_df.write_ndjson(out_dir / "full_report.jsonl")
+    print(train_results_df)
 
-    best_df = (
-        train_results_df.group_by("treebank")
-        .agg(pol.all().top_k_by(pol.col("results").struct["Dev"].struct[metrics[-1]], 1))
+    dev_best_df = (
+        train_results_df.filter(pol.col("split") == "dev")
+        .group_by("treebank")
+        .agg(
+            pol.all().top_k_by(pol.col("results").struct[metrics[-1]], k=1),
+        )
         .explode(pol.all().exclude("treebank"))
-        .sort(pol.col("run_name"))
     )
+
+    best_models_all_results = train_results_df.join(dev_best_df, on="run_name", how="semi")
+
+    print(best_models_all_results)
+
+    best_df = best_df.sort(pol.col("run_name"))
     best_dir = out_dir / "best"
     best_dir.mkdir(exist_ok=True, parents=True)
     (best_dir / "models.md").write_text(
