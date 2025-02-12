@@ -1,0 +1,20 @@
+# For use with scripts/train_models.py
+trains:
+  - group: fr
+    configs:
+      - "camembert.yaml"
+      - "flaubert.yaml"
+      - "mdeberta.yaml"
+      - "nobert.yaml"
+      - "xlm-r-base.yaml"
+    treebanks:
+      - "UD_French-GSD"
+      - "UD_French-Sequoia"
+      - "UD_French-ALL"
+
+evals:
+  fr:
+    - "UD_French-GSD"
+    - "UD_French-PariStories"
+    - "UD_French-Rhapsodie"
+    - "UD_French-Sequoia"
