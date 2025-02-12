@@ -5,7 +5,6 @@ trains:
       - "camembert.yaml"
       - "flaubert.yaml"
       - "mdeberta.yaml"
-      - "nobert.yaml"
       - "xlm-r-base.yaml"
     treebanks:
       - "UD_French-GSD"
