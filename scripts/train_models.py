@@ -1,3 +1,4 @@
+from collections import defaultdict
 import enum
 import multiprocessing
 import multiprocessing.managers
@@ -5,21 +6,25 @@ import multiprocessing.pool
 import pathlib
 import shutil
 from queue import Queue
+from statistics import harmonic_mean
 from typing import (
     Any,
+    Hashable,
     Optional,
+    Self,
+    TypeVar,
     cast,
 )
 
 import click
 import polars as pol
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, model_validator
 import pytorch_lightning as pl
 import torch
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from loguru import logger
 from pytorch_lightning import callbacks as pl_callbacks
-from rich.progress import MofNCompleteColumn, Progress, TaskID, TimeElapsedColumn
+from rich.progress import MofNCompleteColumn, Progress, TaskID, TimeElapsedColumn, track
 from tabulate2 import tabulate
 import yaml
 
@@ -42,9 +47,10 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
         self.run_name = run_name
 
     def on_train_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
-        self.message_queue.put(
-            (Messages.RUN_START, (self.run_name, trainer.estimated_stepping_batches))
-        )
+        self.message_queue.put((
+            Messages.RUN_START,
+            (self.run_name, trainer.estimated_stepping_batches),
+        ))
 
     def on_train_batch_end(
         self,
@@ -54,29 +60,25 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
         batch: Any,
         batch_idx: int,
     ):
-        self.message_queue.put(
+        self.message_queue.put((
+            Messages.PROGRESS,
             (
-                Messages.PROGRESS,
-                (
-                    self.run_name,
-                    (None, trainer.global_step),
-                ),
-            )
-        )
+                self.run_name,
+                (None, trainer.global_step),
+            ),
+        ))
 
     def on_train_epoch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
-        self.message_queue.put(
+        self.message_queue.put((
+            Messages.PROGRESS,
             (
-                Messages.PROGRESS,
+                self.run_name,
                 (
-                    self.run_name,
-                    (
-                        f"{self.run_name}: train {trainer.current_epoch + 1}/{trainer.max_epochs}",
-                        None,
-                    ),
+                    f"{self.run_name}: train {trainer.current_epoch + 1}/{trainer.max_epochs}",
+                    None,
                 ),
-            )
-        )
+            ),
+        ))
 
     def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
         if not trainer.sanity_checking:
@@ -88,33 +90,35 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
                 },
             )
             # TODO: a validation progress bar would be nice
-            self.message_queue.put(
+            self.message_queue.put((
+                Messages.PROGRESS,
                 (
-                    Messages.PROGRESS,
+                    self.run_name,
                     (
-                        self.run_name,
-                        (
-                            f"{self.run_name}: eval {trainer.current_epoch + 1}/{trainer.max_epochs}",
-                            None,
-                        ),
+                        f"{self.run_name}: eval {trainer.current_epoch + 1}/{trainer.max_epochs}",
+                        None,
                     ),
-                )
-            )
+                ),
+            ))
+
+
+T_HASHABLE = TypeVar("T_HASHABLE", bound=Hashable)
 
 
 def evaluate_model(
     model_path: pathlib.Path,
     parsed_dir: pathlib.Path,
-    treebanks: dict[Any, pathlib.Path],
+    treebanks: dict[T_HASHABLE, pathlib.Path],
     device: str = "cpu",
     metrics: Optional[list[str]] = None,
     reparse: bool = False,
-) -> dict[str, dict[str, float]]:
+) -> dict[T_HASHABLE, dict[str, float]]:
     logger.debug(f"Evaluating {model_path} on {treebanks}.")
+    parsed_dir.mkdir(exist_ok=True, parents=True)
     # Avoid loading the model right now in case we don't need to reparse anything. This removes a
     # security (ensuring the model actually loads) but eh.
     model = None
-    res: dict[str, dict[str, float]] = dict()
+    res: dict[T_HASHABLE, dict[str, float]] = dict()
     for treebank_name, treebank_path in treebanks.items():
         parsed_path = parsed_dir / f"{treebank_path.stem}.parsed.conllu"
         if not parsed_path.exists() or reparse:
@@ -139,6 +143,24 @@ def evaluate_model(
     return res
 
 
+def get_eval_treebanks(
+    treebanks_dir: pathlib.Path, eval_patterns: dict[str, list[str]]
+) -> dict[str, dict[tuple[str, str, str], pathlib.Path]]:
+    res = {}
+    for group, patterns in eval_patterns.items():
+        res[group] = {}
+        for p in patterns:
+            for d in treebanks_dir.glob(p):
+                test_files = list(d.glob("*test.conllu"))
+                if not test_files:
+                    raise ValueError(f"No test file in {d}.")
+                for t in test_files:
+                    res[group][(d.name, t.stem, "test")] = t
+                for dev_file in d.glob("*dev.conllu"):
+                    res[group][(d.name, dev_file.stem, "dev")] = dev_file
+    return res
+
+
 def train_single_model(
     additional_args: dict[str, Any],
     config_file: pathlib.Path,
@@ -150,7 +172,7 @@ def train_single_model(
     run_name: str,
     test_files: list[pathlib.Path],
     train_file: pathlib.Path,
-) -> dict[str, dict[str, float]]:
+) -> dict[tuple[str, str], dict[str, float]]:
     output_dir.mkdir(exist_ok=True, parents=True)
     log_handler = logger.add(
         output_dir / "train.log",
@@ -182,7 +204,7 @@ def train_single_model(
         device=device,
         metrics=metrics,
         model_path=model_path,
-        parsed_dir=output_dir,
+        parsed_dir=output_dir / "train_parsed",
         treebanks={
             **{(f.stem, "dev"): f for f in dev_files},
             **{(f.stem, "test"): f for f in test_files},
@@ -215,7 +237,7 @@ def worker(
     monitor_queue: "Queue[tuple[Messages, Any]]",
     run_name: str,
     train_kwargs: dict[str, Any],
-) -> tuple[str, dict[str, dict[str, float]]]:
+) -> tuple[str, dict[tuple[str, str], dict[str, float]]]:
     # We use no more workers than devices so the queue should never be empty when launching the
     # worker fun so we want to fail early here if the Queue is empty. It does not feel right but it
     # works.
@@ -256,7 +278,7 @@ class NoDaemonPool(multiprocessing.pool.Pool):
 def run_multi(
     runs: dict[str, dict[str, Any]],
     devices: list[str],
-) -> dict[str, dict[str, dict[str, float]]]:
+) -> dict[str, dict[tuple[str, str], dict[str, float]]]:
     ctx = multiprocessing.get_context("forkserver")
     with multiprocessing.managers.SyncManager(ctx=ctx) as manager:
         device_queue = manager.Queue()
@@ -326,8 +348,65 @@ def monitor_process(num_runs: int, queue: "Queue[tuple[Messages, Any]]"):
 class TrainGroup(BaseModel):
     group: str
     configs: list[str]
-    train_treebanks: list[str]
-    eval_treebanks: list[str]
+    treebanks: list[str]
+
+
+class TrainConfig(BaseModel):
+    trains: list[TrainGroup]
+    evals: dict[str, list[str]]
+
+    @model_validator(mode="after")
+    def check_passwords_match(self) -> Self:
+        train_groups = {t.group for t in self.trains}
+        if missing_trains := set(self.evals.keys()).difference(train_groups):
+            raise ValueError(f"Wrong config: missing train groups {missing_trains}")
+        return self
+
+
+def generate_runs(
+    configs_dir: pathlib.Path,
+    groups: list[TrainGroup],
+    metrics: list[str],
+    out_dir: pathlib.Path,
+    prefix: str,
+    rand_seeds: list[int],
+    treebanks_dir: pathlib.Path,
+) -> dict[str, dict]:
+    runs: dict[str, dict] = dict()
+    for g in groups:
+        train_treebanks = [t for pattern in g.treebanks for t in treebanks_dir.glob(pattern)]
+        configs = [c for pattern in g.configs for c in configs_dir.glob(pattern)]
+        for t in train_treebanks:
+            for c in configs:
+                # TODO: logic for treebank dirs that don't have a test etc. Doesn't happen in UD
+                # (train implies dev and test) but could in other contexts
+                train_file = next(t.glob("*train.conllu"))
+                dev_files = list(t.glob("*dev.conllu"))
+                test_files = list(t.glob("*test.conllu"))
+                common_params = {
+                    "train_file": train_file,
+                    "dev_files": dev_files,
+                    "test_files": test_files,
+                    "config_file": c,
+                    "metrics": metrics,
+                    "metadata": {
+                        "train_treebank": t.name,
+                        "group": g.group,
+                    },
+                }
+                run_base_name = f"{prefix}{t.name}-{c.stem}"
+                run_out_root_dir = out_dir / run_base_name
+                for r in rand_seeds:
+                    run_suffix = f"rand_seed={r}"
+                    run_out_dir = run_out_root_dir / run_suffix
+                    run_name = f"{run_base_name}+{run_suffix}"
+                    run_args = {
+                        **common_params,
+                        "additional_args": {"rand_seed": r},
+                        "output_dir": run_out_dir,
+                    }
+                    runs[run_name] = run_args
+    return runs
 
 
 @click.command()
@@ -387,59 +466,36 @@ def main(
     logger.remove()
     logging_handlers = utils.setup_logging(appname="hops_trainer")
     configs_dir = config_file.parent
-    groups = TypeAdapter(list[TrainGroup]).validate_python(yaml.safe_load(config_file.read_text()))
-    logger.info(f"Training for {len({g.group for g in groups})} groups.")
+    config = TrainConfig.model_validate(yaml.safe_load(config_file.read_text()))
+    logger.info(f"Training for {len({g.group for g in config.trains})} groups.")
     out_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"Training with rand seeds: {','.join(str(s) for s in rand_seeds)}.")
 
-    runs: dict[str, dict] = dict()
-    for g in groups:
-        train_treebanks = [t for pattern in g.train_treebanks for t in treebanks_dir.glob(pattern)]
-        configs = [c for pattern in g.configs for c in configs_dir.glob(pattern)]
-        for t in train_treebanks:
-            for c in configs:
-                # TODO: logic for treebank dirs that don't have a test etc. Doesn't happen in UD
-                # (train implies dev and test but could in other contexts)
-                train_file = next(t.glob("*train.conllu"))
-                dev_files = list(t.glob("*dev.conllu"))
-                test_files = list(t.glob("*test.conllu"))
-                common_params = {
-                    "train_file": train_file,
-                    "dev_files": dev_files,
-                    "test_files": test_files,
-                    "config_file": c,
-                    "metrics": metrics,
-                    "metadata": {
-                        "train_treebank": t.name,
-                        "group": g.group,
-                    },
-                }
-                run_base_name = f"{prefix}{t.name}-{c.stem}"
-                run_out_root_dir = out_dir / run_base_name
-                for r in rand_seeds:
-                    run_suffix = f"rand_seed={r}"
-                    run_out_dir = run_out_root_dir / run_suffix
-                    run_name = f"{run_base_name}+{run_suffix}"
-                    run_args = {
-                        **common_params,
-                        "additional_args": {"rand_seed": r},
-                        "output_dir": run_out_dir,
-                    }
-                    runs[run_name] = run_args
+    runs = generate_runs(
+        configs_dir=configs_dir,
+        groups=config.trains,
+        metrics=metrics,
+        out_dir=out_dir / "train_runs",
+        prefix=prefix,
+        rand_seeds=rand_seeds,
+        treebanks_dir=treebanks_dir,
+    )
 
     missing_runs: dict[str, dict[str, Any]] = {}
-    res: dict[str, dict[str, dict[str, float]]] = {}
+    train_results: dict[str, dict[tuple[str, str], dict[str, float]]] = {}
     for run_name, run_args in runs.items():
-        if (run_out_dir := run_args["output_dir"]).exists():
+        if (train_out_dir := run_args["output_dir"]).exists():
+            train_parsed_dir = train_out_dir / "train_parsed"
             # FIXME: the logic here is brittle
             parsed = {
-                f.name.removesuffix(".parsed.conllu") for f in run_out_dir.glob("*.parsed.conllu")
+                f.name.removesuffix(".parsed.conllu")
+                for f in train_parsed_dir.glob("*.parsed.conllu")
             }
             if parsed.symmetric_difference(
                 f.stem for f in (*run_args["dev_files"], *run_args["test_files"])
             ):
                 logger.warning(
-                    f"Incomplete or corrupted run in {run_out_dir}, skipping it."
+                    f"Incomplete or corrupted run in {train_out_dir}, skipping it."
                     " You probably want to delete it and rerun."
                 )
                 continue
@@ -448,8 +504,8 @@ def main(
                 # FIXME: don't hardcode the model path this way?
                 prev_metrics = evaluate_model(
                     metrics=metrics,
-                    model_path=run_out_dir / "model",
-                    parsed_dir=run_out_dir,
+                    model_path=train_out_dir / "model",
+                    parsed_dir=train_parsed_dir,
                     treebanks={
                         **{(f.stem, "dev"): f for f in run_args["dev_files"]},
                         **{(f.stem, "test"): f for f in run_args["test_files"]},
@@ -457,11 +513,11 @@ def main(
                     reparse=False,
                 )
             except evaluator.UDError as e:
-                raise ValueError(f"Corrupted parsed file for {run_out_dir}") from e
+                raise ValueError(f"Corrupted parsed file for {train_out_dir}") from e
 
-            res[run_name] = prev_metrics
+            train_results[run_name] = prev_metrics
             logger.info(
-                f"{run_out_dir} already exists, skipping run {run_name}."
+                f"{train_out_dir} already exists, skipping run {run_name}."
                 f" Results were {prev_metrics}"
             )
         else:
@@ -474,70 +530,84 @@ def main(
     new_res = run_multi(missing_runs, devices)
     utils.setup_logging(appname="hops_trainer")
     logger.info("Done with training")
-    res.update(new_res)
+    train_results.update(new_res)
 
-    train_results_df = pol.from_records(
-        [
-            {
-                "run_name": run_name,
-                "config": str(runs[run_name]["config_file"]),
-                "train_treebank": runs[run_name]["metadata"]["train_treebank"],
-                "additional_args": runs[run_name]["additional_args"],
-                "results": reults,
-                "split": split,
-                "treebank": treebank,
-                "output_dir": str(runs[run_name]["output_dir"]),
-                "group": runs[run_name]["metadata"]["group"],
-            }
-            for run_name, scores in res.items()
-            for (treebank, split), reults in scores.items()
-        ]
-    )
-    train_results_df.write_ndjson(out_dir / "full_report.jsonl")
+    train_results_df = pol.from_records([
+        {
+            "run_name": run_name,
+            "config": str(runs[run_name]["config_file"]),
+            "train_treebank": runs[run_name]["metadata"]["train_treebank"],
+            "additional_args": runs[run_name]["additional_args"],
+            "results": results,
+            "split": split,
+            "treebank": treebank,
+            "output_dir": str(runs[run_name]["output_dir"]),
+            "group": runs[run_name]["metadata"]["group"],
+        }
+        for run_name, scores in train_results.items()
+        for (treebank, split), results in scores.items()
+    ])
+    train_results_df.write_ndjson(out_dir / "train_report.jsonl")
 
-    dev_best_df = (
-        train_results_df.filter(pol.col("split") == "dev")
+    eval_treebanks = get_eval_treebanks(treebanks_dir, config.evals)
+
+    eval_results: list[dict] = []
+    eval_out_dir = out_dir / "evals"
+    for run_name, run_args in track(runs.items(), description="Evaluating"):
+        eval_metrics = evaluate_model(
+            metrics=metrics,
+            model_path=run_args["output_dir"] / "model",
+            parsed_dir=eval_out_dir / run_name,
+            treebanks=eval_treebanks[runs[run_name]["metadata"]["group"]],
+            reparse=False,
+        )
+
+        # argh
+        eval_metrics_nested: dict[str, dict[str, dict[str, dict[str, float]]]] = defaultdict(
+            lambda: defaultdict(dict)
+        )
+        for (treebank, subset, split), results in eval_metrics.items():
+            eval_metrics_nested[treebank][split][subset] = results
+        for treebank, ts in eval_metrics_nested.items():
+            for split, subsets in ts.items():
+                results = {m: harmonic_mean([res[m] for res in subsets.values()]) for m in metrics}
+                eval_results.append({
+                    "run_name": run_name,
+                    "config": str(runs[run_name]["config_file"]),
+                    "train_treebank": runs[run_name]["metadata"]["train_treebank"],
+                    "additional_args": runs[run_name]["additional_args"],
+                    "results": results,
+                    "split": split,
+                    "treebank": treebank,
+                    "output_dir": str(runs[run_name]["output_dir"]),
+                    "group": runs[run_name]["metadata"]["group"],
+                })
+
+    eval_df = pol.from_dicts(eval_results)
+
+    dev_best_per_eval_treebank = (
+        eval_df.filter(pol.col("split") == "dev")
         .with_columns(pol.col("results").struct[metrics[-1]].alias("dev_agg"))
-        .group_by("run_name")
-        .agg(pol.col("dev_agg"), pol.col("train_treebank").first())
-        .with_columns(
-            pol.col("dev_agg")
-            .list.len()
-            .truediv(pol.col("dev_agg").list.eval(1 / pol.element()).list.sum())
-        )
-        .group_by("train_treebank")
+        .group_by("treebank")
         .agg(pol.all().top_k_by(pol.col("dev_agg"), k=1))
-        .explode(pol.all().exclude("train_treebank"))
+        .explode(pol.all().exclude("treebank"))
     )
 
-    best_models_results_wide = (
-        train_results_df.join(dev_best_df, on="run_name", how="semi")
-        .group_by("train_treebank", "split")
-        .agg(pol.all().exclude("results", "treebank").first(), pol.col("results"))
-        .with_columns(
-            pol.struct(
-                **{
-                    m: pol.col("results")
-                    .list.len()
-                    .truediv(pol.col("results").list.eval(1 / pol.element().struct[m]).list.sum())
-                    for m in metrics
-                },
-                eager=False,  # Shut Pylance up
-                schema=None,
-            ).alias("results")
-        )
-    ).pivot(on="split", values="results")
+    best_models_results = (
+        eval_df.join(dev_best_per_eval_treebank, on=["run_name", "treebank"], how="semi")
+        .pivot(on="split", values="results")
+        .sort(pol.col("run_name"))
+    )
 
-    best_models_results_wide = best_models_results_wide.sort(pol.col("run_name"))
     best_dir = out_dir / "best"
     best_dir.mkdir(exist_ok=True, parents=True)
     (best_dir / "models.md").write_text(
         tabulate(
             (
-                best_models_results_wide.select(
+                best_models_results.select(
                     pol.col("output_dir"),
                     pol.col("run_name"),
-                    pol.col("train_treebank").alias("Treebank"),
+                    pol.col("treebank").alias("Treebank"),
                     pol.col("run_name").str.splitn("+", n=2).struct[0].alias("Model Name"),
                     *(
                         (pol.col(split).struct[metric].round_sig_figs(4) * 100).alias(
@@ -558,8 +628,12 @@ def main(
         )
     )
 
-    for report in best_models_results_wide.iter_rows(named=True):
-        shutil.copytree(report["output_dir"], best_dir / report["run_name"], dirs_exist_ok=True)
+    for report in best_models_results.iter_rows(named=True):
+        target_dir = best_dir / report["run_name"]
+        shutil.copytree(report["output_dir"], target_dir, dirs_exist_ok=True)
+        shutil.copytree(
+            eval_out_dir / report["run_name"], target_dir / "eval_parsed", dirs_exist_ok=True
+        )
 
 
 if __name__ == "__main__":
