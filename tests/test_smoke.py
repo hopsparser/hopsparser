@@ -227,7 +227,7 @@ def test_train_script(
         [
             "python",
             str(scripts_dir / "train_models.py"),
-            str(test_data_dir / "train_script" / "train_config"),
+            str(test_data_dir / "train_script" / "train_configs"),
             str(test_data_dir / "train_script" / "treebanks"),
             "--devices",
             f"{device},{device}",
@@ -238,4 +238,5 @@ def test_train_script(
         ]
     )
     assert ret.success
+    # TODO: check that rerunning doesn't retrain and gives the same results
 

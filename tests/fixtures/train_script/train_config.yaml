@@ -1,7 +1,10 @@
-- group: toys
-  configs:
-    - "configs/*.yaml"
-  train_treebanks:
-    - "toy_*"
-  eval_treebanks:
+trains:
+  - group: toys
+    configs:
+      - "configs/*.yaml"
+    treebanks:
+      - "toy_*"
+
+evals:
+  toys:
     - "toy_*"

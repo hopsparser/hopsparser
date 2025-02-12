@@ -28,20 +28,8 @@ error management so if any train run fails it will just hang until you SIGINT or
 After installing `hopsparser[traintools]`, it can be run with
 
 ```console
-python scripts/train_models.py {configs_dir} {treebanks_dir} --devices "{device1},{device2},{…}" --out-dir {out_dir}
+python scripts/train_models.py {config_file} {treebanks_dir} --devices "{device1},{device2},{…}" --out-dir {out_dir}
 ```
-
-For each `{config_name}.yaml` file in `{configs_dir}` and each `{treebank_name}` directory in
-`{treebanks_dir}` (containing files named `/.*(train|dev|test)\.conllu/`), this will create a
-`{out_dir}/{treebank_name}-{config_name}` directory containing the trained model and the parsed
-train and test set and a `{out_dir}/best` directory containing the results of the best runs for each
-treebank.
-
-Treebank-specific configs can be provided by putting them in sub-directories of `{config_dir}`:
-config files in `{config_dir}/{prefix}` will only be used for treebanks with names starting with
-`{prefix}`. This is useful for instance when working with UD data, where file names start with an
-ISO 639 language code. In that case, config files found in `{config_dir}/en` will be used for
-`en_ewt-ud-{train,dev,test}` but not for `fr_gsd-ud-{train,dev,test}`.
 
 You can also specify a number of rand seeds with `--rand-seeds seed1,seed2,…`.
 
