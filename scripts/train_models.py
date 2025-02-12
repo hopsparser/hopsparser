@@ -1,32 +1,32 @@
-from collections import defaultdict
 import enum
 import multiprocessing
 import multiprocessing.managers
 import multiprocessing.pool
 import pathlib
 import shutil
+from collections import defaultdict
 from queue import Queue
 from statistics import harmonic_mean
 from typing import (
     Any,
     Hashable,
     Optional,
-    Self,
     TypeVar,
     cast,
 )
 
 import click
 import polars as pol
-from pydantic import BaseModel, model_validator
 import pytorch_lightning as pl
 import torch
+import yaml
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from loguru import logger
+from pydantic import BaseModel, model_validator
 from pytorch_lightning import callbacks as pl_callbacks
 from rich.progress import MofNCompleteColumn, Progress, TaskID, TimeElapsedColumn, track
 from tabulate2 import tabulate
-import yaml
+from typing_extensions import Self
 
 import hopsparser.traintools.trainer as trainer
 from hopsparser import conll2018_eval as evaluator
@@ -374,6 +374,7 @@ def generate_runs(
 ) -> dict[str, dict]:
     runs: dict[str, dict] = dict()
     for g in groups:
+        # TODO: check that all patterns have at least one match otherwise warn
         train_treebanks = [t for pattern in g.treebanks for t in treebanks_dir.glob(pattern)]
         configs = [c for pattern in g.configs for c in configs_dir.glob(pattern)]
         for t in train_treebanks:
