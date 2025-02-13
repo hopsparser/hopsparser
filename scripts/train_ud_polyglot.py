@@ -5,12 +5,12 @@ import shutil
 from typing import Optional, Sequence, cast
 
 import click
+import torch
 from loguru import logger
 from pytorch_lightning import callbacks as pl_callbacks
 from rich import box
 from rich.console import Console
 from rich.table import Column, Table
-import torch
 
 from hopsparser import conll2018_eval as evaluator
 from hopsparser import deptree, parser
@@ -214,7 +214,7 @@ def main(
             syst_devset = evaluator.load_conllu_file(parsed_devset_path)
             metrics = evaluator.evaluate(gold_devset, syst_devset)
             dev_metrics_table.add_row(
-                f"{label}-{path.stem}", *(f"{100*metrics[m].f1:.2f}" for m in metric_names)
+                f"{label}-{path.stem}", *(f"{100 * metrics[m].f1:.2f}" for m in metric_names)
             )
         console.print(dev_metrics_table)
 
@@ -232,7 +232,7 @@ def main(
             syst_testset = evaluator.load_conllu_file(parsed_testset_path)
             metrics = evaluator.evaluate(gold_testset, syst_testset)
             test_metrics_table.add_row(
-                f"{label}-{path.stem}", *(f"{100*metrics[m].f1:.2f}" for m in metric_names)
+                f"{label}-{path.stem}", *(f"{100 * metrics[m].f1:.2f}" for m in metric_names)
             )
         console.print(test_metrics_table)
 

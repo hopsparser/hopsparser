@@ -23,13 +23,16 @@ Training a treebank×configs matrix
 `train_models.py` is a utility to train and evaluate models using several configs on several
 treebanks. We use it internally to train the models we provide, and it is not much more flexible
 than we need it to be for that purpose (but PR to improve that are welcome). It also has very little
-error management so if any train run fails it will just hang until you SIGINT or SIGKILL it.
+error management so if any train run fails it might just hang until you SIGKILL it and its children
+processes
 
 After installing `hopsparser[traintools]`, it can be run with
 
 ```console
 python scripts/train_models.py {config_file} {treebanks_dir} --devices "{device1},{device2},{…}" --out-dir {out_dir}
 ```
+
+There is an example of config file at </exampl.es/train_config-fr.yaml>
 
 You can also specify a number of rand seeds with `--rand-seeds seed1,seed2,…`.
 

@@ -525,7 +525,7 @@ def main(
         gold_devset = evaluator.load_conllu_file(dev_file)
         syst_devset = evaluator.load_conllu_file(parsed_devset_path)
         dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
-        metrics_table.add_row("Dev", *(f"{100*dev_metrics[m].f1:.2f}" for m in metrics))
+        metrics_table.add_row("Dev", *(f"{100 * dev_metrics[m].f1:.2f}" for m in metrics))
 
     if test_file is not None:
         parsed_testset_path = output_dir / f"{test_file.stem}.parsed.conllu"
@@ -533,7 +533,7 @@ def main(
         gold_testset = evaluator.load_conllu_file(test_file)
         syst_testset = evaluator.load_conllu_file(parsed_testset_path)
         test_metrics = evaluator.evaluate(gold_testset, syst_testset)
-        metrics_table.add_row("Test", *(f"{100*test_metrics[m].f1:.2f}" for m in metrics))
+        metrics_table.add_row("Test", *(f"{100 * test_metrics[m].f1:.2f}" for m in metrics))
 
     if metrics_table.rows:
         console = Console()

@@ -17,8 +17,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Minimum torch version bumped to `2.0`
-- The `train_models` script has been considerably changed, most notably it now only keeps a single
-  config *per treebank*. Check the scripts readme for more details.
+- The `train_models` script has been considerably changed, most notably it can now deal properly
+  with treebanks with multiple dev and test sets, and models can be evaluated on treebanks they
+  weren't trained on. See the scripts' readme for more details.
 - **BREAKING** Default LR schedule changed to constant.
 - Fully stop supporting Python 3.9
 

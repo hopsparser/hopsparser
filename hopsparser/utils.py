@@ -6,9 +6,9 @@ import os
 import pathlib
 import sys
 import tempfile
+import warnings
 from types import FrameType
 from typing import IO, Any, Callable, Generator, Optional, Sequence, TextIO, Type, Union, cast
-import warnings
 
 import click
 import loguru
@@ -70,8 +70,8 @@ def make_markdown_metrics_table(metrics: dict[str, float]) -> str:
     column_width = max(7, *(len(k) for k in metrics.keys()))
     keys, values = zip(*metrics.items())
     headers = "|".join(k.center(column_width) for k in keys)
-    midrule = "|".join([f":{'-'*(column_width-2)}:"] * len(keys))
-    row = "|".join(f"{100*v:05.2f}".center(column_width) for v in values)
+    midrule = "|".join([f":{'-' * (column_width - 2)}:"] * len(keys))
+    row = "|".join(f"{100 * v:05.2f}".center(column_width) for v in values)
     return "\n".join(f"|{r}|" for r in (headers, midrule, row))
 
 
@@ -221,7 +221,7 @@ class SpeedColumn(rich.progress.ProgressColumn):
         if task.speed >= 1:
             return rich.text.Text(f"{task.speed:.2f} it/s")
         else:
-            return rich.text.Text(f"{datetime.timedelta(seconds=math.ceil(1/task.speed))} /it")
+            return rich.text.Text(f"{datetime.timedelta(seconds=math.ceil(1 / task.speed))} /it")
 
 
 # NOTE: if the need arise, using a separator regex instead of string would not be very hard but for

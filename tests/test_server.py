@@ -4,9 +4,8 @@ import pathlib
 from typing import Generator
 
 import pytest
-from pytest_assert_utils import util
-
 from fastapi.testclient import TestClient
+from pytest_assert_utils import util
 
 from hopsparser import deptree
 

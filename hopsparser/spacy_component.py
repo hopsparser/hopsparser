@@ -8,9 +8,7 @@ from hopsparser.parser import BiAffineParser
 
 
 @Language.factory("hopsparser", assigns=["token.pos", "token.head", "token.dep"])
-def hopsparser(
-    nlp: Language, name: str, model_path: str | pathlib.Path
-) -> Callable[[Doc], Doc]:
+def hopsparser(nlp: Language, name: str, model_path: str | pathlib.Path) -> Callable[[Doc], Doc]:
     parser = BiAffineParser.load(model_path)
 
     def process_doc(doc: Doc) -> Doc:

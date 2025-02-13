@@ -70,7 +70,7 @@ for sent in doc.sents:
 ```
 
 This only changes the `pos`, `head` and `dep` properties of the tokens of the spaCy `Doc` and
-respects the predicted sentence boundaries.
+respects the predicted tokenization and sentence boundaries.
 
 ## Running in server mode
 

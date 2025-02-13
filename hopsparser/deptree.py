@@ -13,9 +13,8 @@ from typing import (
     cast,
 )
 
-from typing_extensions import Self
-
 from loguru import logger
+from typing_extensions import Self
 
 
 # FIXME: This should be `collections.abc.Sequence[str]` as soon as we can drop py38

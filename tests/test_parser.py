@@ -19,6 +19,7 @@ if torch.cuda.is_available():
 
 # TODO: look into <https://github.com/ghandic/jsf> to see if we cant hypothesis the config
 
+
 @pytest.mark.parametrize("source_device", devices)
 @pytest.mark.parametrize("target_device", devices)
 def test_initialize_save_load(
@@ -170,7 +171,6 @@ def test_save_load_idempotency(
     parser_and_reload: Tuple[BiAffineParser, BiAffineParser],
     test_text: List[str],
 ):
-
     parser, reloaded = parser_and_reload
     parser = parser.to(device)
     reloaded = reloaded.to(device)

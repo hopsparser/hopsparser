@@ -239,4 +239,3 @@ def test_train_script(
     )
     assert ret.success
     # TODO: check that rerunning doesn't retrain and gives the same results
-

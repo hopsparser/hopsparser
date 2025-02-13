@@ -47,10 +47,12 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
         self.run_name = run_name
 
     def on_train_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
-        self.message_queue.put((
-            Messages.RUN_START,
-            (self.run_name, trainer.estimated_stepping_batches),
-        ))
+        self.message_queue.put(
+            (
+                Messages.RUN_START,
+                (self.run_name, trainer.estimated_stepping_batches),
+            )
+        )
 
     def on_train_batch_end(
         self,
@@ -60,25 +62,29 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
         batch: Any,
         batch_idx: int,
     ):
-        self.message_queue.put((
-            Messages.PROGRESS,
+        self.message_queue.put(
             (
-                self.run_name,
-                (None, trainer.global_step),
-            ),
-        ))
+                Messages.PROGRESS,
+                (
+                    self.run_name,
+                    (None, trainer.global_step),
+                ),
+            )
+        )
 
     def on_train_epoch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
-        self.message_queue.put((
-            Messages.PROGRESS,
+        self.message_queue.put(
             (
-                self.run_name,
+                Messages.PROGRESS,
                 (
-                    f"{self.run_name}: train {trainer.current_epoch + 1}/{trainer.max_epochs}",
-                    None,
+                    self.run_name,
+                    (
+                        f"{self.run_name}: train {trainer.current_epoch + 1}/{trainer.max_epochs}",
+                        None,
+                    ),
                 ),
-            ),
-        ))
+            )
+        )
 
     def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
         if not trainer.sanity_checking:
@@ -90,16 +96,18 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
                 },
             )
             # TODO: a validation progress bar would be nice
-            self.message_queue.put((
-                Messages.PROGRESS,
+            self.message_queue.put(
                 (
-                    self.run_name,
+                    Messages.PROGRESS,
                     (
-                        f"{self.run_name}: eval {trainer.current_epoch + 1}/{trainer.max_epochs}",
-                        None,
+                        self.run_name,
+                        (
+                            f"{self.run_name}: eval {trainer.current_epoch + 1}/{trainer.max_epochs}",
+                            None,
+                        ),
                     ),
-                ),
-            ))
+                )
+            )
 
 
 T_HASHABLE = TypeVar("T_HASHABLE", bound=Hashable)
@@ -533,21 +541,23 @@ def main(
     logger.info("Done with training")
     train_results.update(new_res)
 
-    train_results_df = pol.from_records([
-        {
-            "run_name": run_name,
-            "config": str(runs[run_name]["config_file"]),
-            "train_treebank": runs[run_name]["metadata"]["train_treebank"],
-            "additional_args": runs[run_name]["additional_args"],
-            "results": results,
-            "split": split,
-            "treebank": treebank,
-            "output_dir": str(runs[run_name]["output_dir"]),
-            "group": runs[run_name]["metadata"]["group"],
-        }
-        for run_name, scores in train_results.items()
-        for (treebank, split), results in scores.items()
-    ])
+    train_results_df = pol.from_records(
+        [
+            {
+                "run_name": run_name,
+                "config": str(runs[run_name]["config_file"]),
+                "train_treebank": runs[run_name]["metadata"]["train_treebank"],
+                "additional_args": runs[run_name]["additional_args"],
+                "results": results,
+                "split": split,
+                "treebank": treebank,
+                "output_dir": str(runs[run_name]["output_dir"]),
+                "group": runs[run_name]["metadata"]["group"],
+            }
+            for run_name, scores in train_results.items()
+            for (treebank, split), results in scores.items()
+        ]
+    )
     train_results_df.write_ndjson(out_dir / "train_report.jsonl")
 
     eval_treebanks = get_eval_treebanks(treebanks_dir, config.evals)
@@ -572,17 +582,19 @@ def main(
         for treebank, ts in eval_metrics_nested.items():
             for split, subsets in ts.items():
                 results = {m: harmonic_mean([res[m] for res in subsets.values()]) for m in metrics}
-                eval_results.append({
-                    "run_name": run_name,
-                    "config": str(runs[run_name]["config_file"]),
-                    "train_treebank": runs[run_name]["metadata"]["train_treebank"],
-                    "additional_args": runs[run_name]["additional_args"],
-                    "results": results,
-                    "split": split,
-                    "treebank": treebank,
-                    "output_dir": str(runs[run_name]["output_dir"]),
-                    "group": runs[run_name]["metadata"]["group"],
-                })
+                eval_results.append(
+                    {
+                        "run_name": run_name,
+                        "config": str(runs[run_name]["config_file"]),
+                        "train_treebank": runs[run_name]["metadata"]["train_treebank"],
+                        "additional_args": runs[run_name]["additional_args"],
+                        "results": results,
+                        "split": split,
+                        "treebank": treebank,
+                        "output_dir": str(runs[run_name]["output_dir"]),
+                        "group": runs[run_name]["metadata"]["group"],
+                    }
+                )
 
     eval_df = pol.from_dicts(eval_results)
 

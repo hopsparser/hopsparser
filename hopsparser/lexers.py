@@ -19,13 +19,13 @@ from typing import (
 )
 
 import fasttext
-from huggingface_hub import hf_hub_download
-from huggingface_hub.errors import EntryNotFoundError, RepositoryNotFoundError
 import numpy as np
 import torch
 import torch.jit
 import transformers
 from bidict import BidirectionalMapping, bidict
+from huggingface_hub import hf_hub_download
+from huggingface_hub.errors import EntryNotFoundError, RepositoryNotFoundError
 from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
@@ -34,7 +34,6 @@ from transformers.tokenization_utils_base import (
     PreTokenizedInput,
     TokenSpan,
 )
-
 from typing_extensions import Self
 
 

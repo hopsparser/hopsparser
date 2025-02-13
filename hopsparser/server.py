@@ -3,7 +3,6 @@ from typing import Dict, List, Literal, Optional
 import fastapi
 import pydantic
 import torch
-
 from pydantic_settings import BaseSettings
 
 from hopsparser import parser

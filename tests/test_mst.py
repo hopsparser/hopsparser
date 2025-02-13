@@ -1,10 +1,10 @@
 import math
-from hypothesis import given, settings
-from hypothesis import strategies as st
-from hypothesis.extra.numpy import arrays
 
 import networkx as nx
 import numpy as np
+from hypothesis import given, settings
+from hypothesis import strategies as st
+from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
 
 from hopsparser import mst

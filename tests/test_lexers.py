@@ -238,17 +238,22 @@ def test_bert_embeddings_create_save_load(
     lexer.eval()
     reloaded.eval()
     try:
-        l_batch = lexer.make_batch([lexer.encode(test_text)])
+        lexer_encoding = lexer.encode(test_text)
     except lexers.LexingError:
         with pytest.raises(lexers.LexingError):
-            r_batch = reloaded.make_batch([lexer.encode(test_text)])
+            reloaded_encoding = reloaded.encode(test_text)
         return
-    r_batch = reloaded.make_batch([lexer.encode(test_text)])
-    assert l_batch.subword_alignments == r_batch.subword_alignments
-    assert l_batch.encoding.data.keys() == r_batch.encoding.data.keys()
-    for k, v in l_batch.encoding.data.items():
-        assert torch.equal(v, r_batch.encoding.data[k])
+    # This is really cheesy, there must be a way to avoid repetition
+    reloaded_encoding = reloaded.encode(test_text)
+    # Should we do an assert on the encodings here? I don't think so since we check after batching
+    # but.
+    lexer_batch = lexer.make_batch([lexer_encoding])
+    reloaded_batch = reloaded.make_batch([reloaded_encoding])
+    assert lexer_batch.subword_alignments == reloaded_batch.subword_alignments
+    assert lexer_batch.encoding.data.keys() == reloaded_batch.encoding.data.keys()
+    for k, v in lexer_batch.encoding.data.items():
+        assert torch.equal(v, reloaded_batch.encoding.data[k])
     with torch.inference_mode():
-        orig_encoding = lexer(l_batch)
-        reloaded_encoding = reloaded(r_batch)
+        orig_encoding = lexer(lexer_batch)
+        reloaded_encoding = reloaded(reloaded_batch)
         assert torch.equal(orig_encoding, reloaded_encoding)

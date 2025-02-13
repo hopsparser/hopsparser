@@ -175,7 +175,7 @@ def train(
         gold_devset = evaluator.load_conllu_file(dev_file)
         syst_devset = evaluator.load_conllu_file(parsed_devset_path)
         dev_metrics = evaluator.evaluate(gold_devset, syst_devset)
-        metrics_table.add_row("Dev", *(f"{100*dev_metrics[m].f1:.2f}" for m in metrics))
+        metrics_table.add_row("Dev", *(f"{100 * dev_metrics[m].f1:.2f}" for m in metrics))
 
     if test_file is not None:
         parsed_testset_path = output_dir / f"{test_file.stem}.parsed.conllu"
@@ -183,7 +183,7 @@ def train(
         gold_testset = evaluator.load_conllu_file(test_file)
         syst_testset = evaluator.load_conllu_file(parsed_testset_path)
         test_metrics = evaluator.evaluate(gold_testset, syst_testset)
-        metrics_table.add_row("Test", *(f"{100*test_metrics[m].f1:.2f}" for m in metrics))
+        metrics_table.add_row("Test", *(f"{100 * test_metrics[m].f1:.2f}" for m in metrics))
 
     if metrics_table.rows:
         console = Console()
@@ -325,7 +325,7 @@ def train_multi(
             syst_devset = evaluator.load_conllu_file(parsed_devset_path)
             metrics = evaluator.evaluate(gold_devset, syst_devset)
             dev_metrics_table.add_row(
-                f"{label}-{path.stem}", *(f"{100*metrics[m].f1:.2f}" for m in dev_metrics)
+                f"{label}-{path.stem}", *(f"{100 * metrics[m].f1:.2f}" for m in dev_metrics)
             )
         console.print(dev_metrics_table)
 
@@ -344,7 +344,7 @@ def train_multi(
             syst_testset = evaluator.load_conllu_file(parsed_testset_path)
             metrics = evaluator.evaluate(gold_testset, syst_testset)
             test_metrics_table.add_row(
-                f"{label}-{path.stem}", *(f"{100*metrics[m].f1:.2f}" for m in test_metrics)
+                f"{label}-{path.stem}", *(f"{100 * metrics[m].f1:.2f}" for m in test_metrics)
             )
         console.print(test_metrics_table)
 
@@ -407,7 +407,7 @@ def evaluate(
         metrics_table = Table(box=box.HORIZONTALS)
         for m in metrics_names:
             metrics_table.add_column(m, justify="center")
-        metrics_table.add_row(*(f"{100*metrics[m].f1:.2f}" for m in metrics_names))
+        metrics_table.add_row(*(f"{100 * metrics[m].f1:.2f}" for m in metrics_names))
         console = Console(file=output)
         console.print(metrics_table)
     elif out_format == "json":
