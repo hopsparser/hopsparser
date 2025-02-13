@@ -130,11 +130,11 @@ def evaluate_model(
     for treebank_name, treebank_path in treebanks.items():
         parsed_path = parsed_dir / f"{treebank_path.stem}.parsed.conllu"
         if not parsed_path.exists() or reparse:
-            logger.debug(f"Parsing {treebank_path}.")
             if model is None:
                 logger.debug(f"Loading {model_path} for evaluation.")
                 model = parser.BiAffineParser.load(model_path).to(device)
                 model.eval()
+            logger.debug(f"Parsing {treebank_path}.")
             with treebank_path.open() as in_stream, parsed_path.open("w") as out_stream:
                 with torch.inference_mode():
                     for tree in model.parse(inpt=in_stream, batch_size=None):
