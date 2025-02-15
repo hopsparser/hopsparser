@@ -2,7 +2,6 @@ import enum
 import multiprocessing
 import multiprocessing.managers
 import multiprocessing.pool
-import os
 import pathlib
 import shutil
 from collections import defaultdict
@@ -234,11 +233,10 @@ def train_single_model(
 
 
 def worker(
-    device_queue: "Queue[str]",
-    monitor_queue: "Queue[tuple[Messages, Any]]",
-    run_name: str,
-    train_kwargs: dict[str, Any],
+    args: tuple["Queue[str]", "Queue[tuple[Messages, Any]]", str, dict[str, Any]],
 ) -> tuple[str, dict[tuple[str, str], dict[str, float]]]:
+    # We have to do this because imap_unordered has no star version
+    device_queue, monitor_queue, run_name, train_kwargs = args
     # We use no more workers than devices so the queue should never be empty when launching the
     # worker fun so we want to fail early here if the Queue is empty. It does not feel right but it
     # works.
@@ -297,20 +295,15 @@ def run_multi(
             monitor.start()
 
             with NoDaemonPool(len(devices), context=ctx) as pool:
-
-                def fast_fail(e: BaseException):
-                    logger.error(f"Failure in a worker process: {e}")
-                    pool.terminate()
-
-                res_future = pool.starmap_async(
-                    worker,
-                    (
-                        (device_queue, monitor_queue, run_name, run_args)
-                        for run_name, run_args in runs.items()
-                    ),
-                    error_callback=fast_fail,
+                res = list(
+                    pool.imap_unordered(
+                        worker,
+                        [
+                            (device_queue, monitor_queue, run_name, run_args)
+                            for run_name, run_args in runs.items()
+                        ],
+                    )
                 )
-                res = res_future.get()
         finally:
             monitor_queue.put((Messages.CLOSE, None))
             monitor.join()
