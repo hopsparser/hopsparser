@@ -293,29 +293,28 @@ def run_multi(
                 "queue": monitor_queue,
             },
         )
-        monitor.start()
+        try:
+            monitor.start()
 
-        with NoDaemonPool(len(devices), context=ctx) as pool:
+            with NoDaemonPool(len(devices), context=ctx) as pool:
 
-            def fast_fail(e: BaseException):
-                logger.error("Failure in a worker process")
-                pool.terminate()
-                monitor_queue.put((Messages.CLOSE, None))
-                monitor.join()
-                monitor.close()
+                def fast_fail(e: BaseException):
+                    logger.error(f"Failure in a worker process: {e}")
+                    pool.terminate()
 
-            res_future = pool.starmap_async(
-                worker,
-                (
-                    (device_queue, monitor_queue, run_name, run_args)
-                    for run_name, run_args in runs.items()
-                ),
-                error_callback=fast_fail,
-            )
-            res = res_future.get()
-        monitor_queue.put((Messages.CLOSE, None))
-        monitor.join()
-        monitor.close()
+                res_future = pool.starmap_async(
+                    worker,
+                    (
+                        (device_queue, monitor_queue, run_name, run_args)
+                        for run_name, run_args in runs.items()
+                    ),
+                    error_callback=fast_fail,
+                )
+                res = res_future.get()
+        finally:
+            monitor_queue.put((Messages.CLOSE, None))
+            monitor.join()
+            monitor.close()
     return {run_name: run_res for run_name, run_res in res}
 
 
@@ -329,7 +328,6 @@ def monitor_process(num_runs: int, queue: "Queue[tuple[Messages, Any]]"):
         refresh_per_second=1.0,
         speed_estimate_period=1800,
     ) as progress:
-    
         train_task = progress.add_task("Training", total=num_runs)
         ongoing: dict[str, TaskID] = dict()
         while True:
