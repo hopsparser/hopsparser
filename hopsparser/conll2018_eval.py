@@ -4,7 +4,7 @@
 # <https://github.com/ufal/conll2018/blob/37bc4d70bf415f188dc82a2e2600a38971d1137c/evaluation_script/conll18_ud_eval.py>
 # The modifications include:
 #
-# - Formatting with black
+# - Formatting with ruff
 # - Make function-internal classes module-level classes: since they were not closure classes, there
 #   was no point keeping them there
 # - Adding typing
@@ -102,7 +102,7 @@ import io
 import sys
 import unicodedata
 import unittest
-from typing import Dict, Optional
+from typing import Dict, Optional, TextIO
 
 # CoNLL-U column names
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
@@ -223,7 +223,7 @@ class UDWord:
 
 
 # Load given CoNLL-U file into internal representation
-def load_conllu(file):
+def load_conllu(file: TextIO) -> UDRepresentation:
     ud = UDRepresentation()
 
     # Load the CoNLL-U file

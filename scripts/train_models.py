@@ -2,6 +2,7 @@ import enum
 import multiprocessing
 import multiprocessing.managers
 import multiprocessing.pool
+import os
 import pathlib
 import shutil
 from collections import defaultdict
@@ -47,12 +48,10 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
         self.run_name = run_name
 
     def on_train_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
-        self.message_queue.put(
-            (
-                Messages.RUN_START,
-                (self.run_name, trainer.estimated_stepping_batches),
-            )
-        )
+        self.message_queue.put((
+            Messages.RUN_START,
+            (self.run_name, trainer.estimated_stepping_batches),
+        ))
 
     def on_train_batch_end(
         self,
@@ -62,29 +61,25 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
         batch: Any,
         batch_idx: int,
     ):
-        self.message_queue.put(
+        self.message_queue.put((
+            Messages.PROGRESS,
             (
-                Messages.PROGRESS,
-                (
-                    self.run_name,
-                    (None, trainer.global_step),
-                ),
-            )
-        )
+                self.run_name,
+                (None, trainer.global_step),
+            ),
+        ))
 
     def on_train_epoch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
-        self.message_queue.put(
+        self.message_queue.put((
+            Messages.PROGRESS,
             (
-                Messages.PROGRESS,
+                self.run_name,
                 (
-                    self.run_name,
-                    (
-                        f"{self.run_name}: train {trainer.current_epoch + 1}/{trainer.max_epochs}",
-                        None,
-                    ),
+                    f"{self.run_name}: train {trainer.current_epoch + 1}/{trainer.max_epochs}",
+                    None,
                 ),
-            )
-        )
+            ),
+        ))
 
     def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
         if not trainer.sanity_checking:
@@ -96,18 +91,16 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
                 },
             )
             # TODO: a validation progress bar would be nice
-            self.message_queue.put(
+            self.message_queue.put((
+                Messages.PROGRESS,
                 (
-                    Messages.PROGRESS,
+                    self.run_name,
                     (
-                        self.run_name,
-                        (
-                            f"{self.run_name}: eval {trainer.current_epoch + 1}/{trainer.max_epochs}",
-                            None,
-                        ),
+                        f"{self.run_name}: eval {trainer.current_epoch + 1}/{trainer.max_epochs}",
+                        None,
                     ),
-                )
-            )
+                ),
+            ))
 
 
 T_HASHABLE = TypeVar("T_HASHABLE", bound=Hashable)
@@ -194,6 +187,7 @@ def train_single_model(
     device_info = torch.device(device)
     accelerator = device_info.type
     devices = 1 if accelerator == "cpu" else [cast(int, device_info.index)]
+    raise Exception("lmao")
     trainer.train(
         accelerator=accelerator,
         callbacks=[EpochFeedbackCallback(message_queue=message_queue, run_name=run_name)],
@@ -303,12 +297,21 @@ def run_multi(
         monitor.start()
 
         with NoDaemonPool(len(devices), context=ctx) as pool:
+
+            def fast_fail(e: BaseException):
+                logger.error("Failure in a worker process")
+                pool.terminate()
+                monitor_queue.put((Messages.CLOSE, None))
+                monitor.join()
+                monitor.close()
+
             res_future = pool.starmap_async(
                 worker,
                 (
                     (device_queue, monitor_queue, run_name, run_args)
                     for run_name, run_args in runs.items()
                 ),
+                error_callback=fast_fail,
             )
             res = res_future.get()
         monitor_queue.put((Messages.CLOSE, None))
@@ -327,6 +330,7 @@ def monitor_process(num_runs: int, queue: "Queue[tuple[Messages, Any]]"):
         refresh_per_second=1.0,
         speed_estimate_period=1800,
     ) as progress:
+    
         train_task = progress.add_task("Training", total=num_runs)
         ongoing: dict[str, TaskID] = dict()
         while True:
@@ -541,23 +545,21 @@ def main(
     logger.info("Done with training")
     train_results.update(new_res)
 
-    train_results_df = pol.from_records(
-        [
-            {
-                "run_name": run_name,
-                "config": str(runs[run_name]["config_file"]),
-                "train_treebank": runs[run_name]["metadata"]["train_treebank"],
-                "additional_args": runs[run_name]["additional_args"],
-                "results": results,
-                "split": split,
-                "treebank": treebank,
-                "output_dir": str(runs[run_name]["output_dir"]),
-                "group": runs[run_name]["metadata"]["group"],
-            }
-            for run_name, scores in train_results.items()
-            for (treebank, split), results in scores.items()
-        ]
-    )
+    train_results_df = pol.from_records([
+        {
+            "run_name": run_name,
+            "config": str(runs[run_name]["config_file"]),
+            "train_treebank": runs[run_name]["metadata"]["train_treebank"],
+            "additional_args": runs[run_name]["additional_args"],
+            "results": results,
+            "split": split,
+            "treebank": treebank,
+            "output_dir": str(runs[run_name]["output_dir"]),
+            "group": runs[run_name]["metadata"]["group"],
+        }
+        for run_name, scores in train_results.items()
+        for (treebank, split), results in scores.items()
+    ])
     train_results_df.write_ndjson(out_dir / "train_report.jsonl")
 
     eval_treebanks = get_eval_treebanks(treebanks_dir, config.evals)
@@ -565,6 +567,7 @@ def main(
     eval_results: list[dict] = []
     eval_out_dir = out_dir / "evals"
     for run_name, run_args in track(runs.items(), description="Evaluating"):
+        # TODO: make this run on gpu
         eval_metrics = evaluate_model(
             metrics=metrics,
             model_path=run_args["output_dir"] / "model",
@@ -582,19 +585,17 @@ def main(
         for treebank, ts in eval_metrics_nested.items():
             for split, subsets in ts.items():
                 results = {m: harmonic_mean([res[m] for res in subsets.values()]) for m in metrics}
-                eval_results.append(
-                    {
-                        "run_name": run_name,
-                        "config": str(runs[run_name]["config_file"]),
-                        "train_treebank": runs[run_name]["metadata"]["train_treebank"],
-                        "additional_args": runs[run_name]["additional_args"],
-                        "results": results,
-                        "split": split,
-                        "treebank": treebank,
-                        "output_dir": str(runs[run_name]["output_dir"]),
-                        "group": runs[run_name]["metadata"]["group"],
-                    }
-                )
+                eval_results.append({
+                    "run_name": run_name,
+                    "config": str(runs[run_name]["config_file"]),
+                    "train_treebank": runs[run_name]["metadata"]["train_treebank"],
+                    "additional_args": runs[run_name]["additional_args"],
+                    "results": results,
+                    "split": split,
+                    "treebank": treebank,
+                    "output_dir": str(runs[run_name]["output_dir"]),
+                    "group": runs[run_name]["metadata"]["group"],
+                })
 
     eval_df = pol.from_dicts(eval_results)
 
