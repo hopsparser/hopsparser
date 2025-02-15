@@ -187,7 +187,6 @@ def train_single_model(
     device_info = torch.device(device)
     accelerator = device_info.type
     devices = 1 if accelerator == "cpu" else [cast(int, device_info.index)]
-    raise Exception("lmao")
     trainer.train(
         accelerator=accelerator,
         callbacks=[EpochFeedbackCallback(message_queue=message_queue, run_name=run_name)],
