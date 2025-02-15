@@ -44,7 +44,7 @@ install it in editable mode with the tests extras after cloning the repository
 ```sh
 git clone https://github.com/hopsparser/hopsparser
 cd hopsparser
-pip install -e ".[tests,traintools]"
+pip install -e ".[spacy,tests,traintools]"
 ```
 
 In that case, you can run the smoke tests with `tox` to ensure that everything works on your end.
