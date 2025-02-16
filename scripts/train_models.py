@@ -127,7 +127,11 @@ def evaluate_model(
                 model = parser.BiAffineParser.load(model_path).to(device)
                 model.eval()
             logger.debug(f"Parsing {treebank_path}.")
-            with treebank_path.open(encoding="utf-8") as in_stream, parsed_path.open("w") as out_stream:
+            # Explicit encoding because apparently subprocesses sometimes mess it up
+            with (
+                treebank_path.open(encoding="utf-8") as in_stream,
+                parsed_path.open("w") as out_stream,
+            ):
                 with torch.inference_mode():
                     for tree in model.parse(inpt=in_stream, batch_size=None):
                         out_stream.write(tree.to_conllu())
