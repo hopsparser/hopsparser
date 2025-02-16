@@ -73,6 +73,12 @@ jobs:
           source .venv/bin/activate
           uv pip install tox tox-gh-actions tox-uv
           tox -- -v --durations=0
+      - name: Upload hypothesis examples database
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hypothesis-example-db-py${{ matrix.python-version }}-${{ matrix.os}}
+          path: .hypothesis/examples
   build_wheels:
     name: Build wheels for Python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
