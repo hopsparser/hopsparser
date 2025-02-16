@@ -130,7 +130,7 @@ def evaluate_model(
             # Explicit encoding because apparently subprocesses sometimes mess it up
             with (
                 treebank_path.open(encoding="utf-8") as in_stream,
-                parsed_path.open("w") as out_stream,
+                parsed_path.open("w", encoding="utf-8") as out_stream,
             ):
                 with torch.inference_mode():
                     for tree in model.parse(inpt=in_stream, batch_size=None):
