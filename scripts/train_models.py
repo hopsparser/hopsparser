@@ -127,7 +127,7 @@ def evaluate_model(
                 model = parser.BiAffineParser.load(model_path).to(device)
                 model.eval()
             logger.debug(f"Parsing {treebank_path}.")
-            # Explicit encoding because apparently subprocesses sometimes mess it up
+            # Explicit encoding because of <https://github.com/NVIDIA/Fuser/issues/62> and co.
             with (
                 treebank_path.open(encoding="utf-8") as in_stream,
                 parsed_path.open("w", encoding="utf-8") as out_stream,

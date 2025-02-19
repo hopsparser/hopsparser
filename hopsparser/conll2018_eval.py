@@ -591,7 +591,7 @@ def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> Dict[str
 
 
 def load_conllu_file(path):
-    with open(path) as in_stream:
+    with open(path, encoding="utf8") as in_stream:
         return load_conllu(in_stream)
 
 
