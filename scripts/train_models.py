@@ -129,8 +129,8 @@ def evaluate_model(
             logger.debug(f"Parsing {treebank_path}.")
             # Explicit encoding because of <https://github.com/NVIDIA/Fuser/issues/62> and co.
             with (
-                treebank_path.open(encoding="utf-8") as in_stream,
-                parsed_path.open("w", encoding="utf-8") as out_stream,
+                treebank_path.open() as in_stream,
+                parsed_path.open("w") as out_stream,
             ):
                 with torch.inference_mode():
                     for tree in model.parse(inpt=in_stream, batch_size=None):

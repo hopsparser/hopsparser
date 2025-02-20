@@ -3,12 +3,17 @@ Getting started
 
 ## Installation
 
-The parser is meant to work with python >= 3.8. Install with pip, which should take care of all the
+The parser is meant to work with python >= 3.10. Install with pip, which should take care of all the
 dependencies and install the console entry points
 
 ```sh
 pip install hopsparser
 ```
+
+Note that due to [a persistent bug in nvrtc](https://github.com/NVIDIA/cuda-python/issues/29), users
+of CUDA versions between 12.0 and 12.7 might want to activate [Python UTF-8
+mode](https://docs.python.org/3/library/os.html#python-utf-8-mode), for instance by setting the
+`PYTHONUTF8` environment variable to `1`.
 
 ## Inference
 
