@@ -1,0 +1,55 @@
+# For use with scripts/train_models.py
+trains:
+  # Train groups define a matrix of training config×training treebanks.
+  - group: en
+    configs:
+      - "configs/mdeberta.yaml"
+      - "configs/xlm-r-base.yaml"
+      - "configs/modernbert-base.yaml"
+      - "configs/modernbert-large.yaml"
+      - "configs/roberta-base.yaml"
+    treebanks:
+      - "train_corpora/UD_English-ALL"
+      - "train_corpora/UD_English-Atis"
+      - "train_corpora/UD_English-EWT"
+      - "train_corpora/UD_English-GUM"
+      - "train_corpora/UD_English-LinES"
+  - group: fr
+    configs:
+      - "configs/camembert.yaml"
+      - "configs/flaubert.yaml"
+      - "configs/mdeberta.yaml"
+      - "configs/xlm-r-base.yaml"
+    treebanks:
+      - "train_corpora/UD_French-GSD"
+      - "train_corpora/UD_French-Sequoia"
+      - "train_corpora/UD_French-ALL"
+  - group: fro
+    configs:
+      - "configs/mdeberta.yaml"
+      - "configs/xlm-r-base.yaml"
+      - "configs/bertrade_base.yaml"
+      - "configs/BERTrade-camemBERT.yaml"
+      - "configs/BERTrade-FlauBERT.yaml"
+    treebanks:
+      - "train_corpora/UD_Old_French-PROFITEROLE"
+
+evals:
+  # Evals list the treebanks used to evaluate the models trained for each train group.
+  en:
+    - "all_corpora/UD_English-ALL"
+    - "all_corpora/UD_English-Atis"
+    - "all_corpora/UD_English-EWT"
+    - "all_corpora/UD_English-GUM"
+    - "all_corpora/UD_English-LinES"
+    - "all_corpora/UD_English-ESLSpok"
+    - "all_corpora/UD_English-GENTLE"
+  fr:
+    - "all_corpora/UD_French-GSD"
+    - "all_corpora/UD_French-ParisStories"
+    - "all_corpora/UD_French-Rhapsodie"
+    - "all_corpora/UD_French-Sequoia"
+    - "all_corpora/UD_French-ALL"
+  fro:
+    - "all_corpora/UD_Old_French-PROFITEROLE"
+    - "all_corpora/UD_Middle_French-PROFITEROLE"

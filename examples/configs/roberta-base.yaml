@@ -1,0 +1,20 @@
+# Layer dimensions
+mlp_input: 1024
+mlp_tag_hidden: 16
+mlp_arc_hidden: 512
+mlp_lab_hidden: 128
+# Lexers
+lexers:
+  - name: roberta-base
+    type: bert
+    model: "roberta-base"
+    layers: "*"
+    subwords_reduction: "mean"
+# Training hyperparameters
+encoder_dropout: 0.5
+mlp_dropout: 0.5
+batch_size: 8
+epochs: 64
+lr:
+  base: 0.00003
+  shape: constant

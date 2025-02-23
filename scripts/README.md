@@ -46,10 +46,10 @@ To make several runs happen concurrently on the same device, just specify it sev
 of course an acceptable device that you can also specify several times and mix with GPU devices, so
 this doesn't require access to GPUs.
 
-For reference, we train our contemporary French models using
+For reference, we train our UD models using
 
 ```console
-python scripts/train_models.py {repo_root}/examples/train_config-fr {resource_dir}/treebanks --devices "cuda:0,cuda:1" --rand_seeds "0,1,2,3" --out-dir {output_dir}/newmodels"
+python scripts/train_models.py {repo_root}/examples/train_config-ud {resource_dir}/treebanks --devices "cuda:0,cuda:1" --rand_seeds "0,1,2,3" --out-dir {output_dir}/newmodels"
 ```
 
 After downloading the UD treebanks using `get_UD_data.py`.
