@@ -1,7 +1,6 @@
 import pathlib
 import re
 import shutil
-import tarfile
 from collections import defaultdict
 from typing import Callable, Iterator
 
@@ -61,10 +60,10 @@ def download(target_dir: pathlib.Path, release: str, train_threshold: int):
         url=ud_url["url"],
     )
     extract_path = target_dir / f"ud-treebanks-v{release}"
-    all_corpora_dir = extract_path / f"ud-treebanks-v{release}"
+    all_corpora_dir = extract_path / "all_corpora"
     if not all_corpora_dir.exists():
-        with tarfile.open(downloaded_path) as tar:
-            tar.extract(f"ud-treebanks-v{release}", path=extract_path, filter="data")
+        shutil.unpack_archive(downloaded_path, extract_dir=extract_path, filter="data")
+        (extract_path / f"ud-treebanks-v{release}").rename(all_corpora_dir)
 
     train_corpora_path = extract_path / "train_corpora"
     train_corpora_path.mkdir(exist_ok=True)
