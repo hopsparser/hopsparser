@@ -16,6 +16,7 @@ evals:
   # Evals list the treebanks used to evaluate the models trained for each train group.
   fr:
     - "UD_French-GSD"
-    - "UD_French-PariStories"
+    - "UD_French-ParisStories"
     - "UD_French-Rhapsodie"
     - "UD_French-Sequoia"
+    - "UD_French-ALL"
