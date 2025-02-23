@@ -105,20 +105,15 @@ class EpochFeedbackCallback(pl_callbacks.Callback):
 T_HASHABLE = TypeVar("T_HASHABLE", bound=Hashable)
 
 
-def evaluate_model(
+def parse(
     model_path: pathlib.Path,
     parsed_dir: pathlib.Path,
     treebanks: dict[T_HASHABLE, pathlib.Path],
     device: str = "cpu",
-    metrics: Optional[list[str]] = None,
     reparse: bool = False,
-) -> dict[T_HASHABLE, dict[str, float]]:
-    logger.debug(f"Evaluating {model_path} on {treebanks}.")
-    parsed_dir.mkdir(exist_ok=True, parents=True)
-    # Avoid loading the model right now in case we don't need to reparse anything. This removes a
-    # security (ensuring the model actually loads) but eh.
+) -> dict[T_HASHABLE, tuple[pathlib.Path, pathlib.Path]]:
     model = None
-    res: dict[T_HASHABLE, dict[str, float]] = dict()
+    res: dict[T_HASHABLE, tuple[pathlib.Path, pathlib.Path]] = dict()
     for treebank_name, treebank_path in treebanks.items():
         parsed_path = parsed_dir / f"{treebank_path.stem}.parsed.conllu"
         if not parsed_path.exists() or reparse:
@@ -136,6 +131,31 @@ def evaluate_model(
                     for tree in model.parse(inpt=in_stream, batch_size=None):
                         out_stream.write(tree.to_conllu())
                         out_stream.write("\n\n")
+        res[treebank_name] = (treebank_path, parsed_path)
+    return res
+
+
+def evaluate_model(
+    model_path: pathlib.Path,
+    parsed_dir: pathlib.Path,
+    treebanks: dict[T_HASHABLE, pathlib.Path],
+    device: str = "cpu",
+    metrics: Optional[list[str]] = None,
+    reparse: bool = False,
+) -> dict[T_HASHABLE, dict[str, float]]:
+    logger.debug(f"Evaluating {model_path} on {treebanks}.")
+    parsed_dir.mkdir(exist_ok=True, parents=True)
+    # Avoid loading the model right now in case we don't need to reparse anything. This removes a
+    # security (ensuring the model actually loads) but eh.
+    parsed = parse(
+        model_path=model_path,
+        parsed_dir=parsed_dir,
+        treebanks=treebanks,
+        device=device,
+        reparse=reparse,
+    )
+    res: dict[T_HASHABLE, dict[str, float]] = dict()
+    for treebank_name, (treebank_path, parsed_path) in parsed.items():
         gold_set = evaluator.load_conllu_file(treebank_path)
         syst_set = evaluator.load_conllu_file(parsed_path)
         eval_res = evaluator.evaluate(gold_set, syst_set)
@@ -269,7 +289,7 @@ class NoDaemonProcess(multiprocessing.Process):
     def _set_daemon(self, value):
         pass
 
-    daemon = property(_get_daemon, _set_daemon)  # type: ignore
+    daemon = property(_get_daemon, _set_daemon)  # type: ignore[no-redef]
 
 
 class NoDaemonPool(multiprocessing.pool.Pool):
@@ -377,7 +397,7 @@ def generate_runs(
     prefix: str,
     rand_seeds: list[int],
     treebanks_dir: pathlib.Path,
-) -> dict[str, dict]:
+) -> dict[str, dict[str, Any]]:
     runs: dict[str, dict] = dict()
     for g in groups:
         # TODO: check that all patterns have at least one match otherwise warn
@@ -414,6 +434,47 @@ def generate_runs(
                     }
                     runs[run_name] = run_args
     return runs
+
+
+def eval_runs(
+    device: str,
+    eval_treebanks: dict[str, dict[tuple[str, str, str], pathlib.Path]],
+    metrics: list[str],
+    out_dir: pathlib.Path,
+    runs: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    eval_results: list[dict[str, Any]] = []
+    for run_name, run_args in track(runs.items(), description="Evaluating"):
+        eval_metrics = evaluate_model(
+            device=device,
+            metrics=metrics,
+            model_path=run_args["output_dir"] / "model",
+            parsed_dir=out_dir / run_name,
+            treebanks=eval_treebanks[runs[run_name]["metadata"]["group"]],
+            reparse=False,
+        )
+
+        # argh
+        eval_metrics_nested: dict[str, dict[str, dict[str, dict[str, float]]]] = defaultdict(
+            lambda: defaultdict(dict)
+        )
+        for (treebank, subset, split), results in eval_metrics.items():
+            eval_metrics_nested[treebank][split][subset] = results
+        for treebank, ts in eval_metrics_nested.items():
+            for split, subsets in ts.items():
+                results = {m: harmonic_mean([res[m] for res in subsets.values()]) for m in metrics}
+                eval_results.append({
+                    "run_name": run_name,
+                    "config": str(runs[run_name]["config_file"]),
+                    "train_treebank": runs[run_name]["metadata"]["train_treebank"],
+                    "additional_args": runs[run_name]["additional_args"],
+                    "results": results,
+                    "split": split,
+                    "treebank": treebank,
+                    "output_dir": str(runs[run_name]["output_dir"]),
+                    "group": runs[run_name]["metadata"]["group"],
+                })
+    return eval_results
 
 
 @click.command()
@@ -558,38 +619,14 @@ def main(
 
     eval_treebanks = get_eval_treebanks(treebanks_dir, config.evals)
 
-    eval_results: list[dict] = []
     eval_out_dir = out_dir / "evals"
-    for run_name, run_args in track(runs.items(), description="Evaluating"):
-        # TODO: make this run on gpu
-        eval_metrics = evaluate_model(
-            metrics=metrics,
-            model_path=run_args["output_dir"] / "model",
-            parsed_dir=eval_out_dir / run_name,
-            treebanks=eval_treebanks[runs[run_name]["metadata"]["group"]],
-            reparse=False,
-        )
-
-        # argh
-        eval_metrics_nested: dict[str, dict[str, dict[str, dict[str, float]]]] = defaultdict(
-            lambda: defaultdict(dict)
-        )
-        for (treebank, subset, split), results in eval_metrics.items():
-            eval_metrics_nested[treebank][split][subset] = results
-        for treebank, ts in eval_metrics_nested.items():
-            for split, subsets in ts.items():
-                results = {m: harmonic_mean([res[m] for res in subsets.values()]) for m in metrics}
-                eval_results.append({
-                    "run_name": run_name,
-                    "config": str(runs[run_name]["config_file"]),
-                    "train_treebank": runs[run_name]["metadata"]["train_treebank"],
-                    "additional_args": runs[run_name]["additional_args"],
-                    "results": results,
-                    "split": split,
-                    "treebank": treebank,
-                    "output_dir": str(runs[run_name]["output_dir"]),
-                    "group": runs[run_name]["metadata"]["group"],
-                })
+    eval_results = eval_runs(
+        eval_treebanks=eval_treebanks,
+        device=devices[0],
+        metrics=metrics,
+        out_dir=eval_out_dir,
+        runs=runs,
+    )
 
     eval_df = pol.from_dicts(eval_results)
 
