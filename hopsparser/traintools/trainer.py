@@ -2,7 +2,7 @@ import datetime
 import os
 import pathlib
 import shutil
-from typing import Any, Iterable, Mapping, NamedTuple, Optional, cast
+from typing import Any, Iterable, Mapping, NamedTuple, Optional, Sequence, cast
 
 import click
 import pydantic
@@ -54,8 +54,9 @@ class HarmonicMeanAggregateMetric(torchmetrics.Metric):
     ) -> None:
         super().__init__()
 
-        self.wrapped_metrics = torch.nn.ModuleList(
-            [metric_class(*args, **kwargs) for _ in range(n_datasets)]
+        self.wrapped_metrics = cast(
+            Sequence[torchmetrics.Metric],
+            torch.nn.ModuleList([metric_class(*args, **kwargs) for _ in range(n_datasets)]),
         )
 
     def update(self, dataset_idx: int, *args, **kwargs) -> None:
@@ -131,18 +132,16 @@ class ParserTrainingModule(pl.LightningModule):
         # We need a cast here because ModuleDict does not subclass dict
         self.val_extra_labels_accuracy = cast(
             Mapping[str, torchmetrics.Metric],
-            torch.nn.ModuleDict(
-                {
-                    name: HarmonicMeanAggregateMetric(
-                        n_datasets=n_dev,
-                        metric_class=torchmetrics.Accuracy,
-                        ignore_index=self.parser.LABEL_PADDING,
-                        num_classes=len(lex),
-                        task="multiclass",
-                    )
-                    for name, lex in self.parser.annotation_lexicons.items()
-                }
-            ),
+            torch.nn.ModuleDict({
+                name: HarmonicMeanAggregateMetric(
+                    n_datasets=n_dev,
+                    metric_class=torchmetrics.Accuracy,
+                    ignore_index=self.parser.LABEL_PADDING,
+                    num_classes=len(lex),
+                    task="multiclass",
+                )
+                for name, lex in self.parser.annotation_lexicons.items()
+            }),
         )
         logger.debug(f"Using train config {config}")
         self.save_hyperparameters("config")
@@ -398,6 +397,7 @@ def train(
     ]
     if callbacks is not None:
         all_callbacks.extend(callbacks)
+    # Resist the urge to factor this code. Resist it. Good.
     if len(dev_loaders) > 0:
         all_callbacks.append(
             pl_callbacks.ModelCheckpoint(

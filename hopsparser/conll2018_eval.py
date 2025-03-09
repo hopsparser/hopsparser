@@ -98,10 +98,7 @@
 # (even partially) any multi-word span are then aligned as tokens.
 
 import argparse
-import io
-import sys
 import unicodedata
-import unittest
 from typing import Dict, Optional, TextIO
 
 # CoNLL-U column names
@@ -679,74 +676,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-# Tests, which can be executed with `python -m unittest conll18_ud_eval`.
-class TestAlignment(unittest.TestCase):
-    @staticmethod
-    def _load_words(words):
-        """Prepare fake CoNLL-U files with fake HEAD to prevent multiple roots errors."""
-        lines, num_words = [], 0
-        for w in words:
-            parts = w.split(" ")
-            if len(parts) == 1:
-                num_words += 1
-                lines.append(
-                    "{}\t{}\t_\t_\t_\t_\t{}\t_\t_\t_".format(
-                        num_words, parts[0], int(num_words > 1)
-                    )
-                )
-            else:
-                lines.append(
-                    "{}-{}\t{}\t_\t_\t_\t_\t_\t_\t_\t_".format(
-                        num_words + 1, num_words + len(parts) - 1, parts[0]
-                    )
-                )
-                for part in parts[1:]:
-                    num_words += 1
-                    lines.append(
-                        "{}\t{}\t_\t_\t_\t_\t{}\t_\t_\t_".format(
-                            num_words, part, int(num_words > 1)
-                        )
-                    )
-        return load_conllu(
-            (io.StringIO if sys.version_info >= (3, 0) else io.BytesIO)("\n".join(lines + ["\n"]))
-        )
-
-    def _test_exception(self, gold, system):
-        self.assertRaises(UDError, evaluate, self._load_words(gold), self._load_words(system))
-
-    def _test_ok(self, gold, system, correct):
-        metrics = evaluate(self._load_words(gold), self._load_words(system))
-        gold_words = sum((max(1, len(word.split(" ")) - 1) for word in gold))
-        system_words = sum((max(1, len(word.split(" ")) - 1) for word in system))
-        self.assertEqual(
-            (metrics["Words"].precision, metrics["Words"].recall, metrics["Words"].f1),
-            (
-                correct / system_words,
-                correct / gold_words,
-                2 * correct / (gold_words + system_words),
-            ),
-        )
-
-    def test_exception(self):
-        self._test_exception(["a"], ["b"])
-
-    def test_equal(self):
-        self._test_ok(["a"], ["a"], 1)
-        self._test_ok(["a", "b", "c"], ["a", "b", "c"], 3)
-
-    def test_equal_with_multiword(self):
-        self._test_ok(["abc a b c"], ["a", "b", "c"], 3)
-        self._test_ok(["a", "bc b c", "d"], ["a", "b", "c", "d"], 4)
-        self._test_ok(["abcd a b c d"], ["ab a b", "cd c d"], 4)
-        self._test_ok(["abc a b c", "de d e"], ["a", "bcd b c d", "e"], 5)
-
-    def test_alignment(self):
-        self._test_ok(["abcd"], ["a", "b", "c", "d"], 0)
-        self._test_ok(["abc", "d"], ["a", "b", "c", "d"], 1)
-        self._test_ok(["a", "bc", "d"], ["a", "b", "c", "d"], 2)
-        self._test_ok(["a", "bc b c", "d"], ["a", "b", "cd"], 2)
-        self._test_ok(["abc a BX c", "def d EX f"], ["ab a b", "cd c d", "ef e f"], 4)
-        self._test_ok(["ab a b", "cd bc d"], ["a", "bc", "d"], 2)
-        self._test_ok(["a", "bc b c", "d"], ["ab AX BX", "cd CX a"], 1)
