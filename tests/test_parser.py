@@ -127,6 +127,7 @@ def test_batch_invariance(
         encoded_distractor_text_2 = parser.encode_sentence(distractor_text_2, strict=True)
     except LexingError:
         assume(False)
+        return
     with torch.inference_mode():
         stable_length = len(stable_text) + 1
         batch_stable = parser.batch_sentences([encoded_stable_text]).to(device)
