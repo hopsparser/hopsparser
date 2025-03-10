@@ -249,7 +249,7 @@ class ParserTrainingModule(pl.LightningModule):
             annotation_pred = scores.argmax(dim=-1)
             self.val_extra_labels_accuracy[name](dataloader_idx, annotation_pred, gold_annotation)
 
-    def configure_optimizers(self):
+    def configure_optimizers(self):  # type: ignore[override]
         # TODO: use modern Adam/other opts and allow tweaking the betas
         optimizer = torch.optim.Adam(
             self.parameters(), betas=(0.9, 0.9), lr=self.config.lr.base, eps=1e-09, fused=True
@@ -285,7 +285,7 @@ class SaveModelCallback(pl.Callback):
         self.save_dir = save_dir
 
     @rank_zero_only
-    def on_save_checkpoint(
+    def on_save_checkpoint(  # type: ignore[override]
         self, trainer: pl.Trainer, pl_module: ParserTrainingModule, checkpoint: dict[str, Any]
     ):
         logger.info(f"Saving model to {self.save_dir}")

@@ -99,7 +99,7 @@
 
 import argparse
 import unicodedata
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Optional, Sequence
 
 # CoNLL-U column names
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
@@ -239,6 +239,7 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
             sentence_start = len(ud.words)
         if not line:
             # Add parent and children UDWord links and check there are no cycles
+            # TODO: refactor this
             def process_word(word):
                 if word.parent == "remapping":
                     raise UDError("There is a cycle in a sentence")
@@ -369,156 +370,161 @@ class Alignment:
         self.matched_words_map[system_word] = gold_word
 
 
+def spans_score(gold_spans: Sequence[UDSpan], system_spans: Sequence[UDSpan]) -> Score:
+    correct, gi, si = 0, 0, 0
+    while gi < len(gold_spans) and si < len(system_spans):
+        if system_spans[si].start < gold_spans[gi].start:
+            si += 1
+        elif gold_spans[gi].start < system_spans[si].start:
+            gi += 1
+        else:
+            correct += gold_spans[gi].end == system_spans[si].end
+            si += 1
+            gi += 1
+
+    return Score(len(gold_spans), len(system_spans), correct)
+
+
+def alignment_score(alignment: Alignment, key_fn=None, filter_fn=None) -> Score:
+    if filter_fn is not None:
+        gold = sum(1 for gold in alignment.gold_words if filter_fn(gold))
+        system = sum(1 for system in alignment.system_words if filter_fn(system))
+        aligned = sum(1 for word in alignment.matched_words if filter_fn(word.gold_word))
+    else:
+        gold = len(alignment.gold_words)
+        system = len(alignment.system_words)
+        aligned = len(alignment.matched_words)
+
+    if key_fn is None:
+        # Return score for whole aligned words
+        return Score(gold, system, aligned)
+
+    def gold_aligned_gold(word):
+        return word
+
+    def gold_aligned_system(word):
+        return alignment.matched_words_map.get(word, "NotAligned") if word is not None else None
+
+    correct = 0
+    for words in alignment.matched_words:
+        if filter_fn is None or filter_fn(words.gold_word):
+            if key_fn(words.gold_word, gold_aligned_gold) == key_fn(
+                words.system_word, gold_aligned_system
+            ):
+                correct += 1
+
+    return Score(gold, system, correct, aligned)
+
+
+def beyond_end(words, i, multiword_span_end):
+    if i >= len(words):
+        return True
+    if words[i].is_multiword:
+        return words[i].span.start >= multiword_span_end
+    return words[i].span.end > multiword_span_end
+
+
+def extend_end(word, multiword_span_end):
+    if word.is_multiword and word.span.end > multiword_span_end:
+        return word.span.end
+    return multiword_span_end
+
+
+def find_multiword_span(gold_words, system_words, gi, si):
+    # We know gold_words[gi].is_multiword or system_words[si].is_multiword.
+    # Find the start of the multiword span (gs, ss), so the multiword span is minimal.
+    # Initialize multiword_span_end characters index.
+    if gold_words[gi].is_multiword:
+        multiword_span_end = gold_words[gi].span.end
+        if (
+            not system_words[si].is_multiword
+            and system_words[si].span.start < gold_words[gi].span.start
+        ):
+            si += 1
+    else:  # if system_words[si].is_multiword
+        multiword_span_end = system_words[si].span.end
+        if (
+            not gold_words[gi].is_multiword
+            and gold_words[gi].span.start < system_words[si].span.start
+        ):
+            gi += 1
+    gs, ss = gi, si
+
+    # Find the end of the multiword span
+    # (so both gi and si are pointing to the word following the multiword span end).
+    while not beyond_end(gold_words, gi, multiword_span_end) or not beyond_end(
+        system_words, si, multiword_span_end
+    ):
+        if gi < len(gold_words) and (
+            si >= len(system_words) or gold_words[gi].span.start <= system_words[si].span.start
+        ):
+            multiword_span_end = extend_end(gold_words[gi], multiword_span_end)
+            gi += 1
+        else:
+            multiword_span_end = extend_end(system_words[si], multiword_span_end)
+            si += 1
+    return gs, ss, gi, si
+
+
+def compute_lcs(gold_words, system_words, gi, si, gs, ss):
+    lcs = [[0] * (si - ss) for i in range(gi - gs)]
+    for g in reversed(range(gi - gs)):
+        for s in reversed(range(si - ss)):
+            if (
+                gold_words[gs + g].columns[FORM].lower()
+                == system_words[ss + s].columns[FORM].lower()
+            ):
+                lcs[g][s] = 1 + (lcs[g + 1][s + 1] if g + 1 < gi - gs and s + 1 < si - ss else 0)
+            lcs[g][s] = max(lcs[g][s], lcs[g + 1][s] if g + 1 < gi - gs else 0)
+            lcs[g][s] = max(lcs[g][s], lcs[g][s + 1] if s + 1 < si - ss else 0)
+    return lcs
+
+
+def align_words(gold_words, system_words):
+    alignment = Alignment(gold_words, system_words)
+
+    gi, si = 0, 0
+    while gi < len(gold_words) and si < len(system_words):
+        if gold_words[gi].is_multiword or system_words[si].is_multiword:
+            # A: Multi-word tokens => align via LCS within the whole "multiword span".
+            gs, ss, gi, si = find_multiword_span(gold_words, system_words, gi, si)
+
+            if si > ss and gi > gs:
+                lcs = compute_lcs(gold_words, system_words, gi, si, gs, ss)
+
+                # Store aligned words
+                s, g = 0, 0
+                while g < gi - gs and s < si - ss:
+                    if (
+                        gold_words[gs + g].columns[FORM].lower()
+                        == system_words[ss + s].columns[FORM].lower()
+                    ):
+                        alignment.append_aligned_words(gold_words[gs + g], system_words[ss + s])
+                        g += 1
+                        s += 1
+                    elif lcs[g][s] == (lcs[g + 1][s] if g + 1 < gi - gs else 0):
+                        g += 1
+                    else:
+                        s += 1
+        else:
+            # B: No multi-word token => align according to spans.
+            if (gold_words[gi].span.start, gold_words[gi].span.end) == (
+                system_words[si].span.start,
+                system_words[si].span.end,
+            ):
+                alignment.append_aligned_words(gold_words[gi], system_words[si])
+                gi += 1
+                si += 1
+            elif gold_words[gi].span.start <= system_words[si].span.start:
+                gi += 1
+            else:
+                si += 1
+
+    return alignment
+
+
 # Evaluate the gold and system treebanks (loaded using load_conllu).
 def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> Dict[str, Score]:
-    def spans_score(gold_spans, system_spans):
-        correct, gi, si = 0, 0, 0
-        while gi < len(gold_spans) and si < len(system_spans):
-            if system_spans[si].start < gold_spans[gi].start:
-                si += 1
-            elif gold_spans[gi].start < system_spans[si].start:
-                gi += 1
-            else:
-                correct += gold_spans[gi].end == system_spans[si].end
-                si += 1
-                gi += 1
-
-        return Score(len(gold_spans), len(system_spans), correct)
-
-    def alignment_score(alignment, key_fn=None, filter_fn=None):
-        if filter_fn is not None:
-            gold = sum(1 for gold in alignment.gold_words if filter_fn(gold))
-            system = sum(1 for system in alignment.system_words if filter_fn(system))
-            aligned = sum(1 for word in alignment.matched_words if filter_fn(word.gold_word))
-        else:
-            gold = len(alignment.gold_words)
-            system = len(alignment.system_words)
-            aligned = len(alignment.matched_words)
-
-        if key_fn is None:
-            # Return score for whole aligned words
-            return Score(gold, system, aligned)
-
-        def gold_aligned_gold(word):
-            return word
-
-        def gold_aligned_system(word):
-            return alignment.matched_words_map.get(word, "NotAligned") if word is not None else None
-
-        correct = 0
-        for words in alignment.matched_words:
-            if filter_fn is None or filter_fn(words.gold_word):
-                if key_fn(words.gold_word, gold_aligned_gold) == key_fn(
-                    words.system_word, gold_aligned_system
-                ):
-                    correct += 1
-
-        return Score(gold, system, correct, aligned)
-
-    def beyond_end(words, i, multiword_span_end):
-        if i >= len(words):
-            return True
-        if words[i].is_multiword:
-            return words[i].span.start >= multiword_span_end
-        return words[i].span.end > multiword_span_end
-
-    def extend_end(word, multiword_span_end):
-        if word.is_multiword and word.span.end > multiword_span_end:
-            return word.span.end
-        return multiword_span_end
-
-    def find_multiword_span(gold_words, system_words, gi, si):
-        # We know gold_words[gi].is_multiword or system_words[si].is_multiword.
-        # Find the start of the multiword span (gs, ss), so the multiword span is minimal.
-        # Initialize multiword_span_end characters index.
-        if gold_words[gi].is_multiword:
-            multiword_span_end = gold_words[gi].span.end
-            if (
-                not system_words[si].is_multiword
-                and system_words[si].span.start < gold_words[gi].span.start
-            ):
-                si += 1
-        else:  # if system_words[si].is_multiword
-            multiword_span_end = system_words[si].span.end
-            if (
-                not gold_words[gi].is_multiword
-                and gold_words[gi].span.start < system_words[si].span.start
-            ):
-                gi += 1
-        gs, ss = gi, si
-
-        # Find the end of the multiword span
-        # (so both gi and si are pointing to the word following the multiword span end).
-        while not beyond_end(gold_words, gi, multiword_span_end) or not beyond_end(
-            system_words, si, multiword_span_end
-        ):
-            if gi < len(gold_words) and (
-                si >= len(system_words) or gold_words[gi].span.start <= system_words[si].span.start
-            ):
-                multiword_span_end = extend_end(gold_words[gi], multiword_span_end)
-                gi += 1
-            else:
-                multiword_span_end = extend_end(system_words[si], multiword_span_end)
-                si += 1
-        return gs, ss, gi, si
-
-    def compute_lcs(gold_words, system_words, gi, si, gs, ss):
-        lcs = [[0] * (si - ss) for i in range(gi - gs)]
-        for g in reversed(range(gi - gs)):
-            for s in reversed(range(si - ss)):
-                if (
-                    gold_words[gs + g].columns[FORM].lower()
-                    == system_words[ss + s].columns[FORM].lower()
-                ):
-                    lcs[g][s] = 1 + (
-                        lcs[g + 1][s + 1] if g + 1 < gi - gs and s + 1 < si - ss else 0
-                    )
-                lcs[g][s] = max(lcs[g][s], lcs[g + 1][s] if g + 1 < gi - gs else 0)
-                lcs[g][s] = max(lcs[g][s], lcs[g][s + 1] if s + 1 < si - ss else 0)
-        return lcs
-
-    def align_words(gold_words, system_words):
-        alignment = Alignment(gold_words, system_words)
-
-        gi, si = 0, 0
-        while gi < len(gold_words) and si < len(system_words):
-            if gold_words[gi].is_multiword or system_words[si].is_multiword:
-                # A: Multi-word tokens => align via LCS within the whole "multiword span".
-                gs, ss, gi, si = find_multiword_span(gold_words, system_words, gi, si)
-
-                if si > ss and gi > gs:
-                    lcs = compute_lcs(gold_words, system_words, gi, si, gs, ss)
-
-                    # Store aligned words
-                    s, g = 0, 0
-                    while g < gi - gs and s < si - ss:
-                        if (
-                            gold_words[gs + g].columns[FORM].lower()
-                            == system_words[ss + s].columns[FORM].lower()
-                        ):
-                            alignment.append_aligned_words(gold_words[gs + g], system_words[ss + s])
-                            g += 1
-                            s += 1
-                        elif lcs[g][s] == (lcs[g + 1][s] if g + 1 < gi - gs else 0):
-                            g += 1
-                        else:
-                            s += 1
-            else:
-                # B: No multi-word token => align according to spans.
-                if (gold_words[gi].span.start, gold_words[gi].span.end) == (
-                    system_words[si].span.start,
-                    system_words[si].span.end,
-                ):
-                    alignment.append_aligned_words(gold_words[gi], system_words[si])
-                    gi += 1
-                    si += 1
-                elif gold_words[gi].span.start <= system_words[si].span.start:
-                    gi += 1
-                else:
-                    si += 1
-
-        return alignment
-
     # Check that the underlying character sequences do match.
     if gold_ud.characters != system_ud.characters:
         index = 0
