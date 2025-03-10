@@ -99,7 +99,8 @@
 
 import argparse
 import unicodedata
-from typing import Dict, Iterable, Optional, Sequence
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, Iterable, Literal, Sequence
 
 # CoNLL-U column names
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
@@ -174,25 +175,23 @@ class UDRepresentation:
     def __init__(self):
         # Characters of all the tokens in the whole file.
         # Whitespace between tokens is not included.
-        self.characters = []
+        self.characters: list[str] = []
         # List of UDSpan instances with start&end indices into `characters`.
-        self.tokens = []
+        self.tokens: list[UDSpan] = []
         # List of UDWord instances.
-        self.words = []
+        self.words: list[UDWord] = []
         # List of UDSpan instances with start&end indices into `characters`.
-        self.sentences = []
+        self.sentences: list[UDSpan] = []
 
 
+@dataclass
 class UDSpan:
-    def __init__(self, start, end):
-        self.start = start
-        # Note that self.end marks the first position **after the end** of span,
-        # so we can use characters[start:end] or range(start, end).
-        self.end = end
+    start: int
+    end: int
 
 
 class UDWord:
-    def __init__(self, span, columns, is_multiword):
+    def __init__(self, span: UDSpan, columns: list[str], is_multiword: bool):
         # Span of this word (or MWT, see below) within ud_representation.characters.
         self.span = span
         # 10 columns of the CoNLL-U file: ID, FORM, LEMMA,...
@@ -201,9 +200,9 @@ class UDWord:
         # In that case, self.span marks the span of the whole multi-word token.
         self.is_multiword = is_multiword
         # Reference to the UDWord instance representing the HEAD (or None if root).
-        self.parent = None
+        self.parent: UDWord | None = None
         # List of references to UDWord instances representing functional-deprel children.
-        self.functional_children = []
+        self.functional_children: list[UDWord] = []
         # Only consider universal FEATS.
         self.columns[FEATS] = "|".join(
             sorted(
@@ -213,6 +212,7 @@ class UDWord:
             )
         )
         # Let's ignore language-specific deprel subtypes.
+        # TODO: OR MAYBE DON'T??????
         self.columns[DEPREL] = columns[DEPREL].split(":")[0]
         # Precompute which deprels are CONTENT_DEPRELS and which FUNCTIONAL_DEPRELS
         self.is_content_deprel = self.columns[DEPREL] in CONTENT_DEPRELS
@@ -340,7 +340,7 @@ class Score:
         gold_total: int,
         system_total: int,
         correct: int,
-        aligned_total: Optional[int] = None,
+        aligned_total: int | None = None,
     ):
         self.correct = correct
         self.gold_total = gold_total
@@ -349,23 +349,29 @@ class Score:
         self.precision = correct / system_total if system_total else 0.0
         self.recall = correct / gold_total if gold_total else 0.0
         self.f1 = 2 * correct / (system_total + gold_total) if system_total + gold_total else 0.0
-        self.aligned_accuracy = correct / aligned_total if aligned_total else aligned_total
+
+        if aligned_total is None:
+            self.aligned_accuracy = None
+        elif aligned_total == 0:
+            self.aligned_accuracy = 0.0
+        else:
+            self.aligned_accuracy = correct / aligned_total
 
 
+@dataclass
 class AlignmentWord:
-    def __init__(self, gold_word, system_word):
-        self.gold_word = gold_word
-        self.system_word = system_word
+    gold_word: UDWord
+    system_word: UDWord
 
 
 class Alignment:
-    def __init__(self, gold_words, system_words):
+    def __init__(self, gold_words: Sequence[UDWord], system_words: Sequence[UDWord]):
         self.gold_words = gold_words
         self.system_words = system_words
-        self.matched_words = []
-        self.matched_words_map = {}
+        self.matched_words: list[AlignmentWord] = []
+        self.matched_words_map: dict[UDWord, UDWord] = {}
 
-    def append_aligned_words(self, gold_word, system_word):
+    def append_aligned_words(self, gold_word: UDWord, system_word: UDWord):
         self.matched_words.append(AlignmentWord(gold_word, system_word))
         self.matched_words_map[system_word] = gold_word
 
@@ -385,7 +391,11 @@ def spans_score(gold_spans: Sequence[UDSpan], system_spans: Sequence[UDSpan]) ->
     return Score(len(gold_spans), len(system_spans), correct)
 
 
-def alignment_score(alignment: Alignment, key_fn=None, filter_fn=None) -> Score:
+def alignment_score(
+    alignment: Alignment,
+    key_fn: Callable[[UDWord, Callable[[UDWord | None], Any]], Any] | None = None,
+    filter_fn: Callable[[UDWord], bool] | None = None,
+) -> Score:
     if filter_fn is not None:
         gold = sum(1 for gold in alignment.gold_words if filter_fn(gold))
         system = sum(1 for system in alignment.system_words if filter_fn(system))
@@ -399,10 +409,10 @@ def alignment_score(alignment: Alignment, key_fn=None, filter_fn=None) -> Score:
         # Return score for whole aligned words
         return Score(gold, system, aligned)
 
-    def gold_aligned_gold(word):
+    def gold_aligned_gold(word: UDWord | None) -> UDWord | None:
         return word
 
-    def gold_aligned_system(word):
+    def gold_aligned_system(word: UDWord | None) -> UDWord | Literal["NotAligned"] | None:
         return alignment.matched_words_map.get(word, "NotAligned") if word is not None else None
 
     correct = 0
@@ -480,7 +490,7 @@ def compute_lcs(gold_words, system_words, gi, si, gs, ss):
     return lcs
 
 
-def align_words(gold_words, system_words):
+def align_words(gold_words: Sequence[UDWord], system_words: Sequence[UDWord]) -> Alignment:
     alignment = Alignment(gold_words, system_words)
 
     gi, si = 0, 0
@@ -656,14 +666,15 @@ def main():
             "MLAS",
             "BLEX",
         ]:
+            m = evaluation[metric]
             if args.counts:
                 print(
                     "{:11}|{:10} |{:10} |{:10} |{:10}".format(
                         metric,
-                        evaluation[metric].correct,
-                        evaluation[metric].gold_total,
-                        evaluation[metric].system_total,
-                        evaluation[metric].aligned_total
+                        m.correct,
+                        m.gold_total,
+                        m.system_total,
+                        m.aligned_total
                         or (evaluation[metric].correct if metric == "Words" else ""),
                     )
                 )
@@ -671,12 +682,14 @@ def main():
                 print(
                     "{:11}|{:10.2f} |{:10.2f} |{:10.2f} |{}".format(
                         metric,
-                        100 * evaluation[metric].precision,
-                        100 * evaluation[metric].recall,
-                        100 * evaluation[metric].f1,
-                        "{:10.2f}".format(100 * evaluation[metric].aligned_accuracy)
-                        if evaluation[metric].aligned_accuracy is not None
-                        else "",
+                        100 * m.precision,
+                        100 * m.recall,
+                        100 * m.f1,
+                        (
+                            "{:10.2f}".format(100 * m.aligned_accuracy)
+                            if m.aligned_accuracy is not None
+                            else ""
+                        ),
                     )
                 )
 
