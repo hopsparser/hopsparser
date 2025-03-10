@@ -99,7 +99,7 @@
 
 import argparse
 import unicodedata
-from typing import Dict, Optional, TextIO
+from typing import Dict, Iterable, Optional, TextIO
 
 # CoNLL-U column names
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
@@ -220,12 +220,13 @@ class UDWord:
 
 
 # Load given CoNLL-U file into internal representation
-def load_conllu(file: TextIO) -> UDRepresentation:
+def load_conllu(file: Iterable[str]) -> UDRepresentation:
     ud = UDRepresentation()
 
     # Load the CoNLL-U file
     index, sentence_start = 0, None
-    for line in file:
+    lines_itr = iter(file)
+    for line in lines_itr:
         line = line.rstrip()
 
         # Handle sentence start boundaries
@@ -299,7 +300,7 @@ def load_conllu(file: TextIO) -> UDRepresentation:
                 raise UDError(f"Cannot parse multi-word token ID '{columns[ID]}'") from e
 
             for _ in range(start, end + 1):
-                word_line = file.readline().rstrip("\r\n")
+                word_line = next(lines_itr).rstrip()
                 word_columns = word_line.split("\t")
                 if len(word_columns) != 10:
                     raise UDError(
