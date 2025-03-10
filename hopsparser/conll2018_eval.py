@@ -426,7 +426,7 @@ def alignment_score(
     return Score(gold, system, correct, aligned)
 
 
-def beyond_end(words, i, multiword_span_end):
+def beyond_end(words: Sequence[UDWord], i: int, multiword_span_end: int) -> bool:
     if i >= len(words):
         return True
     if words[i].is_multiword:
@@ -434,13 +434,15 @@ def beyond_end(words, i, multiword_span_end):
     return words[i].span.end > multiword_span_end
 
 
-def extend_end(word, multiword_span_end):
+def extend_end(word: UDWord, multiword_span_end: int) -> int:
     if word.is_multiword and word.span.end > multiword_span_end:
         return word.span.end
     return multiword_span_end
 
 
-def find_multiword_span(gold_words, system_words, gi, si):
+def find_multiword_span(
+    gold_words: Sequence[UDWord], system_words: Sequence[UDWord], gi: int, si: int
+) -> tuple[int, int, int, int]:
     # We know gold_words[gi].is_multiword or system_words[si].is_multiword.
     # Find the start of the multiword span (gs, ss), so the multiword span is minimal.
     # Initialize multiword_span_end characters index.
@@ -476,7 +478,14 @@ def find_multiword_span(gold_words, system_words, gi, si):
     return gs, ss, gi, si
 
 
-def compute_lcs(gold_words, system_words, gi, si, gs, ss):
+def compute_lcs(
+    gold_words: Sequence[UDWord],
+    system_words: Sequence[UDWord],
+    gi: int,
+    si: int,
+    gs: int,
+    ss: int,
+) -> list[list[int]]:
     lcs = [[0] * (si - ss) for i in range(gi - gs)]
     for g in reversed(range(gi - gs)):
         for s in reversed(range(si - ss)):
