@@ -99,7 +99,7 @@
 
 import argparse
 import unicodedata
-from typing import Dict, Iterable, Optional, TextIO
+from typing import Dict, Iterable, Optional
 
 # CoNLL-U column names
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
