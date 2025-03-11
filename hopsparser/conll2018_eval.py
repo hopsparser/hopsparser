@@ -218,6 +218,55 @@ class UDWord:
         self.is_content_deprel = self.columns[DEPREL] in CONTENT_DEPRELS
         self.is_functional_deprel = self.columns[DEPREL] in FUNCTIONAL_DEPRELS
 
+    def __repr__(self) -> str:
+        return str(self.columns)
+
+
+# Would probably be even more efficient with numpy arrays
+def detect_cycle(heads: Sequence[int]) -> list[int] | None:
+    """This assumes that `heads[0]` is set to `0`"""
+    on_stack = [True] * len(heads)
+    on_stack[0] = False
+    pointer = 1
+    while True:
+        while not on_stack[pointer]:
+            pointer += 1
+            if pointer == len(heads):
+                return None
+        current = [False] * len(heads)
+        parent = pointer
+        while on_stack[parent]:
+            on_stack[parent] = False
+            current[parent] = True
+            parent = heads[parent]
+        if current[parent]:
+            # Found a cycle!
+            cycle_start = parent
+            cycle_pointer = parent
+            cycle = [parent]
+            while (cycle_pointer := heads[cycle_pointer]) != cycle_start:
+                cycle.append(cycle_pointer)
+            return cycle
+
+
+def process_sentence_(sentence: Sequence[UDWord]):
+    heads: list[int] = [int(word.columns[HEAD]) for word in sentence]
+    # +1 because words are 1-indiced
+    if incorrect_heads := [h for h in heads if h < 0 or h > len(sentence) + 1]:
+        raise UDError(f"In {sentence}: HEADS '{incorrect_heads}' point outside of the sentence")
+    n_roots = sum(1 for h in heads if h == 0)
+    if n_roots == 0:
+        raise UDError(f"Unrooted sentence: {sentence}")
+    elif n_roots > 1:
+        raise UDError(f"There are multiple roots in sentence {sentence}")
+
+    if (cycle := detect_cycle([0, *heads])) is not None:
+        raise UDError(f"There is a cycle in sentence {sentence}: {cycle}")
+    for word, head in zip(sentence, heads, strict=True):
+        word.parent = sentence[head - 1]
+        if word.parent and word.is_functional_deprel:
+            word.parent.functional_children.append(word)
+
 
 # Load given CoNLL-U file into internal representation
 def load_conllu(file: Iterable[str]) -> UDRepresentation:
@@ -238,35 +287,7 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
             ud.sentences.append(UDSpan(index, 0))
             sentence_start = len(ud.words)
         if not line:
-            # Add parent and children UDWord links and check there are no cycles
-            # TODO: refactor this
-            def process_word(word):
-                if word.parent == "remapping":
-                    raise UDError("There is a cycle in a sentence")
-                if word.parent is None:
-                    head = int(word.columns[HEAD])
-                    if head < 0 or head > len(ud.words) - sentence_start:
-                        raise UDError(
-                            "HEAD '{}' points outside of the sentence".format(word.columns[HEAD])
-                        )
-                    if head:
-                        parent = ud.words[sentence_start + head - 1]
-                        word.parent = "remapping"
-                        process_word(parent)
-                        word.parent = parent
-
-            for word in ud.words[sentence_start:]:
-                process_word(word)
-            # func_children cannot be assigned within process_word
-            # because it is called recursively and may result in adding one child twice.
-            for word in ud.words[sentence_start:]:
-                if word.parent and word.is_functional_deprel:
-                    word.parent.functional_children.append(word)
-
-            # Check there is a single root node
-            if len([word for word in ud.words[sentence_start:] if word.parent is None]) != 1:
-                raise UDError("There are multiple roots in a sentence")
-
+            process_sentence_(ud.words[sentence_start:])
             # End the sentence
             ud.sentences[-1].end = index
             sentence_start = None
@@ -294,9 +315,10 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
         index += len(columns[FORM])
 
         # Handle multi-word tokens to save word(s)
+        # TODO: improve parsing here
         if "-" in columns[ID]:
             try:
-                start, end = map(int, columns[ID].split("-"))
+                start, end = [int(s) for s in columns[ID].split("-")]
             except ValueError as e:
                 raise UDError(f"Cannot parse multi-word token ID '{columns[ID]}'") from e
 
@@ -319,15 +341,9 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
                     f"Incorrect ID '{columns[ID]}' for '{columns[FORM]}', expected '{expected_id}'"
                 )
 
-            try:
-                head_id = int(columns[HEAD])
-            except ValueError as e:
-                raise UDError(f"Cannot parse HEAD '{columns[HEAD]}'") from e
-            if head_id < 0:
-                raise UDError("HEAD cannot be negative")
-
             ud.words.append(UDWord(ud.tokens[-1], columns, is_multiword=False))
 
+    # FIXME: remove this, we are not a validator anyway
     if sentence_start is not None:
         raise UDError("The CoNLL-U file does not end with an empty line")
 
