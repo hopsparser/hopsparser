@@ -1,10 +1,11 @@
-from typing import List, Tuple, cast
+from typing import cast
 
 import numpy as np
+import numpy.typing as npt
 
 
 # FIXME: we don't actually need this in CLE: we only need one critical cycle
-def tarjan(tree: np.ndarray) -> List[np.ndarray]:
+def tarjan(tree: np.ndarray) -> list[np.ndarray]:
     """Use Tarjan's SCC algorithm to find cycles in a tree
 
     ## Input
@@ -59,6 +60,44 @@ def tarjan(tree: np.ndarray) -> List[np.ndarray]:
     return cycles
 
 
+def detect_cycle(tree: npt.NDArray[np.int_]) -> npt.NDArray[np.bool_] | None:
+    """Find a circle in a graph where each node has a single head.
+
+    ## Input
+
+    - `tree`: A 1d integer array such that `tree[i]` is the head of the `i`-th node. This assumes
+      that `tree[0]` is set to `0`
+
+    ## Output
+
+    - `cycle`: A 1d bool arrays such that `cycle[j]` is true iff the `j`-th node of
+      `tree` is in the cycle. If there is no cycle in the graph, this is `None`.
+    """
+    on_stack = np.ones_like(tree, dtype=bool)
+    on_stack[0] = False
+    pointer = 1
+    while True:
+        while not on_stack[pointer]:
+            pointer += 1
+            if pointer == len(tree):
+                return None
+        current = np.zeros_like(tree, dtype=bool)
+        parent = pointer
+        while on_stack[parent]:
+            on_stack[parent] = False
+            current[parent] = True
+            parent = tree[parent]
+        if current[parent]:
+            # Found a cycle!
+            cycle_start = parent
+            cycle_pointer = parent
+            cycle = np.zeros_like(tree, dtype=bool)
+            cycle[cycle_start] = True
+            while (cycle_pointer := tree[cycle_pointer]) != cycle_start:
+                cycle[cycle_pointer] = True
+            return cycle
+
+
 # TODO: split out a `contraction` function to make this more readable
 def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
     """Use the Chu‑Liu/Edmonds algorithm to find a maximum spanning arborescence from the weight
@@ -77,13 +116,12 @@ def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
     scores[0] = -float("inf")
     scores[0, 0] = 0
     tree = cast(np.ndarray, np.argmax(scores, axis=1))
-    cycles = tarjan(tree)
-    if not cycles:
+    # locations of cycle; (t) in [0,1]
+    cycle = detect_cycle(tree)
+    if cycle is None:
         return tree
     else:
         # t = len(tree); c = len(cycle); n = len(noncycle)
-        # locations of cycle; (t) in [0,1]
-        cycle = cycles.pop()
         # indices of cycle in original tree; (c) in t
         cycle_locs = np.where(cycle)[0]
         # heads of cycle in original tree; (c) in t
@@ -146,7 +184,7 @@ def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
 
 
 # ===============================================================
-def chuliu_edmonds_one_root(scores: np.ndarray) -> np.ndarray:
+def chuliu_edmonds_one_root(scores: npt.NDArray[np.number]) -> npt.NDArray[np.int_]:
     """Repeatedly Use the Chu‑Liu/Edmonds algorithm to find a maximum spanning dependency tree from
     the weight matrix of a rooted weighted directed graph.
 
@@ -169,7 +207,7 @@ def chuliu_edmonds_one_root(scores: np.ndarray) -> np.ndarray:
         return tree
 
     # -------------------------------------------------------------
-    def set_root(scores: np.ndarray, root: int) -> Tuple[np.ndarray, np.ndarray]:
+    def set_root(scores: np.ndarray, root: int) -> tuple[np.ndarray, np.ndarray]:
         """Force the `root`-th node to be the only node under the root by overwriting the weights of
         the other children of the root."""
         root_score = scores[root, 0]
