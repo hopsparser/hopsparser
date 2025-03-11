@@ -60,6 +60,8 @@ def tarjan(tree: np.ndarray) -> list[np.ndarray]:
     return cycles
 
 
+# Floyd's etc cycle-finding algos are useless here: the function here is already fully tabulated so
+# there's no saving space, and this is at worst `len(tree)-1` operations if there's no cycle.
 def detect_cycle(tree: npt.NDArray[np.int_]) -> npt.NDArray[np.bool_] | None:
     """Find a circle in a graph where each node has a single head.
 
@@ -79,6 +81,7 @@ def detect_cycle(tree: npt.NDArray[np.int_]) -> npt.NDArray[np.bool_] | None:
     while True:
         while not on_stack[pointer]:
             pointer += 1
+            # We could stop one step before that if we know there are no self-loops but eh.
             if pointer == len(tree):
                 return None
         current = np.zeros_like(tree, dtype=bool)
@@ -183,8 +186,20 @@ def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
         return new_tree
 
 
-# ===============================================================
-def chuliu_edmonds_one_root(scores: npt.NDArray[np.number]) -> npt.NDArray[np.int_]:
+def _set_root(
+    scores: npt.NDArray[np.floating], root: int
+) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
+    """Force the `root`-th node to be the only node under the root by overwriting the weights of
+    the other children of the root."""
+    root_score = scores[root, 0]
+    scores = np.array(scores)
+    scores[1:, 0] = -float("inf")
+    scores[root] = -float("inf")
+    scores[root, 0] = 0
+    return scores, root_score
+
+
+def chuliu_edmonds_one_root(scores: npt.NDArray[np.floating]) -> npt.NDArray[np.int_]:
     """Repeatedly Use the Chu‑Liu/Edmonds algorithm to find a maximum spanning dependency tree from
     the weight matrix of a rooted weighted directed graph.
 
@@ -206,21 +221,10 @@ def chuliu_edmonds_one_root(scores: npt.NDArray[np.number]) -> npt.NDArray[np.in
     if len(roots_to_try) == 1:
         return tree
 
-    # -------------------------------------------------------------
-    def set_root(scores: np.ndarray, root: int) -> tuple[np.ndarray, np.ndarray]:
-        """Force the `root`-th node to be the only node under the root by overwriting the weights of
-        the other children of the root."""
-        root_score = scores[root, 0]
-        scores = np.array(scores)
-        scores[1:, 0] = -float("inf")
-        scores[root] = -float("inf")
-        scores[root, 0] = 0
-        return scores, root_score
-
-    # We find the maximum spanning dependenc_treey tree by try every possible root
+    # We find the maximum spanning dependency_tree by trying every possible root
     best_score, best_tree = -np.inf, None  # This is what's causing it to crash
     for root in roots_to_try:
-        _scores, root_score = set_root(scores, root)
+        _scores, root_score = _set_root(scores, root)
         _tree = chuliu_edmonds(_scores)
         tree_probs = _scores[np.arange(len(_scores)), _tree]
         tree_score = (tree_probs).sum() + (root_score) if (tree_probs > -np.inf).all() else -np.inf
