@@ -193,9 +193,9 @@ def _set_root(
     the other children of the root."""
     root_score = scores[root, 0]
     scores = np.array(scores)
-    scores[1:, 0] = -float("inf")
-    scores[root] = -float("inf")
-    scores[root, 0] = 0
+    scores[1:, 0] = -np.inf
+    scores[root] = -np.inf
+    scores[root, 0] = 0.0
     return scores, root_score
 
 
