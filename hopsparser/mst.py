@@ -35,9 +35,9 @@ def tarjan(tree: np.ndarray) -> list[np.ndarray]:
         for j in dependents:
             if indices[j] == -1:
                 strong_connect(j)
-                lowlinks[i] = min(lowlinks[i], lowlinks[j])
+                lowlinks[i] = min(lowlinks[i], lowlinks[j])  # type: ignore
             elif onstack[j]:
-                lowlinks[i] = min(lowlinks[i], indices[j])
+                lowlinks[i] = min(lowlinks[i], indices[j])  # type: ignore
 
         # There's a cycle!
         if lowlinks[i] == indices[i]:

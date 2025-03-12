@@ -88,6 +88,8 @@
 # (even partially) any multi-word span are then aligned as tokens.
 
 import argparse
+from functools import cached_property
+import re
 import unicodedata
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Literal, Sequence
@@ -177,26 +179,16 @@ class UDWord:
     span: Span
     # Reference to the `UDWord` instance representing the HEAD (or `None `if root).
     parent: "UDWord | None" = None
-    is_content_deprel: bool = field(init=False)
-    is_functional_deprel: bool = field(init=False)
     # List of references to `UDWord` instances representing functional-deprel children.
     functional_children: "list[UDWord]" = field(init=False, default_factory=list)
 
-    def __post_init__(self):
-        # Only consider universal FEATS.
-        self.columns[FEATS] = "|".join(
-            sorted(
-                feat
-                for feat in self.columns[FEATS].split("|")
-                if feat.split("=", 1)[0] in UNIVERSAL_FEATURES
-            )
-        )
-        # Let's ignore language-specific deprel subtypes.
-        # TODO: OR MAYBE DON'T??????
-        self.columns[DEPREL] = self.columns[DEPREL].split(":")[0]
-        # Precompute which deprels are CONTENT_DEPRELS and which FUNCTIONAL_DEPRELS
-        self.is_content_deprel = self.columns[DEPREL] in CONTENT_DEPRELS
-        self.is_functional_deprel = self.columns[DEPREL] in FUNCTIONAL_DEPRELS
+    @cached_property
+    def is_content_deprel(self) -> bool:
+        return self.columns[DEPREL] in CONTENT_DEPRELS
+
+    @cached_property
+    def is_functional_deprel(self) -> bool:
+        return self.columns[DEPREL] in FUNCTIONAL_DEPRELS
 
     def __repr__(self) -> str:
         return str(self.columns)
@@ -214,6 +206,59 @@ class UDRepresentation:
     tokens: list[Span] = field(default_factory=list)
     # List of UDWord instances.
     words: list[UDWord] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class Score:
+    correct: int
+    gold_total: int
+    system_total: int
+    aligned_total: int | None = None
+
+    @cached_property
+    def precision(self) -> float:
+        if self.system_total == 0:
+            return 0.0
+        return self.correct / self.system_total
+
+    @cached_property
+    def recall(self) -> float:
+        if self.gold_total == 0:
+            return 0.0
+        return self.correct / self.gold_total
+
+    @cached_property
+    def f1(self) -> float:
+        if self.system_total + self.gold_total == 0:
+            return 0.0
+        return 2 * self.correct / (self.system_total + self.gold_total)
+
+    @cached_property
+    def aligned_accuracy(self) -> float | None:
+        if self.aligned_total is None:
+            return None
+        elif self.aligned_total == 0:
+            return 0.0
+        else:
+            return self.correct / self.aligned_total
+
+
+@dataclass
+class AlignmentWord:
+    gold_word: UDWord
+    system_word: UDWord
+
+
+@dataclass
+class Alignment:
+    gold_words: Sequence[UDWord]
+    system_words: Sequence[UDWord]
+    matched_words: list[AlignmentWord] = field(default_factory=list, init=False)
+    matched_words_map: dict[UDWord, UDWord] = field(default_factory=dict, init=False)
+
+    def append_aligned_words(self, gold_word: UDWord, system_word: UDWord):
+        self.matched_words.append(AlignmentWord(gold_word, system_word))
+        self.matched_words_map[system_word] = gold_word
 
 
 # Would probably be even more efficient with numpy arrays
@@ -262,6 +307,47 @@ def process_sentence_(sentence: Sequence[UDWord]):
             word.parent.functional_children.append(word)
 
 
+def read_line(line: str, expected_id: str) -> list[str]:
+    """Split a word line into colums, normalise and validate them.
+
+    Normalisations:
+
+    - Remove space (Unicode Zs characters) from FORM
+    - Remove non-universal features
+    - Remove deprel subtypes
+    """
+    columns = line.split("\t")
+
+    if len(columns) != 10:
+        raise UDError(f"The CoNLL-U line does not contain 10 tab-separated columns: '{line}'")
+
+    # TODO: validate against nested multi-words
+    if columns[ID].split("-")[0] != expected_id:
+        raise UDError(
+            f"Incorrect ID '{columns[ID]}' for '{columns[FORM]}', expected '{expected_id}'"
+        )
+
+    # Delete spaces from FORM, so gold.characters == system.characters
+    # even if one of them tokenizes the space. Use any Unicode character
+    # with category Zs.
+    columns[FORM] = "".join(c for c in columns[FORM] if unicodedata.category(c) != "Zs")
+
+    if not columns[FORM]:
+        raise UDError("There is an empty FORM in the CoNLL-U file")
+
+    columns[FEATS] = "|".join(
+        sorted(
+            feat
+            for feat in columns[FEATS].split("|")
+            if feat.split("=", 1)[0] in UNIVERSAL_FEATURES
+        )
+    )
+    # Let's ignore language-specific deprel subtypes.
+    # TODO: OR MAYBE DON'T??????
+    columns[DEPREL] = columns[DEPREL].split(":")[0]
+    return columns
+
+
 # Load given CoNLL-U file into internal representation
 def load_conllu(file: Iterable[str]) -> UDRepresentation:
     ud = UDRepresentation()
@@ -280,6 +366,7 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
             # Start a new sentence
             sentence_start_char = char_index
             sentence_start_word = len(ud.words)
+
         if not line:
             process_sentence_(ud.words[sentence_start_word:])
             # End the sentence
@@ -290,102 +377,46 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
             continue
 
         # Read next token/word
-        columns = line.split("\t")
-        if len(columns) != 10:
-            raise UDError(f"The CoNLL-U line does not contain 10 tab-separated columns: '{line}'")
+        columns = read_line(line, expected_id=str(len(ud.words) - sentence_start_word + 1))
 
         # Skip empty nodes
         if "." in columns[ID]:
             continue
 
-        # Delete spaces from FORM, so gold.characters == system.characters
-        # even if one of them tokenizes the space. Use any Unicode character
-        # with category Zs.
-        columns[FORM] = "".join(c for c in columns[FORM] if unicodedata.category(c) != "Zs")
-        if not columns[FORM]:
-            raise UDError("There is an empty FORM in the CoNLL-U file")
-
         # Save token
         ud.characters.extend(columns[FORM])
-        ud.tokens.append(Span(char_index, char_index + len(columns[FORM])))
+        current_token_span = Span(char_index, char_index + len(columns[FORM]))
+        ud.tokens.append(current_token_span)
         char_index += len(columns[FORM])
 
-        # Handle multi-word tokens to save word(s)
         # TODO: improve parsing here
-        if "-" in columns[ID]:
-            try:
-                start, end = [int(s) for s in columns[ID].split("-")]
-            except ValueError as e:
-                raise UDError(f"Cannot parse multi-word token ID '{columns[ID]}'") from e
-
-            for _ in range(start, end + 1):
-                word_line = next(lines_itr).rstrip()
-                word_columns = word_line.split("\t")
-                if len(word_columns) != 10:
-                    raise UDError(
-                        f"The CoNLL-U line does not contain 10 tab-separated columns: '{word_line}'"
+        if m := re.match(r"(?P<start>\d+)(-(?P<end>\d+))?", columns[ID]):
+            # Multi-word tokens
+            if m.group("end"):
+                start = int(m.group("start"))
+                end = int(m.group("end"))
+                for _ in range(start, end + 1):
+                    word_line = next(lines_itr).rstrip()
+                    word_columns = read_line(
+                        word_line, expected_id=str(len(ud.words) - sentence_start_word + 1)
                     )
-                ud.words.append(UDWord(span=ud.tokens[-1], columns=word_columns, is_multiword=True))
-        # Basic tokens/words
-        else:
-            try:
-                word_id = int(columns[ID])
-            except ValueError as e:
-                raise UDError(f"Cannot parse word ID '{columns[ID]}'") from e
-            if word_id != (expected_id := len(ud.words) - sentence_start_word + 1):
-                raise UDError(
-                    f"Incorrect ID '{columns[ID]}' for '{columns[FORM]}', expected '{expected_id}'"
+                    # TODO: deal with empty words here
+                    ud.words.append(
+                        UDWord(span=current_token_span, columns=word_columns, is_multiword=True)
+                    )
+            # Basic tokens/words
+            else:
+                ud.words.append(
+                    UDWord(span=current_token_span, columns=columns, is_multiword=False)
                 )
-
-            ud.words.append(UDWord(span=ud.tokens[-1], columns=columns, is_multiword=False))
+        else:
+            raise UDError(f"Cannot parse token ID '{columns[ID]}'")
 
     # FIXME: remove this, we are not a validator anyway
     if sentence_start_word is not None:
         raise UDError("The CoNLL-U file does not end with an empty line")
 
     return ud
-
-
-class Score:
-    def __init__(
-        self,
-        gold_total: int,
-        system_total: int,
-        correct: int,
-        aligned_total: int | None = None,
-    ):
-        self.correct = correct
-        self.gold_total = gold_total
-        self.system_total = system_total
-        self.aligned_total = aligned_total
-        self.precision = correct / system_total if system_total else 0.0
-        self.recall = correct / gold_total if gold_total else 0.0
-        self.f1 = 2 * correct / (system_total + gold_total) if system_total + gold_total else 0.0
-
-        if aligned_total is None:
-            self.aligned_accuracy = None
-        elif aligned_total == 0:
-            self.aligned_accuracy = 0.0
-        else:
-            self.aligned_accuracy = correct / aligned_total
-
-
-@dataclass
-class AlignmentWord:
-    gold_word: UDWord
-    system_word: UDWord
-
-
-class Alignment:
-    def __init__(self, gold_words: Sequence[UDWord], system_words: Sequence[UDWord]):
-        self.gold_words = gold_words
-        self.system_words = system_words
-        self.matched_words: list[AlignmentWord] = []
-        self.matched_words_map: dict[UDWord, UDWord] = {}
-
-    def append_aligned_words(self, gold_word: UDWord, system_word: UDWord):
-        self.matched_words.append(AlignmentWord(gold_word, system_word))
-        self.matched_words_map[system_word] = gold_word
 
 
 def spans_score(gold_spans: Sequence[Span], system_spans: Sequence[Span]) -> Score:
@@ -396,7 +427,8 @@ def spans_score(gold_spans: Sequence[Span], system_spans: Sequence[Span]) -> Sco
         elif gold_spans[gi].start < system_spans[si].start:
             gi += 1
         else:
-            correct += gold_spans[gi].end == system_spans[si].end
+            if gold_spans[gi].end == system_spans[si].end:
+                correct += 1
             si += 1
             gi += 1
 
