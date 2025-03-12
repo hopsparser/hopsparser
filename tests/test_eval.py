@@ -17,7 +17,7 @@ def trees(draw: st.DrawFn, words: st.SearchStrategy[list[str]]) -> UDRepresentat
             lines.append(f"{num_words}\t{parts[0]}\t_\t_\t_\t_\t{int(num_words > 1)}\t_\t_\t_")
         else:
             lines.append(
-                f"{num_words + 1}-{num_words + len(parts) - 1}\t{parts[0]}\t_\t_\t_\t_\t_\t_\t_\t_"
+                f"{num_words + 1}-{num_words + len(parts)}\t{parts[0]}\t_\t_\t_\t_\t_\t_\t_\t_"
             )
             for part in parts[1:]:
                 num_words += 1
