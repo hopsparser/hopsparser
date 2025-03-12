@@ -6,19 +6,23 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 
+# FIXME: this way of encoding generated multiword as `"surf part part…"` tokens is very annoying
 @st.composite
 def conllus(draw: st.DrawFn, tokens: st.SearchStrategy[list[str]]) -> list[str]:
     """Prepare fake CoNLL-U files with fake HEAD to prevent multiple roots errors."""
     lines, num_words = [], 0
-    for t in draw(tokens):
-        parts = t.split()
-        if (num_parts := len(parts)) > 1:
+    for tok in draw(tokens):
+        surface_token, *parts = tok.split()
+        if parts:
             lines.append(
-                f"{num_words + 1}-{num_words + num_parts}\t{parts[0]}\t_\t_\t_\t_\t{int(num_words > 1)}\t_\t_\t_"
+                f"{num_words + 1}-{num_words + len(parts)}\t{surface_token}\t_\t_\t_\t_\t_\t_\t_\t_"
             )
-        for p in parts:
+            for p in parts:
+                num_words += 1
+                lines.append(f"{num_words}\t{p}\t_\t_\t_\t_\t{int(num_words > 1)}\t_\t_\t_")
+        else:
             num_words += 1
-            lines.append(f"{num_words}\t{p}\t_\t_\t_\t_\t{int(num_words > 1)}\t_\t_\t_")
+            lines.append(f"{num_words}\t{surface_token}\t_\t_\t_\t_\t{int(num_words > 1)}\t_\t_\t_")
     return [*lines, "\n"]
 
 
@@ -37,6 +41,7 @@ def validate_correct(gold: UDRepresentation, system: UDRepresentation, correct: 
     )
 
 
+# TODO: add mwt testing
 @given(
     lines=conllus(
         tokens=st.one_of(
@@ -44,7 +49,9 @@ def validate_correct(gold: UDRepresentation, system: UDRepresentation, correct: 
             st.just(["a", "b", "c"]),
             st.lists(
                 st.text(
-                    alphabet=st.characters(blacklist_categories=["Zl", "Zp"]),
+                    alphabet=st.characters(
+                        blacklist_categories=["Z"], blacklist_characters=["\n", "\r", "\t"]
+                    ),
                     min_size=1,
                 ).filter(lambda s: not s.isspace()),
                 min_size=1,
@@ -65,6 +72,7 @@ def test_exception(gold: UDRepresentation, system: UDRepresentation):
         evaluate(gold, system)
 
 
+# TODO: add mwt testing
 @given(
     representation=trees(
         tokens=st.one_of(
@@ -72,7 +80,9 @@ def test_exception(gold: UDRepresentation, system: UDRepresentation):
             st.just(["a", "b", "c"]),
             st.lists(
                 st.text(
-                    alphabet=st.characters(blacklist_categories=["Zl", "Zp"]),
+                    alphabet=st.characters(
+                        blacklist_categories=["Z"], blacklist_characters=["\n", "\r", "\t"]
+                    ),
                     min_size=1,
                 ).filter(lambda s: not s.isspace()),
                 min_size=1,
