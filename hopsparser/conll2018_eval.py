@@ -1,35 +1,25 @@
-#!/usr/bin/env python3
-
-# Sourced from
-# <https://github.com/ufal/conll2018/blob/37bc4d70bf415f188dc82a2e2600a38971d1137c/evaluation_script/conll18_ud_eval.py>
-# The modifications include:
+# Compatible with Python 3.10+, can be used either as a module or a standalone executable.
 #
-# - Formatting with ruff
-# - Make function-internal classes module-level classes: since they were not closure classes, there
-#   was no point keeping them there
-# - Adding typing
-
-# Compatible with Python 3.7+, can be used either as a module
-# or a standalone executable.
+# Copyright 2017, 2018 Institute of Formal and Applied Linguistics (UFAL), Faculty of Mathematics
+# and Physics, Charles University, Czech Republic.
 #
-# Copyright 2017, 2018 Institute of Formal and Applied Linguistics (UFAL),
-# Faculty of Mathematics and Physics, Charles University, Czech Republic.
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+# the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# V2 author: L. Grobol <lgrobol@tuta.com> V2 Changelog:
+# - [2025] Version 2.0: Refactoring, optimisations, typing, formatting, removal of internal unit
+#       tests (now part of HOPS's test suite).
 #
-# Authors: Milan Straka, Martin Popel <surname@ufal.mff.cuni.cz>
+# V1 authors: Milan Straka, Martin Popel <surname@ufal.mff.cuni.cz>
 #
-# Changelog:
+# V1 Changelog:
 # - [12 Apr 2018] Version 0.9: Initial release.
-# - [19 Apr 2018] Version 1.0: Fix bug in MLAS (duplicate entries in functional_children).
-#                              Add --counts option.
-# - [02 May 2018] Version 1.1: When removing spaces to match gold and system characters,
-#                              consider all Unicode characters of category Zs instead of
-#                              just ASCII space.
-# - [25 Jun 2018] Version 1.2: Use python3 in the she-bang (instead of python).
-#                              In Python2, make the whole computation use `unicode` strings.
+# - [19 Apr 2018] Version 1.0: Fix bug in MLAS (duplicate entries in functional_children). Add
+#                              --counts option.
+# - [02 May 2018] Version 1.1: When removing spaces to match gold and system characters, consider
+#                              all Unicode characters of category Zs instead of just ASCII space.
+# - [25 Jun 2018] Version 1.2: Use python3 in the she-bang (instead of python). In Python2, make the
+#                              whole computation use `unicode` strings.
 
 # Command line usage
 # ------------------
@@ -99,8 +89,8 @@
 
 import argparse
 import unicodedata
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterable, Literal, Sequence
+from dataclasses import dataclass, field
+from typing import Any, Callable, Iterable, Literal, Sequence
 
 # CoNLL-U column names
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
@@ -170,56 +160,60 @@ class UDError(Exception):
     pass
 
 
-# Internal representation classes
-class UDRepresentation:
-    def __init__(self):
-        # Characters of all the tokens in the whole file.
-        # Whitespace between tokens is not included.
-        self.characters: list[str] = []
-        # List of UDSpan instances with start&end indices into `characters`.
-        self.tokens: list[UDSpan] = []
-        # List of UDWord instances.
-        self.words: list[UDWord] = []
-        # List of UDSpan instances with start&end indices into `characters`.
-        self.sentences: list[UDSpan] = []
-
-
-@dataclass
-class UDSpan:
+@dataclass(frozen=True)
+class Span:
     start: int
     end: int
 
 
+@dataclass(eq=False)
 class UDWord:
-    def __init__(self, span: UDSpan, columns: list[str], is_multiword: bool):
-        # Span of this word (or MWT, see below) within ud_representation.characters.
-        self.span = span
-        # 10 columns of the CoNLL-U file: ID, FORM, LEMMA,...
-        self.columns = columns
-        # is_multiword==True means that this word is part of a multi-word token.
-        # In that case, self.span marks the span of the whole multi-word token.
-        self.is_multiword = is_multiword
-        # Reference to the UDWord instance representing the HEAD (or None if root).
-        self.parent: UDWord | None = None
-        # List of references to UDWord instances representing functional-deprel children.
-        self.functional_children: list[UDWord] = []
+    # 10 columns of the CoNLL-U file: ID, FORM, LEMMA,...
+    columns: list[str]
+    # `is_multiword==True` means that this word is part of a multi-word token. In that case,
+    # `self.span` marks the span of the whole multi-word token.
+    is_multiword: bool
+    # Span of this word (or MWT, see below) within ud_representation.characters.
+    span: Span
+    # Reference to the `UDWord` instance representing the HEAD (or `None `if root).
+    parent: "UDWord | None" = None
+    is_content_deprel: bool = field(init=False)
+    is_functional_deprel: bool = field(init=False)
+    # List of references to `UDWord` instances representing functional-deprel children.
+    functional_children: "list[UDWord]" = field(init=False, default_factory=list)
+
+    def __post_init__(self):
         # Only consider universal FEATS.
         self.columns[FEATS] = "|".join(
             sorted(
                 feat
-                for feat in columns[FEATS].split("|")
+                for feat in self.columns[FEATS].split("|")
                 if feat.split("=", 1)[0] in UNIVERSAL_FEATURES
             )
         )
         # Let's ignore language-specific deprel subtypes.
         # TODO: OR MAYBE DON'T??????
-        self.columns[DEPREL] = columns[DEPREL].split(":")[0]
+        self.columns[DEPREL] = self.columns[DEPREL].split(":")[0]
         # Precompute which deprels are CONTENT_DEPRELS and which FUNCTIONAL_DEPRELS
         self.is_content_deprel = self.columns[DEPREL] in CONTENT_DEPRELS
         self.is_functional_deprel = self.columns[DEPREL] in FUNCTIONAL_DEPRELS
 
     def __repr__(self) -> str:
         return str(self.columns)
+
+
+# Internal representation classes
+@dataclass(eq=False)
+class UDRepresentation:
+    # Characters of all the tokens in the whole file.
+    # Whitespace between tokens is not included.
+    characters: list[str] = field(default_factory=list)
+    # List of UDSpan instances with start&end indices into `characters`.
+    sentences: list[Span] = field(default_factory=list)
+    # List of UDSpan instances with start&end indices into `characters`.
+    tokens: list[Span] = field(default_factory=list)
+    # List of UDWord instances.
+    words: list[UDWord] = field(default_factory=list)
 
 
 # Would probably be even more efficient with numpy arrays
@@ -273,24 +267,26 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
     ud = UDRepresentation()
 
     # Load the CoNLL-U file
-    index, sentence_start = 0, None
+    char_index, sentence_start_word, sentence_start_char = 0, None, None
     lines_itr = iter(file)
     for line in lines_itr:
         line = line.rstrip()
 
         # Handle sentence start boundaries
-        if sentence_start is None:
+        if sentence_start_word is None:
             # Skip comments
             if line.startswith("#"):
                 continue
             # Start a new sentence
-            ud.sentences.append(UDSpan(index, 0))
-            sentence_start = len(ud.words)
+            sentence_start_char = char_index
+            sentence_start_word = len(ud.words)
         if not line:
-            process_sentence_(ud.words[sentence_start:])
+            process_sentence_(ud.words[sentence_start_word:])
             # End the sentence
-            ud.sentences[-1].end = index
-            sentence_start = None
+            assert sentence_start_char is not None
+            ud.sentences.append(Span(sentence_start_char, char_index))
+            sentence_start_char = None
+            sentence_start_word = None
             continue
 
         # Read next token/word
@@ -311,8 +307,8 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
 
         # Save token
         ud.characters.extend(columns[FORM])
-        ud.tokens.append(UDSpan(index, index + len(columns[FORM])))
-        index += len(columns[FORM])
+        ud.tokens.append(Span(char_index, char_index + len(columns[FORM])))
+        char_index += len(columns[FORM])
 
         # Handle multi-word tokens to save word(s)
         # TODO: improve parsing here
@@ -329,22 +325,22 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
                     raise UDError(
                         f"The CoNLL-U line does not contain 10 tab-separated columns: '{word_line}'"
                     )
-                ud.words.append(UDWord(ud.tokens[-1], word_columns, is_multiword=True))
+                ud.words.append(UDWord(span=ud.tokens[-1], columns=word_columns, is_multiword=True))
         # Basic tokens/words
         else:
             try:
                 word_id = int(columns[ID])
             except ValueError as e:
                 raise UDError(f"Cannot parse word ID '{columns[ID]}'") from e
-            if word_id != (expected_id := len(ud.words) - sentence_start + 1):
+            if word_id != (expected_id := len(ud.words) - sentence_start_word + 1):
                 raise UDError(
                     f"Incorrect ID '{columns[ID]}' for '{columns[FORM]}', expected '{expected_id}'"
                 )
 
-            ud.words.append(UDWord(ud.tokens[-1], columns, is_multiword=False))
+            ud.words.append(UDWord(span=ud.tokens[-1], columns=columns, is_multiword=False))
 
     # FIXME: remove this, we are not a validator anyway
-    if sentence_start is not None:
+    if sentence_start_word is not None:
         raise UDError("The CoNLL-U file does not end with an empty line")
 
     return ud
@@ -392,7 +388,7 @@ class Alignment:
         self.matched_words_map[system_word] = gold_word
 
 
-def spans_score(gold_spans: Sequence[UDSpan], system_spans: Sequence[UDSpan]) -> Score:
+def spans_score(gold_spans: Sequence[Span], system_spans: Sequence[Span]) -> Score:
     correct, gi, si = 0, 0, 0
     while gi < len(gold_spans) and si < len(system_spans):
         if system_spans[si].start < gold_spans[gi].start:
@@ -559,7 +555,7 @@ def align_words(gold_words: Sequence[UDWord], system_words: Sequence[UDWord]) ->
 
 
 # Evaluate the gold and system treebanks (loaded using load_conllu).
-def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> Dict[str, Score]:
+def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> dict[str, Score]:
     # Check that the underlying character sequences do match.
     if gold_ud.characters != system_ud.characters:
         index = 0

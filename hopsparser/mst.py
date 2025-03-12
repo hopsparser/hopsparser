@@ -62,47 +62,48 @@ def tarjan(tree: np.ndarray) -> list[np.ndarray]:
 
 # Floyd's etc cycle-finding algos are useless here: the function here is already fully tabulated so
 # there's no saving space, and this is at worst `len(tree)-1` operations if there's no cycle.
-def detect_cycle(tree: npt.NDArray[np.int_]) -> npt.NDArray[np.bool_] | None:
-    """Find a circle in a graph where each node has a single head.
+def detect_cycle(heads: npt.NDArray[np.intp]) -> npt.NDArray[np.bool_] | None:
+    """Find a circle in a directed graph where each node has an outdegree of 1 (maximal directed
+    pseudoforest, functional graph) and the 0-th node is self-looping.
 
     ## Input
 
-    - `tree`: A 1d integer array such that `tree[i]` is the head of the `i`-th node. This assumes
-      that `tree[0]` is set to `0`
+    - `heads`: A 1d integer array such that `heads[i]` is the head of the `i`-th node. This assumes
+      that `heads[0]` is set to `0`
 
     ## Output
 
-    - `cycle`: A 1d bool arrays such that `cycle[j]` is true iff the `j`-th node of
-      `tree` is in the cycle. If there is no cycle in the graph, this is `None`.
+    - `cycle`: A 1d bool arrays such that `cycle[j]` is true iff node `j` the graph is in the cycle
+      If there is no cycle in the graph, this is `None`.
     """
-    on_stack = np.ones_like(tree, dtype=bool)
+    on_stack = np.ones_like(heads, dtype=bool)
     on_stack[0] = False
     pointer = 1
     while True:
         while not on_stack[pointer]:
             pointer += 1
             # We could stop one step before that if we know there are no self-loops but eh.
-            if pointer == len(tree):
+            if pointer == len(heads):
                 return None
-        current = np.zeros_like(tree, dtype=bool)
+        current = np.zeros_like(heads, dtype=bool)
         parent = pointer
         while on_stack[parent]:
             on_stack[parent] = False
             current[parent] = True
-            parent = tree[parent]
+            parent = heads[parent]
         if current[parent]:
             # Found a cycle!
             cycle_start = parent
             cycle_pointer = parent
-            cycle = np.zeros_like(tree, dtype=bool)
+            cycle = np.zeros_like(heads, dtype=bool)
             cycle[cycle_start] = True
-            while (cycle_pointer := tree[cycle_pointer]) != cycle_start:
+            while (cycle_pointer := heads[cycle_pointer]) != cycle_start:
                 cycle[cycle_pointer] = True
             return cycle
 
 
 # TODO: split out a `contraction` function to make this more readable
-def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
+def chuliu_edmonds(scores: npt.NDArray[np.floating]) -> npt.NDArray[np.intp]:
     """Use the Chu‑Liu/Edmonds algorithm to find a maximum spanning arborescence from the weight
     matrix of a rooted weighted directed graph
 
@@ -115,10 +116,10 @@ def chuliu_edmonds(scores: np.ndarray) -> np.ndarray:
 
     - `tree`: A 1d integer array such that `tree[i]` is the head of the `i`-th node
     """
-    np.fill_diagonal(scores, -float("inf"))  # prevent self-loops
-    scores[0] = -float("inf")
+    np.fill_diagonal(scores, -np.inf)  # prevent self-loops
+    scores[0] = -np.inf
     scores[0, 0] = 0
-    tree = cast(np.ndarray, np.argmax(scores, axis=1))
+    tree = cast(npt.NDArray[np.intp], np.argmax(scores, axis=1))
     # locations of cycle; (t) in [0,1]
     cycle = detect_cycle(tree)
     if cycle is None:
@@ -199,7 +200,7 @@ def _set_root(
     return scores, root_score
 
 
-def chuliu_edmonds_one_root(scores: npt.NDArray[np.floating]) -> npt.NDArray[np.int_]:
+def chuliu_edmonds_one_root(scores: npt.NDArray[np.floating]) -> npt.NDArray[np.intp]:
     """Repeatedly Use the Chu‑Liu/Edmonds algorithm to find a maximum spanning dependency tree from
     the weight matrix of a rooted weighted directed graph.
 
