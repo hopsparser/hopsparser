@@ -323,7 +323,7 @@ def read_line(line: str, expected_id: str) -> Sequence[str]:
         raise UDError(f"The CoNLL-U line does not contain 10 tab-separated columns: '{line}'")
 
     # TODO: validate against nested multi-words
-    if columns[ID].split("-")[0] != expected_id:
+    if re.split(r"[\-\.]", columns[ID])[0] != expected_id:
         raise UDError(
             f"Incorrect ID '{columns[ID]}' for '{columns[FORM]}', expected '{expected_id}'"
         )
