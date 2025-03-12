@@ -171,7 +171,7 @@ class Span:
 @dataclass(eq=False)
 class UDWord:
     # 10 columns of the CoNLL-U file: ID, FORM, LEMMA,...
-    columns: list[str]
+    columns: Sequence[str]
     # `is_multiword==True` means that this word is part of a multi-word token. In that case,
     # `self.span` marks the span of the whole multi-word token.
     is_multiword: bool
@@ -191,7 +191,7 @@ class UDWord:
         return self.columns[DEPREL] in FUNCTIONAL_DEPRELS
 
     def __repr__(self) -> str:
-        return str(self.columns)
+        return f"UDWord(columns={self.columns}, is_multiword={self.is_multiword}, span={self.span})"
 
 
 # Internal representation classes
@@ -206,6 +206,7 @@ class UDRepresentation:
     tokens: list[Span] = field(default_factory=list)
     # List of UDWord instances.
     words: list[UDWord] = field(default_factory=list)
+    multi_words: list[Sequence[str]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -307,7 +308,7 @@ def process_sentence_(sentence: Sequence[UDWord]):
             word.parent.functional_children.append(word)
 
 
-def read_line(line: str, expected_id: str) -> list[str]:
+def read_line(line: str, expected_id: str) -> Sequence[str]:
     """Split a word line into colums, normalise and validate them.
 
     Normalisations:
@@ -330,6 +331,7 @@ def read_line(line: str, expected_id: str) -> list[str]:
     # Delete spaces from FORM, so gold.characters == system.characters
     # even if one of them tokenizes the space. Use any Unicode character
     # with category Zs.
+    # TODO: that doesn't work for the first line of mwe (although they aren't really words anyway so)
     columns[FORM] = "".join(c for c in columns[FORM] if unicodedata.category(c) != "Zs")
 
     if not columns[FORM]:
@@ -345,7 +347,7 @@ def read_line(line: str, expected_id: str) -> list[str]:
     # Let's ignore language-specific deprel subtypes.
     # TODO: OR MAYBE DON'T??????
     columns[DEPREL] = columns[DEPREL].split(":")[0]
-    return columns
+    return tuple(columns)
 
 
 # Load given CoNLL-U file into internal representation
@@ -395,6 +397,7 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
             if m.group("end"):
                 start = int(m.group("start"))
                 end = int(m.group("end"))
+                ud.multi_words.append(columns)
                 for _ in range(start, end + 1):
                     word_line = next(lines_itr).rstrip()
                     word_columns = read_line(
@@ -432,7 +435,11 @@ def spans_score(gold_spans: Sequence[Span], system_spans: Sequence[Span]) -> Sco
             si += 1
             gi += 1
 
-    return Score(len(gold_spans), len(system_spans), correct)
+    return Score(
+        correct=correct,
+        gold_total=len(gold_spans),
+        system_total=len(system_spans),
+    )
 
 
 def alignment_score(
@@ -451,7 +458,7 @@ def alignment_score(
 
     if key_fn is None:
         # Return score for whole aligned words
-        return Score(gold, system, aligned)
+        return Score(correct=aligned, gold_total=gold, system_total=system)
 
     def gold_aligned_gold(word: UDWord | None) -> UDWord | None:
         return word
@@ -467,7 +474,12 @@ def alignment_score(
             ):
                 correct += 1
 
-    return Score(gold, system, correct, aligned)
+    return Score(
+        aligned_total=aligned,
+        correct=correct,
+        gold_total=gold,
+        system_total=system,
+    )
 
 
 def beyond_end(words: Sequence[UDWord], i: int, multiword_span_end: int) -> bool:
