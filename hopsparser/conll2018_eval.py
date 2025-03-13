@@ -88,6 +88,7 @@
 # (even partially) any multi-word span are then aligned as tokens.
 
 import argparse
+from contextlib import suppress
 from functools import cached_property
 import re
 import unicodedata
@@ -423,17 +424,26 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
 
 
 def spans_score(gold_spans: Sequence[Span], system_spans: Sequence[Span]) -> Score:
-    correct, gi, si = 0, 0, 0
-    while gi < len(gold_spans) and si < len(system_spans):
-        if system_spans[si].start < gold_spans[gi].start:
-            si += 1
-        elif gold_spans[gi].start < system_spans[si].start:
-            gi += 1
+    """Compute an accuracy score for the intersection of sorted spans sequences that might have
+    duplicates."""
+    # We could make this one operate on iterables by keeping track of the lengths but that's useless
+    # for us here.
+    correct = 0
+    gold_itr = iter(gold_spans)
+    system_itr = iter(system_spans)
+    g = next(gold_itr)
+    s = next(system_itr)
+    with suppress(StopIteration):
+        if g.start < s.start:
+            g = next(gold_itr)
+        elif s.start < g.start:
+            s = next(system_itr)
         else:
-            if gold_spans[gi].end == system_spans[si].end:
+            # At this point we know that `g.start == s.start`
+            if g.end == s.end:
                 correct += 1
-            si += 1
-            gi += 1
+            g = next(gold_itr)
+            s = next(system_itr)
 
     return Score(
         correct=correct,
