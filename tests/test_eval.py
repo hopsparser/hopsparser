@@ -160,6 +160,17 @@ def test_multiwords(args: tuple[UDRepresentation, UDRepresentation, int]):
             trees(tokens=st.just(["ab AX BX", "cd CX a"])),
             st.just(1),
         ),
+        st.tuples(
+            trees(tokens=st.just(["abc a b", "a c a"])),
+            trees(tokens=st.just(["a", "b", "c", "a"])),
+            st.just(3),
+        ),
+        # This next one is absurd
+        st.tuples(
+            trees(tokens=st.just(["abcd", "a b c d"])),
+            trees(tokens=st.just(["a", "b", "c", "d", "a d a"])),
+            st.just(3),
+        ),
     ]),
 )
 def test_alignment(args: tuple[UDRepresentation, UDRepresentation, int]):
