@@ -91,7 +91,7 @@ from itertools import takewhile
 import re
 import unicodedata
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Literal, Sequence, TypeVar
+from typing import Any, Callable, Iterable, Literal, NamedTuple, Sequence, TypeVar
 
 
 T = TypeVar("T")
@@ -164,10 +164,14 @@ class UDError(Exception):
     pass
 
 
-@dataclass(frozen=True)
-class Span:
+# This could be `slice` maybe
+class Span(NamedTuple):
     start: int
     end: int
+
+    @cached_property
+    def slice(self) -> slice:
+        return slice(self.start, self.end)
 
 
 @dataclass(eq=False)
@@ -547,34 +551,31 @@ def find_multiword_span(
     return gs, ss, gi, si
 
 
-def _identity(x: T) -> T:
-    return x
-
-
 def _couple_eq(t: tuple[T, T]) -> bool:
     return t[0] == t[1]
 
 
-def compute_lcs(
+def lcs_align(
     l1: Sequence[T], l2: Sequence[T], *, key: Callable[[T], Any] | None = None
 ) -> list[tuple[int, int]]:
     """Return the matching indices for a longest common subsequence of `l1` and `l2`. `cmp` is a
     custom comparison function."""
     # FIXME: we could use Hirschberg or Hunt–Szymanski instead
 
-    if key is None:
-        key = _identity
-
-    # Precompute the keys
-    l1 = [key(e) for e in l1]
-    l2 = [key(e) for e in l2]
+    if key is not None:
+        # Precompute the keys
+        l1 = [key(e) for e in l1]
+        l2 = [key(e) for e in l2]
 
     # Fast-track exact sequence equality, this will save a lot of time for identical sequences,
     # which should be the majority of cases if the tokenizers are good (and it won't hurt if they're
     # not).
+
+    # This could be a loop. It would be slightly slower and more legible.
     start_matches = [(i, i) for i, _ in enumerate(takewhile(_couple_eq, zip(l1, l2, strict=False)))]
     if len(start_matches) == min(len(l1), len(l2)):
         return start_matches
+
     # Note that we'll need to adjust the indices at the end to take this shift into account.
     shift = len(start_matches)
     l1 = l1[shift:]
@@ -585,6 +586,8 @@ def compute_lcs(
     # Also we know that the first items here don't match but i don't think it leads to any
     # significant optimisation.
     lcs_matrix = [[0] * (len(l2) + 1) for _ in range(len(l1) + 1)]
+    # Indices are shifted by 1 because the LCS matrix is zero-padded (this way we don't need
+    # separate computations for the 0-th row and column).
     for i, e1 in enumerate(l1, start=1):
         for j, e2 in enumerate(l2, start=1):
             if e1 == e2:
@@ -596,7 +599,8 @@ def compute_lcs(
     matches: list[tuple[int, int]] = []
     i, j = (len(l1), len(l2))
     while lcs_matrix[i][j] != 0:
-        # Avoid references to l1 and l2 so we don't need any indice fiddling here
+        # Avoid references to l1 and l2 so we don't need any indice fiddling here and it
+        # micro-optimizes better.
         if lcs_matrix[i][j] > lcs_matrix[i - 1][j - 1]:
             # The indices in lcs_matrix are shifted by one because of the zero-padding
             matches.append((shift + i - 1, shift + j - 1))
@@ -626,7 +630,7 @@ def align_words(gold_words: Sequence[UDWord], system_words: Sequence[UDWord]) ->
             if gs < gi and ss < si:
                 # Slicing only copies refs so this is not too expensive and it allows us to make
                 # `get_lcs` more generic and legible.
-                for g, s in compute_lcs(
+                for g, s in lcs_align(
                     gold_words[gs:gi],
                     system_words[ss:si],
                     key=word_align_key,
