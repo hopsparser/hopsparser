@@ -4,7 +4,7 @@
 # and Physics, Charles University, Czech Republic.
 #
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
-# the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# the MPL was not distributed with this file, You can obtain one at <http://mozilla.org/MPL/2.0/>.
 #
 # V2 author: L. Grobol <lgrobol@tuta.com> V2 Changelog:
 # - [2025] Version 2.0: Refactoring, optimisations, typing, formatting, removal of internal unit
@@ -25,10 +25,9 @@
 # ------------------
 # conll18_ud_eval.py [-v] gold_conllu_file system_conllu_file
 #
-# - if no -v is given, only the official CoNLL18 UD Shared Task evaluation metrics
-#   are printed
-# - if -v is given, more metrics are printed (as precision, recall, F1 score,
-#   and in case the metric is computed on aligned words also accuracy on these):
+# - if no -v is given, only the official CoNLL18 UD Shared Task evaluation metrics are printed
+# - if -v is given, more metrics are printed (as precision, recall, F1 score, and in case the metric
+#   is computed on aligned words also accuracy on these):
 #   - Tokens: how well do the gold tokens match system tokens
 #   - Sentences: how well do the gold sentences match system sentences
 #   - Words: how well can the gold words be aligned to system words
@@ -39,14 +38,14 @@
 #   - Lemmas: using aligned words, how well does LEMMA match
 #   - UAS: using aligned words, how well does HEAD match
 #   - LAS: using aligned words, how well does HEAD+DEPREL(ignoring subtypes) match
-#   - CLAS: using aligned words with content DEPREL, how well does
-#       HEAD+DEPREL(ignoring subtypes) match
-#   - MLAS: using aligned words with content DEPREL, how well does
-#       HEAD+DEPREL(ignoring subtypes)+UPOS+UFEATS+FunctionalChildren(DEPREL+UPOS+UFEATS) match
-#   - BLEX: using aligned words with content DEPREL, how well does
-#       HEAD+DEPREL(ignoring subtypes)+LEMMAS match
-# - if -c is given, raw counts of correct/gold_total/system_total/aligned words are printed
-#   instead of precision/recall/F1/AlignedAccuracy for all metrics.
+#   - CLAS: using aligned words with content DEPREL, how well does HEAD+DEPREL(ignoring subtypes)
+#       match
+#   - MLAS: using aligned words with content DEPREL, how well does HEAD+DEPREL(ignoring
+#       subtypes)+UPOS+UFEATS+FunctionalChildren(DEPREL+UPOS+UFEATS) match
+#   - BLEX: using aligned words with content DEPREL, how well does HEAD+DEPREL(ignoring
+#       subtypes)+LEMMAS match
+# - if -c is given, raw counts of correct/gold_total/system_total/aligned words are printed instead
+#   of precision/recall/F1/AlignedAccuracy for all metrics.
 
 # API usage
 # ---------
@@ -57,43 +56,45 @@
 # - evaluate(gold_ud, system_ud)
 #   - evaluate the given gold and system CoNLL-U files (loaded with load_conllu)
 #   - raises UDError if the concatenated tokens of gold and system file do not match
-#   - returns a dictionary with the metrics described above, each metric having
-#     three fields: precision, recall and f1
+#   - returns a dictionary with the metrics described above, each metric having three fields:
+#     precision, recall and f1
 
 # Description of token matching
 # -----------------------------
-# In order to match tokens of gold file and system file, we consider the text
-# resulting from concatenation of gold tokens and text resulting from
-# concatenation of system tokens. These texts should match -- if they do not,
-# the evaluation fails.
+# In order to match tokens of gold file and system file, we consider the text resulting from
+# concatenation of gold tokens and text resulting from concatenation of system tokens. These texts
+# should match -- if they do not, the evaluation fails.
 #
-# If the texts do match, every token is represented as a range in this original
-# text, and tokens are equal only if their range is the same.
+# If the texts do match, every token is represented as a range in this original text, and tokens are
+# equal only if their range is the same.
 
 # Description of word matching
 # ----------------------------
-# When matching words of gold file and system file, we first match the tokens.
-# The words which are also tokens are matched as tokens, but words in multi-word
-# tokens have to be handled differently.
+# When matching words of gold file and system file, we first match the tokens. The words which are
+# also tokens are matched as tokens, but words in multi-word tokens have to be handled differently.
 #
-# To handle multi-word tokens, we start by finding "multi-word spans".
-# Multi-word span is a span in the original text such that
+# To handle multi-word tokens, we start by finding "multi-word spans". Multi-word span is a span in
+# the original text such that
 # - it contains at least one multi-word token
-# - all multi-word tokens in the span (considering both gold and system ones)
-#   are completely inside the span (i.e., they do not "stick out")
+# - all multi-word tokens in the span (considering both gold and system ones) are completely inside
+#   the span (i.e., they do not "stick out")
 # - the multi-word span is as small as possible
 #
-# For every multi-word span, we align the gold and system words completely
-# inside this span using LCS on their FORMs. The words not intersecting
-# (even partially) any multi-word span are then aligned as tokens.
+# For every multi-word span, we align the gold and system words completely inside this span using
+# Longest Common Subsequence on their FORMs. The words not intersecting (even partially) any
+# multi-word span are then aligned as tokens.
 
 import argparse
 from contextlib import suppress
 from functools import cached_property
+from itertools import takewhile
 import re
 import unicodedata
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Literal, Sequence
+from typing import Any, Callable, Iterable, Literal, Sequence, TypeVar
+
+
+T = TypeVar("T")
 
 # CoNLL-U column names
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
@@ -434,6 +435,8 @@ def spans_score(gold_spans: Sequence[Span], system_spans: Sequence[Span]) -> Sco
     g = next(gold_itr)
     s = next(system_itr)
     with suppress(StopIteration):
+        # This could be slightly optimized because we know that consecutive spans are of either `(n,
+        # k), (k+1, ℓ)` or `(n, k), (n, k)` forms. But we don't need that extra complexity
         if g.start < s.start:
             g = next(gold_itr)
         elif s.start < g.start:
@@ -544,25 +547,71 @@ def find_multiword_span(
     return gs, ss, gi, si
 
 
+def _identity(x: T) -> T:
+    return x
+
+
+def _couple_eq(t: tuple[T, T]) -> bool:
+    return t[0] == t[1]
+
+
 def compute_lcs(
-    gold_words: Sequence[UDWord],
-    system_words: Sequence[UDWord],
-    gi: int,
-    si: int,
-    gs: int,
-    ss: int,
-) -> list[list[int]]:
-    lcs = [[0] * (si - ss) for i in range(gi - gs)]
-    for g in reversed(range(gi - gs)):
-        for s in reversed(range(si - ss)):
-            if (
-                gold_words[gs + g].columns[FORM].lower()
-                == system_words[ss + s].columns[FORM].lower()
-            ):
-                lcs[g][s] = 1 + (lcs[g + 1][s + 1] if g + 1 < gi - gs and s + 1 < si - ss else 0)
-            lcs[g][s] = max(lcs[g][s], lcs[g + 1][s] if g + 1 < gi - gs else 0)
-            lcs[g][s] = max(lcs[g][s], lcs[g][s + 1] if s + 1 < si - ss else 0)
-    return lcs
+    l1: Sequence[T], l2: Sequence[T], *, key: Callable[[T], Any] | None = None
+) -> list[tuple[int, int]]:
+    """Return the matching indices for a longest common subsequence of `l1` and `l2`. `cmp` is a
+    custom comparison function."""
+    # FIXME: we could use Hirschberg or Hunt–Szymanski instead
+
+    if key is None:
+        key = _identity
+
+    # Precompute the keys
+    l1 = [key(e) for e in l1]
+    l2 = [key(e) for e in l2]
+
+    # Fast-track exact sequence equality, this will save a lot of time for identical sequences,
+    # which should be the majority of cases if the tokenizers are good (and it won't hurt if they're
+    # not).
+    start_matches = [(i, i) for i, _ in enumerate(takewhile(_couple_eq, zip(l1, l2, strict=False)))]
+    if len(start_matches) == min(len(l1), len(l2)):
+        return start_matches
+    # Note that we'll need to adjust the indices at the end to take this shift into account.
+    shift = len(start_matches)
+    l1 = l1[shift:]
+    l2 = l2[shift:]
+    # We could check exact matches from the end too but that's annoying to write and if we don't
+    # have an exact match anyway, it's probably not worth the trouble.
+
+    # Also we know that the first items here don't match but i don't think it leads to any
+    # significant optimisation.
+    lcs_matrix = [[0] * (len(l2) + 1) for _ in range(len(l1) + 1)]
+    for i, e1 in enumerate(l1, start=1):
+        for j, e2 in enumerate(l2, start=1):
+            if e1 == e2:
+                lcs_matrix[i][j] = lcs_matrix[i - 1][j - 1] + 1
+            else:
+                lcs_matrix[i][j] = max(lcs_matrix[i - 1][j], lcs_matrix[i][j - 1])
+
+    # Backtrack
+    matches: list[tuple[int, int]] = []
+    i, j = (len(l1), len(l2))
+    while lcs_matrix[i][j] != 0:
+        # Avoid references to l1 and l2 so we don't need any indice fiddling here
+        if lcs_matrix[i][j] > lcs_matrix[i - 1][j - 1]:
+            # The indices in lcs_matrix are shifted by one because of the zero-padding
+            matches.append((shift + i - 1, shift + j - 1))
+            i -= 1
+            j -= 1
+        elif lcs_matrix[i][j] < lcs_matrix[i - 1][j]:
+            i -= 1
+        else:
+            j -= 1
+
+    return [*start_matches, *matches[::-1]]
+
+
+def word_align_key(w: UDWord) -> str:
+    return w.columns[FORM].lower()
 
 
 def align_words(gold_words: Sequence[UDWord], system_words: Sequence[UDWord]) -> Alignment:
@@ -574,29 +623,18 @@ def align_words(gold_words: Sequence[UDWord], system_words: Sequence[UDWord]) ->
             # A: Multi-word tokens => align via LCS within the whole "multiword span".
             gs, ss, gi, si = find_multiword_span(gold_words, system_words, gi, si)
 
-            if si > ss and gi > gs:
-                lcs = compute_lcs(gold_words, system_words, gi, si, gs, ss)
-
-                # Store aligned words
-                s, g = 0, 0
-                while g < gi - gs and s < si - ss:
-                    if (
-                        gold_words[gs + g].columns[FORM].lower()
-                        == system_words[ss + s].columns[FORM].lower()
-                    ):
-                        alignment.append_aligned_words(gold_words[gs + g], system_words[ss + s])
-                        g += 1
-                        s += 1
-                    elif lcs[g][s] == (lcs[g + 1][s] if g + 1 < gi - gs else 0):
-                        g += 1
-                    else:
-                        s += 1
+            if gs < gi and ss < si:
+                # Slicing only copies refs so this is not too expensive and it allows us to make
+                # `get_lcs` more generic and legible.
+                for g, s in compute_lcs(
+                    gold_words[gs:gi],
+                    system_words[ss:si],
+                    key=word_align_key,
+                ):
+                    alignment.append_aligned_words(gold_words[gs + g], system_words[gs + s])
         else:
             # B: No multi-word token => align according to spans.
-            if (gold_words[gi].span.start, gold_words[gi].span.end) == (
-                system_words[si].span.start,
-                system_words[si].span.end,
-            ):
+            if gold_words[gi].span == system_words[si].span:
                 alignment.append_aligned_words(gold_words[gi], system_words[si])
                 gi += 1
                 si += 1
@@ -611,20 +649,29 @@ def align_words(gold_words: Sequence[UDWord], system_words: Sequence[UDWord]) ->
 # Evaluate the gold and system treebanks (loaded using load_conllu).
 def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> dict[str, Score]:
     # Check that the underlying character sequences do match.
-    if gold_ud.characters != system_ud.characters:
-        index = 0
-        while (
-            index < len(gold_ud.characters)
-            and index < len(system_ud.characters)
-            and gold_ud.characters[index] == system_ud.characters[index]
-        ):
-            index += 1
-
+    if len(gold_ud.characters) != len(system_ud.characters):
+        raise UDError(
+            "The concatenation of tokens in gold file and in system file differ:"
+            f" gold is {len(gold_ud.characters)} characters"
+            f" and system is {len(system_ud.characters)} characters"
+        )
+    elif (
+        first_diff := next(
+            (
+                i
+                for i, (g, s) in enumerate(
+                    zip(gold_ud.characters, system_ud.characters, strict=True)
+                )
+                if g != s
+            ),
+            None,
+        )
+    ) is not None:
         raise UDError(
             "The concatenation of tokens in gold file and in system file differ!\n"
             + "First 20 differing characters in gold file: '{}' and system file: '{}'".format(
-                "".join(gold_ud.characters[index : index + 20]),
-                "".join(system_ud.characters[index : index + 20]),
+                "".join(gold_ud.characters[first_diff : first_diff + 20]),
+                "".join(system_ud.characters[first_diff : first_diff + 20]),
             )
         )
 
