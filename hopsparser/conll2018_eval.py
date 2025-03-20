@@ -393,8 +393,8 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
 
         # Save token
         ud.characters.extend(columns[FORM])
-        current_token_span = Span(char_index, char_index + len(columns[FORM]))
-        ud.tokens.append(current_token_span)
+        current_token_char_span = Span(char_index, char_index + len(columns[FORM]))
+        ud.tokens.append(current_token_char_span)
         char_index += len(columns[FORM])
 
         # TODO: improve parsing here
@@ -411,12 +411,14 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
                     )
                     # TODO: deal with empty words here
                     ud.words.append(
-                        UDWord(span=current_token_span, columns=word_columns, is_multiword=True)
+                        UDWord(
+                            span=current_token_char_span, columns=word_columns, is_multiword=True
+                        )
                     )
             # Basic tokens/words
             else:
                 ud.words.append(
-                    UDWord(span=current_token_span, columns=columns, is_multiword=False)
+                    UDWord(span=current_token_char_span, columns=columns, is_multiword=False)
                 )
         else:
             raise UDError(f"Cannot parse token ID '{columns[ID]}'")
@@ -499,58 +501,6 @@ def alignment_score(
     )
 
 
-def beyond_end(words: Sequence[UDWord], i: int, multiword_span_end: int) -> bool:
-    if i >= len(words):
-        return True
-    if words[i].is_multiword:
-        return words[i].span.start >= multiword_span_end
-    return words[i].span.end > multiword_span_end
-
-
-def extend_end(word: UDWord, multiword_span_end: int) -> int:
-    if word.is_multiword and word.span.end > multiword_span_end:
-        return word.span.end
-    return multiword_span_end
-
-
-def find_multiword_span(
-    gold_words: Sequence[UDWord], system_words: Sequence[UDWord], gi: int, si: int
-) -> tuple[int, int, int, int]:
-    # We know gold_words[gi].is_multiword or system_words[si].is_multiword.
-    # Find the start of the multiword span (gs, ss), so the multiword span is minimal.
-    # Initialize multiword_span_end characters index.
-    if gold_words[gi].is_multiword:
-        multiword_span_end = gold_words[gi].span.end
-        if (
-            not system_words[si].is_multiword
-            and system_words[si].span.start < gold_words[gi].span.start
-        ):
-            si += 1
-    else:  # if system_words[si].is_multiword
-        multiword_span_end = system_words[si].span.end
-        if (
-            not gold_words[gi].is_multiword
-            and gold_words[gi].span.start < system_words[si].span.start
-        ):
-            gi += 1
-    gs, ss = gi, si
-
-    # Find the end of the multiword span
-    # (so both gi and si are pointing to the word following the multiword span end).
-    while not beyond_end(gold_words, gi, multiword_span_end) or not beyond_end(
-        system_words, si, multiword_span_end
-    ):
-        if gi < len(gold_words) and (
-            si >= len(system_words) or gold_words[gi].span.start <= system_words[si].span.start
-        ):
-            multiword_span_end = extend_end(gold_words[gi], multiword_span_end)
-            gi += 1
-        else:
-            multiword_span_end = extend_end(system_words[si], multiword_span_end)
-            si += 1
-    return gs, ss, gi, si
-
-
 def _couple_eq(t: tuple[T, T]) -> bool:
     return t[0] == t[1]
 
@@ -558,8 +508,8 @@ def _couple_eq(t: tuple[T, T]) -> bool:
 def lcs_align(
     l1: Sequence[T], l2: Sequence[T], *, key: Callable[[T], Any] | None = None
 ) -> list[tuple[int, int]]:
-    """Return the matching indices for a longest common subsequence of `l1` and `l2`. `cmp` is a
-    custom comparison function."""
+    """Return the matching indices for a longest common subsequence of `l1` and `l2`. `key` is a
+    custom key function."""
     # FIXME: we could use Hirschberg or Hunt–Szymanski instead
 
     if key is not None:
@@ -621,32 +571,94 @@ def word_align_key(w: UDWord) -> str:
 def align_words(gold_words: Sequence[UDWord], system_words: Sequence[UDWord]) -> Alignment:
     alignment = Alignment(gold_words, system_words)
 
-    gi, si = 0, 0
-    while gi < len(gold_words) and si < len(system_words):
-        if gold_words[gi].is_multiword or system_words[si].is_multiword:
-            # A: Multi-word tokens => align via LCS within the whole "multiword span".
-            gs, ss, gi, si = find_multiword_span(gold_words, system_words, gi, si)
+    if len(gold_words) == 0 or len(system_words) == 0:
+        return alignment
 
-            if gs < gi and ss < si:
-                # Slicing only copies refs so this is not too expensive and it allows us to make
-                # `get_lcs` more generic and legible.
+    gold_itr = iter(gold_words)
+    system_itr = iter(system_words)
+    with suppress(StopIteration):
+        gold_w = next(gold_itr)
+        system_w = next(system_itr)
+        while gold_w is not None and system_w is not None:
+            # No intersection, just skip forward, we won't be able to align anything
+            # Only one of these should happen?
+            while gold_w.span.end <= system_w.span.start:
+                gold_w = next(gold_itr)
+
+            while system_w.span.end <= gold_w.span.start:
+                system_w = next(system_itr)
+
+            # At this point the two spans are intersecting
+
+            if gold_w.is_multiword or system_w.is_multiword:
+                multiword_span_start = min(
+                    w.span.start for w in (gold_w, system_w) if w.is_multiword
+                )
+                # Forward to the beginning of the span in both gold and system
+                while not gold_w.is_multiword and gold_w.span.start < multiword_span_start:
+                    gold_w = next(gold_itr)
+                while not system_w.is_multiword and system_w.span.start < multiword_span_start:
+                    system_w = next(system_itr)
+                gold_multiword_span: list[UDWord] = [gold_w]
+                system_multiword_span: list[UDWord] = [system_w]
+                multiword_span_end = max((w.span.end for w in (gold_w, system_w) if w.is_multiword))
+                gold_w = next(gold_itr, None)
+                system_w = next(system_itr, None)
+
+                # At this point we can't allow a StopIteration to happen because it would throw us
+                # out before we got a chance to process the multiword span.
+                while gold_w is not None or system_w is not None:
+                    while (
+                        gold_w is not None
+                        and not gold_w.is_multiword
+                        and gold_w.span.end <= multiword_span_end
+                    ):
+                        gold_multiword_span.append(gold_w)
+                        gold_w = next(gold_itr, None)
+                    while (
+                        system_w is not None
+                        and not system_w.is_multiword
+                        and system_w.span.end <= multiword_span_end
+                    ):
+                        system_multiword_span.append(system_w)
+                        system_w = next(system_itr, None)
+
+                    if (
+                        gold_w is not None
+                        and gold_w.is_multiword
+                        and gold_w.span.start < multiword_span_end
+                    ):
+                        gold_multiword_span.append(gold_w)
+                        multiword_span_end = max(multiword_span_end, gold_w.span.end)
+                        gold_w = next(gold_itr, None)
+                    elif (
+                        system_w is not None
+                        and system_w.is_multiword
+                        and system_w.span.start < multiword_span_end
+                    ):
+                        system_multiword_span.append(system_w)
+                        multiword_span_end = max(multiword_span_end, system_w.span.end)
+                        system_w = next(system_itr, None)
+                    else:
+                        # FIXME see if that's good enoug
+                        break
+
                 for g, s in lcs_align(
-                    gold_words[gs:gi],
-                    system_words[ss:si],
+                    gold_multiword_span,
+                    system_multiword_span,
                     key=word_align_key,
                 ):
-                    alignment.append_aligned_words(gold_words[gs + g], system_words[gs + s])
-        else:
-            # B: No multi-word token => align according to spans.
-            if gold_words[gi].span == system_words[si].span:
-                alignment.append_aligned_words(gold_words[gi], system_words[si])
-                gi += 1
-                si += 1
-            elif gold_words[gi].span.start <= system_words[si].span.start:
-                gi += 1
+                    alignment.append_aligned_words(gold_multiword_span[g], system_multiword_span[s])
             else:
-                si += 1
-
+                # No multi-word token => align according to spans.
+                if gold_w.span == system_w.span:
+                    alignment.append_aligned_words(gold_w, system_w)
+                    gold_w = next(gold_itr)
+                    system_w = next(system_itr)
+                elif gold_w.span.start <= system_w.span.start:
+                    gold_w = next(gold_itr)
+                else:
+                    system_w = next(system_itr)
     return alignment
 
 
@@ -697,6 +709,7 @@ def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> dict[str
             alignment,
             lambda w, ga: w.columns[LEMMA] if ga(w).columns[LEMMA] != "_" else "_",
         ),
+        # FIXME: this collapses all roots together
         "UAS": alignment_score(alignment, lambda w, ga: ga(w.parent)),
         "LAS": alignment_score(alignment, lambda w, ga: (ga(w.parent), w.columns[DEPREL])),
         "CLAS": alignment_score(

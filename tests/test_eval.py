@@ -166,10 +166,16 @@ def test_multiwords(args: tuple[UDRepresentation, UDRepresentation, int]):
             st.just(3),
         ),
         # This next one is absurd
+        # st.tuples(
+        #     trees(tokens=st.just(["abcd", "a b c d"])),
+        #     trees(tokens=st.just(["a", "b", "c", "d", "a e f"])),
+        #     st.just(3),
+        # ),
+        # This one makes sense
         st.tuples(
             trees(tokens=st.just(["abcd", "a b c d"])),
-            trees(tokens=st.just(["a", "b", "c", "d", "a d a"])),
-            st.just(3),
+            trees(tokens=st.just(["a", "b", "c", "d", "a e f"])),
+            st.just(0),
         ),
     ]),
 )
