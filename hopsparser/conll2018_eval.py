@@ -250,8 +250,7 @@ class Score:
             return self.correct / self.aligned_total
 
 
-@dataclass
-class AlignmentWord:
+class AlignmentWord(NamedTuple):
     gold_word: UDWord
     system_word: UDWord
 
@@ -260,12 +259,11 @@ class AlignmentWord:
 class Alignment:
     gold_words: Sequence[UDWord]
     system_words: Sequence[UDWord]
-    matched_words: list[AlignmentWord] = field(default_factory=list, init=False)
+    matched_words: list[AlignmentWord]
     matched_words_map: dict[UDWord, UDWord] = field(default_factory=dict, init=False)
 
-    def append_aligned_words(self, gold_word: UDWord, system_word: UDWord):
-        self.matched_words.append(AlignmentWord(gold_word, system_word))
-        self.matched_words_map[system_word] = gold_word
+    def __post_init__(self):
+        self.matched_words_map = {a.system_word: a.gold_word for a in self.matched_words}
 
 
 # Would probably be even more efficient with numpy arrays
@@ -507,39 +505,45 @@ def _couple_eq(t: tuple[T, T]) -> bool:
 
 def lcs_align(
     l1: Sequence[T], l2: Sequence[T], *, key: Callable[[T], Any] | None = None
-) -> list[tuple[int, int]]:
-    """Return the matching indices for a longest common subsequence of `l1` and `l2`. `key` is a
+) -> list[tuple[T, T]]:
+    """Return matched elements for a longest common subsequence of `l1` and `l2`. `key` is a
     custom key function."""
     # FIXME: we could use Hirschberg or Hunt–Szymanski instead
 
-    if key is not None:
+    if key is None:
+        l1_keys = l1
+        l2_keys = l2
+    else:
         # Precompute the keys
-        l1 = [key(e) for e in l1]
-        l2 = [key(e) for e in l2]
+        l1_keys = [key(e) for e in l1]
+        l2_keys = [key(e) for e in l2]
 
-    # Fast-track exact sequence equality, this will save a lot of time for identical sequences,
+    # Fast-track exact sequence equality: this will save a lot of time for identical sequences,
     # which should be the majority of cases if the tokenizers are good (and it won't hurt if they're
     # not).
 
     # This could be a loop. It would be slightly slower and more legible.
-    start_matches = [(i, i) for i, _ in enumerate(takewhile(_couple_eq, zip(l1, l2, strict=False)))]
-    if len(start_matches) == min(len(l1), len(l2)):
+    start_matches = [
+        (l1[i], l2[i])
+        for i, _ in enumerate(takewhile(_couple_eq, zip(l1_keys, l2_keys, strict=False)))
+    ]
+    if len(start_matches) == min(len(l1_keys), len(l2_keys)):
         return start_matches
 
     # Note that we'll need to adjust the indices at the end to take this shift into account.
     shift = len(start_matches)
-    l1 = l1[shift:]
-    l2 = l2[shift:]
+    l1_keys = l1_keys[shift:]
+    l2_keys = l2_keys[shift:]
     # We could check exact matches from the end too but that's annoying to write and if we don't
     # have an exact match anyway, it's probably not worth the trouble.
 
     # Also we know that the first items here don't match but i don't think it leads to any
     # significant optimisation.
-    lcs_matrix = [[0] * (len(l2) + 1) for _ in range(len(l1) + 1)]
+    lcs_matrix = [[0] * (len(l2_keys) + 1) for _ in range(len(l1_keys) + 1)]
     # Indices are shifted by 1 because the LCS matrix is zero-padded (this way we don't need
     # separate computations for the 0-th row and column).
-    for i, e1 in enumerate(l1, start=1):
-        for j, e2 in enumerate(l2, start=1):
+    for i, e1 in enumerate(l1_keys, start=1):
+        for j, e2 in enumerate(l2_keys, start=1):
             if e1 == e2:
                 lcs_matrix[i][j] = lcs_matrix[i - 1][j - 1] + 1
             else:
@@ -547,7 +551,7 @@ def lcs_align(
 
     # Backtrack
     matches: list[tuple[int, int]] = []
-    i, j = (len(l1), len(l2))
+    i, j = (len(l1_keys), len(l2_keys))
     while lcs_matrix[i][j] != 0:
         # Avoid references to l1 and l2 so we don't need any indice fiddling here and it
         # micro-optimizes better.
@@ -561,7 +565,7 @@ def lcs_align(
         else:
             j -= 1
 
-    return [*start_matches, *matches[::-1]]
+    return [*start_matches, *((l1[i], l2[j]) for i, j in reversed(matches))]
 
 
 def word_align_key(w: UDWord) -> str:
@@ -590,10 +594,10 @@ def get_multiword_spans(
 
 
 def align_words(gold_words: Sequence[UDWord], system_words: Sequence[UDWord]) -> Alignment:
-    alignment = Alignment(gold_words, system_words)
-
     if not gold_words or not system_words:
-        return alignment
+        return Alignment([], [], [])
+
+    alignment = []
 
     multiword_spans = get_multiword_spans(gold_words, system_words)
 
@@ -613,7 +617,7 @@ def align_words(gold_words: Sequence[UDWord], system_words: Sequence[UDWord]) ->
             or system_w.span.start < next_multiword_span.start
         ):
             if gold_w.span == system_w.span:
-                alignment.append_aligned_words(gold_w, system_w)
+                alignment.append((gold_w, system_w))
                 gold_w = next(gold_itr)
                 system_w = next(system_itr)
             elif gold_w.span.start <= system_w.span.start:
@@ -633,17 +637,18 @@ def align_words(gold_words: Sequence[UDWord], system_words: Sequence[UDWord]) ->
             system_w = next(system_itr, None)
 
         # Align
-        for g, s in lcs_align(
-            gold_multiword_span,
-            system_multiword_span,
-            key=word_align_key,
-        ):
-            alignment.append_aligned_words(gold_multiword_span[g], system_multiword_span[s])
+        alignment.extend(
+            lcs_align(
+                gold_multiword_span,
+                system_multiword_span,
+                key=word_align_key,
+            )
+        )
 
     # Remaining words after we consumed all the spans
     while gold_w is not None and system_w is not None:
         if gold_w.span == system_w.span:
-            alignment.append_aligned_words(gold_w, system_w)
+            alignment.append((gold_w, system_w))
             gold_w = next(gold_itr, None)
             system_w = next(system_itr, None)
         elif gold_w.span.start <= system_w.span.start:
@@ -651,7 +656,11 @@ def align_words(gold_words: Sequence[UDWord], system_words: Sequence[UDWord]) ->
         else:
             system_w = next(system_itr, None)
 
-    return alignment
+    return Alignment(
+        gold_words=gold_words,
+        system_words=system_words,
+        matched_words=[AlignmentWord(g, s) for g, s in alignment],
+    )
 
 
 # Evaluate the gold and system treebanks (loaded using load_conllu).
