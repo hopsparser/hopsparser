@@ -32,15 +32,6 @@ def trees(draw: st.DrawFn, tokens: st.SearchStrategy[list[str]]) -> UDRepresenta
     return load_conllu(lines)
 
 
-def validate_correct(gold: UDRepresentation, system: UDRepresentation, correct: int):
-    metrics = evaluate(gold, system)
-    assert (metrics["Words"].precision, metrics["Words"].recall, metrics["Words"].f1) == (
-        correct / len(system.words),
-        correct / len(gold.words),
-        2 * correct / (len(gold.words) + len(system.words)),
-    )
-
-
 # TODO: add mwt testing
 @given(
     lines=conllus(
@@ -91,7 +82,8 @@ def test_exception(gold: UDRepresentation, system: UDRepresentation):
     )
 )
 def test_equal(representation: UDRepresentation):
-    validate_correct(representation, representation, len(representation.words))
+    metrics = evaluate(representation, representation)
+    assert metrics["Words"].correct == len(representation.words)
 
 
 @given(
@@ -120,7 +112,8 @@ def test_equal(representation: UDRepresentation):
 )
 def test_multiwords(args: tuple[UDRepresentation, UDRepresentation, int]):
     gold, system, correct = args
-    validate_correct(gold, system, correct)
+    metrics = evaluate(gold, system)
+    assert metrics["Words"].correct == correct
 
 
 @given(
@@ -165,7 +158,7 @@ def test_multiwords(args: tuple[UDRepresentation, UDRepresentation, int]):
             trees(tokens=st.just(["a", "b", "c", "a"])),
             st.just(3),
         ),
-        # This next one is absurd
+        # This next one is absurd but would fit the original algorithm
         # st.tuples(
         #     trees(tokens=st.just(["abcd", "a b c d"])),
         #     trees(tokens=st.just(["a", "b", "c", "d", "a e f"])),
@@ -181,4 +174,5 @@ def test_multiwords(args: tuple[UDRepresentation, UDRepresentation, int]):
 )
 def test_alignment(args: tuple[UDRepresentation, UDRepresentation, int]):
     gold, system, correct = args
-    validate_correct(gold, system, correct)
+    metrics = evaluate(gold, system)
+    assert metrics["Words"].correct == correct

@@ -646,6 +646,7 @@ def align_words(gold_words: Sequence[UDWord], system_words: Sequence[UDWord]) ->
         )
 
     # Remaining words after we consumed all the spans
+    # FIXME: This is an exact copy from above and that's annoying
     while gold_w is not None and system_w is not None:
         if gold_w.span == system_w.span:
             alignment.append((gold_w, system_w))
