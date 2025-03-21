@@ -568,97 +568,89 @@ def word_align_key(w: UDWord) -> str:
     return w.columns[FORM].lower()
 
 
+# This could easily handle any number of sequences
+def get_multiword_spans(
+    gold_words: Sequence[UDWord], system_words: Sequence[UDWord]
+) -> Sequence[Span]:
+    multiwords_spans = sorted(w.span for w in (*gold_words, *system_words) if w.is_multiword)
+    if not multiwords_spans:
+        return []
+
+    res = []
+    current_span = multiwords_spans[0]
+    for s in multiwords_spans[1:]:
+        if s.start < current_span.end:
+            if current_span.end < s.end:
+                current_span = Span(current_span.start, s.end)
+        else:
+            res.append(current_span)
+            current_span = s
+    res.append(current_span)
+    return res
+
+
 def align_words(gold_words: Sequence[UDWord], system_words: Sequence[UDWord]) -> Alignment:
     alignment = Alignment(gold_words, system_words)
 
-    if len(gold_words) == 0 or len(system_words) == 0:
+    if not gold_words or not system_words:
         return alignment
+
+    multiword_spans = get_multiword_spans(gold_words, system_words)
 
     gold_itr = iter(gold_words)
     system_itr = iter(system_words)
-    with suppress(StopIteration):
-        gold_w = next(gold_itr)
-        system_w = next(system_itr)
-        while gold_w is not None and system_w is not None:
-            # No intersection, just skip forward, we won't be able to align anything
-            # Only one of these should happen?
-            while gold_w.span.end <= system_w.span.start:
-                gold_w = next(gold_itr)
+    gold_w = next(gold_itr)
+    system_w = next(system_itr)
 
-            while system_w.span.end <= gold_w.span.start:
+    for next_multiword_span in multiword_spans:
+        # The asserts are mostly to keep the typecheckers happy since they can't really reson on
+        # iterable shenanigans
+        assert gold_w is not None  # noqa: S101
+        assert system_w is not None  # noqa: S101
+        # These words are not in the span, align them normally
+        while (
+            gold_w.span.start < next_multiword_span.start
+            or system_w.span.start < next_multiword_span.start
+        ):
+            if gold_w.span == system_w.span:
+                alignment.append_aligned_words(gold_w, system_w)
+                gold_w = next(gold_itr)
+                system_w = next(system_itr)
+            elif gold_w.span.start <= system_w.span.start:
+                gold_w = next(gold_itr)
+            else:
                 system_w = next(system_itr)
 
-            # At this point the two spans are intersecting
+        # Get the words to align
+        gold_multiword_span: list[UDWord] = []
+        while gold_w is not None and gold_w.span.end <= next_multiword_span.end:
+            gold_multiword_span.append(gold_w)
+            gold_w = next(gold_itr, None)
 
-            if gold_w.is_multiword or system_w.is_multiword:
-                multiword_span_start = min(
-                    w.span.start for w in (gold_w, system_w) if w.is_multiword
-                )
-                # Forward to the beginning of the span in both gold and system
-                while not gold_w.is_multiword and gold_w.span.start < multiword_span_start:
-                    gold_w = next(gold_itr)
-                while not system_w.is_multiword and system_w.span.start < multiword_span_start:
-                    system_w = next(system_itr)
-                gold_multiword_span: list[UDWord] = [gold_w]
-                system_multiword_span: list[UDWord] = [system_w]
-                multiword_span_end = max((w.span.end for w in (gold_w, system_w) if w.is_multiword))
-                gold_w = next(gold_itr, None)
-                system_w = next(system_itr, None)
+        system_multiword_span: list[UDWord] = []
+        while system_w is not None and system_w.span.end <= next_multiword_span.end:
+            system_multiword_span.append(system_w)
+            system_w = next(system_itr, None)
 
-                # At this point we can't allow a StopIteration to happen because it would throw us
-                # out before we got a chance to process the multiword span.
-                while gold_w is not None or system_w is not None:
-                    while (
-                        gold_w is not None
-                        and not gold_w.is_multiword
-                        and gold_w.span.end <= multiword_span_end
-                    ):
-                        gold_multiword_span.append(gold_w)
-                        gold_w = next(gold_itr, None)
-                    while (
-                        system_w is not None
-                        and not system_w.is_multiword
-                        and system_w.span.end <= multiword_span_end
-                    ):
-                        system_multiword_span.append(system_w)
-                        system_w = next(system_itr, None)
+        # Align
+        for g, s in lcs_align(
+            gold_multiword_span,
+            system_multiword_span,
+            key=word_align_key,
+        ):
+            alignment.append_aligned_words(gold_multiword_span[g], system_multiword_span[s])
 
-                    if (
-                        gold_w is not None
-                        and gold_w.is_multiword
-                        and gold_w.span.start < multiword_span_end
-                    ):
-                        gold_multiword_span.append(gold_w)
-                        multiword_span_end = max(multiword_span_end, gold_w.span.end)
-                        gold_w = next(gold_itr, None)
-                    elif (
-                        system_w is not None
-                        and system_w.is_multiword
-                        and system_w.span.start < multiword_span_end
-                    ):
-                        system_multiword_span.append(system_w)
-                        multiword_span_end = max(multiword_span_end, system_w.span.end)
-                        system_w = next(system_itr, None)
-                    else:
-                        # FIXME see if that's good enoug
-                        break
+    # Remaining words after we consumed all the spans
+    while gold_w is not None and system_w is not None:
+        if gold_w.span == system_w.span:
+            alignment.append_aligned_words(gold_w, system_w)
+            gold_w = next(gold_itr, None)
+            system_w = next(system_itr, None)
+        elif gold_w.span.start <= system_w.span.start:
+            gold_w = next(gold_itr, None)
+        else:
+            system_w = next(system_itr, None)
 
-                for g, s in lcs_align(
-                    gold_multiword_span,
-                    system_multiword_span,
-                    key=word_align_key,
-                ):
-                    alignment.append_aligned_words(gold_multiword_span[g], system_multiword_span[s])
-            else:
-                # No multi-word token => align according to spans.
-                if gold_w.span == system_w.span:
-                    alignment.append_aligned_words(gold_w, system_w)
-                    gold_w = next(gold_itr)
-                    system_w = next(system_itr)
-                elif gold_w.span.start <= system_w.span.start:
-                    gold_w = next(gold_itr)
-                else:
-                    system_w = next(system_itr)
     return alignment
 
 
