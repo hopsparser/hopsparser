@@ -769,6 +769,7 @@ def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> dict[str
             check=lambda g, s: (
                 are_parents_aligned(alignment, g, s)
                 and ((s.deprel, s.upos, s.feats) == (g.deprel, g.upos, g.feats))
+                and len(s.functional_children) == len(g.functional_children)
                 and all(
                     alignment.gold_aligned[sc] is gc
                     and ((gc.deprel, gc.upos, gc.feats) == (sc.deprel, sc.upos, sc.feats))
