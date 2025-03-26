@@ -91,7 +91,7 @@ from itertools import takewhile
 import re
 import unicodedata
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Literal, NamedTuple, Sequence, TypeVar
+from typing import Any, Callable, Iterable, NamedTuple, Sequence, TypeVar
 
 
 T = TypeVar("T")
@@ -176,13 +176,21 @@ class Span(NamedTuple):
 
 @dataclass(eq=False)
 class UDWord:
-    # 10 columns of the CoNLL-U file: ID, FORM, LEMMA,...
-    columns: Sequence[str]
+    identifier: str
+    form: str
     # `is_multiword==True` means that this word is part of a multi-word token. In that case,
     # `self.span` marks the span of the whole multi-word token.
     is_multiword: bool
     # Span of this word (or MWT, see below) within ud_representation.characters.
     span: Span
+    lemma: str = field(default="_")
+    upos: str = field(default="_")
+    xpos: str = field(default="_")
+    feats: str = field(default="_")
+    head: str = field(default="_")
+    deprel: str = field(default="_")
+    deps: str = field(default="_")
+    misc: str = field(default="_")
     # Reference to the `UDWord` instance representing the HEAD (or `None `if root).
     parent: "UDWord | None" = None
     # List of references to `UDWord` instances representing functional-deprel children.
@@ -190,14 +198,29 @@ class UDWord:
 
     @cached_property
     def is_content_deprel(self) -> bool:
-        return self.columns[DEPREL] in CONTENT_DEPRELS
+        return self.deprel in CONTENT_DEPRELS
 
     @cached_property
     def is_functional_deprel(self) -> bool:
-        return self.columns[DEPREL] in FUNCTIONAL_DEPRELS
+        return self.deprel in FUNCTIONAL_DEPRELS
+
+    def to_conll(self) -> str:
+        row = [
+            self.identifier,
+            self.form,
+            self.lemma,
+            self.upos,
+            self.xpos,
+            self.feats,
+            self.head,
+            self.deprel,
+            self.deps,
+            self.misc,
+        ]
+        return "\t".join(row)
 
     def __repr__(self) -> str:
-        return f"UDWord(columns={self.columns}, is_multiword={self.is_multiword}, span={self.span})"
+        return f"UDWord({self.to_conll()}, is_multiword={self.is_multiword}, span={self.span})"
 
 
 # Internal representation classes
@@ -294,7 +317,7 @@ def detect_cycle(heads: Sequence[int]) -> list[int] | None:
 
 
 def process_sentence_(sentence: Sequence[UDWord]):
-    heads: list[int] = [int(word.columns[HEAD]) for word in sentence]
+    heads: list[int] = [int(word.head) for word in sentence]
     # +1 because words are 1-indiced
     if incorrect_heads := [h for h in heads if h < 0 or h > len(sentence) + 1]:
         raise UDError(f"In {sentence}: HEADS '{incorrect_heads}' point outside of the sentence")
@@ -410,13 +433,35 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
                     # TODO: deal with empty words here
                     ud.words.append(
                         UDWord(
-                            span=current_token_char_span, columns=word_columns, is_multiword=True
+                            identifier=word_columns[0],
+                            form=word_columns[1],
+                            lemma=word_columns[2],
+                            upos=word_columns[3],
+                            xpos=word_columns[4],
+                            feats=word_columns[5],
+                            head=word_columns[6],
+                            deprel=word_columns[7],
+                            deps=word_columns[8],
+                            misc=word_columns[9],
+                            span=current_token_char_span,
+                            is_multiword=True,
                         )
                     )
             # Basic tokens/words
             else:
-                ud.words.append(
-                    UDWord(span=current_token_char_span, columns=columns, is_multiword=False)
+                UDWord(
+                    identifier=columns[0],
+                    form=columns[1],
+                    lemma=columns[2],
+                    upos=columns[3],
+                    xpos=columns[4],
+                    feats=columns[5],
+                    head=columns[6],
+                    deprel=columns[7],
+                    deps=columns[8],
+                    misc=columns[9],
+                    span=current_token_char_span,
+                    is_multiword=False,
                 )
         else:
             raise UDError(f"Cannot parse token ID '{columns[ID]}'")
@@ -498,7 +543,7 @@ def lcs_align(
 
 
 def word_align_key(w: UDWord) -> str:
-    return w.columns[FORM].lower()
+    return w.form.lower()
 
 
 # This could easily handle any number of sequences
@@ -695,23 +740,16 @@ def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> dict[str
         "Tokens": spans_score(gold_ud.tokens, system_ud.tokens),
         "Sentences": spans_score(gold_ud.sentences, system_ud.sentences),
         "Words": alignment_score(alignment),
-        "UPOS": alignment_score(alignment, check=lambda g, s: s.columns[UPOS] == g.columns[UPOS]),
-        "XPOS": alignment_score(alignment, check=lambda g, s: s.columns[XPOS] == g.columns[XPOS]),
-        "UFeats": alignment_score(
-            alignment, check=lambda g, s: s.columns[FEATS] == g.columns[FEATS]
-        ),
+        "UPOS": alignment_score(alignment, check=lambda g, s: s.upos == g.upos),
+        "XPOS": alignment_score(alignment, check=lambda g, s: s.xpos == g.xpos),
+        "UFeats": alignment_score(alignment, check=lambda g, s: s.feats == g.feats),
         "AllTags": alignment_score(
             alignment,
-            check=(
-                lambda g, s: (
-                    (g.columns[UPOS], g.columns[XPOS], g.columns[FEATS])
-                    == (s.columns[UPOS], s.columns[XPOS], s.columns[FEATS])
-                )
-            ),
+            check=(lambda g, s: ((g.upos, g.xpos, g.feats) == (s.upos, s.xpos, s.feats))),
         ),
         "Lemmas": alignment_score(
             alignment,
-            check=lambda g, s: g.columns[LEMMA] == "_" or s.columns[LEMMA] == g.columns[LEMMA],
+            check=lambda g, s: g.lemma == "_" or s.lemma == g.lemma,
         ),
         "UAS": alignment_score(
             alignment,
@@ -719,35 +757,21 @@ def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> dict[str
         ),
         "LAS": alignment_score(
             alignment,
-            check=(
-                lambda g, s: (
-                    are_parents_aligned(alignment, g, s) and s.columns[DEPREL] == s.columns[DEPREL]
-                )
-            ),
+            check=(lambda g, s: (are_parents_aligned(alignment, g, s) and s.deprel == s.deprel)),
         ),
         "CLAS": alignment_score(
             alignment,
-            check=(
-                lambda g, s: (
-                    are_parents_aligned(alignment, g, s) and s.columns[DEPREL] == s.columns[DEPREL]
-                )
-            ),
+            check=(lambda g, s: (are_parents_aligned(alignment, g, s) and s.deprel == s.deprel)),
             words_filter=lambda w: w.is_content_deprel,
         ),
         "MLAS": alignment_score(
             alignment,
             check=lambda g, s: (
                 are_parents_aligned(alignment, g, s)
-                and (
-                    (s.columns[DEPREL], s.columns[UPOS], s.columns[FEATS])
-                    == (g.columns[DEPREL], g.columns[UPOS], g.columns[FEATS])
-                )
+                and ((s.deprel, s.upos, s.feats) == (g.deprel, g.upos, g.feats))
                 and all(
                     alignment.gold_aligned[sc] is gc
-                    and (
-                        (gc.columns[DEPREL], gc.columns[UPOS], gc.columns[FEATS])
-                        == (sc.columns[DEPREL], sc.columns[UPOS], sc.columns[FEATS])
-                    )
+                    and ((gc.deprel, gc.upos, gc.feats) == (sc.deprel, sc.upos, sc.feats))
                     for gc, sc in zip(g.functional_children, s.functional_children, strict=True)
                 ),
             ),
@@ -757,8 +781,8 @@ def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> dict[str
             alignment,
             check=lambda g, s: (
                 are_parents_aligned(alignment, g, s)
-                and s.columns[DEPREL] == s.columns[DEPREL]
-                and (g.columns[LEMMA] == "_" or s.columns[LEMMA] == g.columns[LEMMA]),
+                and s.deprel == s.deprel
+                and (g.lemma == "_" or s.lemma == g.lemma),
             ),
             words_filter=lambda w: w.is_content_deprel,
         ),
