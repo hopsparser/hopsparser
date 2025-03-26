@@ -697,12 +697,6 @@ def alignment_score(
     )
 
 
-def are_parents_aligned(alignment: Alignment, gold_word: UDWord, system_word: UDWord) -> bool:
-    if system_word.parent is None:
-        return gold_word.parent is None
-    return alignment.gold_aligned.get(system_word.parent) is gold_word.parent
-
-
 # Evaluate the gold and system treebanks (loaded using load_conllu).
 def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> dict[str, Score]:
     # Check that the underlying character sequences do match.
@@ -735,6 +729,11 @@ def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> dict[str
     # Align words
     alignment = align_words(gold_ud.words, system_ud.words)
 
+    def are_parents_aligned(gold_word: UDWord, system_word: UDWord) -> bool:
+        if system_word.parent is None:
+            return gold_word.parent is None
+        return alignment.gold_aligned.get(system_word.parent) is gold_word.parent
+
     # Compute the F1-scores
     return {
         "Tokens": spans_score(gold_ud.tokens, system_ud.tokens),
@@ -751,23 +750,20 @@ def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> dict[str
             alignment,
             check=lambda g, s: g.lemma == "_" or s.lemma == g.lemma,
         ),
-        "UAS": alignment_score(
-            alignment,
-            check=lambda g, s: are_parents_aligned(alignment, g, s),
-        ),
+        "UAS": alignment_score(alignment, check=are_parents_aligned),
         "LAS": alignment_score(
             alignment,
-            check=(lambda g, s: (are_parents_aligned(alignment, g, s) and s.deprel == s.deprel)),
+            check=lambda g, s: (are_parents_aligned(g, s) and s.deprel == s.deprel),
         ),
         "CLAS": alignment_score(
             alignment,
-            check=(lambda g, s: (are_parents_aligned(alignment, g, s) and s.deprel == s.deprel)),
+            check=lambda g, s: (are_parents_aligned(g, s) and s.deprel == s.deprel),
             words_filter=lambda w: w.is_content_deprel,
         ),
         "MLAS": alignment_score(
             alignment,
             check=lambda g, s: (
-                are_parents_aligned(alignment, g, s)
+                are_parents_aligned(g, s)
                 and ((s.deprel, s.upos, s.feats) == (g.deprel, g.upos, g.feats))
                 and len(s.functional_children) == len(g.functional_children)
                 and all(
@@ -781,7 +777,7 @@ def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> dict[str
         "BLEX": alignment_score(
             alignment,
             check=lambda g, s: (
-                are_parents_aligned(alignment, g, s)
+                are_parents_aligned(g, s)
                 and s.deprel == s.deprel
                 and (g.lemma == "_" or s.lemma == g.lemma),
             ),
