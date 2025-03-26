@@ -260,10 +260,10 @@ class Alignment:
     gold_words: Sequence[UDWord]
     system_words: Sequence[UDWord]
     matched_words: list[AlignmentWord]
-    matched_words_map: dict[UDWord, UDWord] = field(default_factory=dict, init=False)
+    gold_aligned: dict[UDWord, UDWord] = field(default_factory=dict, init=False)
 
     def __post_init__(self):
-        self.matched_words_map = {a.system_word: a.gold_word for a in self.matched_words}
+        self.gold_aligned = {a.system_word: a.gold_word for a in self.matched_words}
 
 
 # Would probably be even more efficient with numpy arrays
@@ -624,51 +624,25 @@ def spans_score(gold_spans: Sequence[Span], system_spans: Sequence[Span]) -> Sco
     )
 
 
-class _NOT_ALIGNED:  # noqa: N801
-    pass
-
-
-class _ROOT:  # noqa: N801
-    pass
-
-
 def alignment_score(
     alignment: Alignment,
-    key_fn: Callable[
-        [UDWord, Callable[[UDWord | None], UDWord | type[_NOT_ALIGNED] | type[_ROOT]]], Any
-    ]
-    | None = None,
-    filter_fn: Callable[[UDWord], Any] | None = None,
+    check: Callable[[UDWord, UDWord], Any] | None = None,
+    words_filter: Callable[[UDWord], Any] | None = None,
 ) -> Score:
-    if filter_fn is not None:
-        n_gold = sum(1 for gold in alignment.gold_words if filter_fn(gold))
-        n_system = sum(1 for system in alignment.system_words if filter_fn(system))
-        aligned = [word for word in alignment.matched_words if filter_fn(word.gold_word)]
+    if words_filter is not None:
+        n_gold = sum(1 for gold in alignment.gold_words if words_filter(gold))
+        n_system = sum(1 for system in alignment.system_words if words_filter(system))
+        aligned = [word for word in alignment.matched_words if words_filter(word.gold_word)]
     else:
         n_gold = len(alignment.gold_words)
         n_system = len(alignment.system_words)
         aligned = alignment.matched_words
 
-    if key_fn is None:
+    if check is None:
         # Return score for whole aligned words
         return Score(correct=len(aligned), gold_total=n_gold, system_total=n_system)
 
-    def gold_aligned_gold(word: UDWord | None) -> UDWord | type[_ROOT]:
-        if word is None:
-            return _ROOT
-        return word
-
-    def gold_aligned_system(word: UDWord | None) -> UDWord | type[_NOT_ALIGNED] | type[_ROOT]:
-        if word is None:
-            return _ROOT
-        return alignment.matched_words_map.get(word, _NOT_ALIGNED)
-
-    correct = sum(
-        1
-        for words in aligned
-        if key_fn(words.gold_word, gold_aligned_gold)
-        == key_fn(words.system_word, gold_aligned_system)
-    )
+    correct = sum(1 for words in aligned if check(words.gold_word, words.system_word))
 
     return Score(
         aligned_total=len(aligned),
@@ -676,6 +650,12 @@ def alignment_score(
         gold_total=n_gold,
         system_total=n_system,
     )
+
+
+def are_parents_aligned(alignment: Alignment, gold_word: UDWord, system_word: UDWord) -> bool:
+    if system_word.parent is None:
+        return gold_word.parent is None
+    return alignment.gold_aligned.get(system_word.parent) is gold_word.parent
 
 
 # Evaluate the gold and system treebanks (loaded using load_conllu).
@@ -715,46 +695,72 @@ def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> dict[str
         "Tokens": spans_score(gold_ud.tokens, system_ud.tokens),
         "Sentences": spans_score(gold_ud.sentences, system_ud.sentences),
         "Words": alignment_score(alignment),
-        "UPOS": alignment_score(alignment, lambda w, _: w.columns[UPOS]),
-        "XPOS": alignment_score(alignment, lambda w, _: w.columns[XPOS]),
-        "UFeats": alignment_score(alignment, lambda w, _: w.columns[FEATS]),
+        "UPOS": alignment_score(alignment, check=lambda g, s: s.columns[UPOS] == g.columns[UPOS]),
+        "XPOS": alignment_score(alignment, check=lambda g, s: s.columns[XPOS] == g.columns[XPOS]),
+        "UFeats": alignment_score(
+            alignment, check=lambda g, s: s.columns[FEATS] == g.columns[FEATS]
+        ),
         "AllTags": alignment_score(
-            alignment, lambda w, _: (w.columns[UPOS], w.columns[XPOS], w.columns[FEATS])
+            alignment,
+            check=(
+                lambda g, s: (
+                    (g.columns[UPOS], g.columns[XPOS], g.columns[FEATS])
+                    == (s.columns[UPOS], s.columns[XPOS], s.columns[FEATS])
+                )
+            ),
         ),
         "Lemmas": alignment_score(
             alignment,
-            lambda w, ga: w.columns[LEMMA] if ga(w).columns[LEMMA] != "_" else "_",
+            check=lambda g, s: g.columns[LEMMA] == "_" or s.columns[LEMMA] == g.columns[LEMMA],
         ),
-        # FIXME: this collapses all roots together
-        "UAS": alignment_score(alignment, lambda w, ga: ga(w.parent)),
-        "LAS": alignment_score(alignment, lambda w, ga: (ga(w.parent), w.columns[DEPREL])),
+        "UAS": alignment_score(
+            alignment,
+            check=lambda g, s: are_parents_aligned(alignment, g, s),
+        ),
+        "LAS": alignment_score(
+            alignment,
+            check=(
+                lambda g, s: (
+                    are_parents_aligned(alignment, g, s) and s.columns[DEPREL] == s.columns[DEPREL]
+                )
+            ),
+        ),
         "CLAS": alignment_score(
             alignment,
-            lambda w, ga: (ga(w.parent), w.columns[DEPREL]),
-            filter_fn=lambda w: w.is_content_deprel,
+            check=(
+                lambda g, s: (
+                    are_parents_aligned(alignment, g, s) and s.columns[DEPREL] == s.columns[DEPREL]
+                )
+            ),
+            words_filter=lambda w: w.is_content_deprel,
         ),
         "MLAS": alignment_score(
             alignment,
-            lambda w, ga: (
-                ga(w.parent),
-                w.columns[DEPREL],
-                w.columns[UPOS],
-                w.columns[FEATS],
-                [
-                    (ga(c), c.columns[DEPREL], c.columns[UPOS], c.columns[FEATS])
-                    for c in w.functional_children
-                ],
+            check=lambda g, s: (
+                are_parents_aligned(alignment, g, s)
+                and (
+                    (s.columns[DEPREL], s.columns[UPOS], s.columns[FEATS])
+                    == (g.columns[DEPREL], g.columns[UPOS], g.columns[FEATS])
+                )
+                and all(
+                    alignment.gold_aligned[sc] is gc
+                    and (
+                        (gc.columns[DEPREL], gc.columns[UPOS], gc.columns[FEATS])
+                        == (sc.columns[DEPREL], sc.columns[UPOS], sc.columns[FEATS])
+                    )
+                    for gc, sc in zip(g.functional_children, s.functional_children, strict=True)
+                ),
             ),
-            filter_fn=lambda w: w.is_content_deprel,
+            words_filter=lambda w: w.is_content_deprel,
         ),
         "BLEX": alignment_score(
             alignment,
-            lambda w, ga: (
-                ga(w.parent),
-                w.columns[DEPREL],
-                w.columns[LEMMA] if ga(w).columns[LEMMA] != "_" else "_",
+            check=lambda g, s: (
+                are_parents_aligned(alignment, g, s)
+                and s.columns[DEPREL] == s.columns[DEPREL]
+                and (g.columns[LEMMA] == "_" or s.columns[LEMMA] == g.columns[LEMMA]),
             ),
-            filter_fn=lambda w: w.is_content_deprel,
+            words_filter=lambda w: w.is_content_deprel,
         ),
     }
 
