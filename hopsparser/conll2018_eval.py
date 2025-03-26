@@ -374,7 +374,7 @@ def read_line(line: str, expected_id: str) -> Sequence[str]:
     # Let's ignore language-specific deprel subtypes.
     # TODO: OR MAYBE DON'T??????
     columns[DEPREL] = columns[DEPREL].split(":")[0]
-    return tuple(columns)
+    return columns
 
 
 # Load given CoNLL-U file into internal representation
@@ -419,52 +419,52 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
         char_index += len(columns[FORM])
 
         # TODO: improve parsing here
-        if m := re.match(r"(?P<start>\d+)(-(?P<end>\d+))?", columns[ID]):
-            # Multi-word tokens
-            if m.group("end"):
-                start = int(m.group("start"))
-                end = int(m.group("end"))
-                ud.multi_words.append(columns)
-                for _ in range(start, end + 1):
-                    word_line = next(lines_itr).rstrip()
-                    word_columns = read_line(
-                        word_line, expected_id=str(len(ud.words) - sentence_start_word + 1)
+        if not (m := re.match(r"(?P<start>\d+)(-(?P<end>\d+))?", columns[ID])):
+            raise UDError(f"Cannot parse token ID '{columns[ID]}'")
+
+        # Multi-word tokens
+        if m.group("end"):
+            start = int(m.group("start"))
+            end = int(m.group("end"))
+            ud.multi_words.append(columns)
+            for i in range(start, end + 1):
+                word_line = next(lines_itr).rstrip()
+                word_columns = read_line(word_line, expected_id=str(i))
+                # TODO: deal with empty words here
+                ud.words.append(
+                    UDWord(
+                        identifier=word_columns[ID],
+                        form=word_columns[FORM],
+                        lemma=word_columns[LEMMA],
+                        upos=word_columns[UPOS],
+                        xpos=word_columns[XPOS],
+                        feats=word_columns[FEATS],
+                        head=word_columns[HEAD],
+                        deprel=word_columns[DEPREL],
+                        deps=word_columns[DEPS],
+                        misc=word_columns[MISC],
+                        span=current_token_char_span,
+                        is_multiword=True,
                     )
-                    # TODO: deal with empty words here
-                    ud.words.append(
-                        UDWord(
-                            identifier=word_columns[0],
-                            form=word_columns[1],
-                            lemma=word_columns[2],
-                            upos=word_columns[3],
-                            xpos=word_columns[4],
-                            feats=word_columns[5],
-                            head=word_columns[6],
-                            deprel=word_columns[7],
-                            deps=word_columns[8],
-                            misc=word_columns[9],
-                            span=current_token_char_span,
-                            is_multiword=True,
-                        )
-                    )
-            # Basic tokens/words
-            else:
+                )
+        # Basic tokens/words
+        else:
+            ud.words.append(
                 UDWord(
-                    identifier=columns[0],
-                    form=columns[1],
-                    lemma=columns[2],
-                    upos=columns[3],
-                    xpos=columns[4],
-                    feats=columns[5],
-                    head=columns[6],
-                    deprel=columns[7],
-                    deps=columns[8],
-                    misc=columns[9],
+                    identifier=columns[ID],
+                    form=columns[FORM],
+                    lemma=columns[LEMMA],
+                    upos=columns[UPOS],
+                    xpos=columns[XPOS],
+                    feats=columns[FEATS],
+                    head=columns[HEAD],
+                    deprel=columns[DEPREL],
+                    deps=columns[DEPS],
+                    misc=columns[MISC],
                     span=current_token_char_span,
                     is_multiword=False,
                 )
-        else:
-            raise UDError(f"Cannot parse token ID '{columns[ID]}'")
+            )
 
     # FIXME: remove this, we are not a validator anyway
     if sentence_start_word is not None:
