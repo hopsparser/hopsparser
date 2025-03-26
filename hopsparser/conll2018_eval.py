@@ -428,77 +428,6 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
     return ud
 
 
-def spans_score(gold_spans: Sequence[Span], system_spans: Sequence[Span]) -> Score:
-    """Compute an accuracy score for the intersection of sorted spans sequences that might have
-    duplicates."""
-    # We could make this one operate on iterables by keeping track of the lengths but that's useless
-    # for us here.
-    correct = 0
-    gold_itr = iter(gold_spans)
-    system_itr = iter(system_spans)
-    g = next(gold_itr)
-    s = next(system_itr)
-    with suppress(StopIteration):
-        # This could be slightly optimized because we know that consecutive spans are of either `(n,
-        # k), (k+1, ℓ)` or `(n, k), (n, k)` forms. But we don't need that extra complexity
-        if g.start < s.start:
-            g = next(gold_itr)
-        elif s.start < g.start:
-            s = next(system_itr)
-        else:
-            # At this point we know that `g.start == s.start`
-            if g.end == s.end:
-                correct += 1
-            g = next(gold_itr)
-            s = next(system_itr)
-
-    return Score(
-        correct=correct,
-        gold_total=len(gold_spans),
-        system_total=len(system_spans),
-    )
-
-
-def alignment_score(
-    alignment: Alignment,
-    key_fn: Callable[[UDWord, Callable[[UDWord | None], Any]], Any] | None = None,
-    filter_fn: Callable[[UDWord], bool] | None = None,
-) -> Score:
-    if filter_fn is not None:
-        gold = sum(1 for gold in alignment.gold_words if filter_fn(gold))
-        system = sum(1 for system in alignment.system_words if filter_fn(system))
-        aligned = sum(1 for word in alignment.matched_words if filter_fn(word.gold_word))
-    else:
-        gold = len(alignment.gold_words)
-        system = len(alignment.system_words)
-        aligned = len(alignment.matched_words)
-
-    if key_fn is None:
-        # Return score for whole aligned words
-        return Score(correct=aligned, gold_total=gold, system_total=system)
-
-    def gold_aligned_gold(word: UDWord | None) -> UDWord | None:
-        return word
-
-    def gold_aligned_system(word: UDWord | None) -> UDWord | Literal["NotAligned"] | None:
-        return alignment.matched_words_map.get(word, "NotAligned") if word is not None else None
-
-    correct = 0
-    for words in alignment.matched_words:
-        if filter_fn is None or filter_fn(words.gold_word):
-            if key_fn(words.gold_word, gold_aligned_gold) == key_fn(
-                words.system_word, gold_aligned_system
-            ):
-                correct += 1
-
-    return Score(
-        aligned_total=aligned,
-        correct=correct,
-        gold_total=gold,
-        system_total=system,
-    )
-
-
 def _couple_eq(t: tuple[T, T]) -> bool:
     return t[0] == t[1]
 
@@ -661,6 +590,91 @@ def align_words(gold_words: Sequence[UDWord], system_words: Sequence[UDWord]) ->
         gold_words=gold_words,
         system_words=system_words,
         matched_words=[AlignmentWord(g, s) for g, s in alignment],
+    )
+
+
+def spans_score(gold_spans: Sequence[Span], system_spans: Sequence[Span]) -> Score:
+    """Compute an accuracy score for the intersection of sorted spans sequences that might have
+    duplicates."""
+    # We could make this one operate on iterables by keeping track of the lengths but that's useless
+    # for us here.
+    correct = 0
+    gold_itr = iter(gold_spans)
+    system_itr = iter(system_spans)
+    g = next(gold_itr)
+    s = next(system_itr)
+    with suppress(StopIteration):
+        # This could be slightly optimized because we know that consecutive spans are of either `(n,
+        # k), (k+1, ℓ)` or `(n, k), (n, k)` forms. But we don't need that extra complexity
+        if g.start < s.start:
+            g = next(gold_itr)
+        elif s.start < g.start:
+            s = next(system_itr)
+        else:
+            # At this point we know that `g.start == s.start`
+            if g.end == s.end:
+                correct += 1
+            g = next(gold_itr)
+            s = next(system_itr)
+
+    return Score(
+        correct=correct,
+        gold_total=len(gold_spans),
+        system_total=len(system_spans),
+    )
+
+
+class _NOT_ALIGNED:  # noqa: N801
+    pass
+
+
+class _ROOT:  # noqa: N801
+    pass
+
+
+def alignment_score(
+    alignment: Alignment,
+    key_fn: Callable[
+        [UDWord, Callable[[UDWord | None], UDWord | type[_NOT_ALIGNED] | type[_ROOT]]], Any
+    ]
+    | None = None,
+    filter_fn: Callable[[UDWord], Any] | None = None,
+) -> Score:
+    if filter_fn is not None:
+        n_gold = sum(1 for gold in alignment.gold_words if filter_fn(gold))
+        n_system = sum(1 for system in alignment.system_words if filter_fn(system))
+        aligned = [word for word in alignment.matched_words if filter_fn(word.gold_word)]
+    else:
+        n_gold = len(alignment.gold_words)
+        n_system = len(alignment.system_words)
+        aligned = alignment.matched_words
+
+    if key_fn is None:
+        # Return score for whole aligned words
+        return Score(correct=len(aligned), gold_total=n_gold, system_total=n_system)
+
+    def gold_aligned_gold(word: UDWord | None) -> UDWord | type[_ROOT]:
+        if word is None:
+            return _ROOT
+        return word
+
+    def gold_aligned_system(word: UDWord | None) -> UDWord | type[_NOT_ALIGNED] | type[_ROOT]:
+        if word is None:
+            return _ROOT
+        return alignment.matched_words_map.get(word, _NOT_ALIGNED)
+
+    correct = sum(
+        1
+        for words in aligned
+        if key_fn(words.gold_word, gold_aligned_gold)
+        == key_fn(words.system_word, gold_aligned_system)
+    )
+
+    return Score(
+        aligned_total=len(aligned),
+        correct=correct,
+        gold_total=n_gold,
+        system_total=n_system,
     )
 
 
