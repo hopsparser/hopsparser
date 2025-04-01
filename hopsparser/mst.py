@@ -1,7 +1,6 @@
 from typing import cast
 
 import numpy as np
-import numpy.typing as npt
 
 
 # FIXME: we don't actually need this in CLE: we only need one critical cycle
@@ -62,7 +61,9 @@ def tarjan(tree: np.ndarray) -> list[np.ndarray]:
 
 # Floyd's etc cycle-finding algos are useless here: the function here is already fully tabulated so
 # there's no saving space, and this is at worst `len(tree)-1` operations if there's no cycle.
-def detect_cycle(heads: npt.NDArray[np.intp]) -> npt.NDArray[np.bool_] | None:
+def detect_cycle(
+    heads: np.ndarray[tuple[int], np.dtype[np.intp]],
+) -> np.ndarray[tuple[int], np.dtype[np.bool_]] | None:
     """Find a circle in a directed graph where each node has an outdegree of 1 (maximal directed
     pseudoforest, functional graph) and the 0-th node is self-looping.
 
@@ -95,7 +96,10 @@ def detect_cycle(heads: npt.NDArray[np.intp]) -> npt.NDArray[np.bool_] | None:
             # Found a cycle!
             cycle_start = parent
             cycle_pointer = parent
-            cycle = np.zeros_like(heads, dtype=bool)
+            # Pyright isn't good at propagating shape typing yet
+            cycle = cast(
+                np.ndarray[tuple[int], np.dtype[np.bool_]], np.zeros_like(heads, dtype=bool)
+            )
             cycle[cycle_start] = True
             while (cycle_pointer := heads[cycle_pointer]) != cycle_start:
                 cycle[cycle_pointer] = True
@@ -103,7 +107,9 @@ def detect_cycle(heads: npt.NDArray[np.intp]) -> npt.NDArray[np.bool_] | None:
 
 
 # TODO: split out a `contraction` function to make this more readable
-def chuliu_edmonds(scores: npt.NDArray[np.floating]) -> npt.NDArray[np.intp]:
+def chuliu_edmonds(
+    scores: np.ndarray[tuple[int, int], np.dtype[np.floating]],
+) -> np.ndarray[tuple[int], np.dtype[np.intp]]:
     """Use the Chu‑Liu/Edmonds algorithm to find a maximum spanning arborescence from the weight
     matrix of a rooted weighted directed graph
 
@@ -119,7 +125,7 @@ def chuliu_edmonds(scores: npt.NDArray[np.floating]) -> npt.NDArray[np.intp]:
     np.fill_diagonal(scores, -np.inf)  # prevent self-loops
     scores[0] = -np.inf
     scores[0, 0] = 0
-    tree = cast(npt.NDArray[np.intp], np.argmax(scores, axis=1))
+    tree = cast(np.ndarray[tuple[int], np.dtype[np.intp]], np.argmax(scores, axis=1))
     # locations of cycle; (t) in [0,1]
     cycle = detect_cycle(tree)
     if cycle is None:
@@ -157,7 +163,8 @@ def chuliu_edmonds(scores: npt.NDArray[np.floating]) -> npt.NDArray[np.intp]:
         subscores = np.pad(subscores, ((0, 1), (0, 1)), "constant")
         # set the contracted graph scores of cycle's potential heads; (c x n)[:, (n) in n] in R -> (n) in R
         subscores[-1, :-1] = metanode_head_scores[metanode_heads, np.arange(len(noncycle_locs))]
-        # set the contracted graph scores of cycle's potential dependents; (n x c)[(n) in n] in R-> (n) in R
+        # set the contracted graph scores of cycle's potential dependents; (n x c)[(n) in n] in R->
+        # (n) in R
         subscores[:-1, -1] = metanode_dep_scores[np.arange(len(noncycle_locs)), metanode_deps]
 
         # MST with contraction; (n+1) in n+1
@@ -188,19 +195,24 @@ def chuliu_edmonds(scores: npt.NDArray[np.floating]) -> npt.NDArray[np.intp]:
 
 
 def _set_root(
-    scores: npt.NDArray[np.floating], root: int
-) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
+    scores: np.ndarray[tuple[int, int], np.dtype[np.floating]], root: int
+) -> tuple[
+    np.ndarray[tuple[int, int], np.dtype[np.floating]],
+    np.ndarray[tuple[int], np.dtype[np.floating]],
+]:
     """Force the `root`-th node to be the only node under the root by overwriting the weights of
     the other children of the root."""
     root_score = scores[root, 0]
-    scores = np.array(scores)
+    scores = scores.copy()
     scores[1:, 0] = -np.inf
     scores[root] = -np.inf
     scores[root, 0] = 0.0
     return scores, root_score
 
 
-def chuliu_edmonds_one_root(scores: npt.NDArray[np.floating]) -> npt.NDArray[np.intp]:
+def chuliu_edmonds_one_root(
+    scores: np.ndarray[tuple[int, int], np.dtype[np.floating]],
+) -> np.ndarray[tuple[int], np.dtype[np.intp]]:
     """Repeatedly Use the Chu‑Liu/Edmonds algorithm to find a maximum spanning dependency tree from
     the weight matrix of a rooted weighted directed graph.
 
