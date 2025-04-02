@@ -57,17 +57,18 @@ def seq_to_heads(
 
     # At this point we have set `n-1` arcs, so we have retrieved all the arcs of the original tree
     # and we only need to be sure that they are in the right direction for our arborescence, which
-    # is the case: at this point the neighbours of a non-root node `i` are exactly `heads[i]` and
-    # the nodes `j` such that `heads[j] == i`. Now if we say that a non-root node `i` is *correctly
-    # oriented* iff `heads[i]` is its actual head in the arborescence, then:
+    # is the case: at this point the neighbours of a node `i` are exactly the nodes `j` such that
+    # `heads[j] == i`, plus `heads[i]` if `i != root`. Now if we say that a non-root node `i` is
+    # *correctly oriented* iff `heads[i]` is its actual head in the arborescence, then:
     #
-    # - Every child `i` of `root` is correctly oriented: since it's a neighbour of `root` and
-    #   `heads[root]` is -1 (so not pointing to anything), we must have `heads[i] == root`.
-    # - If a node `i` is correctly oriented, then for every child `j` of `i`, since `j` is neighbour
-    #   of `i` and `heads[i] != j` (because `j` is not the head of `i`), we must have `heads[j] ==
-    #   i`, and therefore `j` is correctly oriented.
+    # - Every child `i` of `root` is correctly oriented: since it's a neighbour of `root`, we must
+    #   have `heads[i] == root`.
+    # - If a non-root node `i` is correctly oriented, then for every child `j` of `i`, since `j` is
+    #   neighbour of `i` and `heads[i] != j` (because `i` is correctly oriented), we must have
+    #   `heads[j] == i`. Therefore `j` is correctly oriented.
     #
-    # Therefore, by induction, all the nodes are correctly oriented.
+    # Therefore, by induction, all the non-root nodes are correctly oriented, so we have the correct
+    # head sequence.
 
     return heads
 
