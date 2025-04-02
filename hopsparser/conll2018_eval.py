@@ -466,7 +466,8 @@ def load_conllu(file: Iterable[str]) -> UDRepresentation:
                 )
             )
 
-    # FIXME: remove this, we are not a validator anyway
+    # FIXME: remove this, we are not a validator anyway, this requires us to flush the last sentence
+    # manually though
     if sentence_start_word is not None:
         raise UDError("The CoNLL-U file does not end with an empty line")
 
