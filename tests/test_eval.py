@@ -33,38 +33,43 @@ def seq_to_heads(
     # that's a min-heap, ty Python
     heapq.heapify(leaves)
 
-    arcs = np.full(n, fill_value=-1, dtype=np.intp)
+    heads = np.full(n, fill_value=-1, dtype=np.intp)
 
     # We are replaying the sequence building: at each step, the node `i` that was popped and whose
     # sole neighbour `j` got put in the sequence was the leaf with the lowest index that is not the
-    # root. So if we see `j` in the sequence, we only need to find `i` in the same way.
-    for head in seq:
+    # root. So if we see `j` in the sequence, we only need to find `i` in the same way and set
+    # `heads[i] = j`. Since `i` is then removed from the leaves heap, we can't overwrite it.
+    # At the end, we will have set `n-2` arcs
+    for h in seq:
         leaf = heapq.heappop(leaves)
-        arcs[leaf] = head
+        heads[leaf] = h
         # We have seen all the neighbours of `head` but one, and it is not the root (otherwise its
         # "degree" would be 0, so it becomes a leaf.
-        if degrees[head] == 2:
+        if degrees[h] == 2:
             # Slightly less efficient than heapreplace but more legible
-            heapq.heappush(leaves, head)
-        elif head != root:
-            degrees[head] -= 1
+            heapq.heappush(leaves, h)
+        elif h != root:
+            degrees[h] -= 1
 
     # There's two nodes left unpopped after building the Prüfer sequence: the root, and that last
-    # leaf that's still in the heap and whose head can only be the root
-    arcs[leaves[0]] = root
+    # leaf that's still in the heap and whose head can only be the root.
+    heads[leaves[0]] = root
 
-    #  The arcs here give us the correct heads for a root at `n-1`: at
-    # this point the neighbours of a non-root node `i` are exactly `arcs[i]` and the nodes `j` such
-    # that `arcs[j] == i`. Now if we say that a non-root node `i` is *correctly oriented* iff
-    # `arcs[i]` is its head in the `n-1`-rooted arborescence, then:
-    # - Every child `i` of `n-1` is correctly oriented: since it's a neighbour of `n-1` and
-    #   `arcs[n-1]` doesn't exist, we must have `arcs[i] == n-1`.
+    # At this point we have set `n-1` arcs, so we have retrieved all the arcs of the original tree
+    # and we only need to be sure that they are in the right direction for our arborescence, which
+    # is the case: at this point the neighbours of a non-root node `i` are exactly `heads[i]` and
+    # the nodes `j` such that `heads[j] == i`. Now if we say that a non-root node `i` is *correctly
+    # oriented* iff `heads[i]` is its actual head in the arborescence, then:
+    #
+    # - Every child `i` of `root` is correctly oriented: since it's a neighbour of `root` and
+    #   `heads[root]` is -1 (so not pointing to anything), we must have `heads[i] == root`.
     # - If a node `i` is correctly oriented, then for every child `j` of `i`, since `j` is neighbour
-    #   of `i` and `arcs[i] != j` (because `j` is not the head of `i`), we must have `arcs[j] == i`,
-    #   and therefore `j` is correctly oriented. And therefore, by induction, all the nodes are
-    # correctly oriented.
+    #   of `i` and `heads[i] != j` (because `j` is not the head of `i`), we must have `heads[j] ==
+    #   i`, and therefore `j` is correctly oriented.
+    #
+    # Therefore, by induction, all the nodes are correctly oriented.
 
-    return arcs
+    return heads
 
 
 def heads_to_seq(
