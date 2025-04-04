@@ -6,13 +6,10 @@ from abc import abstractmethod
 from typing import (
     Final,
     Iterable,
-    List,
     Literal,
     NamedTuple,
-    Optional,
     Protocol,
     Sequence,
-    Set,
     Type,
     TypeVar,
     cast,
@@ -38,7 +35,7 @@ from typing_extensions import Self
 
 
 class LexingError(Exception):
-    def __init__(self, message: str, sentence: Optional[str] = None):
+    def __init__(self, message: str, sentence: str | None = None):
         self.message = message
         self.sentence = sentence
         super().__init__(self.message)
@@ -77,7 +74,7 @@ class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH]):
 
 class CharRNNLexerBatch(NamedTuple):
     encoding: torch.Tensor
-    sent_lengths: List[int]
+    sent_lengths: list[int]
     word_lengths: torch.Tensor
 
     def to(self, device: str | torch.device) -> Self:
@@ -107,7 +104,7 @@ class CharRNNLexer(nn.Module):
         char_embeddings_dim: int,
         charset: Sequence[str],
         output_dim: int,
-        special_tokens: Optional[Iterable[str]] = None,
+        special_tokens: Iterable[str] | None = None,
     ):
         """Create a new CharRNNLexer.
 
@@ -180,7 +177,7 @@ class CharRNNLexer(nn.Module):
                 res = [self.pad_idx]
         return torch.tensor(res, dtype=torch.long)
 
-    def encode(self, tokens_sequence: Sequence[str]) -> List[torch.Tensor]:
+    def encode(self, tokens_sequence: Sequence[str]) -> list[torch.Tensor]:
         """Map word tokens to integer indices.
 
         Returns a tensor of shape `sentence_len×max_word_len`
@@ -248,7 +245,7 @@ class FastTextLexer(nn.Module):
     def __init__(
         self,
         fasttext_model: fasttext.FastText._FastText,
-        special_tokens: Optional[Iterable[str]] = None,
+        special_tokens: Iterable[str] | None = None,
     ):
         super().__init__()
         self.fasttext_model = fasttext_model
@@ -277,7 +274,7 @@ class FastTextLexer(nn.Module):
         )
         weights.requires_grad = True
         self.embeddings = nn.Embedding.from_pretrained(weights, padding_idx=self.vocab_size)
-        self.special_tokens: Set = set([] if special_tokens is None else special_tokens)
+        self.special_tokens = set([] if special_tokens is None else special_tokens)
         self.special_tokens_idx: Final[int] = self.vocab_size + 1
         self.pad_idx: Final[int] = cast(int, self.embeddings.padding_idx)
 
@@ -419,7 +416,7 @@ class FastTextLexer(nn.Module):
     @classmethod
     def from_sents(
         cls,
-        sents: Iterable[List[str]],
+        sents: Iterable[list[str]],
         **kwargs,
     ) -> Self:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -487,7 +484,7 @@ class WordEmbeddingsLexer(nn.Module):
 
     def make_batch(self, batch: Sequence[torch.Tensor]) -> torch.Tensor:
         """Pad a batch of sentences with zeros."""
-        return pad_sequence(cast(List, batch), padding_value=0, batch_first=True)
+        return pad_sequence(cast(list, batch), padding_value=0, batch_first=True)
 
     def save(self, model_path: pathlib.Path, save_weights: bool = True):
         model_path.mkdir(exist_ok=True, parents=True)
@@ -574,13 +571,13 @@ def align_with_special_tokens(
     mask: Sequence[int],
     special_tokens_code: int = 1,
     sequence_tokens_code: int = 0,
-) -> List[TokenSpan]:
+) -> list[TokenSpan]:
     """Provide a word→subwords alignements using an encoded sentence special tokens mask.
 
     This is only useful for the non-fast 🤗 tokenizers, since the fast ones have native APIs to do
     that, we also return 🤗 `TokenSpan`s for compatibility with this API.
     """
-    res: List[TokenSpan] = []
+    res: list[TokenSpan] = []
     pos = 0
     for length in word_lengths:
         while mask[pos] == special_tokens_code:
@@ -606,7 +603,7 @@ class BertLexer(nn.Module):
 
     def __init__(
         self,
-        layers: Optional[Sequence[int]],
+        layers: Sequence[int] | None,
         model: transformers.PreTrainedModel,
         subwords_reduction: Literal["first", "mean"],
         tokenizer: transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast,
@@ -764,7 +761,7 @@ class BertLexer(nn.Module):
             ]
             i = next((i for i, a in enumerate(alignments) if a is None), None)
             if i is None:
-                return BertLexerSentence(bert_encoding, cast(List[TokenSpan], alignments))
+                return BertLexerSentence(bert_encoding, cast(list[TokenSpan], alignments))
             logger.debug(
                 "Unencodable tokens, switching to non-fast tokenization for sentence {unrooted_tok_sequence[i]!r}."
             )

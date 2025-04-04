@@ -4,7 +4,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
-from typing import Literal, Optional, Sequence, TextIO, Tuple
+from typing import Literal, Sequence, TextIO
 
 import click
 from loguru import logger
@@ -70,7 +70,7 @@ def cli():
     help="Instead of a CoNLL-U file, take as input a document with one sentence per line, with tokens separated by spaces.",
 )
 def parse(
-    batch_size: Optional[int],
+    batch_size: int | None,
     device: str,
     ignore_unencodable: bool,
     input_path: str,
@@ -137,13 +137,13 @@ def parse(
 @verbose_opt
 def train(
     config_file: pathlib.Path,
-    dev_file: Optional[pathlib.Path],
+    dev_file: pathlib.Path | None,
     device: str,
-    max_tree_length: Optional[int],
+    max_tree_length: int | None,
     output_dir: pathlib.Path,
     overwrite: bool,
     rand_seed: int,
-    test_file: Optional[pathlib.Path],
+    test_file: pathlib.Path | None,
     train_file: pathlib.Path,
     verbose: bool,
 ):
@@ -254,15 +254,15 @@ def train(
 @verbose_opt
 def train_multi(
     config_file: pathlib.Path,
-    dev_file: Sequence[Tuple[str, pathlib.Path]],
+    dev_file: Sequence[tuple[str, pathlib.Path]],
     device: str,
-    max_tree_length: Optional[int],
+    max_tree_length: int | None,
     origin_label_name: str,
     output_dir: pathlib.Path,
     overwrite: bool,
     rand_seed: int,
-    test_file: Sequence[Tuple[str, pathlib.Path]],
-    train_file: Sequence[Tuple[str, TextIO]],
+    test_file: Sequence[tuple[str, pathlib.Path]],
+    train_file: Sequence[tuple[str, TextIO]],
     verbose: bool,
 ):
     output_dir.mkdir(exist_ok=True, parents=True)

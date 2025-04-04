@@ -3,12 +3,9 @@ import itertools
 import re
 from dataclasses import dataclass
 from typing import (
-    Dict,
     Iterable,
-    List,
     Mapping,
     NamedTuple,
-    Optional,
     Sequence,
     cast,
 )
@@ -17,13 +14,12 @@ from loguru import logger
 from typing_extensions import Self
 
 
-# FIXME: This should be `collections.abc.Sequence[str]` as soon as we can drop py38
-class Misc(collections.abc.Sequence):
-    def __init__(self, elements: Optional[Sequence[str]] = None):
+class Misc(collections.abc.Sequence[str]):
+    def __init__(self, elements: Sequence[str] | None = None):
         if elements is None:
             elements = []
         self._lst = list(elements)
-        self.mapping: Dict[str, str] = dict()
+        self.mapping: Mapping[str, str] = dict()
         self._parse()
 
     def _parse(self):
@@ -93,11 +89,11 @@ class EmptyNode(NamedTuple):
     after_node: int
     identifier: str
     form: str
-    lemma: Optional[str]
-    upos: Optional[str]
-    xpos: Optional[str]
-    feats: Optional[str]
-    deps: Optional[str]
+    lemma: str | None
+    upos: str | None
+    xpos: str | None
+    feats: str | None
+    deps: str | None
     misc: Misc
 
     def to_conll(self) -> str:
@@ -125,13 +121,13 @@ class EmptyNode(NamedTuple):
 class DepNode:
     identifier: int
     form: str
-    lemma: Optional[str]
-    upos: Optional[str]
-    xpos: Optional[str]
-    feats: Optional[str]
-    head: Optional[int]
-    deprel: Optional[str]
-    deps: Optional[str]
+    lemma: str | None
+    upos: str | None
+    xpos: str | None
+    feats: str | None
+    head: int | None
+    deprel: str | None
+    deps: str | None
     misc: Misc
 
     def to_conll(self) -> str:
@@ -161,9 +157,9 @@ class DepGraph:
     def __init__(
         self,
         nodes: Iterable[DepNode],
-        empty_nodes: Optional[Iterable[EmptyNode]] = None,
-        mwe_ranges: Optional[Iterable[MWERange]] = None,
-        metadata: Optional[Iterable[str]] = None,
+        empty_nodes: Iterable[EmptyNode] | None = None,
+        mwe_ranges: Iterable[MWERange] | None = None,
+        metadata: Iterable[str] | None = None,
     ):
         self.nodes = list(nodes)
 
@@ -184,34 +180,34 @@ class DepGraph:
         self.metadata = [] if metadata is None else list(metadata)
 
     @property
-    def words(self) -> List[str]:
+    def words(self) -> list[str]:
         """
         A list where each element list[i] is the form of the word at position i.
         """
         return [self.ROOT_TOKEN, *(n.form for n in self.nodes)]
 
     @property
-    def pos_tags(self) -> List[Optional[str]]:
+    def pos_tags(self) -> list[str | None]:
         """A list where each element list[i] is the upos of the word at position i."""
         return [None, *(n.upos for n in self.nodes)]
 
     @property
-    def heads(self) -> List[Optional[int]]:
+    def heads(self) -> list[int | None]:
         """A list where each element list[i] is the index of the position of the governor of the
         word at position i."""
         return [None, *(n.head for n in self.nodes)]
 
     @property
-    def deprels(self) -> List[Optional[str]]:
+    def deprels(self) -> list[str | None]:
         """A list where each element list[i] is the dependency label of the word at position i."""
         return [None, *(n.deprel for n in self.nodes)]
 
     def replace(
         self,
-        heads: Optional[Mapping[int, int]] = None,
-        deprels: Optional[Mapping[int, str]] = None,
-        pos_tags: Optional[Mapping[int, str]] = None,
-        misc: Optional[Mapping[int, Mapping[str, str]]] = None,
+        heads: Mapping[int, int] | None = None,
+        deprels: Mapping[int, str] | None = None,
+        pos_tags: Mapping[int, str] | None = None,
+        misc: Mapping[int, Mapping[str, str]] | None = None,
     ) -> "DepGraph":
         """Return a new `DepGraph`, identical to `self` except for its dependencies, pos tags and
         misc annotations (if specified). All parameters should be dicts mapping node identifiers
@@ -269,7 +265,7 @@ class DepGraph:
         nodes = []
         # FIXME: this is clunky, maybe write a better parser that does validation?
         for row in conll:
-            processed_row: List[Optional[str]]
+            processed_row: list[str | None]
             if "-" in row[0]:
                 mwe_start, mwe_end = row[0].split("-")
                 mwe_ranges.append(MWERange(int(mwe_start), int(mwe_end), row[1]))
@@ -353,9 +349,9 @@ class DepGraph:
     def read_conll(
         cls,
         lines: Iterable[str],
-        max_tree_length: Optional[int] = None,
+        max_tree_length: int | None = None,
     ) -> Iterable[Self]:
-        current_tree_lines: List[str] = []
+        current_tree_lines: list[str] = []
         # Add a dummy empty line to flush the last tree even if the CoNLL-U mandatory empty last
         # line is absent
         for line in itertools.chain(lines, [""]):
