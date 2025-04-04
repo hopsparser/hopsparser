@@ -8,7 +8,7 @@ import sys
 import tempfile
 import warnings
 from types import FrameType
-from typing import IO, Any, Callable, Generator, Optional, Sequence, TextIO, Type, Union, cast
+from typing import IO, Any, Callable, Generator, Sequence, TextIO, Type, Union, cast
 
 import click
 import loguru
@@ -52,7 +52,7 @@ def smart_open(
 
 @contextlib.contextmanager
 def dir_manager(
-    path: Optional[pathlib.Path | str] = None,
+    path: pathlib.Path | str | None = None,
 ) -> Generator[pathlib.Path, None, None]:
     """A context manager to deal with a directory, default to a self-destruct temp one."""
     if path is None:
@@ -68,7 +68,7 @@ def dir_manager(
 # TODO: use rich table markdown style for this instead
 def make_markdown_metrics_table(metrics: dict[str, float]) -> str:
     column_width = max(7, *(len(k) for k in metrics.keys()))
-    keys, values = zip(*metrics.items())
+    keys, values = zip(*metrics.items(), strict=True)
     headers = "|".join(k.center(column_width) for k in keys)
     midrule = "|".join([f":{'-' * (column_width - 2)}:"] * len(keys))
     row = "|".join(f"{100 * v:05.2f}".center(column_width) for v in values)
@@ -76,7 +76,7 @@ def make_markdown_metrics_table(metrics: dict[str, float]) -> str:
 
 
 class InterceptHandler(logging.Handler):
-    def __init__(self, wrapped_name: Optional[str] = None, *args, **kwargs):
+    def __init__(self, wrapped_name: str | None = None, *args, **kwargs):
         self.wrapped_name = wrapped_name
         super().__init__(*args, **kwargs)
 
@@ -88,7 +88,7 @@ class InterceptHandler(logging.Handler):
             level = record.levelno
 
         # Find caller from where originated the logged message
-        frame: Optional[FrameType] = logging.currentframe()
+        frame: FrameType | None = logging.currentframe()
         depth = 2
         while frame is not None and frame.f_code.co_filename == logging.__file__:
             frame = frame.f_back
@@ -111,18 +111,17 @@ class InterceptHandler(logging.Handler):
 
 def setup_logging(
     appname: str = "hops",
-    console: Optional[rich.console.Console] = None,
-    log_file: Optional[pathlib.Path] = None,
+    console: rich.console.Console | None = None,
+    log_file: pathlib.Path | None = None,
     replace_warnings: bool = True,
-    sink: Optional[
-        Union[
-            str,
-            "loguru.PathLikeStr",
-            TextIO,
-            "loguru.Writable",
-            Callable[["loguru.Message"], None],
-            logging.Handler,
-        ]
+    sink: Union[
+        str,
+        "loguru.PathLikeStr",
+        TextIO,
+        "loguru.Writable",
+        Callable[["loguru.Message"], None],
+        logging.Handler,
+        None,
     ] = None,
     verbose: bool = False,
 ) -> list[int]:
@@ -265,9 +264,7 @@ class SeparatedTuple(click.ParamType):
 
     # NOTE: the way this is written forbids using the separator character in the values at all.
     # If the needs arises, we could allow escaping it.
-    def convert(
-        self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
-    ) -> Any:
+    def convert(self, value: Any, param: click.Parameter | None, ctx: click.Context | None) -> Any:
         if isinstance(value, str):
             value = value.split(self.separator)
 
@@ -281,4 +278,4 @@ class SeparatedTuple(click.ParamType):
                 ctx=ctx,
             )
 
-        return tuple(ty(x, param, ctx) for ty, x in zip(self.types, value))
+        return tuple(ty(x, param, ctx) for ty, x in zip(self.types, value, strict=True))

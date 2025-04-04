@@ -17,8 +17,8 @@ def hopsparser(nlp: Language, name: str, model_path: str | pathlib.Path) -> Call
         This changes the `pos`, `head` and `dep` properties of tokens.
         """
         parsed = parser.parse(([token.text for token in sent] for sent in doc.sents), raw=True)
-        for p, s in zip(parsed, doc.sents):
-            for node, token in zip(p.nodes, s):
+        for p, s in zip(parsed, doc.sents, strict=True):
+            for node, token in zip(p.nodes, s, strict=True):
                 token.pos_ = cast(str, node.upos)
                 if node.head == 0:
                     token.head = token

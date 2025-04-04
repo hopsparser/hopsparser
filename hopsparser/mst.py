@@ -126,7 +126,6 @@ def chuliu_edmonds(
     scores[0] = -np.inf
     scores[0, 0] = 0
     tree = cast(np.ndarray[tuple[int], np.dtype[np.intp]], np.argmax(scores, axis=1))
-    # locations of cycle; (t) in [0,1]
     cycle = detect_cycle(tree)
     if cycle is None:
         return tree

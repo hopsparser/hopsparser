@@ -1,4 +1,4 @@
-from typing import Dict, List, Literal, Optional
+from typing import Literal
 
 import fastapi
 import pydantic
@@ -10,7 +10,7 @@ from hopsparser import parser
 
 class Settings(BaseSettings):
     device: str = "cpu"
-    models: Dict[str, str]
+    models: dict[str, str]
 
 
 settings = Settings()
@@ -37,20 +37,20 @@ class ParseRequest(pydantic.BaseModel):
         description="The model to use to parse the data. See `models` for a list.",
     )
     output: Literal["conllu"] = pydantic.Field("conllu", description="The output format to use.")
-    parser: Optional[str] = pydantic.Field(
+    parser: str | None = pydantic.Field(
         None, description="Ignored (for compatibility with UDPipe.)"
     )
-    tagger: Optional[str] = pydantic.Field(
+    tagger: str | None = pydantic.Field(
         None, description="Ignored (for compatibility with UDPipe.)"
     )
-    tokenizer: Optional[str] = pydantic.Field(
+    tokenizer: str | None = pydantic.Field(
         None, description="Ignored (for compatibility with UDPipe.)"
     )
 
 
 class ParseResponse(pydantic.BaseModel):
     model: str = pydantic.Field(..., description="The model used to parse the data.")
-    acknowledgements: List[str] = pydantic.Field(
+    acknowledgements: list[str] = pydantic.Field(
         ..., description="A list of acknowledgements for the model used."
     )
     data: str = pydantic.Field(..., description="The processed output.")
