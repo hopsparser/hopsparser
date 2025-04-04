@@ -66,7 +66,7 @@ content-type = "text/markdown"
 
 [project.scripts]
 hopsparser = "hopsparser.main:cli"
-eval_parse = "hopsparser.conll2018_eval:main"
+eval_parse = "hopsparser.evaluator:main"
 
 [tool.setuptools]
 packages = ["hopsparser", "hopsparser.traintools"]

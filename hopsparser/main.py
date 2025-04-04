@@ -12,7 +12,7 @@ from rich import box
 from rich.console import Console
 from rich.table import Column, Table
 
-from hopsparser import conll2018_eval as evaluator
+from hopsparser import evaluator
 from hopsparser import deptree, parser
 from hopsparser.utils import (
     SeparatedTuple,

@@ -7,9 +7,9 @@ from typing import Dict, TextIO
 
 import click
 import pooch
-import rich
+from rich.progress import Progress
 
-from hopsparser import conll2018_eval as evaluator
+from hopsparser import evaluator
 from hopsparser import parser
 
 
@@ -70,7 +70,7 @@ def main(device: str, models_list: TextIO):
     logger.setLevel("WARNING")
 
     reference = json.load(models_list)
-    with rich.progress.Progress() as progress:
+    with Progress() as progress:
         for dataset_name, dataset in progress.track(
             reference.items(), description="Checking models"
         ):

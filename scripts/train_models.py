@@ -29,7 +29,7 @@ from tabulate2 import tabulate
 from typing_extensions import Self
 
 import hopsparser.traintools.trainer as trainer
-from hopsparser import conll2018_eval as evaluator
+from hopsparser import evaluator
 from hopsparser import parser, utils
 
 
