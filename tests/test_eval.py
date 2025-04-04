@@ -10,19 +10,22 @@ from hypothesis import strategies as st
 
 
 def seq_to_heads(
-    seq: np.ndarray[tuple[int], np.dtype[np.intp]], root: np.intp
+    seq: Sequence[int], root: np.intp | int
 ) -> np.ndarray[tuple[int], np.dtype[np.intp]]:
     """Given a Prüfer sequence for a rooted tree, return the corresponding arborescence as an
-    array `heads` encoding all the `(i, heads[i])` directed arcs. `heads[root]` is set to -1.
+    array `heads` encoding all the `(i, heads[i])` directed arcs. `heads[root]` is set to -1. Note
+    that *any* sequence of length `n-2` of integers between `0` and `n-1` is a valid Prüfer
+    sequence.
 
     The Prüfer sequence for a rooted tree is build exactly like a regular Prüfer sequence, except
     that at each step, instead of removing the leaf with the lowest index, you remove the leaf with
     the lowest index *that is not the root*.
     """
-    n = seq.shape[0] + 2
+    _seq = np.asarray(seq, dtype=np.intp)
+    n = _seq.shape[0] + 2
 
     degrees = np.ones(n, dtype=np.intp)
-    values, counts = np.unique_counts(seq)
+    values, counts = np.unique_counts(_seq)
     degrees[values] += counts
     # This is not actually the degree of the root, but this way it can't never enter the leaves heap
     degrees[root] = 0
@@ -38,9 +41,10 @@ def seq_to_heads(
     # We are replaying the sequence building: at each step, the node `i` that was popped and whose
     # sole neighbour `j` got put in the sequence was the leaf with the lowest index that is not the
     # root. So if we see `j` in the sequence, we only need to find `i` in the same way and set
-    # `heads[i] = j`. Since `i` is then removed from the leaves heap, we can't overwrite it.
-    # At the end, we will have set `n-2` arcs
-    for h in seq:
+    # `heads[i] = j`. Since `i` is then removed from the leaves heap and can't ever re-enter it
+    # (because it can't be present in the rest of seq), we can't overwrite it. At the end, we will
+    # have set `n-2` arcs
+    for h in _seq:
         leaf = heapq.heappop(leaves)
         heads[leaf] = h
         # We have seen all the neighbours of `head` but one, and it is not the root (otherwise its
@@ -74,7 +78,7 @@ def seq_to_heads(
 
 
 def heads_to_seq(
-    heads: np.ndarray[tuple[int], np.dtype[np.intp]], root: np.intp
+    heads: Sequence[int], root: int | np.intp
 ) -> np.ndarray[tuple[int], np.dtype[np.intp]]:
     """Given an arborescence as an array `heads` encoding all the `(i, heads[i])` directed arcs,
     return the corresponding Prüfer sequence. `heads[root]` must be `-1`.
@@ -83,9 +87,10 @@ def heads_to_seq(
     that at each step, instead of removing the leaf with the lowest index, you remove the leaf with
     the lowest index *that is not the root*.
     """
-    n = heads.shape[0]
+    _heads = np.asarray(heads, dtype=np.intp)
+    n = _heads.shape[0]
     degrees = np.ones(n, dtype=np.intp)
-    values, counts = np.unique_counts(heads)
+    values, counts = np.unique_counts(_heads)
     # Since the root is -1 and the values are sorted, we can safely escape this way
     degrees[values[1:]] += counts[1:]
     degrees[root] = 0
@@ -96,7 +101,7 @@ def heads_to_seq(
 
     for i in range(n - 2):
         leaf = heapq.heappop(leaves)
-        h = heads[leaf]
+        h = _heads[leaf]
         seq[i] = h
         # We have seen all the neighbours of `head` but one, and it is not the root (otherwise its
         # "degree" would be 0, so it becomes a leaf.
@@ -109,44 +114,61 @@ def heads_to_seq(
     return seq
 
 
-tokens_strat = st.text(
+tokens_st = st.text(
     alphabet=st.characters(blacklist_characters=["\n", "\r", "\t"]),
     min_size=1,
 ).filter(lambda s: not s.isspace())
 
 
-sentences_strat = st.lists(
-    st.one_of([tokens_strat, st.tuples(tokens_strat, st.lists(tokens_strat))]),
+sentences_st = st.lists(
+    st.one_of([tokens_st, st.tuples(tokens_st, st.lists(tokens_st, min_size=2))]),
     min_size=1,
 )
 
 
 @st.composite
 def conllus(
-    draw: st.DrawFn, tokens: st.SearchStrategy[Iterable[str | tuple[str, Sequence[str]]]]
+    draw: st.DrawFn, tokens: st.SearchStrategy[Sequence[str | tuple[str, Sequence[str]]]]
 ) -> list[str]:
     """Generate fake conllu files"""
-    lines, num_words = [], 0
-    for tok in draw(tokens):
+    tokens_lst = draw(tokens)
+    n_words = sum(len(t[1]) if isinstance(t, tuple) else 1 for t in tokens_lst)
+    if n_words == 1:
+        heads = iter([0])
+    else:
+        heads = iter(
+            seq_to_heads(
+                draw(
+                    st.lists(
+                        st.integers(0, n_words - 1), min_size=n_words - 2, max_size=n_words - 2
+                    )
+                ),
+                root=draw(st.integers(0, n_words - 1)),
+            )
+            + 1
+        )
+    word_idx = 0
+    lines = []
+    for tok in tokens_lst:
         if isinstance(tok, str):
-            num_words += 1
-            lines.append(f"{num_words}\t{tok}\t_\t_\t_\t_\t{int(num_words > 1)}\t_\t_\t_")
+            word_idx += 1
+            lines.append(f"{word_idx}\t{tok}\t_\t_\t_\t_\t{next(heads)}\t_\t_\t_")
         else:
             surface_token, parts = tok
             assume(len(parts) >= 2)
             lines.append(
-                f"{num_words + 1}-{num_words + len(parts)}\t{surface_token}\t_\t_\t_\t_\t_\t_\t_\t_"
+                f"{word_idx + 1}-{word_idx + len(parts)}\t{surface_token}\t_\t_\t_\t_\t_\t_\t_\t_"
             )
             for p in parts:
-                num_words += 1
-                lines.append(f"{num_words}\t{p}\t_\t_\t_\t_\t{int(num_words > 1)}\t_\t_\t_")
+                word_idx += 1
+                lines.append(f"{word_idx}\t{p}\t_\t_\t_\t_\t{next(heads)}\t_\t_\t_")
 
     return [*lines, "\n"]
 
 
 @st.composite
 def trees(
-    draw: st.DrawFn, tokens: st.SearchStrategy[Iterable[str | tuple[str, Sequence[str]]]]
+    draw: st.DrawFn, tokens: st.SearchStrategy[Sequence[str | tuple[str, Sequence[str]]]]
 ) -> UDRepresentation:
     lines = draw(conllus(tokens=tokens))
     return load_conllu(lines)
@@ -157,7 +179,7 @@ def trees(
         tokens=st.one_of(
             st.just(["a"]),
             st.just(["a", "b", "c"]),
-            sentences_strat,
+            sentences_st,
         ),
     )
 )
@@ -174,19 +196,12 @@ def test_exception(gold: UDRepresentation, system: UDRepresentation):
         evaluate(gold, system)
 
 
-# TODO: add mwt testing
 @given(
     representation=trees(
         tokens=st.one_of(
             st.just(["a"]),
             st.just(["a", "b", "c"]),
-            st.lists(
-                st.text(
-                    alphabet=st.characters(blacklist_characters=["\n", "\r", "\t"]),
-                    min_size=1,
-                ).filter(lambda s: not s.isspace()),
-                min_size=1,
-            ),
+            sentences_st,
         ),
     )
 )
