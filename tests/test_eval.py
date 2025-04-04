@@ -1,9 +1,9 @@
 import heapq
-from typing import Iterable, Sequence, cast
+from typing import Sequence, cast
 import numpy as np
 import pytest
-from hopsparser.conll2018_eval import UDError
-from hopsparser.conll2018_eval import UDRepresentation, evaluate, load_conllu
+from hopsparser.evaluator import UDError
+from hopsparser.evaluator import UDRepresentation, evaluate, load_conllu
 
 from hypothesis import assume, given
 from hypothesis import strategies as st
