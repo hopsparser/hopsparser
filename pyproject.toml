@@ -4,6 +4,7 @@ authors = [
     { name = "Loïc Grobol", email = "lgrobol@parisnanterre.fr" },
 ]
 dependencies = [
+    "accelerate", # huggingface transformers depend on this but doesn't declare it properly so we have to
     "bidict",
     "boltons",
     "click >= 8.0.4, < 9.0.0",
