@@ -164,8 +164,7 @@ def transformer_model(
 # NOTE: The transformer models are not reset between examples but that *acceptable* and makes tests faster
 @settings(deadline=2000, suppress_health_check=[HealthCheck.function_scoped_fixture])
 # FIXME: should we really skip control characters and whitespaces? We do now because most 🤗
-# tokenizers strip them out instead of rendering them as unk
-# Also formatters ? This forbids ZWNJ??
+# tokenizers strip them out instead of rendering them as unk. Also formatters ? This forbids ZWNJ??
 @given(
     data=st.data(),
     subwords_reduction=st.one_of([st.just("first"), st.just("mean")]),
@@ -198,15 +197,13 @@ def test_bert_embeddings_create_save_load(
         )
     )
     layers = data.draw(
-        st.one_of(
-            [
-                st.none(),
-                st.lists(
-                    st.integers(min_value=-max_num_layers, max_value=max_num_layers - 1),
-                    min_size=1,
-                ),
-            ]
-        )
+        st.one_of([
+            st.none(),
+            st.lists(
+                st.integers(min_value=-max_num_layers, max_value=max_num_layers - 1),
+                min_size=1,
+            ),
+        ])
     )
     lexer = lexers.BertLexer(
         layers=layers,
@@ -222,13 +219,11 @@ def test_bert_embeddings_create_save_load(
         # roundtripping hf models. ugh.
         model_config_path = tmp_path / "model" / "config.json"
         model_config_path.write_text(
-            json.dumps(
-                {
-                    **json.loads(model_config_path.read_text()),
-                    "attn_implementation": lexer.model.config._attn_implementation,
-                    "_attn_implementation_autoset": False,
-                }
-            )
+            json.dumps({
+                **json.loads(model_config_path.read_text()),
+                "attn_implementation": lexer.model.config._attn_implementation,
+                "_attn_implementation_autoset": False,
+            })
         )
         reloaded = lexers.BertLexer.load(tmp_path)
         # Should always be true but lol
