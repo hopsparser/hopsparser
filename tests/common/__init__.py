@@ -24,7 +24,8 @@ def seq_to_heads(
     degrees = np.ones(n, dtype=np.intp)
     values, counts = np.unique_counts(_seq)
     degrees[values] += counts
-    # This is not actually the degree of the root, but this way it can't never enter the leaves heap
+    # This is not actually the degree of the root, but this way it can't ever enter the leaves heap,
+    # since we make that happen when `degrees[i]` is about to become 1.
     degrees[root] = 0
     # We need a list for heapification. You'd THINK we could store degrees - 1 to make this terser
     # but actually numpy doesn't have a zero_loc function lol. The type is a union because at first
