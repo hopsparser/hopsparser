@@ -679,13 +679,11 @@ class BertLexer(nn.Module):
             subword_embeddings = selected_layers.mean(dim=0)
         # We already know the shape the BERT embeddings should have and we pad with zeros
         # shape: batch×sentence(WITH ROOT TOKEN)×features
-        word_embeddings = subword_embeddings.new_zeros(
-            (
-                len(inpt.subword_alignments),
-                max(len(s) for s in inpt.subword_alignments) + 1,
-                subword_embeddings.shape[2],
-            )
-        )
+        word_embeddings = subword_embeddings.new_zeros((
+            len(inpt.subword_alignments),
+            max(len(s) for s in inpt.subword_alignments) + 1,
+            subword_embeddings.shape[2],
+        ))
         # FIXME: this loop is embarassingly parallel, there must be a way to parallelize it
         for sent_n, alignment in enumerate(inpt.subword_alignments):
             # TODO: If we revise the alignment format, this could probably be made faster using
@@ -789,7 +787,7 @@ class BertLexer(nn.Module):
                     list[str],
                     [
                         token if subtokens else self.tokenizer.unk_token
-                        for token, subtokens in zip(unrooted_tok_sequence, bert_tokens)
+                        for token, subtokens in zip(unrooted_tok_sequence, bert_tokens, strict=True)
                     ],
                 )
                 bert_tokens = [
@@ -891,11 +889,9 @@ class BertLexer(nn.Module):
         return cls(model=model, tokenizer=tokenizer, **kwargs)
 
 
-LEXER_TYPES: BidirectionalMapping[str, Type[Lexer]] = bidict(
-    {
-        "bert": BertLexer,
-        "chars_rnn": CharRNNLexer,
-        "fasttext": FastTextLexer,
-        "words": WordEmbeddingsLexer,
-    }
-)
+LEXER_TYPES: BidirectionalMapping[str, Type[Lexer]] = bidict({
+    "bert": BertLexer,
+    "chars_rnn": CharRNNLexer,
+    "fasttext": FastTextLexer,
+    "words": WordEmbeddingsLexer,
+})
