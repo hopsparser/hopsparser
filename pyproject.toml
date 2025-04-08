@@ -4,7 +4,6 @@ authors = [
     { name = "Loïc Grobol", email = "lgrobol@parisnanterre.fr" },
 ]
 dependencies = [
-    "accelerate", # huggingface transformers depend on this but doesn't declare it properly so we have to
     "bidict",
     "boltons",
     "click >= 8.0.4, < 9.0.0",
@@ -22,8 +21,8 @@ dependencies = [
     "sacremoses",
     "sentencepiece",
     "tabulate2",
-    "torch >= 2.0.0, != 1.10.0, < 2.7.0",
-    "transformers >= 4.19.0, < 5.0.0, != 4.23.0, != 4.23.1",
+    "torch >= 2.0.0, < 2.7.0",
+    "transformers >= 4.19.0, < 5.0.0, != 4.23.0, != 4.23.1, != 4.51.0",
     "uvicorn",
 ]
 description = "A graph dependency parser to tinker with"
@@ -55,7 +54,7 @@ tests = [
 traintools = [
     "httpx[http2]",
     "lightning",
-    "polars >= 1.12, < 1.23",
+    "polars >= 1.12, < 1.27",
     "pytorch-lightning >= 2.4, < 3.0",
     "tensorboardx",
     "torchmetrics",
