@@ -3,7 +3,7 @@ import pytest
 from hopsparser.evaluator import UDError
 from hopsparser.evaluator import UDRepresentation, evaluate, load_conllu
 
-from common import sent_conllus, sentences
+from common import sent_conllus, conllu_token_lists
 from hypothesis import strategies as st
 from hypothesis import given
 
@@ -21,7 +21,7 @@ def trees(
         tokens=st.one_of(
             st.just(["a"]),
             st.just(["a", "b", "c"]),
-            sentences,
+            conllu_token_lists,
         ),
     )
 )
@@ -43,7 +43,7 @@ def test_exception(gold: UDRepresentation, system: UDRepresentation):
         tokens=st.one_of(
             st.just(["a"]),
             st.just(["a", "b", "c"]),
-            sentences,
+            conllu_token_lists,
         ),
     )
 )
