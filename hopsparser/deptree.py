@@ -80,9 +80,10 @@ class MWERange(NamedTuple):
     start: int
     end: int
     form: str
+    misc: str
 
     def to_conll(self) -> str:
-        return f"{self.start}-{self.end}\t{self.form}\t_\t_\t_\t_\t_\t_\t_\t_"
+        return f"{self.start}-{self.end}\t{self.form}\t_\t_\t_\t_\t_\t_\t_\t{self.misc}"
 
 
 class EmptyNode(NamedTuple):
@@ -268,7 +269,7 @@ class DepGraph:
             processed_row: list[str | None]
             if "-" in row[0]:
                 mwe_start, mwe_end = row[0].split("-")
-                mwe_ranges.append(MWERange(int(mwe_start), int(mwe_end), row[1]))
+                mwe_ranges.append(MWERange(int(mwe_start), int(mwe_end), row[1], row[9]))
                 continue
             if len(row) < 2:
                 raise ValueError("Too few columns to build a DepNode")
