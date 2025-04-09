@@ -789,11 +789,11 @@ def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> dict[str
         "UAS": alignment_score(alignment, check=are_parents_aligned),
         "LAS": alignment_score(
             alignment,
-            check=lambda g, s: (are_parents_aligned(g, s) and s.deprel == s.deprel),
+            check=lambda g, s: (are_parents_aligned(g, s) and s.deprel == g.deprel),
         ),
         "CLAS": alignment_score(
             alignment,
-            check=lambda g, s: (are_parents_aligned(g, s) and s.deprel == s.deprel),
+            check=lambda g, s: (are_parents_aligned(g, s) and s.deprel == g.deprel),
             words_filter=lambda w: w.is_content_deprel,
         ),
         "MLAS": alignment_score(
@@ -814,7 +814,7 @@ def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> dict[str
             alignment,
             check=lambda g, s: (
                 are_parents_aligned(g, s)
-                and s.deprel == s.deprel
+                and s.deprel == g.deprel
                 and (g.lemma == "_" or s.lemma == g.lemma),
             ),
             words_filter=lambda w: w.is_content_deprel,
