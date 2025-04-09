@@ -26,13 +26,13 @@ def test_initialize_save_load(
     source_device: str,
     target_device: str,
     train_config: pathlib.Path,
-    treebank: pathlib.Path,
+    treebank_path: pathlib.Path,
 ):
     source_device_d = torch.device(source_device)
     target_device_d = torch.device(target_device)
     parser = BiAffineParser.initialize(
         config_path=train_config,
-        treebank=list(DepGraph.read_conll(treebank.open())),
+        treebank=list(DepGraph.read_conll(treebank_path.open())),
     )
     parser.to(source_device_d)
     for _, p in parser.named_parameters():
@@ -49,11 +49,11 @@ def test_initialize_save_load(
 @pytest.fixture(scope="session")
 def parser_and_reload(
     train_config: pathlib.Path,
-    treebank: pathlib.Path,
+    treebank_path: pathlib.Path,
 ):
     parser = BiAffineParser.initialize(
         config_path=train_config,
-        treebank=list(DepGraph.read_conll(open(treebank))),
+        treebank=list(DepGraph.read_conll(open(treebank_path))),
     )
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = pathlib.Path(tmp_dir)
@@ -66,11 +66,11 @@ def parser_and_reload(
 @pytest.fixture(scope="session")
 def parser(
     train_config: pathlib.Path,
-    treebank: pathlib.Path,
+    treebank_path: pathlib.Path,
 ):
     parser = BiAffineParser.initialize(
         config_path=train_config,
-        treebank=list(DepGraph.read_conll(open(treebank))),
+        treebank=list(DepGraph.read_conll(open(treebank_path))),
     )
     return parser
 
@@ -80,13 +80,13 @@ def test_train(
     device: str,
     tmp_path: pathlib.Path,
     train_config: pathlib.Path,
-    treebank: pathlib.Path,
+    treebank_path: pathlib.Path,
 ):
     train(
         config_file=train_config,
-        dev_file=treebank,
+        dev_file=treebank_path,
         device=device,
-        train_file=treebank,
+        train_file=treebank_path,
         model_path=tmp_path,
     )
 

@@ -21,7 +21,7 @@ def scripts_dir() -> pathlib.Path:
     ],
     scope="session",
 )
-def treebank(test_data_dir: pathlib.Path, request) -> pathlib.Path:
+def treebank_path(test_data_dir: pathlib.Path, request) -> pathlib.Path:
     return test_data_dir / request.param
 
 
@@ -31,7 +31,7 @@ def treebank(test_data_dir: pathlib.Path, request) -> pathlib.Path:
     ],
     scope="session",
 )
-def test_treebank(test_data_dir: pathlib.Path, request) -> pathlib.Path:
+def treebank_test_path(test_data_dir: pathlib.Path, request) -> pathlib.Path:
     return test_data_dir / request.param
 
 
@@ -61,10 +61,10 @@ def train_config(test_data_dir: pathlib.Path, request: pytest.FixtureRequest) ->
 def model_path(
     tmp_path: pathlib.Path,
     test_data_dir: pathlib.Path,
-    treebank: pathlib.Path,
+    treebank_path: pathlib.Path,
 ) -> pathlib.Path:
     model_path = tmp_path / "model"
-    with treebank.open() as in_stream:
+    with treebank_path.open() as in_stream:
         trees = list(deptree.DepGraph.read_conll(in_stream))
     model = parser.BiAffineParser.initialize(
         config_path=test_data_dir / "toy_onlywords.yaml", treebank=trees
