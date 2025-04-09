@@ -112,18 +112,28 @@ def heads_to_seq(
     return seq
 
 
+# We only forbid all newlines (see <https://docs.python.org/3/library/stdtypes.html#str.splitlines>
+# and the tabulator
 conllu_filled_column_st = st.text(
-    alphabet=st.characters(blacklist_characters=["\n", "\r", "\t"]),
+    alphabet=st.characters(
+        blacklist_characters=[
+            "\t",
+            "\n",
+            "\r",
+            "\N{LINE TABULATION}",
+            "\N{FORM FEED}",
+            "\N{FILE SEPARATOR}",
+            "\N{GROUP SEPARATOR}",
+            "\N{RECORD SEPARATOR}",
+            "\N{NEXT LINE}",
+            "\N{LINE SEPARATOR}",
+            "\N{PARAGRAPH SEPARATOR}",
+        ]
+    ),
     min_size=1,
 ).filter(lambda s: not s.isspace())
 
-conllu_column_st = st.one_of([
-    st.just("_"),
-    st.text(
-        alphabet=st.characters(blacklist_characters=["\n", "\r", "\t"]),
-        min_size=1,
-    ).filter(lambda s: not s.isspace()),
-])
+conllu_column_st = st.one_of([st.just("_"), conllu_filled_column_st])
 
 conllu_token_lists = st.lists(
     st.one_of([
@@ -165,10 +175,14 @@ def conllu_lines(draw: st.DrawFn, indice: str, form: str, head: str | None) -> s
 
 @st.composite
 def sent_conllus(
-    draw: st.DrawFn, tokens: st.SearchStrategy[Sequence[str | tuple[str, Sequence[str]]]]
+    draw: st.DrawFn,
+    tokens: st.SearchStrategy[Sequence[str | tuple[str, Sequence[str]]]] | None = None,
 ) -> list[str]:
     """Generate fake conllu files"""
-    tokens_lst = draw(tokens)
+    if tokens is None:
+        tokens_lst = draw(conllu_token_lists)
+    else:
+        tokens_lst = draw(tokens)
     n_words = sum(len(t[1]) if isinstance(t, tuple) else 1 for t in tokens_lst)
     if n_words == 1:
         heads = iter([0])
