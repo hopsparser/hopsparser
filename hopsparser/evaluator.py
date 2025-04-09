@@ -468,7 +468,7 @@ def process_sentence(lines: Sequence[str], start_char_idx: int) -> UDSentence:
 
     # links between words
     for word, head in zip(sent.words, heads, strict=True):
-        word.parent = tokens[head - 1]
+        word.parent = sent.words[head - 1]
         if word.parent and word.is_functional_deprel:
             word.parent.functional_children.append(word)
 
