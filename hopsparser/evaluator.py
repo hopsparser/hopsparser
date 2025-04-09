@@ -394,6 +394,9 @@ def process_sentence(lines: Sequence[str], start_char_idx: int) -> UDSentence:
     last_mwt = None
     current_char_idx = start_char_idx
     for w in lines:
+        # We don't need anything from these in the evaluator I think?
+        if w.startswith("#"):
+            continue
         columns = read_line(w, expected_id=str(expected_id))
 
         # Skip empty nodes
