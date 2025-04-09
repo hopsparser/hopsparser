@@ -14,7 +14,13 @@ from loguru import logger
 from typing_extensions import Self
 
 
-# For use with strip, this is not a list but a concat string
+# For use with strip, this is not a list but a concat string, list from
+# <https://docs.python.org/3/library/stdtypes.html#str.splitlines>. Interestingly the file, group
+# and record separator don't have the Unicode BK Line Break property
+# <https://www.unicode.org/reports/tr14>. But they get folded in because they have the bidi property
+# <https://github.com/python/cpython/blob/e5237541a098e32a70fc621dee08721a72be7eb8/Tools/unicode/makeunicodedata.py#L440>.
+# See <https://github.com/python/cpython/issues/66428#issuecomment-2791216135> for extra fun.
+
 EOL_CHARS = (
     "\t"
     "\n"
