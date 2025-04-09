@@ -14,6 +14,22 @@ from loguru import logger
 from typing_extensions import Self
 
 
+# For use with strip, this is not a list but a concat string
+EOL_CHARS = (
+    "\t"
+    "\n"
+    "\r"
+    "\N{LINE TABULATION}"
+    "\N{FORM FEED}"
+    "\N{FILE SEPARATOR}"
+    "\N{GROUP SEPARATOR}"
+    "\N{RECORD SEPARATOR}"
+    "\N{NEXT LINE}"
+    "\N{LINE SEPARATOR}"
+    "\N{PARAGRAPH SEPARATOR}"
+)
+
+
 class Misc(collections.abc.Sequence[str]):
     def __init__(self, elements: Sequence[str] | None = None):
         if elements is None:
@@ -253,19 +269,20 @@ class DepGraph:
     @classmethod
     def from_conllu(cls, istream: Iterable[str]) -> Self:
         """Read a conll tree from an input stream"""
-        conll = []
-        metadata = []
-        for line in istream:
-            if line.startswith("#"):
-                metadata.append(line.strip())
-                continue
-            conll.append(line.strip().split("\t"))
 
+        metadata: list[str] = []
         mwe_ranges = []
         empty_nodes = []
         nodes = []
         # FIXME: this is clunky, maybe write a better parser that does validation?
-        for row in conll:
+        for line in istream:
+            if line.startswith("#"):
+                # FIXME: this also appends comments in the middle of the tree as metadata
+                metadata.append(line.rstrip(EOL_CHARS))
+                continue
+
+            row = line.rstrip(EOL_CHARS).split("\t")
+
             processed_row: list[str | None]
             if "-" in row[0]:
                 mwe_start, mwe_end = row[0].split("-")
