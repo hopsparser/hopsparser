@@ -112,16 +112,55 @@ def heads_to_seq(
     return seq
 
 
-tokens_st = st.text(
+conllu_filled_column_st = st.text(
     alphabet=st.characters(blacklist_characters=["\n", "\r", "\t"]),
     min_size=1,
 ).filter(lambda s: not s.isspace())
 
+conllu_column_st = st.one_of([
+    st.just("_"),
+    st.text(
+        alphabet=st.characters(blacklist_characters=["\n", "\r", "\t"]),
+        min_size=1,
+    ).filter(lambda s: not s.isspace()),
+])
 
-sentences = st.lists(
-    st.one_of([tokens_st, st.tuples(tokens_st, st.lists(tokens_st, min_size=2))]),
+conllu_token_lists = st.lists(
+    st.one_of([
+        conllu_filled_column_st,
+        st.tuples(conllu_filled_column_st, st.lists(conllu_filled_column_st, min_size=2)),
+    ]),
     min_size=1,
 )
+
+
+@st.composite
+def conllu_lines(draw: st.DrawFn, indice: str, form: str, head: str | None) -> str:
+    if head is None:
+        return "\t".join([
+            indice,
+            form,
+            "_",
+            "_",
+            "_",
+            "_",
+            "_",
+            "_",
+            "_",
+            draw(conllu_column_st),
+        ])
+    return "\t".join([
+        indice,
+        form,
+        draw(conllu_column_st),
+        draw(conllu_column_st),
+        draw(conllu_column_st),
+        draw(conllu_column_st),
+        head,
+        draw(conllu_column_st),
+        draw(conllu_column_st),
+        draw(conllu_column_st),
+    ])
 
 
 @st.composite
@@ -157,15 +196,23 @@ def sent_conllus(
     for tok in tokens_lst:
         if isinstance(tok, str):
             word_idx += 1
-            lines.append(f"{word_idx}\t{tok}\t_\t_\t_\t_\t{next(heads)}\t_\t_\t_")
+            lines.append(draw(conllu_lines(indice=str(word_idx), form=tok, head=str(next(heads)))))
         else:
             surface_token, parts = tok
             assume(len(parts) >= 2)
             lines.append(
-                f"{word_idx + 1}-{word_idx + len(parts)}\t{surface_token}\t_\t_\t_\t_\t_\t_\t_\t_"
+                draw(
+                    conllu_lines(
+                        indice=f"{word_idx + 1}-{word_idx + len(parts)}",
+                        form=surface_token,
+                        head=None,
+                    )
+                )
             )
             for p in parts:
                 word_idx += 1
-                lines.append(f"{word_idx}\t{p}\t_\t_\t_\t_\t{next(heads)}\t_\t_\t_")
+                lines.append(
+                    draw(conllu_lines(indice=str(word_idx), form=p, head=str(next(heads))))
+                )
 
     return lines
