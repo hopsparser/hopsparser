@@ -91,7 +91,7 @@ from itertools import takewhile
 import re
 import unicodedata
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, NamedTuple, Sequence, TypeVar
+from typing import Any, Callable, Iterable, Mapping, NamedTuple, Sequence, TypeVar, cast
 
 
 T = TypeVar("T")
@@ -165,13 +165,24 @@ class UDError(Exception):
 
 
 # This could be `slice` maybe
-class Span(NamedTuple):
+@dataclass(frozen=True, order=True)
+class Span:
     start: int
     end: int
 
     @cached_property
     def slice(self) -> slice:
         return slice(self.start, self.end)
+
+    def __contains__(self, index: int) -> bool:
+        return self.start <= index < self.end
+
+
+@dataclass(eq=False)
+class MultiWordToken:
+    form: str
+    char_span: Span
+    words_span: Span
 
 
 @dataclass(eq=False)
@@ -223,8 +234,27 @@ class UDWord:
         return f"UDWord({self.to_conll()}, is_multiword={self.is_multiword}, span={self.span})"
 
 
-# Internal representation classes
-@dataclass(eq=False)
+@dataclass(frozen=True)
+class UDSentence:
+    tokens: Sequence[UDWord | MultiWordToken]
+    span: Span
+
+    @cached_property
+    def characters(self) -> Sequence[str]:
+        return [
+            c for t in self.tokens if not (isinstance(t, UDWord) and t.is_multiword) for c in t.form
+        ]
+
+    @cached_property
+    def words(self) -> Sequence[UDWord]:
+        return [t for t in self.tokens if isinstance(t, UDWord)]
+
+    @cached_property
+    def multi_words(self) -> Sequence[MultiWordToken]:
+        return [t for t in self.tokens if isinstance(t, MultiWordToken)]
+
+
+@dataclass(eq=False, frozen=True)
 class UDRepresentation:
     # Characters of all the tokens in the whole file.
     # Whitespace between tokens is not included.
@@ -235,7 +265,7 @@ class UDRepresentation:
     tokens: list[Span] = field(default_factory=list)
     # List of UDWord instances.
     words: list[UDWord] = field(default_factory=list)
-    multi_words: list[Sequence[str]] = field(default_factory=list)
+    multi_words: list[MultiWordToken] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -278,15 +308,15 @@ class AlignmentWord(NamedTuple):
     system_word: UDWord
 
 
-@dataclass
+@dataclass(frozen=True)
 class Alignment:
     gold_words: Sequence[UDWord]
     system_words: Sequence[UDWord]
-    matched_words: list[AlignmentWord]
-    gold_aligned: dict[UDWord, UDWord] = field(default_factory=dict, init=False)
+    matched_words: Sequence[AlignmentWord]
 
-    def __post_init__(self):
-        self.gold_aligned = {a.system_word: a.gold_word for a in self.matched_words}
+    @cached_property
+    def gold_aligned(self) -> Mapping[UDWord, UDWord]:
+        return {a.system_word: a.gold_word for a in self.matched_words}
 
 
 # Would probably be even more efficient with numpy arrays
@@ -314,25 +344,6 @@ def detect_cycle(heads: Sequence[int]) -> list[int] | None:
             while (cycle_pointer := heads[cycle_pointer]) != cycle_start:
                 cycle.append(cycle_pointer)
             return cycle
-
-
-def process_sentence_(sentence: Sequence[UDWord]):
-    heads: list[int] = [int(word.head) for word in sentence]
-    # +1 because words are 1-indiced
-    if incorrect_heads := [h for h in heads if h < 0 or h > len(sentence) + 1]:
-        raise UDError(f"In {sentence}: HEADS '{incorrect_heads}' point outside of the sentence")
-    n_roots = sum(1 for h in heads if h == 0)
-    if n_roots == 0:
-        raise UDError(f"Unrooted sentence: {sentence}")
-    elif n_roots > 1:
-        raise UDError(f"There are multiple roots in sentence {sentence}")
-
-    if (cycle := detect_cycle([0, *heads])) is not None:
-        raise UDError(f"There is a cycle in sentence {sentence}: {cycle}")
-    for word, head in zip(sentence, heads, strict=True):
-        word.parent = sentence[head - 1]
-        if word.parent and word.is_functional_deprel:
-            word.parent.functional_children.append(word)
 
 
 def read_line(line: str, expected_id: str) -> Sequence[str]:
@@ -377,101 +388,120 @@ def read_line(line: str, expected_id: str) -> Sequence[str]:
     return columns
 
 
-# Load given CoNLL-U file into internal representation
-def load_conllu(file: Iterable[str]) -> UDRepresentation:
-    ud = UDRepresentation()
-
-    # Load the CoNLL-U file
-    char_index, sentence_start_word, sentence_start_char = 0, None, None
-    lines_itr = iter(file)
-    for line in lines_itr:
-        line = line.rstrip()
-
-        # Handle sentence start boundaries
-        if sentence_start_word is None:
-            # Skip comments
-            if line.startswith("#"):
-                continue
-            # Start a new sentence
-            sentence_start_char = char_index
-            sentence_start_word = len(ud.words)
-
-        if not line:
-            process_sentence_(ud.words[sentence_start_word:])
-            # End the sentence
-            assert sentence_start_char is not None
-            ud.sentences.append(Span(sentence_start_char, char_index))
-            sentence_start_char = None
-            sentence_start_word = None
-            continue
-
-        # Read next token/word
-        columns = read_line(line, expected_id=str(len(ud.words) - sentence_start_word + 1))
+def process_sentence(lines: Sequence[str], start_char_idx: int) -> UDSentence:
+    expected_id = 1
+    tokens = []
+    last_mwt = None
+    current_char_idx = start_char_idx
+    for w in lines:
+        columns = read_line(w, expected_id=str(expected_id))
 
         # Skip empty nodes
+        # TODO: interaction between this and characters?
         if "." in columns[ID]:
             continue
-
-        # Save token
-        ud.characters.extend(columns[FORM])
-        current_token_char_span = Span(char_index, char_index + len(columns[FORM]))
-        ud.tokens.append(current_token_char_span)
-        char_index += len(columns[FORM])
 
         # TODO: improve parsing here
         if not (m := re.match(r"(?P<start>\d+)(-(?P<end>\d+))?", columns[ID])):
             raise UDError(f"Cannot parse token ID '{columns[ID]}'")
 
-        # Multi-word tokens
-        if m.group("end"):
-            start = int(m.group("start"))
-            end = int(m.group("end"))
-            ud.multi_words.append(columns)
-            for i in range(start, end + 1):
-                word_line = next(lines_itr).rstrip()
-                word_columns = read_line(word_line, expected_id=str(i))
-                # TODO: deal with empty words here
-                ud.words.append(
-                    UDWord(
-                        identifier=word_columns[ID],
-                        form=word_columns[FORM],
-                        lemma=word_columns[LEMMA],
-                        upos=word_columns[UPOS],
-                        xpos=word_columns[XPOS],
-                        feats=word_columns[FEATS],
-                        head=word_columns[HEAD],
-                        deprel=word_columns[DEPREL],
-                        deps=word_columns[DEPS],
-                        misc=word_columns[MISC],
-                        span=current_token_char_span,
-                        is_multiword=True,
-                    )
-                )
-        # Basic tokens/words
+        start, end = m.group("start"), m.group("end")
+
+        if is_multiword := last_mwt is not None and int(start) in last_mwt.words_span:
+            # Pyright doen't support `and` in aliased conditional guards: <https://github.com/microsoft/pyright/discussions/4032>
+            current_span = cast(MultiWordToken, last_mwt).char_span
+            if end:
+                raise UDError(f"Nested MWT in sentence {lines}.")
         else:
-            ud.words.append(
-                UDWord(
-                    identifier=columns[ID],
-                    form=columns[FORM],
-                    lemma=columns[LEMMA],
-                    upos=columns[UPOS],
-                    xpos=columns[XPOS],
-                    feats=columns[FEATS],
-                    head=columns[HEAD],
-                    deprel=columns[DEPREL],
-                    deps=columns[DEPS],
-                    misc=columns[MISC],
-                    span=current_token_char_span,
-                    is_multiword=False,
-                )
+            current_span = Span(
+                current_char_idx, (current_char_idx := current_char_idx + len(columns[FORM]))
             )
+            # Multi-word tokens
+            if end:
+                last_mwt = MultiWordToken(
+                    form=columns[FORM],
+                    char_span=current_span,
+                    words_span=Span(int(start), int(end) + 1),
+                )
+                tokens.append(last_mwt)
+                continue
 
-    # FIXME: remove this, we are not a validator anyway, this requires us to flush the last sentence
-    # manually though
-    if sentence_start_word is not None:
-        raise UDError("The CoNLL-U file does not end with an empty line")
+        tokens.append(
+            UDWord(
+                identifier=start,
+                form=columns[FORM],
+                lemma=columns[LEMMA],
+                upos=columns[UPOS],
+                xpos=columns[XPOS],
+                feats=columns[FEATS],
+                head=columns[HEAD],
+                deprel=columns[DEPREL],
+                deps=columns[DEPS],
+                misc=columns[MISC],
+                span=current_span,
+                is_multiword=is_multiword,
+            )
+        )
+        expected_id += 1
 
-    return ud
+    sent = UDSentence(tokens=tokens, span=Span(start_char_idx, current_char_idx + 1))
+    print(sent.tokens, sent.words)
+
+    # Consistency checks
+    heads: list[int] = [int(word.head) for word in sent.words]
+
+    # +1 because words are 1-indiced
+    if incorrect_heads := [h for h in heads if not 0 <= h < len(tokens) + 1]:
+        raise UDError(f"In {lines}: HEADS '{incorrect_heads}' point outside of the sentence")
+
+    n_roots = sum(1 for h in heads if h == 0)
+    if n_roots == 0:
+        raise UDError(f"Unrooted sentence: {lines}")
+    elif n_roots > 1:
+        raise UDError(f"There are multiple roots in sentence {lines}")
+
+    if (cycle := detect_cycle([0, *heads])) is not None:
+        raise UDError(f"There is a cycle in sentence {lines}: {cycle}")
+
+    # links between words
+    for word, head in zip(sent.words, heads, strict=True):
+        word.parent = tokens[head - 1]
+        if word.parent and word.is_functional_deprel:
+            word.parent.functional_children.append(word)
+
+    return sent
+
+
+# Load given CoNLL-U file into internal representation
+def load_conllu(file: Iterable[str]) -> UDRepresentation:
+    # TODO: this could be improved by having all these be cached properties of UDRep
+    characters = []
+    tokens = []
+    sentences = []
+    words = []
+    multi_words = []
+    current_sent = []
+    for line in (*file, ""):
+        line = line.rstrip()
+
+        if line:
+            current_sent.append(line)
+        elif current_sent:
+            sent = process_sentence(current_sent, len(characters))
+            characters.extend(sent.characters)
+            words.extend(sent.words)
+            multi_words.extend(sent.multi_words)
+            tokens.extend(w.span for w in sent.words)
+            sentences.append(sent.span)
+            current_sent = []
+
+    return UDRepresentation(
+        characters=characters,
+        sentences=sentences,
+        tokens=tokens,
+        words=words,
+        multi_words=multi_words,
+    )
 
 
 def _couple_eq(t: tuple[T, T]) -> bool:
@@ -551,7 +581,7 @@ def word_align_key(w: UDWord) -> str:
 def get_multiword_spans(
     gold_words: Sequence[UDWord], system_words: Sequence[UDWord]
 ) -> Sequence[Span]:
-    multiwords_spans = sorted(w.span for w in (*gold_words, *system_words) if w.is_multiword)
+    multiwords_spans = sorted(set(w.span for w in (*gold_words, *system_words) if w.is_multiword))
     if not multiwords_spans:
         return []
 
