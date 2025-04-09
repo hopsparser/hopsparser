@@ -161,4 +161,4 @@ def sent_conllus(
                 word_idx += 1
                 lines.append(f"{word_idx}\t{p}\t_\t_\t_\t_\t{next(heads)}\t_\t_\t_")
 
-    return [*lines, "\n"]
+    return lines
