@@ -17,8 +17,8 @@ def test_train_parse(
     script_runner: pytest_console_scripts.ScriptRunner,
     tmp_path: pathlib.Path,
     train_config: pathlib.Path,
-    treebank: pathlib.Path,
-    test_treebank: pathlib.Path,
+    treebank_path: pathlib.Path,
+    treebank_test_path: pathlib.Path,
 ):
     ret = script_runner.run([
         "hopsparser",
@@ -26,19 +26,19 @@ def test_train_parse(
         "--device",
         device,
         str(train_config),
-        str(treebank),
+        str(treebank_path),
         str(tmp_path),
         "--dev-file",
-        str(test_treebank),
+        str(treebank_test_path),
         "--test-file",
-        str(test_treebank),
+        str(treebank_test_path),
     ])
     assert ret.success
     ret = script_runner.run([
         "eval_parse",
         "-v",
-        str(tmp_path / f"{test_treebank.stem}.parsed.conllu"),
-        str(test_treebank),
+        str(tmp_path / f"{treebank_test_path.stem}.parsed.conllu"),
+        str(treebank_test_path),
     ])
     assert ret.success
     ret = script_runner.run([
@@ -47,13 +47,13 @@ def test_train_parse(
         "--device",
         device,
         str(tmp_path / "model"),
-        str(treebank),
-        str(tmp_path / f"{test_treebank.stem}.parsed2.conllu"),
+        str(treebank_path),
+        str(tmp_path / f"{treebank_test_path.stem}.parsed2.conllu"),
     ])
     assert ret.success
     assert filecmp.cmp(
-        tmp_path / f"{test_treebank.stem}.parsed.conllu",
-        tmp_path / f"{test_treebank.stem}.parsed2.conllu",
+        tmp_path / f"{treebank_test_path.stem}.parsed.conllu",
+        tmp_path / f"{treebank_test_path.stem}.parsed2.conllu",
         shallow=False,
     )
     ret = script_runner.run([
@@ -91,8 +91,8 @@ def test_train_multi_parse(
     script_runner: pytest_console_scripts.ScriptRunner,
     tmp_path: pathlib.Path,
     train_config: pathlib.Path,
-    treebank: pathlib.Path,
-    test_treebank: pathlib.Path,
+    treebank_path: pathlib.Path,
+    treebank_test_path: pathlib.Path,
 ):
     ret = script_runner.run([
         "hopsparser",
@@ -100,42 +100,42 @@ def test_train_multi_parse(
         "--device",
         device,
         str(train_config),
-        f"one:{treebank}",
-        f"two:{treebank}",
+        f"one:{treebank_path}",
+        f"two:{treebank_path}",
         str(tmp_path),
         "--dev-file",
-        f"one:{test_treebank}",
+        f"one:{treebank_test_path}",
         "--dev-file",
-        f"two:{test_treebank}",
+        f"two:{treebank_test_path}",
         "--dev-file",
-        f"three:{test_treebank}",
+        f"three:{treebank_test_path}",
         "--test-file",
-        f"one:{test_treebank}",
+        f"one:{treebank_test_path}",
         "--test-file",
-        f"three:{test_treebank}",
+        f"three:{treebank_test_path}",
         "--test-file",
-        f"four:{test_treebank}",
+        f"four:{treebank_test_path}",
     ])
     assert ret.success
     ret = script_runner.run([
         "eval_parse",
         "-v",
-        str(tmp_path / f"one-{test_treebank.stem}.parsed.conllu"),
-        str(test_treebank),
+        str(tmp_path / f"one-{treebank_test_path.stem}.parsed.conllu"),
+        str(treebank_test_path),
     ])
     assert ret.success
     ret = script_runner.run([
         "eval_parse",
         "-v",
-        str(tmp_path / f"three-{test_treebank.stem}.parsed.conllu"),
-        str(test_treebank),
+        str(tmp_path / f"three-{treebank_test_path.stem}.parsed.conllu"),
+        str(treebank_test_path),
     ])
     assert ret.success
     ret = script_runner.run([
         "eval_parse",
         "-v",
-        str(tmp_path / f"four-{test_treebank.stem}.parsed.conllu"),
-        str(test_treebank),
+        str(tmp_path / f"four-{treebank_test_path.stem}.parsed.conllu"),
+        str(treebank_test_path),
     ])
     assert ret.success
     ret = script_runner.run([
@@ -144,8 +144,8 @@ def test_train_multi_parse(
         "--device",
         device,
         str(tmp_path / "model"),
-        str(treebank),
-        str(tmp_path / f"{test_treebank.stem}.parsed2.conllu"),
+        str(treebank_path),
+        str(tmp_path / f"{treebank_test_path.stem}.parsed2.conllu"),
     ])
     assert ret.success
     ret = script_runner.run([
@@ -177,13 +177,13 @@ def test_train_multi_parse(
 
 
 def test_gold_evaluation(
-    script_runner: pytest_console_scripts.ScriptRunner, test_treebank: pathlib.Path
+    script_runner: pytest_console_scripts.ScriptRunner, treebank_test_path: pathlib.Path
 ):
     ret = script_runner.run([
         "eval_parse",
         "-v",
-        str(test_treebank),
-        str(test_treebank),
+        str(treebank_test_path),
+        str(treebank_test_path),
     ])
     assert ret.success
 
