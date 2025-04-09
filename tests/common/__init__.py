@@ -146,7 +146,14 @@ def sent_conllus(
             + 1
         )
     word_idx = 0
-    lines = []
+    # A sentence can have metadata and/or comments
+    lines = draw(
+        st.lists(
+            st.text(alphabet=st.characters(blacklist_categories=["Cc", "Zl"])).map(
+                lambda s: f"#{s}"
+            )
+        )
+    )
     for tok in tokens_lst:
         if isinstance(tok, str):
             word_idx += 1
