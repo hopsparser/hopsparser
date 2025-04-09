@@ -8,7 +8,6 @@ from hypothesis import strategies as st
 from hypothesis import given
 
 
-
 @st.composite
 def trees(
     draw: st.DrawFn, tokens: st.SearchStrategy[Sequence[str | tuple[str, Sequence[str]]]]
