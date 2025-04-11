@@ -4,6 +4,11 @@ import pytest
 
 from hopsparser import deptree, parser
 
+from hypothesis import settings
+
+settings.register_profile("default", print_blob=True)
+settings.load_profile("default")
+
 
 @pytest.fixture(scope="session")
 def test_data_dir() -> pathlib.Path:
