@@ -448,7 +448,6 @@ def process_sentence(lines: Sequence[str], start_char_idx: int) -> UDSentence:
         expected_id += 1
 
     sent = UDSentence(tokens=tokens, span=Span(start_char_idx, current_char_idx + 1))
-    print(sent.tokens, sent.words)
 
     # Consistency checks
     heads: list[int] = [int(word.head) for word in sent.words]
@@ -683,18 +682,19 @@ def spans_score(gold_spans: Sequence[Span], system_spans: Sequence[Span]) -> Sco
     g = next(gold_itr)
     s = next(system_itr)
     with suppress(StopIteration):
-        # This could be slightly optimized because we know that consecutive spans are of either `(n,
-        # k), (k+1, ℓ)` or `(n, k), (n, k)` forms. But we don't need that extra complexity
-        if g.start < s.start:
-            g = next(gold_itr)
-        elif s.start < g.start:
-            s = next(system_itr)
-        else:
-            # At this point we know that `g.start == s.start`
-            if g.end == s.end:
-                correct += 1
-            g = next(gold_itr)
-            s = next(system_itr)
+        while True:
+            # This could be slightly optimized because we know that consecutive spans are of either `(n,
+            # k), (k, ℓ)` or `(n, k), (n, k)` forms. But we don't need that extra complexity
+            if g.start < s.start:
+                g = next(gold_itr)
+            elif s.start < g.start:
+                s = next(system_itr)
+            else:
+                # At this point we know that `g.start == s.start`
+                if g.end == s.end:
+                    correct += 1
+                g = next(gold_itr)
+                s = next(system_itr)
 
     return Score(
         correct=correct,
