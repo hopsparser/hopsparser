@@ -26,7 +26,7 @@ from hopsparser import mst
         ),
     ),
 )
-def test_cle(adjacency: NDArray):
+def test_cle(adjacency: np.ndarray[tuple[int, int], np.dtype[np.float64]]):
     # Parsing setting: no self-loop, 0 is the root
     np.fill_diagonal(adjacency, -np.inf)
     adjacency[0] = -np.inf
