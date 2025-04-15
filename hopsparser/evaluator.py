@@ -708,7 +708,7 @@ def alignment_score(
     check: Callable[[UDWord, UDWord], Any] | None = None,
     words_filter: Callable[[UDWord], Any] | None = None,
 ) -> Score:
-    # FIXME: check if the total make sense (we filter system words both on themselves and if they
+    # FIXME: check if the total makes sense (we filter system words both on themselves and if they
     # are aligned with a filtered gold word, couldn't this lead to discrepancies?)
     if words_filter is not None:
         n_gold = sum(1 for gold in alignment.gold_words if words_filter(gold))
