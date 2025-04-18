@@ -14,7 +14,7 @@ dependencies = [
     "pooch",
     "protobuf",
     "pydantic >= 2.0, < 2.11",
-    "pydantic-settings >= 2.0, < 2.8",
+    "pydantic-settings >= 2.0, < 2.10",
     "pyyaml",
     "rich",
     "sacremoses",
