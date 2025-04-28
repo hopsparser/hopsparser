@@ -115,15 +115,15 @@ def chuliu_edmonds(
 
     ## Input
 
-    - `scores`: A 2d numeric array such that `scores[i][j]` is the weight of the `$j→i$` edge in the
-      graph and the 0-th node is the root.
+    - `scores`: A 2d numeric array such that `scores[i][j]` is the weight of the `$j→i$` edge (i.e.
+      for `j` being the head of `i`) in the graph and the 0-th node is the root.
 
     ## Output
 
     - `tree`: A 1d integer array such that `tree[i]` is the head of the `i`-th node
     """
     np.fill_diagonal(scores, -np.inf)  # prevent self-loops
-    scores[0] = -np.inf
+    scores[0, 1:] = -np.inf
     scores[0, 0] = 0
     tree = cast(np.ndarray[tuple[int], np.dtype[np.intp]], np.argmax(scores, axis=1))
     cycle = detect_cycle(tree)
@@ -173,7 +173,7 @@ def chuliu_edmonds(
         # fixed tree: (n) in n+1
         contracted_tree = contracted_tree[:-1]
         # initialize new tree; (t) in 0
-        new_tree = -np.ones_like(tree)
+        new_tree = np.full_like(tree, fill_value=-1)
         # fixed tree with no heads coming from the cycle: (n) in [0,1]
         contracted_subtree = contracted_tree < len(contracted_tree)
         # add the nodes to the new tree (t)[(n)[(n) in [0,1]] in t] in t = (n)[(n)[(n) in [0,1]] in n] in t
@@ -219,8 +219,8 @@ def chuliu_edmonds_one_root(
 
     ## Input
 
-    - `scores`: A 2d numeric array such that `scores[i][j]` is the weight of the `$j→i$` edge in the
-      graph and the 0-th node is the root.
+    - `scores`: A 2d numeric array such that `scores[i][j]` is the weight of the `$j→i$` edge (i.e.
+      for `j` being the head of `i`) in the graph and the 0-th node is the root.
 
     ## Output
 
