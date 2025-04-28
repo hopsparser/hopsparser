@@ -51,14 +51,11 @@ def test_cle(adjacency: np.ndarray[tuple[int, int], np.dtype[np.float64]]):
 @given(
     adjacency=arrays(
         dtype=np.float64,
-        shape=st.integers(min_value=2, max_value=64).map(lambda x: (x, x)),
+        shape=st.integers(min_value=2, max_value=128).map(lambda x: (x, x)),
         elements=st.floats(
             allow_nan=False,
             allow_infinity=False,
             allow_subnormal=False,
-            exclude_min=True,
-            max_value=8.0,
-            min_value=0.0,
         ),
     ),
 )
