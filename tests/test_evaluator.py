@@ -65,17 +65,17 @@ def test_equal(representation: UDRepresentation):
         note(m)
         note(score)
         assert score.correct == score.gold_total == score.system_total
+        if score.aligned_total is not None:
+            assert score.correct == score.aligned_total
         if score.correct == 0:
             assert 0.0 == score.f1
         else:
             assert 1.0 == score.f1
 
 
-@given(
-    trees=two_trees(conllu_token_lists)
-)
+@given(trees=two_trees(conllu_token_lists))
 def test_boundaries(trees: tuple[UDRepresentation, UDRepresentation]):
-    gold, system =trees
+    gold, system = trees
     metrics = evaluate(gold, system)
     for score in metrics.values():
         note(score)
