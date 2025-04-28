@@ -2,15 +2,15 @@ import math
 
 import networkx as nx
 import numpy as np
+from numpy.testing import assert_allclose
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
-from numpy.typing import NDArray
 
 from hopsparser import mst
 
 
-# Only positive weights becaux nx seems to have issues with them
+# Only positive weights becaux nx seems to have issues with negative ones
 @settings(deadline=1024)
 @given(
     adjacency=arrays(
@@ -44,4 +44,35 @@ def test_cle(adjacency: np.ndarray[tuple[int, int], np.dtype[np.float64]]):
     mst_heads = mst.chuliu_edmonds(adjacency)
     mst_weight = adjacency[np.arange(len(adjacency)), mst_heads].sum()
 
-    assert np.isclose(nx_weight, mst_weight)
+    assert_allclose(nx_weight, mst_weight)
+
+
+@settings(deadline=1024)
+@given(
+    adjacency=arrays(
+        dtype=np.float64,
+        shape=st.integers(min_value=2, max_value=64).map(lambda x: (x, x)),
+        elements=st.floats(
+            allow_nan=False,
+            allow_infinity=False,
+            allow_subnormal=False,
+            exclude_min=True,
+            max_value=8.0,
+            min_value=0.0,
+        ),
+    ),
+)
+def test_cle_one_root(adjacency: np.ndarray[tuple[int, int], np.dtype[np.float64]]):
+    # Parsing setting: no self-loop, 0 is the root
+    np.fill_diagonal(adjacency, -np.inf)
+    adjacency[0] = -np.inf
+    adjacency[0, 0] = 0.0
+
+    mst_heads = mst.chuliu_edmonds_one_root(adjacency)
+
+    # No cycle
+    assert mst.detect_cycle(mst_heads) is None
+    # One root
+    assert np.sum(mst_heads[1:] == 0) == 1
+    # Just in case
+    assert mst_heads[0] == 0
