@@ -234,13 +234,16 @@ def chuliu_edmonds_one_root(
         return tree
 
     # We find the maximum spanning dependency_tree by trying every possible root
-    best_score, best_tree = -np.inf, None  # This is what's causing it to crash
+    best_score, best_tree = None, None  # This is what's causing it to crash
     for root in roots_to_try:
         _scores, root_score = _set_root(scores, root)
         _tree = chuliu_edmonds(_scores)
         tree_probs = _scores[np.arange(len(_scores)), _tree]
-        tree_score = (tree_probs).sum() + (root_score) if (tree_probs > -np.inf).all() else -np.inf
-        if tree_score > best_score:
+        tree_score = tree_probs.sum() + root_score
+        if best_score is None:
+            best_score = tree_score
+            best_tree = _tree
+        elif tree_score > best_score:
             best_score = tree_score
             best_tree = _tree
 
