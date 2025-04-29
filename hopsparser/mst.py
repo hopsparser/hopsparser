@@ -59,7 +59,7 @@ def tarjan(tree: np.ndarray) -> list[np.ndarray]:
     return cycles
 
 
-# Floyd's etc cycle-finding algos are useless here: the function here is already fully tabulated so
+# Floyd's etc cycle-finding algos are useless here: the function is already fully tabulated so
 # there's no saving space, and this is at worst `len(tree)-1` operations if there's no cycle.
 def detect_cycle(
     heads: np.ndarray[tuple[int], np.dtype[np.intp]],
@@ -74,8 +74,8 @@ def detect_cycle(
 
     ## Output
 
-    - `cycle`: A 1d bool arrays such that `cycle[j]` is true iff node `j` the graph is in the cycle
-      If there is no cycle in the graph, this is `None`.
+    - `cycle`: A 1d bool arrays such that `cycle[j]` is true iff node `j` in the graph is in the
+      cycle. If there is no cycle in the graph, this is `None`.
     """
     on_stack = np.ones_like(heads, dtype=bool)
     on_stack[0] = False
@@ -107,6 +107,8 @@ def detect_cycle(
 
 
 # TODO: split out a `contraction` function to make this more readable
+#
+# FIXME: this and `find_cycle` have opposed defintion of heads in terms of arc direction.
 def chuliu_edmonds(
     scores: np.ndarray[tuple[int, int], np.dtype[np.floating]],
 ) -> np.ndarray[tuple[int], np.dtype[np.intp]]:
@@ -147,12 +149,12 @@ def chuliu_edmonds(
 
         # scores of cycle's potential heads; (c x n) - (c) + () -> (n x c) in R
         metanode_head_scores = (
-            scores[cycle][:, noncycle] - cycle_scores[:, np.newaxis] + total_cycle_score
+            scores[cycle, :][:, noncycle] - cycle_scores[:, np.newaxis] + total_cycle_score
         )
-        if np.isinf(metanode_head_scores).any():
+        if np.isinf(metanode_head_scores).all():
             raise ValueError("Score overflow: can't reliably find an arborescence.")
         # scores of cycle's potential dependents; (n x c) in R
-        metanode_dep_scores = scores[noncycle][:, cycle]
+        metanode_dep_scores = scores[noncycle, :][:, cycle]
         # best noncycle head for each cycle dependent; (n) in c
         metanode_heads: np.ndarray[tuple[int], np.dtype[np.intp]] = np.argmax(
             metanode_head_scores, axis=0
@@ -163,7 +165,7 @@ def chuliu_edmonds(
         )
 
         # scores of noncycle graph; (n x n) in R
-        subscores = scores[noncycle][:, noncycle]
+        subscores = scores[noncycle, :][:, noncycle]
         # expand to make space for the metanode (n+1 x n+1) in R
         subscores = np.pad(subscores, ((0, 1), (0, 1)), "constant")
         # set the contracted graph scores of cycle's potential heads; (c x n)[:, (n) in n] in R -> (n) in R
@@ -173,7 +175,9 @@ def chuliu_edmonds(
         subscores[:-1, -1] = metanode_dep_scores[np.arange(len(noncycle_locs)), metanode_deps]
 
         # MST with contraction; (n+1) in n+1
-        contracted_tree = chuliu_edmonds(subscores)
+        contracted_tree = chuliu_edmonds(
+            cast(np.ndarray[tuple[int, int], np.dtype[np.floating]], subscores)
+        )
         # head of the cycle; () in n
         cycle_head = contracted_tree[-1]
         # fixed tree: (n) in n+1
