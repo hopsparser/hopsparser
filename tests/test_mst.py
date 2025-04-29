@@ -65,7 +65,7 @@ def test_cle(adjacency: np.ndarray[tuple[int, int], np.dtype[np.float64]]):
             allow_infinity=False,
             allow_subnormal=False,
         ),
-    ),
+    ).filter(lambda a: np.isfinite(np.linalg.norm(a, ord=1)).all()),
 )
 def test_cle_one_root(adjacency: np.ndarray[tuple[int, int], np.dtype[np.float64]]):
     mst_heads = mst.chuliu_edmonds_one_root(adjacency)

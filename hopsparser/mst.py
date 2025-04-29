@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Literal, cast
 
 import numpy as np
 
@@ -138,7 +138,7 @@ def chuliu_edmonds(
         # scores of cycle in original tree; (c) in R
         cycle_scores = scores[cycle, cycle_subtree]
         # total score of cycle; () in R
-        total_cycle_score = cycle_scores.sum()
+        total_cycle_score: np.ndarray[tuple[Literal[1]], np.dtype[np.floating]] = cycle_scores.sum()
 
         # locations of noncycle; (t) in [0,1]
         noncycle = np.logical_not(cycle)
@@ -149,12 +149,18 @@ def chuliu_edmonds(
         metanode_head_scores = (
             scores[cycle][:, noncycle] - cycle_scores[:, np.newaxis] + total_cycle_score
         )
+        if np.isinf(metanode_head_scores).any():
+            raise ValueError("Score overflow: can't reliably find an arborescence.")
         # scores of cycle's potential dependents; (n x c) in R
         metanode_dep_scores = scores[noncycle][:, cycle]
         # best noncycle head for each cycle dependent; (n) in c
-        metanode_heads = np.argmax(metanode_head_scores, axis=0)
+        metanode_heads: np.ndarray[tuple[int], np.dtype[np.intp]] = np.argmax(
+            metanode_head_scores, axis=0
+        )
         # best cycle head for each noncycle dependent; (n) in c
-        metanode_deps = np.argmax(metanode_dep_scores, axis=1)
+        metanode_deps: np.ndarray[tuple[int], np.dtype[np.intp]] = np.argmax(
+            metanode_dep_scores, axis=1
+        )
 
         # scores of noncycle graph; (n x n) in R
         subscores = scores[noncycle][:, noncycle]
@@ -204,7 +210,7 @@ def _set_root(
     root_score = scores[root, 0]
     scores = scores.copy()
     scores[1:, 0] = -np.inf
-    scores[root] = -np.inf
+    scores[root, 1:] = -np.inf
     scores[root, 0] = 0.0
     return scores, root_score
 
@@ -230,7 +236,7 @@ def chuliu_edmonds_one_root(
     scores = scores.astype(np.float64)
     tree = chuliu_edmonds(scores)
     roots_to_try = np.where(np.equal(tree[1:], 0))[0] + 1
-    if len(roots_to_try) == 1:
+    if roots_to_try.shape[0] == 1:
         return tree
 
     # We find the maximum spanning dependency_tree by trying every possible root
