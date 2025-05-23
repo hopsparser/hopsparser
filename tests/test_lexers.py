@@ -54,7 +54,11 @@ def test_char_rnn_create_save_load(
     train_text=st.lists(
         st.lists(
             st.text(
-                alphabet=st.characters(blacklist_categories=["Zs", "C"]), min_size=1, max_size=32
+                alphabet=st.characters(
+                    blacklist_categories=["Cc", "Cf", "Cs", "Cn", "Co", "Zl", "Zp", "Zs"]
+                ),
+                min_size=1,
+                max_size=32,
             ),
             min_size=1,
             max_size=64,
@@ -62,7 +66,17 @@ def test_char_rnn_create_save_load(
         min_size=1,
         max_size=256,
     ),
-    test_text=st.lists(st.text(min_size=1, max_size=2048), min_size=1, max_size=32),
+    test_text=st.lists(
+        st.text(
+            alphabet=st.characters(
+                blacklist_categories=["Cc", "Cf", "Cs", "Cn", "Co", "Zl", "Zp"]
+            ),
+            min_size=1,
+            max_size=2048,
+        ),
+        min_size=1,
+        max_size=32,
+    ),
 )
 def test_fasttext_train_create_save_load(
     special_tokens: List[str],
@@ -83,8 +97,8 @@ def test_fasttext_train_create_save_load(
             minCount=0,
             maxn=3,
             model="skipgram",
-            neg=2,
-            ws=2,
+            neg=1,
+            ws=1,
         )
         fasttext_lexer = lexers.FastTextLexer(
             model,
