@@ -351,9 +351,14 @@ class FastTextLexer(nn.Module):
         # Not necessarily very useful (since it doesn't save the fine-tuned special tokens embedding
         # so if you want to save the model you should still use save_weights) but nice: set the
         # FastText model weights to the fine-tuned ones
+        # FIXME: still a burst of memory use
         self.fasttext_model.set_matrices(
             self.embeddings.weight[:-2].cpu().numpy(),
             self.fasttext_model.get_output_matrix(),
+        )
+        # Save memory
+        self.fasttext_model.set_matrices(
+            np.zeros((2, 2), dtype=np.float32), np.zeros((2, 2), dtype=np.float32)
         )
         self.fasttext_model.save_model(str(model_path / "fasttext_model.bin"))
         if save_weights:
