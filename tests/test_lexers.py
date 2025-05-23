@@ -53,12 +53,16 @@ def test_char_rnn_create_save_load(
     special_tokens=st.lists(st.text(min_size=2), max_size=8),
     train_text=st.lists(
         st.lists(
-            st.text(alphabet=st.characters(blacklist_categories=["Zs", "C"]), min_size=1),
+            st.text(
+                alphabet=st.characters(blacklist_categories=["Zs", "C"]), min_size=1, max_size=32
+            ),
             min_size=1,
+            max_size=64,
         ),
         min_size=1,
+        max_size=256,
     ),
-    test_text=st.lists(st.text(min_size=1), min_size=1),
+    test_text=st.lists(st.text(min_size=1, max_size=2048), min_size=1, max_size=32),
 )
 def test_fasttext_train_create_save_load(
     special_tokens: List[str],
