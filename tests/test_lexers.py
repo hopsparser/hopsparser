@@ -77,12 +77,14 @@ def test_fasttext_train_create_save_load(
         # This is a very very bad Fasttext model
         model = fasttext.train_unsupervised(
             str(train_txt_path),
-            model="skipgram",
-            minCount=0,
+            bucket=64,
+            dim=32,
             epoch=1,
-            ws=1,
-            neg=1,
-            bucket=128,
+            minCount=0,
+            maxn=3,
+            model="skipgram",
+            neg=2,
+            ws=2,
         )
         fasttext_lexer = lexers.FastTextLexer(
             model,

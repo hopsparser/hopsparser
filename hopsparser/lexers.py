@@ -357,10 +357,10 @@ class FastTextLexer(nn.Module):
             self.fasttext_model.get_output_matrix(),
         )
         # Save memory
+        self.fasttext_model.save_model(str(model_path / "fasttext_model.bin"))
         self.fasttext_model.set_matrices(
             np.zeros((2, 2), dtype=np.float32), np.zeros((2, 2), dtype=np.float32)
         )
-        self.fasttext_model.save_model(str(model_path / "fasttext_model.bin"))
         if save_weights:
             torch.save(self.state_dict(), model_path / "weights.pt")
 
@@ -371,6 +371,7 @@ class FastTextLexer(nn.Module):
     ) -> Self:
         with open(model_path / "config.json") as in_stream:
             config = json.load(in_stream)
+        # FIXME: we should ignore the weights here, since we will load them from the weight file anyway
         res = cls.from_fasttext_model(model_path / "fasttext_model.bin", no_remote=True, **config)
         weight_file = model_path / "weights.pt"
         if weight_file.exists():
