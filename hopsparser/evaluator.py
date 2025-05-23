@@ -389,9 +389,9 @@ def read_line(line: str, expected_id: str) -> Sequence[str]:
 
 
 def process_sentence(lines: Sequence[str], start_char_idx: int) -> UDSentence:
-    expected_id = 1
-    tokens = []
-    last_mwt = None
+    expected_id: int = 1
+    tokens: list[UDWord | MultiWordToken] = []
+    last_mwt: MultiWordToken | None = None
     current_char_idx = start_char_idx
     for w in lines:
         # We don't need anything from these in the evaluator I think?
@@ -654,6 +654,7 @@ def align_words(gold_words: Sequence[UDWord], system_words: Sequence[UDWord]) ->
 
     # Remaining words after we consumed all the spans
     # FIXME: This is an exact copy from above and that's annoying
+    # FIXME: messy typing
     while gold_w is not None and system_w is not None:
         if gold_w.span == system_w.span:
             alignment.append((gold_w, system_w))
@@ -710,6 +711,7 @@ def alignment_score(
 ) -> Score:
     # FIXME: check if the total makes sense (we filter system words both on themselves and if they
     # are aligned with a filtered gold word, couldn't this lead to discrepancies?)
+    aligned: Sequence[AlignmentWord]  # MyPy is annoying
     if words_filter is not None:
         n_gold = sum(1 for gold in alignment.gold_words if words_filter(gold))
         n_system = sum(1 for system in alignment.system_words if words_filter(system))
