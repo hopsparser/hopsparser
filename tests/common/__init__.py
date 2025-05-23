@@ -14,7 +14,7 @@ def seq_to_heads(
     that *any* sequence of length `n-2` of integers between `0` and `n-1` is a valid Prüfer
     sequence.
 
-    The Prüfer sequence for a rooted tree is build exactly like a regular Prüfer sequence, except
+    The Prüfer sequence for a rooted tree is built exactly like a regular Prüfer sequence, except
     that at each step, instead of removing the leaf with the lowest index, you remove the leaf with
     the lowest index *that is not the root*.
     """
@@ -29,7 +29,7 @@ def seq_to_heads(
     degrees[root] = 0
     # We need a list for heapification. You'd THINK we could store degrees - 1 to make this terser
     # but actually numpy doesn't have a zero_loc function lol. The type is a union because at first
-    # we'll get Python int but later we won't be bothering casting the np int we'll be getting.
+    # we'll get Python ints but later we won't be bothering casting the np int we'll be getting.
     leaves = cast(list[int | np.intp], np.flatnonzero(degrees == 1).tolist())
     # that's a min-heap, ty Python
     heapq.heapify(leaves)
@@ -81,7 +81,7 @@ def heads_to_seq(
     """Given an arborescence as an array `heads` encoding all the `(i, heads[i])` directed arcs,
     return the corresponding Prüfer sequence. `heads[root]` must be `-1`.
 
-    The Prüfer sequence for a rooted tree is build exactly like a regular Prüfer sequence, except
+    The Prüfer sequence for a rooted tree is built exactly like a regular Prüfer sequence, except
     that at each step, instead of removing the leaf with the lowest index, you remove the leaf with
     the lowest index *that is not the root*.
     """
@@ -102,7 +102,7 @@ def heads_to_seq(
         h = _heads[leaf]
         seq[i] = h
         # We have seen all the neighbours of `head` but one, and it is not the root (otherwise its
-        # "degree" would be 0, so it becomes a leaf.
+        # "degree" would be 0), so it becomes a leaf.
         if degrees[h] == 2:
             # Slightly less efficient than heapreplace but more legible
             heapq.heappush(leaves, h)
