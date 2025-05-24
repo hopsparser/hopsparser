@@ -181,7 +181,8 @@ def transformer_model(
     return request.param
 
 
-# NOTE: The transformer models are not reset between examples but that *acceptable* and makes tests faster
+# NOTE: The transformer models are not reset between examples but that is *acceptable* and makes
+# tests faster
 @settings(deadline=2000, suppress_health_check=[HealthCheck.function_scoped_fixture])
 # FIXME: should we really skip control characters and whitespaces? We do now because most 🤗
 # tokenizers strip them out instead of rendering them as unk. Also formatters ? This forbids ZWNJ??
