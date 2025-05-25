@@ -389,7 +389,9 @@ class FastTextLexer(nn.Module):
         except ValueError:
             if isinstance(model_file, str):
                 try:
-                    model_path = hf_hub_download(repo_id=model_file, filename="model.bin")
+                    model_path = hf_hub_download(
+                        repo_id=model_file, filename="model.bin", local_files_only=no_remote
+                    )
                 except RepositoryNotFoundError as e:
                     raise ValueError(
                         f"{model_file} is not an existing path or 🤗 hub repository"
@@ -405,33 +407,6 @@ class FastTextLexer(nn.Module):
             else:
                 raise ValueError(f"{model_file} is not a valid fasttext model.") from None
         return cls(model, **kwargs)
-
-    @classmethod
-    def from_raw(
-        cls,
-        raw_text_path: str | pathlib.Path,
-        **kwargs,
-    ) -> Self:
-        logger.info("Training fasttext model")
-        # TODO: make the hyperparameters here configurable?
-        model = fasttext.train_unsupervised(
-            str(raw_text_path), model="skipgram", neg=10, minCount=5, epoch=10
-        )
-        return cls(model, **kwargs)
-
-    @classmethod
-    def from_sents(
-        cls,
-        sents: Iterable[list[str]],
-        **kwargs,
-    ) -> Self:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            train_file = pathlib.Path(tmp_dir) / "train.txt"
-            with open(train_file, "w") as out_stream:
-                for s in sents:
-                    out_stream.write(" ".join(s))
-                    out_stream.write("\n")
-            return cls.from_raw(train_file, **kwargs)
 
 
 class WordEmbeddingsLexer(nn.Module):
