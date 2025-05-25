@@ -50,8 +50,7 @@ def test_char_rnn_create_save_load(
 
 @pytest.fixture
 def remote_fasttext_model() -> str:
-    # TODO: upload a minuscule one instead
-    return "facebook/fasttext-en-vectors"
+    return "lgrobol/fasttext-minuscule"
 
 
 @pytest.fixture
@@ -65,7 +64,7 @@ def local_fasttext_model(
 @pytest.fixture(
     params=[
         lazy_fixture("local_fasttext_model"),
-        # lazy_fixture("remote_fasttext_model"),
+        lazy_fixture("remote_fasttext_model"),
     ],
 )
 def fasttext_model(
@@ -74,8 +73,7 @@ def fasttext_model(
     return request.param
 
 
-# NOTE: FastText models are not reset between examples but that is *acceptable* and makes
-# tests faster
+# NOTE: the function-scoped fixture are only model paths/identifiers so it's ok.
 @settings(deadline=1000, suppress_health_check=[HealthCheck.function_scoped_fixture])
 @given(
     special_tokens=st.lists(st.text(min_size=2), max_size=8),
