@@ -1,7 +1,6 @@
 import json
 import math
 import pathlib
-import tempfile
 from abc import abstractmethod
 from typing import (
     Final,
@@ -15,8 +14,7 @@ from typing import (
     cast,
 )
 
-import fasttext
-import numpy as np
+from fasttextlt import fasttext
 import torch
 import torch.jit
 import transformers
@@ -244,36 +242,21 @@ class FastTextLexer(nn.Module):
 
     def __init__(
         self,
-        fasttext_model: fasttext.FastText._FastText,
+        fasttext_vocab: fasttext.FastTextVocab,
+        output_dim: int,
         special_tokens: Iterable[str] | None = None,
     ):
         super().__init__()
-        self.fasttext_model = fasttext_model
-        # FastText `get_input_matrix` copies the data, which we don't want here
-        weights = torch.from_numpy(np.array(fasttext_model.f.getInputMatrix(), copy=False))
+        self.fasttext_vocab = fasttext_vocab
         # Note: `vocab_size` is the size of the actual fasttext vocabulary. In pratice, the
         # embeddings here have two more tokens in their vocabulary: one for padding (embedding fixed
         # at 0, since the padding embedding never receive gradient in `nn.Embedding`) and one for
         # the special (root) tokens, with values sampled accross the vocabulary
-        self.vocab_size: Final[int] = weights.shape[0]
-        self.output_dim: Final[int] = weights.shape[1]
-        # FIXME: this should really be called `special_tokens_embedding`
-        # NOTE: I haven't thought too hard about this, maybe it's a bad idea.
-        root_embedding = weights[
-            torch.randint(high=self.vocab_size, size=(self.output_dim,)),
-            torch.arange(self.output_dim),
-        ].unsqueeze(0)
-        weights = torch.cat((weights, torch.zeros((1, self.output_dim)), root_embedding), dim=0).to(
-            torch.float
+        self.vocab_size: Final[int] = len(fasttext_vocab.words) + fasttext_vocab.n_ngram_buckets
+        self.output_dim: Final[int] = output_dim
+        self.embeddings = nn.Embedding(
+            self.vocab_size + 2, self.output_dim, padding_idx=self.vocab_size
         )
-        # We don't need the original weights anymore, let's save some memory. Note that doing this
-        # before `cat` is at best useless (since the cat is the only point where the data is copied)
-        # and at worst might lead to strange errors due to unclear memory ownership.
-        self.fasttext_model.set_matrices(
-            np.zeros((2, 2), dtype=np.float32), np.zeros((2, 2), dtype=np.float32)
-        )
-        weights.requires_grad = True
-        self.embeddings = nn.Embedding.from_pretrained(weights, padding_idx=self.vocab_size)
         self.special_tokens = set([] if special_tokens is None else special_tokens)
         self.special_tokens_idx: Final[int] = self.vocab_size + 1
         self.pad_idx: Final[int] = cast(int, self.embeddings.padding_idx)
@@ -281,7 +264,7 @@ class FastTextLexer(nn.Module):
     def subwords_idxes(self, token: str) -> torch.Tensor:
         """Returns a list of ft subwords indexes a token"""
         # NOTE: `get_subwords` returns `[word_id, subword_1_id, …]` if `token` is in-vocabulary.
-        return torch.from_numpy(self.fasttext_model.get_subwords(token)[1])
+        return torch.from_numpy(self.fasttext_vocab.get_subword_ids(token))
 
     def forward(self, inpt: torch.Tensor) -> torch.Tensor:
         """
@@ -348,22 +331,13 @@ class FastTextLexer(nn.Module):
             json.dump(
                 {
                     "special_tokens": list(self.special_tokens),
+                    "output_dim": self.output_dim,
                 },
                 out_stream,
             )
-        # Not necessarily very useful (since it doesn't save the fine-tuned special tokens embedding
-        # so if you want to save the model you should still use save_weights) but nice: set the
-        # FastText model weights to the fine-tuned ones
-        # FIXME: still a burst of memory use
-        self.fasttext_model.set_matrices(
-            self.embeddings.weight[:-2].cpu().numpy(),
-            self.fasttext_model.get_output_matrix(),
-        )
-        # Save memory
-        self.fasttext_model.save_model(str(model_path / "fasttext_model.bin"))
-        self.fasttext_model.set_matrices(
-            np.zeros((2, 2), dtype=np.float32), np.zeros((2, 2), dtype=np.float32)
-        )
+
+        self.fasttext_vocab.save(model_path / "vocab.json")
+
         if save_weights:
             torch.save(self.state_dict(), model_path / "weights.pt")
 
@@ -374,10 +348,12 @@ class FastTextLexer(nn.Module):
     ) -> Self:
         with open(model_path / "config.json") as in_stream:
             config = json.load(in_stream)
-        # FIXME: we should ignore the weights here, since we will load them from the weight file anyway
-        res = cls.from_fasttext_model(model_path / "fasttext_model.bin", no_remote=True, **config)
-        weight_file = model_path / "weights.pt"
-        if weight_file.exists():
+        fasttext_vocab = fasttext.FastTextVocab.load(model_path / "vocab.json")
+        # FIXME: we should ignore the weights here, since we will load them from the weight file
+        # anyway
+        res = cls(fasttext_vocab, **config)
+
+        if (weight_file := model_path / "weights.pt").exists():
             res.load_state_dict(torch.load(weight_file, map_location="cpu", weights_only=True))
         return res
 
@@ -385,12 +361,13 @@ class FastTextLexer(nn.Module):
     def from_fasttext_model(
         cls, model_file: str | pathlib.Path, no_remote: bool = False, **kwargs
     ) -> Self:
-        if isinstance(model_file, pathlib.Path) and not model_file.exists():
-            raise FileNotFoundError(f"File does not exist {model_file}.")
-        try:
-            model = fasttext.load_model(str(model_file))
-        except ValueError:
-            if isinstance(model_file, str):
+        if isinstance(model_file, pathlib.Path):
+            if model_file.exists():
+                model = fasttext.FastText.load_model(model_file)
+            else:
+                raise FileNotFoundError(f"File does not exist {model_file}.")
+        else:
+            if not (model_path := pathlib.Path(model_file).resolve()).exists():
                 try:
                     model_path = hf_hub_download(
                         repo_id=model_file, filename="model.bin", local_files_only=no_remote
@@ -401,15 +378,31 @@ class FastTextLexer(nn.Module):
                     ) from e
                 except EntryNotFoundError as e:
                     raise ValueError(
-                        f"{model_file} is an existing 🤗 hub repository but does not contain a `model.bin` file"
+                        f"{model_file} is an existing 🤗 hub repository but does not contain a"
+                        " `model.bin` file"
                     ) from e
-                try:
-                    model = fasttext.load_model(model_path)
-                except ValueError as e:
-                    raise ValueError(f"{model_file} does not seem to be a FastText model") from e
-            else:
-                raise ValueError(f"{model_file} is not a valid fasttext model.") from None
-        return cls(model, **kwargs)
+            try:
+                model = fasttext.FastText.load_model(model_path)
+            except ValueError as e:
+                raise ValueError(f"{model_file} is not a valid FastText model.") from e
+
+        weight = weights = torch.from_numpy(model.embedding_matrix)
+        output_dim = weight.shape[1]
+        # FIXME: this should really be called `special_tokens_embedding`
+        # NOTE: I haven't thought too hard about this, maybe it's a bad idea.
+        root_embedding = weights[
+            torch.randint(
+                high=weight.shape[0],
+                size=(output_dim,),
+            ),
+            torch.arange(output_dim),
+        ].unsqueeze(0)
+        weight = torch.cat((weight, torch.zeros((1, output_dim)), root_embedding), dim=0).to(
+            torch.float
+        )
+        res = cls(model.vocabulary, output_dim=output_dim, **kwargs)
+        res.embeddings.weight = torch.nn.Parameter(weight, requires_grad=True)
+        return res
 
 
 class WordEmbeddingsLexer(nn.Module):
@@ -734,7 +727,8 @@ class BertLexer(nn.Module):
                 bert_encoding_length = bert_encoding.length
             if bert_encoding_length > self.max_length:
                 raise LexingError(
-                    f"Sentence too long for this transformer model ({bert_encoding.length} tokens > {self.max_length})",
+                    f"Sentence too long for this transformer model ({bert_encoding.length}"
+                    f" tokens > {self.max_length})",
                     str(unrooted_tok_sequence),
                 )
             # TODO: there might be a better way to do this?
@@ -745,7 +739,8 @@ class BertLexer(nn.Module):
             if i is None:
                 return BertLexerSentence(bert_encoding, cast(list[TokenSpan], alignments))
             logger.debug(
-                "Unencodable tokens, switching to non-fast tokenization for sentence {unrooted_tok_sequence[i]!r}."
+                f"Unencodable tokens, switching to non-fast tokenization for"
+                f" sentence {unrooted_tok_sequence[i]!r}."
             )
 
         # We end up there in two situations: when the tokenizer is not fast, or when it is fast but
@@ -765,7 +760,8 @@ class BertLexer(nn.Module):
                 )
             else:
                 logger.warning(
-                    f"Replacing empty words by {self.tokenizer.unk_token!r} in {unrooted_tok_sequence}"
+                    f"Replacing empty words by {self.tokenizer.unk_token!r}"
+                    f" in {unrooted_tok_sequence}"
                 )
                 cleaned_up_unrooted_tok_sequence = cast(
                     list[str],
@@ -792,7 +788,8 @@ class BertLexer(nn.Module):
             bert_encoding_length = bert_encoding.length
         if bert_encoding_length > self.max_length:
             raise LexingError(
-                f"Sentence too long for this transformer model ({bert_encoding.length} subtokens > {self.max_length})",
+                f"Sentence too long for this transformer model ({bert_encoding.length}"
+                f" subtokens > {self.max_length})",
                 str(unrooted_tok_sequence),
             )
         bert_word_lengths = [len(word) for word in bert_tokens]
