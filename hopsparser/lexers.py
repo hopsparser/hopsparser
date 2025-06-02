@@ -280,6 +280,7 @@ class FastTextLexer(nn.Module):
 
     def subwords_idxes(self, token: str) -> torch.Tensor:
         """Returns a list of ft subwords indexes a token"""
+        # NOTE: `get_subwords` returns `[word_id, subword_1_id, …]` if `token` is in-vocabulary.
         return torch.from_numpy(self.fasttext_model.get_subwords(token)[1])
 
     def forward(self, inpt: torch.Tensor) -> torch.Tensor:
@@ -289,12 +290,14 @@ class FastTextLexer(nn.Module):
         """
         # NOTE: the padding embedding is 0 and should not be modified during training (as per the
         # `torch.nn.Embedding` doc) so the sum here does not include padding subwords
-        # NOTE: we use the *mean* of the *input* vectors of the subwords, following [the original
-        # FastText
+
+        # NOTE: we use the *mean* of the *input* vectors of the subwords (and of the full word if
+        # it's in-vocabulary), following [the original FastText
         # implementation](https://github.com/facebookresearch/fastText/blob/a20c0d27cd0ee88a25ea0433b7f03038cd728459/src/fasttext.cc#L117)
         # instead of using the *sum* of *unspecified* (either input or output) vectors as per the
         # original FastText paper (“Enriching Word Vectors with Subword Information”, Bojanowski et
         # al., 2017)
+
         # Keepdim here to allow broadcast, clamp to avoid 0/0 for full padding tokens
         word_lengths = inpt.ne(self.pad_idx).sum(dim=-1, keepdim=True).clamp(min=1)
         return self.embeddings(inpt).sum(dim=-2) / word_lengths

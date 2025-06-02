@@ -4,7 +4,6 @@ import pathlib
 import tempfile
 from typing import List, Literal, Tuple
 
-import fasttext
 import pytest
 import torch
 import transformers

@@ -8,7 +8,7 @@ dependencies = [
     "boltons",
     "click >= 8.0.4, < 9.0.0",
     "fastapi",
-    'fasttext-numpy2',
+    "fasttext-numpy2",
     "huggingface-hub",
     "loguru",
     "numpy >= 2.1",
@@ -27,7 +27,7 @@ dependencies = [
 ]
 description = "A graph dependency parser to tinker with"
 keywords = ["nlp", "parsing"]
-license = { text = "MIT" }
+license = "MIT"
 name = "hopsparser"
 requires-python = ">= 3.10"
 version = "0.7.1"
