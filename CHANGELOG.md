@@ -21,7 +21,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   with treebanks with multiple dev and test sets, and models can be evaluated on treebanks they
   weren't trained on. See the scripts' readme for more details.
 - **BREAKING** Default LR schedule changed to constant.
-- Fully stop supporting Python 3.9
+- Fully stop supporting Python 3.9 and 3.10
+- **BREAKING** FastText if now supported by [FastText lite](https://pypi.org/project/fasttextlt),
+  which is more sustainable in the long term, but means that we don't support training FastText
+  models on the fly anymore. Users interested in training FastText models are advised to do it in
+  e.g. Gensim, which allows full control over its hyperparameters (our choice was never optimal
+  anyway). We also stop saving separate FastText models during training, considerably reducing the
+  model size.
 
 
 ## [0.7.1] - 2023-11-16
