@@ -2,8 +2,7 @@ HOPS, an honest parser of sentences
 ===================================
 
 [![Latest PyPI version](https://img.shields.io/pypi/v/hopsparser.svg)](https://pypi.org/project/hopsparser)
-[![Build Status](https://github.com/hopsparser/npdependency/actions/workflows/ci.yml/badge.svg)](https://github.com/hopsparser/hopsparser/actions?query=workflow%3ACI)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Continuous integration](https://github.com/hopsparser/hopsparser/actions/workflows/ci.yml/badge.svg)](https://github.com/hopsparser/hopsparser/actions/workflows/ci.yml)
 
 > It ain't much but it's honest work.
 
