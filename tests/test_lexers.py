@@ -4,7 +4,6 @@ import pathlib
 import tempfile
 from typing import List, Literal, Tuple
 
-import fasttext
 import pytest
 import torch
 import transformers
@@ -48,60 +47,44 @@ def test_char_rnn_create_save_load(
     assert torch.equal(orig_encoding, reloaded_encoding)
 
 
-@settings(deadline=1000)
+@pytest.fixture
+def remote_fasttext_model() -> str:
+    return "lgrobol/fasttext-minuscule"
+
+
+@pytest.fixture
+def local_fasttext_model(
+    test_data_dir: pathlib.Path,
+) -> pathlib.Path:
+    return test_data_dir / "fasttext_model.bin"
+
+
+# TODO: do we really need lazy fixture here?
+@pytest.fixture(
+    params=[
+        lazy_fixture("local_fasttext_model"),
+        lazy_fixture("remote_fasttext_model"),
+    ],
+)
+def fasttext_model(
+    request,
+) -> str | pathlib.Path:
+    return request.param
+
+
+# NOTE: the function-scoped fixture are only model paths/identifiers so it's ok.
+@settings(deadline=1000, suppress_health_check=[HealthCheck.function_scoped_fixture])
 @given(
     special_tokens=st.lists(st.text(min_size=2), max_size=8),
-    train_text=st.lists(
-        st.lists(
-            st.text(
-                alphabet=st.characters(
-                    blacklist_categories=["Cc", "Cf", "Cs", "Cn", "Co", "Zl", "Zp", "Zs"]
-                ),
-                min_size=1,
-                max_size=32,
-            ),
-            min_size=1,
-            max_size=64,
-        ),
-        min_size=1,
-        max_size=256,
-    ),
-    test_text=st.lists(
-        st.text(
-            alphabet=st.characters(
-                blacklist_categories=["Cc", "Cf", "Cs", "Cn", "Co", "Zl", "Zp"]
-            ),
-            min_size=1,
-            max_size=2048,
-        ),
-        min_size=1,
-        max_size=32,
-    ),
+    test_text=st.lists(st.text(min_size=1), min_size=1),
 )
 def test_fasttext_train_create_save_load(
-    special_tokens: List[str],
-    train_text: List[List[str]],
-    test_text: List[str],
+    fasttext_model: str | pathlib.Path, special_tokens: list[str], test_text: list[str]
 ):
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = pathlib.Path(tmp_dir)
-        # We need to do this because of the hardcoded fasttext hp in from_raw
-        train_txt_path = tmp_path / "train.txt"
-        train_txt_path.write_text("\n".join(" ".join(w for w in s) for s in train_text))
-        # This is a very very bad Fasttext model
-        model = fasttext.train_unsupervised(
-            str(train_txt_path),
-            bucket=64,
-            dim=32,
-            epoch=1,
-            minCount=0,
-            maxn=3,
-            model="skipgram",
-            neg=1,
-            ws=1,
-        )
-        fasttext_lexer = lexers.FastTextLexer(
-            model,
+        fasttext_lexer = lexers.FastTextLexer.from_fasttext_model(
+            fasttext_model,
             special_tokens=special_tokens,
         )
         fasttext_lexer.save(tmp_path, save_weights=True)

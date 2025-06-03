@@ -789,9 +789,7 @@ class BiAffineParser(nn.Module):
     def encode_sentence(self, words: Sequence[str], strict: bool) -> EncodedSentence | None:
         pass
 
-    def encode_sentence(
-        self, words: Sequence[str], strict: bool = True
-    ) -> EncodedSentence | None:
+    def encode_sentence(self, words: Sequence[str], strict: bool = True) -> EncodedSentence | None:
         words_with_root = [DepGraph.ROOT_TOKEN, *words]
         try:
             encodings = {
@@ -1146,47 +1144,41 @@ class BiAffineParser(nn.Module):
                 )
             elif lexer_config["type"] == "fasttext":
                 if (fasttext_model_name_or_path := lexer_config.get("source")) is None:
-                    logger.info("Generating a FastText model from the treebank")
-                    lexer = FastTextLexer.from_sents(
-                        [tree.words[1:] for tree in treebank],
+                    raise ValueError("Using a FastText lexer requires a pretrained model.")
+                # Try to load a local model
+                local_fasttext_model_path = pathlib.Path(fasttext_model_name_or_path)
+                if (
+                    not local_fasttext_model_path.exists()
+                    and not local_fasttext_model_path.is_absolute()
+                ):
+                    local_fasttext_model_path = (
+                        config_path.parent / local_fasttext_model_path
+                    ).resolve()
+                if local_fasttext_model_path.exists():
+                    lexer = FastTextLexer.from_fasttext_model(
+                        local_fasttext_model_path,
+                        no_remote=True,
                         special_tokens=[DepGraph.ROOT_TOKEN],
                     )
                 else:
+                    # Try to load a remote model
+                    # This will also try to load a local model, not ideal but eh
                     try:
                         lexer = FastTextLexer.from_fasttext_model(
                             fasttext_model_name_or_path, special_tokens=[DepGraph.ROOT_TOKEN]
                         )
                     except ValueError as e:
-                        # At this point we know it's not a 🤗 hub identifier so we try loading from path
-                        fasttext_model_path = pathlib.Path(fasttext_model_name_or_path)
-                        if (
-                            not fasttext_model_path.exists()
-                            and not fasttext_model_path.is_absolute()
-                        ):
-                            fasttext_model_path = (
-                                config_path.parent / fasttext_model_path
-                            ).resolve()
-                        if not fasttext_model_path.exists():
+                        if not local_fasttext_model_path.exists():
                             raise ValueError(
-                                f"Can't find a way to initialize FastText from {fasttext_model_path}."
+                                f"Can't find a way to initialize FastText from {local_fasttext_model_path}."
                             ) from e
-                        try:
-                            lexer = FastTextLexer.from_fasttext_model(
-                                fasttext_model_name_or_path,
-                                no_remote=True,
-                                special_tokens=[DepGraph.ROOT_TOKEN],
-                            )
-                        except ValueError:
-                            logger.info(f"Generating a FastText model from {fasttext_model_path}")
-                            lexer = FastTextLexer.from_raw(
-                                fasttext_model_path, special_tokens=[DepGraph.ROOT_TOKEN]
-                            )
+
             else:
                 raise ValueError(f"Unknown lexer type: {lexer_type!r}")
             parser_lexers[lexer_config["name"]] = lexer
 
-        itolab = gen_labels(treebank)
-        itotag = gen_tags(treebank)
+        labels = gen_labels(treebank)
+        tagset = gen_tags(treebank)
         if (extra_annotations_config := config.get("extra_annotations")) is not None:
             annotations_labels = gen_annotations_labels(
                 treebank, sorted(extra_annotations_config.keys())
@@ -1199,9 +1191,9 @@ class BiAffineParser(nn.Module):
             extra_annotations = None
 
         return cls(
-            labels=itolab,
+            labels=labels,
             lexers=parser_lexers,
-            tagset=itotag,
+            tagset=tagset,
             biased_biaffine=config["biased_biaffine"],
             default_batch_size=config["batch_size"],
             extra_annotations=extra_annotations,
