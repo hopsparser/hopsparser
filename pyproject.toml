@@ -12,7 +12,7 @@ dependencies = [
     "huggingface-hub",
     "loguru",
     "numpy >= 2.1",
-    "pooch",,
+    "pooch",
     "pydantic >= 2.0, < 2.11",
     "pydantic-settings >= 2.0, < 2.8",
     "pyyaml",
