@@ -83,40 +83,40 @@ jobs:
           name: hypothesis-example-db-py${{ matrix.python-version }}-${{ matrix.os}}
           path: .hypothesis/examples
   build:
-      name: Build wheels and sdist
-      runs-on: ${{ matrix.os }}
-      strategy:
-        matrix:
-          os:
-            - ubuntu-latest
-          python-version:
-            - "3.13"
-      needs: test
-      steps:
-        - uses: actions/checkout@v4
-        - name: Install uv
-          uses: astral-sh/setup-uv@v6
-          with:
-            cache-suffix: build-py${{ matrix.python-version }}-${{ matrix.os }}
-            enable-cache: true
-        - name: Build wheels
-          run: uv build --python ${{ matrix.python-version }} --wheel --sdist
-        - uses: actions/upload-artifact@v4
-          with:
-            name: dist-wheel
-            path: ./dist/*.whl
+    name: Build wheels and sdist
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        python-version:
+          - "3.13"
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          cache-suffix: build-py${{ matrix.python-version }}-${{ matrix.os }}
+          enable-cache: true
+      - name: Build wheels
+        run: uv build --python ${{ matrix.python-version }} --wheel --sdist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-wheel
+          path: ./dist/*.whl
   upload_pypi:
-      needs: build
-      runs-on: ubuntu-latest
-      if: >
-        (github.event_name == 'release' && github.event.action == 'published')
-        || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_trigger == 'true')
-      environment:
-        name: pypi
-        url: https://pypi.org/p/fasttextlt
-      permissions:
-        id-token: write  
-      steps:
+    needs: build
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'release' && github.event.action == 'published')
+      || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_trigger == 'true')
+    environment:
+      name: pypi
+      url: https://pypi.org/p/fasttextlt
+    permissions:
+      id-token: write
+    steps:
       - name: Download all the dists
         uses: actions/download-artifact@v4
         with:
@@ -125,8 +125,3 @@ jobs:
           merge-multiple: true
       - name: Publish distribution 📦 to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.pypi_token }}
-          # To test: repository_url: https://test.pypi.org/legacy/
-

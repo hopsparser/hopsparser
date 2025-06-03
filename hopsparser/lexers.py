@@ -220,8 +220,7 @@ class CharRNNLexer(nn.Module):
         with open(model_path / "config.json") as in_stream:
             config = json.load(in_stream)
         res = cls(**config)
-        weight_file = model_path / "weights.pt"
-        if weight_file.exists():
+        if (weight_file := model_path / "weights.pt").exists():
             res.load_state_dict(torch.load(weight_file, map_location="cpu", weights_only=True))
         return res
 
@@ -348,9 +347,16 @@ class FastTextLexer(nn.Module):
     ) -> Self:
         with open(model_path / "config.json") as in_stream:
             config = json.load(in_stream)
-        fasttext_vocab = fasttext.FastTextVocab.load(model_path / "vocab.json")
-        # FIXME: we should ignore the weights here, since we will load them from the weight file
-        # anyway
+        if (vocab_path := model_path / "vocab.json").exists():
+            fasttext_vocab = fasttext.FastTextVocab.load(vocab_path)
+        elif (bin_path := model_path / "fasttext_model.bin").exists():
+            logger.info(
+                f"Loading an old-style FastText lexer from {bin_path}."
+                " Saving this lexer again will preserve the file, but not update its weights."
+            )
+            return cls.from_fasttext_model(bin_path, **config)
+        else:
+            raise ValueError(f"{model_path} is not a FastText lexer model.")
         res = cls(fasttext_vocab, **config)
 
         if (weight_file := model_path / "weights.pt").exists():
