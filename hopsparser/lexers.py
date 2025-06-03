@@ -261,7 +261,7 @@ class FastTextLexer(nn.Module):
         self.pad_idx: Final[int] = cast(int, self.embeddings.padding_idx)
 
     def subwords_idxes(self, token: str) -> torch.Tensor:
-        """Returns a list of ft subwords indexes a token"""
+        """Get the subword indices for a token according to the FastText vocabulary"""
         # NOTE: `get_subwords` returns `[word_id, subword_1_id, …]` if `token` is in-vocabulary.
         return torch.from_numpy(self.fasttext_vocab.get_subword_ids(token))
 
