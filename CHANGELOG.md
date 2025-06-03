@@ -28,7 +28,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   e.g. Gensim, which allows full control over its hyperparameters (our choice was never optimal
   anyway). We also stop saving separate FastText models during training, considerably reducing the
   model size.
-
+- **BREAKING** The evaluation command now uses a slightly different algorithm to match
+  segmentations. This should not make any difference for HOPS evaluation (since it doesn't segment),
+  but if you're somehow using it as an evaluation provider, your results might change in
+  pathological cases. Scores on gold tokenizations should be the same.
 
 ## [0.7.1] - 2023-11-16
 
@@ -128,4 +131,3 @@ not using BERT.
 ## [0.4.0] — 2022-03-23
 
 [0.4.0]: https://github.com/hopsparser/hopsparser/compare/v0.3.2...v0.4.0
-
