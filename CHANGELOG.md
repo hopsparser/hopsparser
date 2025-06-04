@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.8.0] - 2025-06-04
+
 ### Fixed
 
 - Emit a warning if an extra label only has one observed value.
@@ -35,7 +37,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [0.7.1] - 2023-11-16
 
-[Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/hopsparser/hopsparser/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/hopsparser/hopsparser/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/hopsparser/hopsparser/compare/v0.7.0...v0.7.1
 
 ### Fixed
