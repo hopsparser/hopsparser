@@ -13,11 +13,9 @@ lexers:
     type: chars_rnn
     embedding_size: 64
     lstm_output_size: 128
-  # /!\ Generic FastText model, use a language-specific one for better results
-  # Unsupported in fasttext lite for now
-  # - name: fasttext
-  #   type: fasttext
-  #   source: facebook/fasttext-language-identification
+  - name: fasttext
+    type: fasttext
+    source: "facebook/fasttext-fr-vectors"
 # Training hyperparameters
 encoder_dropout: 0.6
 mlp_dropout: 0.5
