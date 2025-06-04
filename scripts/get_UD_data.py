@@ -12,7 +12,11 @@ UD_URLS = {
     "2.15": {
         "url": "https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-5787/ud-treebanks-v2.15.tgz",
         "hash": "md5:1ebca6a1cf594ea689c1687a56fbb9d4",
-    }
+    },
+    "2.16": {
+        "url": "https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-5901/ud-treebanks-v2.16.tgz",
+        "hash": "md5:e871b9ae93e56bc980a36b6aef6a65aa",
+    },
 }
 
 UD_RELEASES = list(UD_URLS.keys())
