@@ -113,7 +113,7 @@ jobs:
       || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_trigger == 'true')
     environment:
       name: pypi
-      url: https://pypi.org/p/fasttextlt
+      url: https://pypi.org/p/hopsparser
     permissions:
       id-token: write
     steps:
