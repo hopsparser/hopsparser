@@ -13,8 +13,9 @@ lexers:
     type: chars_rnn
     embedding_size: 64
     lstm_output_size: 128
-  - name: fasttext
-    type: fasttext
+  # - name: fasttext
+  #   type: fasttext
+  #   source: {pretrained_fasttext_model.bin}
 # Training hyperparameters
 encoder_dropout: 0.6
 mlp_dropout: 0.5
