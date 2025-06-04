@@ -26,7 +26,7 @@ def check_model(
         def extract_dir(fname, action, pooch):
             extract_dir = temp_path / "model"
             with TarFile.open(fname, "r") as tar_file:
-                tar_file.extractall(path=extract_dir)
+                tar_file.extractall(path=extract_dir, filter="data")
             extracted_content = list(extract_dir.iterdir())
             if len(extracted_content) != 1:
                 raise ValueError(f"Invalid model archive. Content: {extracted_content}")
@@ -75,7 +75,7 @@ def main(device: str, models_list: TextIO):
             reference.items(), description="Checking models"
         ):
             if not dataset["treebank"]:
-                print(f"No available data for {dataset_name}")
+                progress.print(f"No available data for {dataset_name}")
                 continue
             with tempfile.TemporaryDirectory() as temp_dir:
                 temp_path = pathlib.Path(temp_dir)
@@ -96,7 +96,9 @@ def main(device: str, models_list: TextIO):
                         treebank=treebank,
                     )
                     if not ok:
-                        print(f"Inconsistency with model {model_name} for treebank {dataset_name}.")
+                        progress.print(
+                            f"Inconsistency with model {model_name} for treebank {dataset_name}."
+                        )
 
 
 if __name__ == "__main__":

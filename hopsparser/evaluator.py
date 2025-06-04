@@ -85,14 +85,14 @@
 # multi-word span are then aligned as tokens.
 
 import argparse
-from contextlib import suppress
-from functools import cached_property
-from itertools import takewhile
+import pathlib
 import re
 import unicodedata
+from contextlib import suppress
 from dataclasses import dataclass, field
+from functools import cached_property
+from itertools import takewhile
 from typing import Any, Callable, Iterable, Mapping, NamedTuple, Sequence, TypeVar, cast
-
 
 T = TypeVar("T")
 
@@ -319,7 +319,7 @@ class Alignment:
         return {a.system_word: a.gold_word for a in self.matched_words}
 
 
-# Would probably be even more efficient with numpy arrays
+# Would probably be even more efficient with numpy arrays or bitarrays
 def detect_cycle(heads: Sequence[int]) -> list[int] | None:
     """This assumes that `heads[0]` is set to `0`"""
     on_stack = [True] * len(heads)
@@ -411,7 +411,8 @@ def process_sentence(lines: Sequence[str], start_char_idx: int) -> UDSentence:
         start, end = m.group("start"), m.group("end")
 
         if is_multiword := last_mwt is not None and int(start) in last_mwt.words_span:
-            # Pyright doen't support `and` in aliased conditional guards: <https://github.com/microsoft/pyright/discussions/4032>
+            # Pyright doen't support `and` in aliased conditional guards:
+            # <https://github.com/microsoft/pyright/discussions/4032>
             current_span = cast(MultiWordToken, last_mwt).char_span
             if end:
                 raise UDError(f"Nested MWT in sentence {lines}.")
@@ -684,8 +685,8 @@ def spans_score(gold_spans: Sequence[Span], system_spans: Sequence[Span]) -> Sco
     s = next(system_itr)
     with suppress(StopIteration):
         while True:
-            # This could be slightly optimized because we know that consecutive spans are of either `(n,
-            # k), (k, ℓ)` or `(n, k), (n, k)` forms. But we don't need that extra complexity
+            # This could be slightly optimized because we know that consecutive spans are of either
+            # `(n, k), (k, ℓ)` or `(n, k), (n, k)` forms. But we don't need that extra complexity
             if g.start < s.start:
                 g = next(gold_itr)
             elif s.start < g.start:
@@ -824,12 +825,12 @@ def evaluate(gold_ud: UDRepresentation, system_ud: UDRepresentation) -> dict[str
     }
 
 
-def load_conllu_file(path):
+def load_conllu_file(path: str | pathlib.Path) -> UDRepresentation:
     with open(path, encoding="utf8") as in_stream:
         return load_conllu(in_stream)
 
 
-def evaluate_wrapper(args):
+def evaluate_wrapper(args: argparse.Namespace) -> dict[str, Score]:
     # Load CoNLL-U files
     gold_ud = load_conllu_file(args.gold_file)
     system_ud = load_conllu_file(args.system_file)

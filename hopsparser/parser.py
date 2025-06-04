@@ -245,7 +245,7 @@ class BiAffineParserConfig(pydantic.BaseModel):
     mlp_dropout: float
     tagset: list[str]
     lexers: dict[str, str]
-    multitask_loss: Literal["adaptative", "mean", "sum", "weighted"]
+    multitask_loss: Literal["adaptative", "mean", "sum", "weighted"] = pydantic.Field(default="sum")
 
 
 class BiaffineParserOutput(NamedTuple):
@@ -429,7 +429,13 @@ class BiAffineParser(nn.Module):
 
     def load_params(self, path: str | pathlib.Path | BinaryIO):
         state_dict = torch.load(path, map_location="cpu", weights_only=True)
-        self.load_state_dict(state_dict)
+        incompatible_keys = self.load_state_dict(state_dict, strict=False)
+        if incompatible_keys.unexpected_keys:
+            logger.warning(
+                f"Unexpected weights in saved model: {incompatible_keys.unexpected_keys}"
+            )
+        if incompatible_keys.missing_keys:
+            raise ValueError(f"Missing weights in saved model: {incompatible_keys.missing_keys}")
 
     def forward(
         self,
