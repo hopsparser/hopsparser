@@ -241,17 +241,17 @@ class UDSentence:
 
     @cached_property
     def characters(self) -> Sequence[str]:
-        return [
+        return tuple(
             c for t in self.tokens if not (isinstance(t, UDWord) and t.is_multiword) for c in t.form
-        ]
+        )
 
     @cached_property
     def words(self) -> Sequence[UDWord]:
-        return [t for t in self.tokens if isinstance(t, UDWord)]
+        return tuple(t for t in self.tokens if isinstance(t, UDWord))
 
     @cached_property
     def multi_words(self) -> Sequence[MultiWordToken]:
-        return [t for t in self.tokens if isinstance(t, MultiWordToken)]
+        return tuple(t for t in self.tokens if isinstance(t, MultiWordToken))
 
 
 @dataclass(eq=False, frozen=True)
@@ -316,6 +316,7 @@ class Alignment:
 
     @cached_property
     def gold_aligned(self) -> Mapping[UDWord, UDWord]:
+        # FIXME: this should be immutable, python give me frozen dict
         return {a.system_word: a.gold_word for a in self.matched_words}
 
 
