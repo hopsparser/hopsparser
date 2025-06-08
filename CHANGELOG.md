@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Epoch logging is no longer off by one epoch when using the trainer.
+
 ## [0.8.0] - 2025-06-04
 
 ### Fixed
