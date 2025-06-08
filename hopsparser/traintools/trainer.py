@@ -293,7 +293,12 @@ class SaveModelCallback(pl.Callback):
 
 
 class RichFeedbackCallback(pl_callbacks.Callback):
-    def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
+    # On **train** epoch end otherwise the metrics in `logged_metrics` are those from the previous
+    # epoch, which we do manually because of
+    # <https://github.com/Lightning-AI/pytorch-lightning/issues/11126#issuecomment-1504866597> and
+    # the hooks don't appear in the correct order. See
+    # <https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#validation-epoch-level-metrics>
+    def on_train_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
         if not trainer.sanity_checking:
             utils.log_epoch(
                 epoch_name=str(trainer.current_epoch),
