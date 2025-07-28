@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- The `--max-tree-length` option and the associated parameters are marked as deprecated.
+
 ### Fixed
 
 - Epoch logging is no longer off by one epoch when using the trainer.

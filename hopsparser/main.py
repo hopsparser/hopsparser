@@ -12,8 +12,7 @@ from rich import box
 from rich.console import Console
 from rich.table import Column, Table
 
-from hopsparser import evaluator
-from hopsparser import deptree, parser
+from hopsparser import deptree, evaluator, parser
 from hopsparser.utils import (
     SeparatedTuple,
     dir_manager,
@@ -113,13 +112,14 @@ def parse(
 )
 @click.option(
     "--max-tree-length",
-    type=int,
+    deprecated=True,
     help="The maximum length for trees to be taken into account in the training dataset.",
+    type=int,
 )
 @click.option(
     "--rand-seed",
     default=0,
-    help="Force the random seed fo Python and Pytorch (see <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)",
+    help="Force the random seed for Python and Pytorch (see <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)",
     show_default=True,
     type=int,
 )
@@ -226,8 +226,9 @@ def train(
 )
 @click.option(
     "--max-tree-length",
-    type=int,
+    deprecated=True,
     help="The maximum length for trees to be taken into account in the training dataset.",
+    type=int,
 )
 @click.option(
     "--rand-seed",

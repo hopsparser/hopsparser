@@ -29,7 +29,7 @@ from boltons import iterutils as itu
 from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
-from typing_extensions import Self
+from typing_extensions import deprecated, Self
 
 from hopsparser import lexers, utils
 from hopsparser.deptree import DepGraph
@@ -1123,6 +1123,9 @@ class BiAffineParser(nn.Module):
         parser_lexers: dict[str, Lexer] = dict()
         lexer: Lexer
         for lexer_config in config["lexers"]:
+            # TODO: outsource this to lexers by giving them a `from_treebank` method and having
+            # `lexer_type` picking from a known register (that would also make lexer plugins
+            # easier).
             lexer_type = lexer_config["type"]
             if lexer_type == "words":
                 lexer = WordEmbeddingsLexer.from_words(
@@ -1281,6 +1284,36 @@ class DependencyDataset(torch.utils.data.Dataset[EncodedTree]):
 
     def __len__(self):
         return len(self.encoded_trees)
+
+
+@overload
+@deprecated("`max_tree_length` is deprecated, use `skip_unencodable` or pre-filter trees instead.")
+def train(
+    config_file: pathlib.Path,
+    model_path: pathlib.Path,
+    train_file: pathlib.Path,
+    dev_file: pathlib.Path | None,
+    skip_unencodable: bool,
+    device: str | torch.device,
+    log_epoch: Callable[[str, dict[str, str]], Any],
+    max_tree_length: int | None,
+    overwrite: bool,
+    rand_seed: int | None,
+): ...
+
+
+@overload
+def train(
+    config_file: pathlib.Path,
+    model_path: pathlib.Path,
+    train_file: pathlib.Path,
+    dev_file: pathlib.Path | None,
+    skip_unencodable: bool,
+    device: str | torch.device,
+    log_epoch: Callable[[str, dict[str, str]], Any],
+    overwrite: bool,
+    rand_seed: int | None,
+): ...
 
 
 def train(
