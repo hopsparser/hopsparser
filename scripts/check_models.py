@@ -17,8 +17,8 @@ def check_model(
     device: str,
     intermediary_dir: pathlib.Path,
     model_url: str,
-    scores: Dict[str, Dict[str, float]],
-    treebank: Dict[str, pathlib.Path],
+    scores: dict[str, dict[str, float]],
+    treebank: dict[str, pathlib.Path],
 ) -> bool:
     with tempfile.TemporaryDirectory(prefix=f"{intermediary_dir}/") as temp_dir:
         temp_path = pathlib.Path(temp_dir)

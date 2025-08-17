@@ -3,15 +3,13 @@ import itertools
 import re
 from dataclasses import dataclass
 from typing import (
-    Iterable,
-    Mapping,
     NamedTuple,
-    Sequence,
     cast,
 )
+from collections.abc import Iterable, Mapping, Sequence
 
 from loguru import logger
-from typing_extensions import Self
+from typing import Self
 
 
 # For use with strip, this is not a list but a concat string, list from

@@ -2,7 +2,8 @@ import datetime
 import pathlib
 import re
 import shutil
-from typing import Optional, Sequence, cast
+from typing import cast
+from collections.abc import Sequence
 
 import click
 import torch
@@ -97,7 +98,7 @@ def main(
     config_file: pathlib.Path,
     output_dir: pathlib.Path,
     device: str,
-    lang: Optional[Sequence[str]],
+    lang: Sequence[str] | None,
     origin_label_name: str,
     overwrite: bool,
     rand_seed: int,

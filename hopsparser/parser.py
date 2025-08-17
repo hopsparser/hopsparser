@@ -7,17 +7,14 @@ import warnings
 from typing import (
     Any,
     BinaryIO,
-    Callable,
     Final,
-    Iterable,
     Literal,
-    Mapping,
     NamedTuple,
-    Sequence,
     TextIO,
     cast,
     overload,
 )
+from collections.abc import Callable, Iterable, Mapping, Sequence
 
 import pydantic
 import torch.utils.data
@@ -28,7 +25,8 @@ from boltons import iterutils as itu
 from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
-from typing_extensions import deprecated, Self
+from typing_extensions import deprecated
+from typing import Self
 
 from hopsparser import lexers, utils
 from hopsparser.deptree import DepGraph
@@ -76,7 +74,7 @@ def gen_labels(treelist: Iterable[DepGraph]) -> list[str]:
 # TODO: jit
 class MLP(nn.Module):
     def __init__(self, input_dim: int, hidden_dim: int, output_dim: int, dropout: float = 0.0):
-        super(MLP, self).__init__()
+        super().__init__()
         self.input_dim: Final[int] = input_dim
         self.output_dim: Final[int] = output_dim
         self.w_down = nn.Linear(self.input_dim, hidden_dim)
@@ -103,7 +101,7 @@ class BiAffine(nn.Module):
     """
 
     def __init__(self, input_dim: int, output_dim: int, bias: bool):
-        super(BiAffine, self).__init__()
+        super().__init__()
         self.input_dim: Final[int] = input_dim
         self.output_dim: Final[int] = output_dim
         self.bias: Final[bool] = bias
@@ -310,7 +308,7 @@ class BiAffineParser(nn.Module):
         extra_annotations: Mapping[str, AnnotationConfig] | None = None,
         multitask_loss: Literal["adaptative", "mean", "sum", "weighted"] = "sum",
     ):
-        super(BiAffineParser, self).__init__()
+        super().__init__()
         self.default_batch_size = default_batch_size
         self.tagset: BidirectionalMapping[str, int] = bidict((t, i) for i, t in enumerate(tagset))
         self.labels: BidirectionalMapping[str, int] = bidict(
@@ -386,18 +384,20 @@ class BiAffineParser(nn.Module):
                 name: bidict((lab, i) for i, lab in enumerate(conf.labels))
                 for name, conf in extra_annotations.items()
             }
-            self.annotators = nn.ModuleDict({
-                name: MLP(
-                    input_dim=self.mlp_input * 2,
-                    hidden_dim=conf.hidden_layer_dim,
-                    output_dim=len(conf.labels),
-                    dropout=self.mlp_dropout,
-                )
-                for name, conf in extra_annotations.items()
-            })
-            _loss_weights.update({
-                name: conf.loss_weight for name, conf in extra_annotations.items()
-            })
+            self.annotators = nn.ModuleDict(
+                {
+                    name: MLP(
+                        input_dim=self.mlp_input * 2,
+                        hidden_dim=conf.hidden_layer_dim,
+                        output_dim=len(conf.labels),
+                        dropout=self.mlp_dropout,
+                    )
+                    for name, conf in extra_annotations.items()
+                }
+            )
+            _loss_weights.update(
+                {name: conf.loss_weight for name, conf in extra_annotations.items()}
+            )
         else:
             self.extra_annotations = dict()
             self.annotation_lexicons = dict()
@@ -524,9 +524,9 @@ class BiAffineParser(nn.Module):
             labels_scores_flat = labels_scores.view(-1, labels_scores.size(-1))
             all_loss[annotation_name] = self.marginal_loss(labels_scores_flat, labels.view(-1))
 
-        loss = torch.stack([
-            all_loss[name] for name in ["tag", "head", "deprel", *self.annotations_order]
-        ])
+        loss = torch.stack(
+            [all_loss[name] for name in ["tag", "head", "deprel", *self.annotations_order]]
+        )
 
         if self.multitask_loss == "sum":
             return loss.sum()
@@ -853,16 +853,18 @@ class BiAffineParser(nn.Module):
         # FIXME: Padding for the root node, but probably a better idea to not even predict any label
         # for it if we can avoid it
         annotations = {
-            name: torch.tensor([
-                self.LABEL_PADDING,
-                *(
-                    self.annotation_lexicons[name].get(
-                        node.misc.mapping.get(name),  # type: ignore  # This is funky but ok, since get(None) will always fail
-                        self.LABEL_PADDING,
-                    )
-                    for node in tree.nodes
-                ),
-            ])
+            name: torch.tensor(
+                [
+                    self.LABEL_PADDING,
+                    *(
+                        self.annotation_lexicons[name].get(
+                            node.misc.mapping.get(name),  # type: ignore  # This is funky but ok, since get(None) will always fail
+                            self.LABEL_PADDING,
+                        )
+                        for node in tree.nodes
+                    ),
+                ]
+            )
             for name in self.annotations_order
         }
 

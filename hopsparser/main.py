@@ -4,7 +4,8 @@ import pathlib
 import shutil
 import subprocess
 import sys
-from typing import Literal, Sequence, TextIO
+from typing import Literal, TextIO
+from collections.abc import Sequence
 
 import click
 from loguru import logger

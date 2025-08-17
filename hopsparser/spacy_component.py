@@ -1,5 +1,6 @@
 import pathlib
-from typing import Callable, cast
+from typing import cast
+from collections.abc import Callable
 
 from spacy.language import Language
 from spacy.tokens import Doc

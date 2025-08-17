@@ -5,15 +5,13 @@ from abc import abstractmethod
 from typing import (
     Any,
     Final,
-    Iterable,
     Literal,
     NamedTuple,
     Protocol,
-    Sequence,
-    Type,
     TypeVar,
     cast,
 )
+from collections.abc import Iterable, Sequence
 
 from fasttextlt import fasttext
 import torch
@@ -30,7 +28,7 @@ from transformers.tokenization_utils_base import (
     PreTokenizedInput,
     TokenSpan,
 )
-from typing_extensions import Self
+from typing import Self
 
 
 class LexingError(Exception):
@@ -475,6 +473,7 @@ class WordEmbeddingsLexer(nn.Module):
     """
     This is the basic lexer wrapping an embedding layer.
     """
+
     UNK_WORD: Final[str] = "<unk>"
 
     def __init__(
@@ -742,11 +741,13 @@ class BertLexer(nn.Module):
             subword_embeddings = selected_layers.mean(dim=0)
         # We already know the shape the BERT embeddings should have and we pad with zeros
         # shape: batch×sentence(WITH ROOT TOKEN)×features
-        word_embeddings = subword_embeddings.new_zeros((
-            len(inpt.subword_alignments),
-            max(len(s) for s in inpt.subword_alignments) + 1,
-            subword_embeddings.shape[2],
-        ))
+        word_embeddings = subword_embeddings.new_zeros(
+            (
+                len(inpt.subword_alignments),
+                max(len(s) for s in inpt.subword_alignments) + 1,
+                subword_embeddings.shape[2],
+            )
+        )
         # FIXME: this loop is embarassingly parallel, there must be a way to parallelize it
         for sent_n, alignment in enumerate(inpt.subword_alignments):
             # TODO: If we revise the alignment format, this could probably be made faster using
@@ -973,9 +974,11 @@ class BertLexer(nn.Module):
         )
 
 
-LEXER_TYPES: BidirectionalMapping[str, Type[Lexer]] = bidict({
-    "bert": BertLexer,
-    "chars_rnn": CharRNNLexer,
-    "fasttext": FastTextLexer,
-    "words": WordEmbeddingsLexer,
-})
+LEXER_TYPES: BidirectionalMapping[str, type[Lexer]] = bidict(
+    {
+        "bert": BertLexer,
+        "chars_rnn": CharRNNLexer,
+        "fasttext": FastTextLexer,
+        "words": WordEmbeddingsLexer,
+    }
+)

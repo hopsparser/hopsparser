@@ -2,7 +2,8 @@ import datetime
 import os
 import pathlib
 import shutil
-from typing import Any, Iterable, Mapping, NamedTuple, Optional, Sequence, cast
+from typing import Any, NamedTuple, cast
+from collections.abc import Iterable, Mapping, Sequence
 
 import click
 import pydantic
@@ -132,16 +133,18 @@ class ParserTrainingModule(pl.LightningModule):
         # We need a cast here because ModuleDict does not subclass dict
         self.val_extra_labels_accuracy = cast(
             Mapping[str, torchmetrics.Metric],
-            torch.nn.ModuleDict({
-                name: HarmonicMeanAggregateMetric(
-                    n_datasets=n_dev,
-                    metric_class=torchmetrics.Accuracy,
-                    ignore_index=self.parser.LABEL_PADDING,
-                    num_classes=len(lex),
-                    task="multiclass",
-                )
-                for name, lex in self.parser.annotation_lexicons.items()
-            }),
+            torch.nn.ModuleDict(
+                {
+                    name: HarmonicMeanAggregateMetric(
+                        n_datasets=n_dev,
+                        metric_class=torchmetrics.Accuracy,
+                        ignore_index=self.parser.LABEL_PADDING,
+                        num_classes=len(lex),
+                        task="multiclass",
+                    )
+                    for name, lex in self.parser.annotation_lexicons.items()
+                }
+            ),
         )
         logger.debug(f"Using train config {config}")
         self.save_hyperparameters("config")
@@ -318,7 +321,7 @@ def train(
     run_name: str,
     train_file: pathlib.Path,
     devices: int | str | list[int] = 0,
-    callbacks: Optional[Iterable[pl_callbacks.Callback]] = None,
+    callbacks: Iterable[pl_callbacks.Callback] | None = None,
     overwrite: bool = False,
 ):
     output_dir.mkdir(exist_ok=True, parents=True)
@@ -489,7 +492,7 @@ def train(
 )
 def main(
     accelerator: str,
-    dev_file: Optional[pathlib.Path],
+    dev_file: pathlib.Path | None,
     config_file: pathlib.Path,
     run_name: str,
     output_dir: pathlib.Path,

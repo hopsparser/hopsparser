@@ -115,9 +115,9 @@ def test_train(
 def test_batch_invariance(
     device: str,
     parser: BiAffineParser,
-    stable_text: List[str],
-    distractor_text_1: List[str],
-    distractor_text_2: List[str],
+    stable_text: list[str],
+    distractor_text_1: list[str],
+    distractor_text_2: list[str],
 ):
     parser = parser.to(device)
     parser.eval()
@@ -169,8 +169,8 @@ def test_batch_invariance(
 )
 def test_save_load_idempotency(
     device: str,
-    parser_and_reload: Tuple[BiAffineParser, BiAffineParser],
-    test_text: List[str],
+    parser_and_reload: tuple[BiAffineParser, BiAffineParser],
+    test_text: list[str],
 ):
     parser, reloaded = parser_and_reload
     parser = parser.to(device)

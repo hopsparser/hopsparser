@@ -1,7 +1,7 @@
 import io
 import json
 import pathlib
-from typing import Generator
+from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient

@@ -1,6 +1,6 @@
 import pathlib
 import urllib.parse
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 import click
 import httpx
@@ -32,8 +32,8 @@ import yaml
     help="Whether to use sandbox.zenodo.org instead of the real Zenodo",
 )
 def upload(
-    access_token: Optional[str],
-    config_path: Optional[pathlib.Path],
+    access_token: str | None,
+    config_path: pathlib.Path | None,
     deposit_id: str,
     files: Sequence[pathlib.Path],
     sandbox: bool,
