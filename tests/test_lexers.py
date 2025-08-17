@@ -14,6 +14,9 @@ from pytest_lazy_fixtures import lf as lazy_fixture
 from hopsparser import lexers
 
 
+# TODO: test the `from_config` methods
+
+
 @given(
     char_embeddings_dim=st.integers(min_value=1, max_value=512),
     chars=st.lists(st.characters(), min_size=1),
