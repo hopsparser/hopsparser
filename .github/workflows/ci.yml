@@ -99,7 +99,7 @@ jobs:
         with:
           cache-suffix: build-py${{ matrix.python-version }}-${{ matrix.os }}
           enable-cache: true
-      - name: Build wheels
+      - name: Build wheels and sdist
         run: uv build --python ${{ matrix.python-version }} --wheel --sdist
       - uses: actions/upload-artifact@v4
         with:
@@ -118,7 +118,7 @@ jobs:
       id-token: write
     steps:
       - name: Download all the dists
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: dist-*
           path: dist/

@@ -15,7 +15,6 @@ from typing import (
     NamedTuple,
     Sequence,
     TextIO,
-    Type,
     cast,
     overload,
 )
@@ -297,7 +296,6 @@ class ParserEvalOutput(NamedTuple):
 class BiAffineParser(nn.Module):
     """Biaffine Dependency Parser."""
 
-    UNK_WORD: Final[str] = "<unk>"
     # Labels that are -100 are ignored in torch crossentropy (we still set it explicitely)
     LABEL_PADDING: Final[int] = -100
 
@@ -1108,7 +1106,7 @@ class BiAffineParser(nn.Module):
     # FIXME: allow passing a config dict directly
     @classmethod
     def initialize(
-        cls: Type[Self],
+        cls,
         config_path: pathlib.Path,
         treebank: list[DepGraph],
     ) -> Self:
@@ -1119,8 +1117,8 @@ class BiAffineParser(nn.Module):
         config.setdefault("batch_size", 1)
         config.setdefault("multitask_loss", "sum")
 
-        corpus_words = [word for tree in treebank for word in tree.words[1:]]
         parser_lexers: dict[str, Lexer] = dict()
+        sentences = [tree.words[1:] for tree in treebank]
         lexer: Lexer
         for lexer_config in config["lexers"]:
             # TODO: outsource this to lexers by giving them a `from_treebank` method and having
@@ -1128,60 +1126,33 @@ class BiAffineParser(nn.Module):
             # easier).
             lexer_type = lexer_config["type"]
             if lexer_type == "words":
-                lexer = WordEmbeddingsLexer.from_words(
-                    embeddings_dim=lexer_config["embedding_size"],
-                    unk_word=cls.UNK_WORD,
-                    word_dropout=lexer_config["word_dropout"],
-                    words=(DepGraph.ROOT_TOKEN, cls.UNK_WORD, *corpus_words),
+                lexer = WordEmbeddingsLexer.from_config(
+                    config=lexer_config,
+                    root_path=config_path.parent,
+                    sentences=sentences,
+                    special_tokens=[DepGraph.ROOT_TOKEN],
                 )
             elif lexer_config["type"] == "chars_rnn":
-                lexer = CharRNNLexer.from_chars(
-                    chars=(c for word in corpus_words for c in word),
+                lexer = CharRNNLexer.from_config(
+                    config=lexer_config,
+                    root_path=config_path.parent,
+                    sentences=sentences,
                     special_tokens=[DepGraph.ROOT_TOKEN],
-                    char_embeddings_dim=lexer_config["embedding_size"],
-                    output_dim=lexer_config["lstm_output_size"],
                 )
             elif lexer_config["type"] == "bert":
-                bert_layers = lexer_config.get("layers", "*")
-                if bert_layers == "*":
-                    bert_layers = None
-                lexer = BertLexer.from_pretrained(
-                    model_name_or_path=lexer_config["model"],
-                    layers=bert_layers,
-                    subwords_reduction=lexer_config.get("subwords_reduction", "first"),
-                    weight_layers=lexer_config.get("weighted", False),
+                lexer = BertLexer.from_config(
+                    config=lexer_config,
+                    root_path=config_path.parent,
+                    sentences=sentences,
+                    special_tokens=[DepGraph.ROOT_TOKEN],
                 )
             elif lexer_config["type"] == "fasttext":
-                if (fasttext_model_name_or_path := lexer_config.get("source")) is None:
-                    raise ValueError("Using a FastText lexer requires a pretrained model.")
-                # Try to load a local model
-                local_fasttext_model_path = pathlib.Path(fasttext_model_name_or_path)
-                if (
-                    not local_fasttext_model_path.exists()
-                    and not local_fasttext_model_path.is_absolute()
-                ):
-                    local_fasttext_model_path = (
-                        config_path.parent / local_fasttext_model_path
-                    ).resolve()
-                if local_fasttext_model_path.exists():
-                    lexer = FastTextLexer.from_fasttext_model(
-                        local_fasttext_model_path,
-                        no_remote=True,
-                        special_tokens=[DepGraph.ROOT_TOKEN],
-                    )
-                else:
-                    # Try to load a remote model
-                    # This will also try to load a local model, not ideal but eh
-                    try:
-                        lexer = FastTextLexer.from_fasttext_model(
-                            fasttext_model_name_or_path, special_tokens=[DepGraph.ROOT_TOKEN]
-                        )
-                    except ValueError as e:
-                        if not local_fasttext_model_path.exists():
-                            raise ValueError(
-                                f"Can't find a way to initialize FastText from {local_fasttext_model_path}."
-                            ) from e
-
+                lexer = FastTextLexer.from_config(
+                    config=lexer_config,
+                    root_path=config_path.parent,
+                    sentences=sentences,
+                    special_tokens=[DepGraph.ROOT_TOKEN],
+                )
             else:
                 raise ValueError(f"Unknown lexer type: {lexer_type!r}")
             parser_lexers[lexer_config["name"]] = lexer

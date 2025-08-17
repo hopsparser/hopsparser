@@ -3,6 +3,7 @@ import math
 import pathlib
 from abc import abstractmethod
 from typing import (
+    Any,
     Final,
     Iterable,
     Literal,
@@ -69,6 +70,15 @@ class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH]):
     @classmethod
     def load(cls, model_path: pathlib.Path) -> Self: ...
 
+    @classmethod
+    def from_config(
+        cls,
+        config: dict[str, Any],
+        root_path: pathlib.Path | None,
+        sentences: Sequence[Sequence[str]],
+        special_tokens: Iterable[str] | None,
+    ) -> Self: ...
+
 
 class CharRNNLexerBatch(NamedTuple):
     encoding: torch.Tensor
@@ -120,7 +130,7 @@ class CharRNNLexer(nn.Module):
             raise ValueError("Duplicated characters in charset") from e
         self.special_tokens = set([] if special_tokens is None else special_tokens)
 
-        if output_dim % 2:
+        if output_dim % 2 != 0:
             raise ValueError("`output_dim` must be a multiple of 2")
         self.char_embeddings_dim: Final[int] = char_embeddings_dim
         self.output_dim: Final[int] = output_dim
@@ -230,6 +240,21 @@ class CharRNNLexer(nn.Module):
         if wrong := [c for c in charset if len(c) > 1]:
             raise ValueError(f"Characters of length > 1 in charset: {wrong}")
         return cls(charset=["<pad>", "<special>", *charset], **kwargs)
+
+    @classmethod
+    def from_config(
+        cls,
+        config: dict[str, Any],
+        root_path: pathlib.Path | None,
+        sentences: Sequence[Sequence[str]],
+        special_tokens: Iterable[str] | None,
+    ) -> Self:
+        return cls.from_chars(
+            chars=(c for sent in sentences for word in sent for c in word),
+            special_tokens=special_tokens,
+            char_embeddings_dim=config["embedding_size"],
+            output_dim=config["lstm_output_size"],
+        )
 
 
 class FastTextLexer(nn.Module):
@@ -367,6 +392,7 @@ class FastTextLexer(nn.Module):
     def from_fasttext_model(
         cls, model_file: str | pathlib.Path, no_remote: bool = False, **kwargs
     ) -> Self:
+        # FIXME: This logic is annoying
         if isinstance(model_file, pathlib.Path):
             if model_file.exists():
                 model = fasttext.FastText.load_model(model_file)
@@ -410,11 +436,46 @@ class FastTextLexer(nn.Module):
         res.embeddings.weight = torch.nn.Parameter(weight, requires_grad=True)
         return res
 
+    @classmethod
+    def from_config(
+        cls,
+        config: dict[str, Any],
+        root_path: pathlib.Path | None,
+        sentences: Sequence[Sequence[str]],
+        special_tokens: Iterable[str] | None,
+    ) -> Self:
+        if (fasttext_model_name_or_path := config.get("source")) is None:
+            raise ValueError("Using a FastText lexer requires a pretrained model.")
+        # Try to load a local model
+        local_fasttext_model_path = pathlib.Path(fasttext_model_name_or_path)
+        if not local_fasttext_model_path.exists() and not local_fasttext_model_path.is_absolute():
+            local_fasttext_model_path = (root_path / local_fasttext_model_path).resolve()
+        if local_fasttext_model_path.exists():
+            lexer = cls.from_fasttext_model(
+                local_fasttext_model_path,
+                no_remote=True,
+                special_tokens=special_tokens,
+            )
+        else:
+            # Try to load a remote model. This will also try to load a local model, not ideal but eh
+            try:
+                lexer = cls.from_fasttext_model(
+                    fasttext_model_name_or_path, special_tokens=special_tokens
+                )
+            except ValueError as e:
+                if not local_fasttext_model_path.exists():
+                    raise ValueError(
+                        f"Can't find a way to initialize FastText from {local_fasttext_model_path}."
+                    ) from e
+        return lexer
 
+
+# FIXME: The way we deal with the root token, the unk marker and padding in this is ~bad~
 class WordEmbeddingsLexer(nn.Module):
     """
     This is the basic lexer wrapping an embedding layer.
     """
+    UNK_WORD: Final[str] = "<unk>"
 
     def __init__(
         self,
@@ -504,6 +565,25 @@ class WordEmbeddingsLexer(nn.Module):
     def from_words(cls, words: Iterable[str], **kwargs) -> Self:
         vocabulary = sorted(set(words))
         return cls(vocabulary=vocabulary, **kwargs)
+
+    @classmethod
+    def from_config(
+        cls,
+        config: dict[str, Any],
+        root_path: pathlib.Path | None,
+        sentences: Sequence[Sequence[str]],
+        special_tokens: Iterable[str] | None,
+    ) -> Self:
+        return cls.from_words(
+            embeddings_dim=config["embedding_size"],
+            unk_word=cls.UNK_WORD,
+            word_dropout=config["word_dropout"],
+            words=(
+                cls.UNK_WORD,
+                *(special_tokens if special_tokens is not None else []),
+                *(word for s in sentences for word in s[1:]),
+            ),
+        )
 
 
 def freeze_module(module: nn.Module, freezing: bool = True):
@@ -701,9 +781,8 @@ class BertLexer(nn.Module):
         for sent in batch:
             encodings_lst.append(sent.encoding)
             subwords_alignments.append(sent.subwords_alignments)
-        # TODO: figure out how to disable the warning this triggers with fast
-        # tokenizers
-        # Also why aren't we asking for tensors directly again?
+        # TODO: figure out how to disable the warning this triggers with fast tokenizers. Also why
+        # aren't we asking for tensors directly again?
         encoding = self.tokenizer.pad(encodings_lst)
         encoding.convert_to_tensors("pt")
         return BertLexerBatch(
@@ -874,6 +953,24 @@ class BertLexer(nn.Module):
             )
 
         return cls(model=model, tokenizer=tokenizer, **kwargs)
+
+    @classmethod
+    def from_config(
+        cls,
+        config: dict[str, Any],
+        root_path: pathlib.Path | None,
+        sentences: Sequence[Sequence[str]],
+        special_tokens: Iterable[str] | None,
+    ) -> Self:
+        bert_layers = config.get("layers", "*")
+        if bert_layers == "*":
+            bert_layers = None
+        return cls.from_pretrained(
+            model_name_or_path=config["model"],
+            layers=bert_layers,
+            subwords_reduction=config.get("subwords_reduction", "first"),
+            weight_layers=config.get("weighted", False),
+        )
 
 
 LEXER_TYPES: BidirectionalMapping[str, Type[Lexer]] = bidict({
