@@ -8,7 +8,8 @@ import sys
 import tempfile
 import warnings
 from types import FrameType
-from typing import IO, Any, Callable, Generator, Sequence, TextIO, Type, Union, cast
+from typing import IO, Any, TextIO, Union, cast
+from collections.abc import Callable, Generator, Sequence
 
 import click
 import loguru
@@ -249,7 +250,7 @@ class SeparatedTuple(click.ParamType):
     str, path: pathlib.Path)`.
     """
 
-    def __init__(self, separator: str, types: Sequence[Type | click.ParamType]):
+    def __init__(self, separator: str, types: Sequence[type | click.ParamType]):
         self.separator = separator
         self.types = [click.types.convert_type(ty) for ty in types]
 

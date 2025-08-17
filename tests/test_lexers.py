@@ -26,10 +26,10 @@ from hopsparser import lexers
 )
 def test_char_rnn_create_save_load(
     char_embeddings_dim: int,
-    chars: List[str],
+    chars: list[str],
     half_output_dim: int,
-    special_tokens: List[str],
-    test_text: List[str],
+    special_tokens: list[str],
+    test_text: list[str],
 ):
     char_lexer = lexers.CharRNNLexer.from_chars(
         char_embeddings_dim=char_embeddings_dim,
@@ -111,9 +111,9 @@ def test_fasttext_train_create_save_load(
 )
 def test_word_embeddings_create_save_load(
     embeddings_dim: int,
-    test_text: List[str],
+    test_text: list[str],
     word_dropout: float,
-    words: List[str],
+    words: list[str],
 ):
     lexer = lexers.WordEmbeddingsLexer.from_words(
         embeddings_dim=embeddings_dim,
@@ -137,7 +137,7 @@ def test_word_embeddings_create_save_load(
 @pytest.fixture(params=["lgrobol/flaubert-minuscule"])
 def remote_transformer_model(
     request,
-) -> Tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase]:
+) -> tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase]:
     model = transformers.AutoModel.from_pretrained(request.param)
     tokenizer = transformers.AutoTokenizer.from_pretrained(request.param, use_fast=True)
     return (model, tokenizer)
@@ -146,7 +146,7 @@ def remote_transformer_model(
 @pytest.fixture
 def local_transformer_model(
     test_data_dir: pathlib.Path,
-) -> Tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase]:
+) -> tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase]:
     model = transformers.AutoModel.from_pretrained(test_data_dir / "roberta-minuscule")
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         test_data_dir / "roberta-minuscule", use_fast=True, add_prefix_space=True
@@ -163,7 +163,7 @@ def local_transformer_model(
 )
 def transformer_model(
     request,
-) -> Tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase]:
+) -> tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase]:
     return request.param
 
 
@@ -189,8 +189,8 @@ def transformer_model(
 def test_bert_embeddings_create_save_load(
     data: st.DataObject,
     subwords_reduction: Literal["first", "mean"],
-    test_text: List[str],
-    transformer_model: Tuple[
+    test_text: list[str],
+    transformer_model: tuple[
         transformers.PreTrainedModel,
         transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast,
     ],
@@ -204,13 +204,15 @@ def test_bert_embeddings_create_save_load(
         )
     )
     layers = data.draw(
-        st.one_of([
-            st.none(),
-            st.lists(
-                st.integers(min_value=-max_num_layers, max_value=max_num_layers - 1),
-                min_size=1,
-            ),
-        ])
+        st.one_of(
+            [
+                st.none(),
+                st.lists(
+                    st.integers(min_value=-max_num_layers, max_value=max_num_layers - 1),
+                    min_size=1,
+                ),
+            ]
+        )
     )
     lexer = lexers.BertLexer(
         layers=layers,
@@ -226,11 +228,13 @@ def test_bert_embeddings_create_save_load(
         # roundtripping hf models. ugh.
         model_config_path = tmp_path / "model" / "config.json"
         model_config_path.write_text(
-            json.dumps({
-                **json.loads(model_config_path.read_text()),
-                "attn_implementation": lexer.model.config._attn_implementation,
-                "_attn_implementation_autoset": False,
-            })
+            json.dumps(
+                {
+                    **json.loads(model_config_path.read_text()),
+                    "attn_implementation": lexer.model.config._attn_implementation,
+                    "_attn_implementation_autoset": False,
+                }
+            )
         )
         reloaded = lexers.BertLexer.load(tmp_path)
         # Should always be true but lol

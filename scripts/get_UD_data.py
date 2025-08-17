@@ -2,7 +2,7 @@ import pathlib
 import re
 import shutil
 from collections import defaultdict
-from typing import Callable, Iterator
+from collections.abc import Callable, Iterator
 
 import click
 import pooch

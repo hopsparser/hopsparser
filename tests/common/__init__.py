@@ -1,5 +1,6 @@
 import heapq
-from typing import Sequence, cast
+from typing import cast
+from collections.abc import Sequence
 
 import numpy as np
 from hypothesis import assume
@@ -136,10 +137,12 @@ conllu_filled_column_st = st.text(
 conllu_column_st = st.one_of([st.just("_"), conllu_filled_column_st])
 
 conllu_token_lists = st.lists(
-    st.one_of([
-        conllu_filled_column_st,
-        st.tuples(conllu_filled_column_st, st.lists(conllu_filled_column_st, min_size=2)),
-    ]),
+    st.one_of(
+        [
+            conllu_filled_column_st,
+            st.tuples(conllu_filled_column_st, st.lists(conllu_filled_column_st, min_size=2)),
+        ]
+    ),
     min_size=1,
 )
 
@@ -147,30 +150,34 @@ conllu_token_lists = st.lists(
 @st.composite
 def conllu_lines(draw: st.DrawFn, indice: str, form: str, head: str | None) -> str:
     if head is None:
-        return "\t".join([
+        return "\t".join(
+            [
+                indice,
+                form,
+                "_",
+                "_",
+                "_",
+                "_",
+                "_",
+                "_",
+                "_",
+                draw(conllu_column_st),
+            ]
+        )
+    return "\t".join(
+        [
             indice,
             form,
-            "_",
-            "_",
-            "_",
-            "_",
-            "_",
-            "_",
-            "_",
             draw(conllu_column_st),
-        ])
-    return "\t".join([
-        indice,
-        form,
-        draw(conllu_column_st),
-        draw(conllu_column_st),
-        draw(conllu_column_st),
-        draw(conllu_column_st),
-        head,
-        draw(conllu_column_st),
-        draw(conllu_column_st),
-        draw(conllu_column_st),
-    ])
+            draw(conllu_column_st),
+            draw(conllu_column_st),
+            draw(conllu_column_st),
+            head,
+            draw(conllu_column_st),
+            draw(conllu_column_st),
+            draw(conllu_column_st),
+        ]
+    )
 
 
 @st.composite

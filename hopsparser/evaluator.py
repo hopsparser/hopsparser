@@ -92,7 +92,8 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from functools import cached_property
 from itertools import takewhile
-from typing import Any, Callable, Iterable, Mapping, NamedTuple, Sequence, TypeVar, cast
+from typing import Any, NamedTuple, TypeVar, cast
+from collections.abc import Callable, Iterable, Mapping, Sequence
 
 T = TypeVar("T")
 
@@ -585,7 +586,7 @@ def word_align_key(w: UDWord) -> str:
 def get_multiword_spans(
     gold_words: Sequence[UDWord], system_words: Sequence[UDWord]
 ) -> Sequence[Span]:
-    multiwords_spans = sorted(set(w.span for w in (*gold_words, *system_words) if w.is_multiword))
+    multiwords_spans = sorted({w.span for w in (*gold_words, *system_words) if w.is_multiword})
     if not multiwords_spans:
         return []
 
@@ -908,7 +909,7 @@ def main():
                         100 * m.recall,
                         100 * m.f1,
                         (
-                            "{:10.2f}".format(100 * m.aligned_accuracy)
+                            f"{100 * m.aligned_accuracy:10.2f}"
                             if m.aligned_accuracy is not None
                             else ""
                         ),

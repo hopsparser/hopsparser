@@ -1,4 +1,4 @@
-from typing import Sequence
+from collections.abc import Sequence
 import pytest
 from hopsparser.evaluator import UDError
 from hopsparser.evaluator import UDRepresentation, evaluate, load_conllu
@@ -85,80 +85,82 @@ def test_boundaries(trees: tuple[UDRepresentation, UDRepresentation]):
 
 
 @given(
-    args=st.one_of([
-        st.tuples(
-            trees(tokens=st.just(["abcd"])),
-            trees(tokens=st.just(["a", "b", "c", "d"])),
-            st.just(0),
-        ),
-        st.tuples(
-            trees(tokens=st.just(["abc", "d"])),
-            trees(tokens=st.just(["a", "b", "c", "d"])),
-            st.just(1),
-        ),
-        st.tuples(
-            trees(tokens=st.just(["a", "bc", "d"])),
-            trees(tokens=st.just(["a", "b", "c", "d"])),
-            st.just(2),
-        ),
-        st.tuples(
-            trees(tokens=st.just(["a", ("bc", ["b", "c"]), "d"])),
-            trees(tokens=st.just(["a", "b", "cd"])),
-            st.just(2),
-        ),
-        st.tuples(
-            trees(tokens=st.just([("abc", ["a", "BX", "c"]), ("def", ["d", "EX", "f"])])),
-            trees(tokens=st.just([("ab", ["a", "b"]), ("cd", ["c", "d"]), ("ef", ["e", "f"])])),
-            st.just(4),
-        ),
-        st.tuples(
-            trees(tokens=st.just([("ab", ["a", "b"]), ("cd", ["bc", "d"])])),
-            trees(tokens=st.just(["a", "bc", "d"])),
-            st.just(2),
-        ),
-        st.tuples(
-            trees(tokens=st.just(["a", ("bc", ["b", "c"]), "d"])),
-            trees(tokens=st.just([("ab", ["AX", "BX"]), ("cd", ["CX", "a"])])),
-            st.just(1),
-        ),
-        st.tuples(
-            trees(tokens=st.just([("abc", ["a", "b"]), ("a", ["c", "a"])])),
-            trees(tokens=st.just(["a", "b", "c", "a"])),
-            st.just(3),
-        ),
-        # This next one is absurd but would fit the original algorithm
-        # st.tuples(
-        #     trees(tokens=st.just(["abcd", ("a", ["b", "c", "d"])])),
-        #     trees(tokens=st.just(["a", "b", "c", "d", ("a", ["e", "f"])])),
-        #     st.just(3),
-        # ),
-        # This one makes sense
-        st.tuples(
-            trees(tokens=st.just(["abcd", ("a", ["b", "c", "d"])])),
-            trees(tokens=st.just(["a", "b", "c", "d", ("a", ["e", "f"])])),
-            st.just(0),
-        ),
-        st.tuples(
-            trees(tokens=st.just([("abc", ["a", "b", "c"])])),
-            trees(tokens=st.just(["a", "b", "c"])),
-            st.just(3),
-        ),
-        st.tuples(
-            trees(tokens=st.just(["a", ("bc", ["b", "c"]), "d"])),
-            trees(tokens=st.just(["a", "b", "c", "d"])),
-            st.just(4),
-        ),
-        st.tuples(
-            trees(tokens=st.just([("abcd", ["a", "b", "c", "d"])])),
-            trees(tokens=st.just([("ab", ["a", "b"]), ("cd", ["c", "d"])])),
-            st.just(4),
-        ),
-        st.tuples(
-            trees(tokens=st.just([("abc", ["a", "b", "c"]), ("de", ["d", "e"])])),
-            trees(tokens=st.just(["a", ("bcd", ["b", "c", "d"]), "e"])),
-            st.just(5),
-        ),
-    ]),
+    args=st.one_of(
+        [
+            st.tuples(
+                trees(tokens=st.just(["abcd"])),
+                trees(tokens=st.just(["a", "b", "c", "d"])),
+                st.just(0),
+            ),
+            st.tuples(
+                trees(tokens=st.just(["abc", "d"])),
+                trees(tokens=st.just(["a", "b", "c", "d"])),
+                st.just(1),
+            ),
+            st.tuples(
+                trees(tokens=st.just(["a", "bc", "d"])),
+                trees(tokens=st.just(["a", "b", "c", "d"])),
+                st.just(2),
+            ),
+            st.tuples(
+                trees(tokens=st.just(["a", ("bc", ["b", "c"]), "d"])),
+                trees(tokens=st.just(["a", "b", "cd"])),
+                st.just(2),
+            ),
+            st.tuples(
+                trees(tokens=st.just([("abc", ["a", "BX", "c"]), ("def", ["d", "EX", "f"])])),
+                trees(tokens=st.just([("ab", ["a", "b"]), ("cd", ["c", "d"]), ("ef", ["e", "f"])])),
+                st.just(4),
+            ),
+            st.tuples(
+                trees(tokens=st.just([("ab", ["a", "b"]), ("cd", ["bc", "d"])])),
+                trees(tokens=st.just(["a", "bc", "d"])),
+                st.just(2),
+            ),
+            st.tuples(
+                trees(tokens=st.just(["a", ("bc", ["b", "c"]), "d"])),
+                trees(tokens=st.just([("ab", ["AX", "BX"]), ("cd", ["CX", "a"])])),
+                st.just(1),
+            ),
+            st.tuples(
+                trees(tokens=st.just([("abc", ["a", "b"]), ("a", ["c", "a"])])),
+                trees(tokens=st.just(["a", "b", "c", "a"])),
+                st.just(3),
+            ),
+            # This next one is absurd but would fit the original algorithm
+            # st.tuples(
+            #     trees(tokens=st.just(["abcd", ("a", ["b", "c", "d"])])),
+            #     trees(tokens=st.just(["a", "b", "c", "d", ("a", ["e", "f"])])),
+            #     st.just(3),
+            # ),
+            # This one makes sense
+            st.tuples(
+                trees(tokens=st.just(["abcd", ("a", ["b", "c", "d"])])),
+                trees(tokens=st.just(["a", "b", "c", "d", ("a", ["e", "f"])])),
+                st.just(0),
+            ),
+            st.tuples(
+                trees(tokens=st.just([("abc", ["a", "b", "c"])])),
+                trees(tokens=st.just(["a", "b", "c"])),
+                st.just(3),
+            ),
+            st.tuples(
+                trees(tokens=st.just(["a", ("bc", ["b", "c"]), "d"])),
+                trees(tokens=st.just(["a", "b", "c", "d"])),
+                st.just(4),
+            ),
+            st.tuples(
+                trees(tokens=st.just([("abcd", ["a", "b", "c", "d"])])),
+                trees(tokens=st.just([("ab", ["a", "b"]), ("cd", ["c", "d"])])),
+                st.just(4),
+            ),
+            st.tuples(
+                trees(tokens=st.just([("abc", ["a", "b", "c"]), ("de", ["d", "e"])])),
+                trees(tokens=st.just(["a", ("bcd", ["b", "c", "d"]), "e"])),
+                st.just(5),
+            ),
+        ]
+    ),
 )
 def test_alignment(args: tuple[UDRepresentation, UDRepresentation, int]):
     gold, system, correct = args
