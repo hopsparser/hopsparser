@@ -32,15 +32,7 @@ from typing_extensions import deprecated, Self
 
 from hopsparser import lexers, utils
 from hopsparser.deptree import DepGraph
-from hopsparser.lexers import (
-    BertLexer,
-    CharRNNLexer,
-    FastTextLexer,
-    Lexer,
-    SupportsTo,
-    WordEmbeddingsLexer,
-    freeze_module,
-)
+from hopsparser.lexers import Lexer, SupportsTo, freeze_module
 from hopsparser.mst import chuliu_edmonds_one_root as chuliu_edmonds
 from hopsparser.utils import smart_open
 
@@ -1119,42 +1111,15 @@ class BiAffineParser(nn.Module):
 
         parser_lexers: dict[str, Lexer] = dict()
         sentences = [tree.words[1:] for tree in treebank]
-        lexer: Lexer
         for lexer_config in config["lexers"]:
-            # TODO: outsource this to lexers by giving them a `from_treebank` method and having
-            # `lexer_type` picking from a known register (that would also make lexer plugins
-            # easier).
-            lexer_type = lexer_config["type"]
-            if lexer_type == "words":
-                lexer = WordEmbeddingsLexer.from_config(
-                    config=lexer_config,
-                    root_path=config_path.parent,
-                    sentences=sentences,
-                    special_tokens=[DepGraph.ROOT_TOKEN],
-                )
-            elif lexer_config["type"] == "chars_rnn":
-                lexer = CharRNNLexer.from_config(
-                    config=lexer_config,
-                    root_path=config_path.parent,
-                    sentences=sentences,
-                    special_tokens=[DepGraph.ROOT_TOKEN],
-                )
-            elif lexer_config["type"] == "bert":
-                lexer = BertLexer.from_config(
-                    config=lexer_config,
-                    root_path=config_path.parent,
-                    sentences=sentences,
-                    special_tokens=[DepGraph.ROOT_TOKEN],
-                )
-            elif lexer_config["type"] == "fasttext":
-                lexer = FastTextLexer.from_config(
-                    config=lexer_config,
-                    root_path=config_path.parent,
-                    sentences=sentences,
-                    special_tokens=[DepGraph.ROOT_TOKEN],
-                )
-            else:
-                raise ValueError(f"Unknown lexer type: {lexer_type!r}")
+            if (lexer_type := lexers.LEXER_TYPES.get(lexer_config["type"])) is None:
+                raise ValueError(f"Unknown lexer type: {lexer_config['type']!r}")
+            lexer = lexer_type.from_config(
+                config=lexer_config,
+                root_path=config_path.parent,
+                sentences=sentences,
+                special_tokens=[DepGraph.ROOT_TOKEN],
+            )
             parser_lexers[lexer_config["name"]] = lexer
 
         labels = gen_labels(treebank)
