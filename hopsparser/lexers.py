@@ -3,6 +3,7 @@ import math
 import pathlib
 from abc import abstractmethod
 from typing import (
+    Annotated,
     Any,
     Final,
     Literal,
@@ -13,7 +14,9 @@ from typing import (
 )
 from collections.abc import Iterable, Sequence
 
+from annotated_types import Ge, Gt
 from fasttextlt import fasttext
+import pydantic
 import torch
 import torch.jit
 import transformers
@@ -78,6 +81,7 @@ class Lexer(Protocol[_T_LEXER_SENT, _T_LEXER_BATCH]):
     ) -> Self: ...
 
 
+# TODO: Could be an inner class once we can use deferred annotations (3.14+)
 class CharRNNLexerBatch(NamedTuple):
     encoding: torch.Tensor
     sent_lengths: list[int]
@@ -104,6 +108,10 @@ class CharRNNLexer(nn.Module):
 
     pad_idx: Final[int] = 0
     special_tokens_idx: Final[int] = 1
+
+    class InitSchema(pydantic.BaseModel):
+        embedding_size: Annotated[int, Gt(0)]
+        lstm_output_size: Annotated[int, Gt(0)]
 
     def __init__(
         self,
@@ -235,7 +243,7 @@ class CharRNNLexer(nn.Module):
     @classmethod
     def from_chars(cls, chars: Iterable[str], **kwargs) -> Self:
         charset = sorted(set(chars))
-        if wrong := [c for c in charset if len(c) > 1]:
+        if len(wrong := [c for c in charset if len(c) > 1]) > 0:
             raise ValueError(f"Characters of length > 1 in charset: {wrong}")
         return cls(charset=["<pad>", "<special>", *charset], **kwargs)
 
@@ -247,11 +255,18 @@ class CharRNNLexer(nn.Module):
         sentences: Sequence[Sequence[str]],
         special_tokens: Iterable[str] | None,
     ) -> Self:
+        try:
+            parsed_config = cls.InitSchema.model_validate(config)
+        except pydantic.ValidationError as e:
+            raise ValueError(
+                f"Invalid {cls.__name__} config: {config}. The config should match the following"
+                f" schema: {json.dumps(cls.InitSchema.model_json_schema(), indent=2)}"
+            ) from e
         return cls.from_chars(
             chars=(c for sent in sentences for word in sent for c in word),
             special_tokens=special_tokens,
-            char_embeddings_dim=config["embedding_size"],
-            output_dim=config["lstm_output_size"],
+            char_embeddings_dim=parsed_config.embedding_size,
+            output_dim=parsed_config.lstm_output_size,
         )
 
 
@@ -261,6 +276,9 @@ class FastTextLexer(nn.Module):
     It follows the same interface as the CharRNN
     By convention, the padding vector is the last element of the embedding matrix
     """
+
+    class InitSchema(pydantic.BaseModel):
+        source: str
 
     def __init__(
         self,
@@ -442,10 +460,16 @@ class FastTextLexer(nn.Module):
         sentences: Sequence[Sequence[str]],
         special_tokens: Iterable[str] | None,
     ) -> Self:
-        if (fasttext_model_name_or_path := config.get("source")) is None:
-            raise ValueError("Using a FastText lexer requires a pretrained model.")
+        try:
+            parsed_config = cls.InitSchema.model_validate(config)
+        except pydantic.ValidationError as e:
+            raise ValueError(
+                f"Invalid {cls.__name__} config: {config}. The config should match the following"
+                f" schema: {json.dumps(cls.InitSchema.model_json_schema(), indent=2)}"
+            ) from e
+
         # Try to load a local model
-        local_fasttext_model_path = pathlib.Path(fasttext_model_name_or_path)
+        local_fasttext_model_path = pathlib.Path(parsed_config.source)
         if not local_fasttext_model_path.exists() and not local_fasttext_model_path.is_absolute():
             local_fasttext_model_path = (root_path / local_fasttext_model_path).resolve()
         if local_fasttext_model_path.exists():
@@ -457,9 +481,7 @@ class FastTextLexer(nn.Module):
         else:
             # Try to load a remote model. This will also try to load a local model, not ideal but eh
             try:
-                lexer = cls.from_fasttext_model(
-                    fasttext_model_name_or_path, special_tokens=special_tokens
-                )
+                lexer = cls.from_fasttext_model(parsed_config.source, special_tokens=special_tokens)
             except ValueError as e:
                 if not local_fasttext_model_path.exists():
                     raise ValueError(
@@ -475,6 +497,10 @@ class WordEmbeddingsLexer(nn.Module):
     """
 
     UNK_WORD: Final[str] = "<unk>"
+
+    class InitSchema(pydantic.BaseModel):
+        embedding_size: Annotated[int, Gt(0)]
+        word_dropout: Annotated[float, Ge(0.0)]
 
     def __init__(
         self,
@@ -573,10 +599,17 @@ class WordEmbeddingsLexer(nn.Module):
         sentences: Sequence[Sequence[str]],
         special_tokens: Iterable[str] | None,
     ) -> Self:
+        try:
+            parsed_config = cls.InitSchema.model_validate(config)
+        except pydantic.ValidationError as e:
+            raise ValueError(
+                f"Invalid {cls.__name__} config: {config}. The config should match the following"
+                f" schema: {json.dumps(cls.InitSchema.model_json_schema(), indent=2)}"
+            ) from e
         return cls.from_words(
-            embeddings_dim=config["embedding_size"],
+            embeddings_dim=parsed_config.embedding_size,
             unk_word=cls.UNK_WORD,
-            word_dropout=config["word_dropout"],
+            word_dropout=parsed_config.word_dropout,
             words=(
                 cls.UNK_WORD,
                 *(special_tokens if special_tokens is not None else []),
@@ -663,6 +696,14 @@ class BertLexer(nn.Module):
     style models.
     """
 
+    class InitSchema(pydantic.BaseModel):
+        layers: Annotated[
+            Sequence[int] | None, pydantic.BeforeValidator(lambda x: None if x == "*" else x)
+        ] = None
+        model: str
+        subwords_reduction: Literal["first", "mean"] = "first"
+        weighted: bool = False
+
     def __init__(
         self,
         layers: Sequence[int] | None,
@@ -741,13 +782,11 @@ class BertLexer(nn.Module):
             subword_embeddings = selected_layers.mean(dim=0)
         # We already know the shape the BERT embeddings should have and we pad with zeros
         # shape: batch×sentence(WITH ROOT TOKEN)×features
-        word_embeddings = subword_embeddings.new_zeros(
-            (
-                len(inpt.subword_alignments),
-                max(len(s) for s in inpt.subword_alignments) + 1,
-                subword_embeddings.shape[2],
-            )
-        )
+        word_embeddings = subword_embeddings.new_zeros((
+            len(inpt.subword_alignments),
+            max(len(s) for s in inpt.subword_alignments) + 1,
+            subword_embeddings.shape[2],
+        ))
         # FIXME: this loop is embarassingly parallel, there must be a way to parallelize it
         for sent_n, alignment in enumerate(inpt.subword_alignments):
             # TODO: If we revise the alignment format, this could probably be made faster using
@@ -963,22 +1002,24 @@ class BertLexer(nn.Module):
         sentences: Sequence[Sequence[str]],
         special_tokens: Iterable[str] | None,
     ) -> Self:
-        bert_layers = config.get("layers", "*")
-        if bert_layers == "*":
-            bert_layers = None
+        try:
+            parsed_config = cls.InitSchema.model_validate(config)
+        except pydantic.ValidationError as e:
+            raise ValueError(
+                f"Invalid {cls.__name__} config: {config}. The config should match the following"
+                f" schema: {json.dumps(cls.InitSchema.model_json_schema(), indent=2)}"
+            ) from e
         return cls.from_pretrained(
-            model_name_or_path=config["model"],
-            layers=bert_layers,
-            subwords_reduction=config.get("subwords_reduction", "first"),
-            weight_layers=config.get("weighted", False),
+            model_name_or_path=parsed_config.model,
+            layers=parsed_config.layers,
+            subwords_reduction=parsed_config.subwords_reduction,
+            weight_layers=parsed_config.weighted,
         )
 
 
-LEXER_TYPES: BidirectionalMapping[str, type[Lexer]] = bidict(
-    {
-        "bert": BertLexer,
-        "chars_rnn": CharRNNLexer,
-        "fasttext": FastTextLexer,
-        "words": WordEmbeddingsLexer,
-    }
-)
+LEXER_TYPES: BidirectionalMapping[str, type[Lexer]] = bidict({
+    "bert": BertLexer,
+    "chars_rnn": CharRNNLexer,
+    "fasttext": FastTextLexer,
+    "words": WordEmbeddingsLexer,
+})
