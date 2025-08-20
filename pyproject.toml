@@ -19,7 +19,7 @@ dependencies = [
     "rich",
     "sacremoses",
     "tabulate2",
-    "torch >= 2.0.0, < 2.8.0",
+    "torch >= 2.0.0, < 2.9.0",
     "transformers >= 4.19.0, < 5.0.0, != 4.23.0, != 4.23.1, != 4.51.0",
     "uvicorn",
 ]
