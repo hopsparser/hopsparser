@@ -14,7 +14,7 @@ dependencies = [
     "numpy >= 2.1",
     "pooch",
     "pydantic >= 2.0, < 2.12",
-    "pydantic-settings >= 2.0, < 2.10",
+    "pydantic-settings >= 2.0, < 2.12",
     "pyyaml",
     "rich",
     "sacremoses",
