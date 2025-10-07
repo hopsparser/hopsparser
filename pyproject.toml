@@ -13,7 +13,7 @@ dependencies = [
     "loguru",
     "numpy >= 2.1",
     "pooch",
-    "pydantic >= 2.0, < 2.12",
+    "pydantic >= 2.0, < 2.13",
     "pydantic-settings >= 2.0, < 2.10",
     "pyyaml",
     "rich",
