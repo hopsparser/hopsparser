@@ -74,30 +74,40 @@ def upload(
             f" “{deposit_metadata['title']}” v{deposit_metadata.get('version', '??')}"
         )
         if (n := len(files) - len(files_to_upload)) > 0:
+            # TODO: check md5
             click.echo(f"{n} files are already present in the deposit")
         # TODO: is this multiplexing?
+        # rich.progress, I hate you
         with rich.progress.Progress(
             *rich.progress.Progress.get_default_columns(),
-            rich.progress.DownloadColumn(),
-            rich.progress.TransferSpeedColumn(),
+            rich.progress.MofNCompleteColumn(),
         ) as progress:
-            for f in files_to_upload:
-                with open(f, "rb") as in_stream:
-                    with progress.wrap_file(
-                        in_stream,
-                        total=f.stat().st_size,
-                        description=f"Uploading {f.name}",
-                    ) as wrapped_stream:
-                        r = client.put(
-                            bucket_url.join(urllib.parse.quote(f.name, safe="")),
-                            content=wrapped_stream,
-                        )
-                        try:
-                            r.raise_for_status()
-                        except httpx.HTTPStatusError as e:
-                            click.echo(f"Error with upload of {f.name}")
-                            click.echo(r.json())
-                            raise e
+            for f in progress.track(
+                files_to_upload,
+                description="Uploading…",
+            ):
+                with rich.progress.Progress(
+                    *rich.progress.Progress.get_default_columns(),
+                    rich.progress.DownloadColumn(),
+                    rich.progress.TransferSpeedColumn(),
+                    transient=True,
+                ) as f_progress:
+                    with open(f, "rb") as in_stream:
+                        with f_progress.wrap_file(
+                            in_stream,
+                            total=f.stat().st_size,
+                            description=f"Uploading {f.name}",
+                        ) as wrapped_stream:
+                            r = client.put(
+                                bucket_url.join(urllib.parse.quote(f.name, safe="")),
+                                content=wrapped_stream,
+                            )
+                            try:
+                                r.raise_for_status()
+                            except httpx.HTTPStatusError as e:
+                                click.echo(f"Error with upload of {f.name}")
+                                click.echo(r.json())
+                                raise e
 
 
 if __name__ == "__main__":
