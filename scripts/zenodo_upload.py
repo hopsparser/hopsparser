@@ -66,16 +66,22 @@ def upload(
         deposit_info.raise_for_status()
         bucket_url = httpx.URL(deposit_info.json()["links"]["bucket"] + "/")
         deposit_metadata = deposit_info.json()["metadata"]
+        existing_files = deposit_info.json()["files"]
+        existing_file_names = {f["filename"] for f in existing_files}
+        files_to_upload = [f for f in files if f.name not in existing_file_names]
         click.echo(
-            f"Uploading {len(files)} files to Zenodo deposit {deposit_id}:"
+            f"Uploading {len(files_to_upload)} files to Zenodo deposit {deposit_id}:"
             f" “{deposit_metadata['title']}” v{deposit_metadata.get('version', '??')}"
         )
+        if (n := len(files) - len(files_to_upload)) > 0:
+            click.echo(f"{n} files are already present in the deposit")
+        # TODO: is this multiplexing?
         with rich.progress.Progress(
             *rich.progress.Progress.get_default_columns(),
             rich.progress.DownloadColumn(),
             rich.progress.TransferSpeedColumn(),
         ) as progress:
-            for f in files:
+            for f in files_to_upload:
                 with open(f, "rb") as in_stream:
                     with progress.wrap_file(
                         in_stream,
