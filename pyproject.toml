@@ -50,6 +50,8 @@ tests = [
     "pytest-lazy-fixtures >= 1.1, < 2",
 ]
 traintools = [
+    "aiofiles",
+    "asyncclick",
     "httpx[http2]",
     "lightning",
     "polars >= 1.12, < 1.30",
