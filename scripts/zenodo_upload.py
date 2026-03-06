@@ -1,4 +1,6 @@
+import hashlib
 import pathlib
+import sys
 import urllib.parse
 from collections.abc import Sequence
 
@@ -6,6 +8,50 @@ import click
 import httpx
 import rich.progress
 import yaml
+
+
+def upload_file(f: pathlib.Path, client: httpx.Client, target: httpx.URL):
+    with rich.progress.Progress(
+        *rich.progress.Progress.get_default_columns(),
+        rich.progress.DownloadColumn(),
+        rich.progress.TransferSpeedColumn(),
+        refresh_per_second=1,
+        transient=True,
+    ) as progress:
+        with f.open("rb") as in_stream:
+            response = client.put(
+                target,
+                content=progress.wrap_file(
+                    in_stream,
+                    description=f"Uploading {f.name}",
+                    total=f.stat().st_size,
+                ),
+            )
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                click.echo(f"Error with upload of {f.name}", file=sys.stderr)
+                click.echo(response.json(), file=sys.stderr)
+                raise e
+
+
+def _upload(client: httpx.Client, files: Sequence[pathlib.Path], bucket: httpx.URL):
+    # rich.progress, I hate you
+    with rich.progress.Progress(
+        rich.progress.SpinnerColumn(),
+        rich.progress.TextColumn("[progress.description]{task.description}"),
+        rich.progress.MofNCompleteColumn(),
+        rich.progress.TimeElapsedColumn(),
+    ) as progress:
+        for f in progress.track(
+            files,
+            description="Uploading…",
+        ):
+            upload_file(
+                f,
+                client=client,
+                target=bucket.join(urllib.parse.quote(f.name, safe="")),
+            )
 
 
 @click.command(help="Upload files to a Zenodo deposit.")
@@ -55,59 +101,48 @@ def upload(
         base_url = httpx.URL("https://zenodo.org/api/")
 
     with httpx.Client(
-        http2=True,
         headers={"Authorization": f"Bearer {access_token}"},
-        timeout=None,  # noqa: S113
+        http2=True,
+        limits=httpx.Limits(max_connections=None, max_keepalive_connections=16),
+        timeout=10,  # noqa: S113
     ) as client:
         deposit_url = base_url.join("deposit/depositions/").join(
             urllib.parse.quote(deposit_id, safe="")
         )
         deposit_info = client.get(deposit_url)
         deposit_info.raise_for_status()
-        bucket_url = httpx.URL(deposit_info.json()["links"]["bucket"] + "/")
         deposit_metadata = deposit_info.json()["metadata"]
-        existing_files = deposit_info.json()["files"]
-        existing_file_names = {f["filename"] for f in existing_files}
-        files_to_upload = [f for f in files if f.name not in existing_file_names]
+        existing_files = {f["filename"]: f["checksum"] for f in deposit_info.json()["files"]}
+        files_to_upload = []
+        for f in rich.progress.track(files, description="Checking local files…"):
+            if (c := existing_files.get(f.name)) is not None:
+                with f.open("rb") as in_stream:
+                    local_checksum = hashlib.file_digest(in_stream, "md5").hexdigest()
+                if local_checksum != c:
+                    click.echo(
+                        (
+                            f"WARNING: local file {f} has a checksum ({local_checksum})"
+                            f"that differs from its remote counterpart's ({c})"
+                        ),
+                        file=sys.stderr,
+                    )
+            else:
+                files_to_upload.append(f)
         click.echo(
-            f"Uploading {len(files_to_upload)} files to Zenodo deposit {deposit_id}:"
-            f" “{deposit_metadata['title']}” v{deposit_metadata.get('version', '??')}"
+            (
+                f"Uploading {len(files_to_upload)} files to Zenodo deposit {deposit_id}:"
+                f" “{deposit_metadata['title']}” v{deposit_metadata.get('version', '??')}"
+            ),
+            file=sys.stderr,
         )
         if (n := len(files) - len(files_to_upload)) > 0:
-            # TODO: check md5
             click.echo(f"{n} files are already present in the deposit")
-        # TODO: is this multiplexing?
-        # rich.progress, I hate you
-        with rich.progress.Progress(
-            *rich.progress.Progress.get_default_columns(),
-            rich.progress.MofNCompleteColumn(),
-        ) as progress:
-            for f in progress.track(
-                files_to_upload,
-                description="Uploading…",
-            ):
-                with rich.progress.Progress(
-                    *rich.progress.Progress.get_default_columns(),
-                    rich.progress.DownloadColumn(),
-                    rich.progress.TransferSpeedColumn(),
-                    transient=True,
-                ) as f_progress:
-                    with open(f, "rb") as in_stream:
-                        with f_progress.wrap_file(
-                            in_stream,
-                            total=f.stat().st_size,
-                            description=f"Uploading {f.name}",
-                        ) as wrapped_stream:
-                            r = client.put(
-                                bucket_url.join(urllib.parse.quote(f.name, safe="")),
-                                content=wrapped_stream,
-                            )
-                            try:
-                                r.raise_for_status()
-                            except httpx.HTTPStatusError as e:
-                                click.echo(f"Error with upload of {f.name}")
-                                click.echo(r.json())
-                                raise e
+
+        _upload(
+            bucket=httpx.URL(f"{deposit_info.json()['links']['bucket']}/"),
+            client=client,
+            files=files_to_upload,
+        )
 
 
 if __name__ == "__main__":
