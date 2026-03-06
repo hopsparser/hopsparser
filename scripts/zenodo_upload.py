@@ -1,16 +1,31 @@
+import time
+import asyncio
 import hashlib
 import pathlib
 import sys
 import urllib.parse
-from collections.abc import Sequence
+from collections.abc import Sequence, AsyncIterable
 
-import click
+import aiofiles
+import asyncclick as click
 import httpx
 import rich.progress
 import yaml
 
 
-def upload_file(f: pathlib.Path, client: httpx.Client, target: httpx.URL):
+async def wrap_stream(
+    in_stream: AsyncIterable[bytes],
+    description: str,
+    progress: rich.progress.Progress,
+    total: int,
+) -> AsyncIterable[bytes]:
+    task_id = progress.add_task(description=description, total=total)
+    async for blob in in_stream:
+        progress.advance(task_id, len(blob))
+        yield blob
+
+
+async def upload_file(f: pathlib.Path, client: httpx.AsyncClient, target: httpx.URL):
     with rich.progress.Progress(
         *rich.progress.Progress.get_default_columns(),
         rich.progress.DownloadColumn(),
@@ -18,12 +33,13 @@ def upload_file(f: pathlib.Path, client: httpx.Client, target: httpx.URL):
         refresh_per_second=1,
         transient=True,
     ) as progress:
-        with f.open("rb") as in_stream:
-            response = client.put(
+        async with aiofiles.open(f, "rb") as in_stream:
+            response = await client.put(
                 target,
-                content=progress.wrap_file(
+                content=wrap_stream(
                     in_stream,
                     description=f"Uploading {f.name}",
+                    progress=progress,
                     total=f.stat().st_size,
                 ),
             )
@@ -35,7 +51,7 @@ def upload_file(f: pathlib.Path, client: httpx.Client, target: httpx.URL):
                 raise e
 
 
-def _upload(client: httpx.Client, files: Sequence[pathlib.Path], bucket: httpx.URL):
+async def _upload(client: httpx.AsyncClient, files: Sequence[pathlib.Path], bucket: httpx.URL):
     # rich.progress, I hate you
     with rich.progress.Progress(
         rich.progress.SpinnerColumn(),
@@ -43,15 +59,22 @@ def _upload(client: httpx.Client, files: Sequence[pathlib.Path], bucket: httpx.U
         rich.progress.MofNCompleteColumn(),
         rich.progress.TimeElapsedColumn(),
     ) as progress:
-        for f in progress.track(
-            files,
-            description="Uploading…",
-        ):
-            upload_file(
-                f,
-                client=client,
-                target=bucket.join(urllib.parse.quote(f.name, safe="")),
-            )
+        task_id = progress.add_task("Uploading…")
+        semaphore = asyncio.Semaphore(8)
+
+        async def inner(f):
+            async with semaphore:
+                await upload_file(
+                    f,
+                    client=client,
+                    target=bucket.join(urllib.parse.quote(f.name, safe="")),
+                )
+                progress.advance(task_id, 1)
+
+        tasks = []
+        for f in files:
+            tasks.append(asyncio.create_task(inner(f)))
+        await asyncio.gather(*tasks)
 
 
 @click.command(help="Upload files to a Zenodo deposit.")
@@ -77,7 +100,7 @@ def _upload(client: httpx.Client, files: Sequence[pathlib.Path], bucket: httpx.U
     is_flag=True,
     help="Whether to use sandbox.zenodo.org instead of the real Zenodo",
 )
-def upload(
+async def upload(
     access_token: str | None,
     config_path: pathlib.Path | None,
     deposit_id: str,
@@ -100,7 +123,7 @@ def upload(
     else:
         base_url = httpx.URL("https://zenodo.org/api/")
 
-    with httpx.Client(
+    async with httpx.AsyncClient(
         headers={"Authorization": f"Bearer {access_token}"},
         http2=True,
         limits=httpx.Limits(max_connections=None, max_keepalive_connections=16),
@@ -109,9 +132,17 @@ def upload(
         deposit_url = base_url.join("deposit/depositions/").join(
             urllib.parse.quote(deposit_id, safe="")
         )
-        deposit_info = client.get(deposit_url)
+        deposit_info = await client.get(deposit_url)
         deposit_info.raise_for_status()
         deposit_metadata = deposit_info.json()["metadata"]
+        click.echo(
+            (
+                f"Uploading Zenodo deposit {deposit_id}:"
+                f" “{deposit_metadata['title']}” v{deposit_metadata.get('version', '??')}"
+            ),
+            file=sys.stderr,
+        )
+
         existing_files = {f["filename"]: f["checksum"] for f in deposit_info.json()["files"]}
         files_to_upload = []
         for f in rich.progress.track(files, description="Checking local files…"):
@@ -128,17 +159,19 @@ def upload(
                     )
             else:
                 files_to_upload.append(f)
+
+        if len(files_to_upload) == 0:
+            click.echo("All files are already deposited. Nothing to do!", file=sys.stderr)
+            return
+        elif (n := len(files) - len(files_to_upload)) > 0:
+            click.echo(f"{n} files are already present in the deposit.", file=sys.stderr)
+
         click.echo(
-            (
-                f"Uploading {len(files_to_upload)} files to Zenodo deposit {deposit_id}:"
-                f" “{deposit_metadata['title']}” v{deposit_metadata.get('version', '??')}"
-            ),
+            (f"Uploading {len(files_to_upload)} files"),
             file=sys.stderr,
         )
-        if (n := len(files) - len(files_to_upload)) > 0:
-            click.echo(f"{n} files are already present in the deposit")
 
-        _upload(
+        await _upload(
             bucket=httpx.URL(f"{deposit_info.json()['links']['bucket']}/"),
             client=client,
             files=files_to_upload,
