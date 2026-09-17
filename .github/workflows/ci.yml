@@ -33,9 +33,8 @@ jobs:
         uses: actions/configure-pages@v5.0.0
 
       - name: Upload artifact ⬆️
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: docs-build
           path: docs/_build
 
   deploy-docs:
