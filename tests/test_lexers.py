@@ -2,7 +2,7 @@ import json
 import math
 import pathlib
 import tempfile
-from typing import List, Literal, Tuple
+from typing import Literal
 
 import pytest
 import torch
