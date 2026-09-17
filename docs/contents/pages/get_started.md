@@ -96,7 +96,7 @@ Training can be performed with the following steps:
 
 1. Create a directory OUT for storing your new model
 2. Copy a config YAML file from the
-   [examples](https://github.com/hopsparser/hopsparser/tree/master/examples) directory
+   [examples](https://github.com/hopsparser/hopsparser/tree/main/examples) directory
 3. Edit it according to your needs
 4. Run the command:
 

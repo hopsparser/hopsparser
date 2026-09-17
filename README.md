@@ -14,7 +14,7 @@ has been originally designed within the [FlauBERT](https://github.com/getalp/Fla
 The parser comes with pretrained models ready for parsing French, but it might be trained for other
 languages without difficulties.
 
-See the [documentation](http://hopsparser.readthedocs.io) for more information.
+See the [documentation](http://hopsparser.github.io/hopsparser) for more information.
 
 ## Citation
 
