@@ -31,6 +31,8 @@ import hopsparser.traintools.trainer as trainer
 from hopsparser import evaluator
 from hopsparser import parser, utils
 
+# Grey magic, see <https://github.com/pytorch/pytorch/issues/973#issue-213381000>
+torch.multiprocessing.set_sharing_strategy("file_system")
 
 class Messages(enum.Enum):
     CLOSE = enum.auto()
