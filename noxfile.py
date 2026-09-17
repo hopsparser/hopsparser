@@ -12,6 +12,8 @@ ci = environ.get("CI")
 def tests(s: Session):
     if ci:
         s.install(".", "--group", "ci")
+        posargs = s.posargs
+        # TODO: figure out which tests are light enough to run every time CI runs
         # posargs = [*s.posargs, "-m", "light"]
 
     else:
