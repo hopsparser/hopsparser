@@ -3,7 +3,7 @@ import pathlib
 import tempfile
 from math import isclose
 from tarfile import TarFile
-from typing import Dict, TextIO
+from typing import TextIO
 
 import click
 import pooch

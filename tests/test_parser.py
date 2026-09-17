@@ -1,6 +1,5 @@
 import pathlib
 import tempfile
-from typing import List, Tuple
 
 import hypothesis.strategies as st
 import pytest

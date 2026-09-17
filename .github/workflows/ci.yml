@@ -30,13 +30,8 @@ jobs:
         with:
           cache-suffix: lint-py${{ matrix.python-version }}-${{ matrix.os }}
           enable-cache: true
-      - name: Lint with ruff
-        run: |
-          uv tool install ruff --python ${{ matrix.python-version }}
-          # stop the build if there are Python syntax errors or undefined names
-          ruff check . --select=E9,F63,F7,F82 --output-format=github
-          # exit-zero treats all errors as warnings.
-          ruff check . --exit-zero --output-format=github
+      - name: Lint
+        run: uv tool run nox --session lint
   test:
     needs: lint
     runs-on: ${{ matrix.os }}
@@ -72,10 +67,8 @@ jobs:
           key: ${{ runner.os }}-transformers-${{ steps.transfo-install.outputs.version }}
           restore-keys: |
             ${{ runner.os }}-transformers-
-      - name: Run tox
-        run: |
-          uv tool install tox --with tox-gh-actions --with tox-uv --python ${{ matrix.python-version }}
-          tox -- -v --durations=0
+      - name: Run tests
+        run: uv tool run nox --session tests --python ${{ matrix.python-version }} -- --verbose
       - name: Upload hypothesis examples database
         uses: actions/upload-artifact@v6
         if: always()

@@ -36,30 +36,6 @@ version = "0.8.0"
 "Documentation" = "https://hopsparser.readthedocs.io"
 "Source Code" = "https://github.com/hopsparser/hopsparser"
 
-[project.optional-dependencies]
-# ci should also imply the other extras, maybe with dependency groups
-ci = ["pytest-github-actions-annotate-failures"]
-spacy = ["spacy >= 3.8, < 4.0"]
-tests = [
-    "hypothesis >= 6.0, < 7.0",
-    "networkx >= 3.2, < 3.6",
-    "pytest >= 7.0 , < 9.0",
-    "pytest-assert-utils",
-    "pytest-console-scripts >= 1.4, < 1.5",
-    "pytest-github-actions-annotate-failures",
-    "pytest-lazy-fixtures >= 1.1, < 2",
-]
-traintools = [
-    "aiofiles",
-    "asyncclick",
-    "httpx[http2]",
-    "lightning",
-    "polars >= 1.12, < 1.35",
-    "pytorch-lightning >= 2.4, < 3.0",
-    "tensorboardx",
-    "torchmetrics",
-]
-
 [project.readme]
 file = "README.md"
 content-type = "text/markdown"
@@ -96,4 +72,38 @@ select = ["A", "B", "C90", "E", "F", "N", "NPY", "PT", "PTH", "PYI", "S", "W"]
 "tests/**/*.py" = [
     "S101", # asserts allowed in tests
     "ARG",  # Unused function args -> fixtures nevertheless are functionally relevant
+]
+
+[dependency-groups]
+dev = [
+	{ include-group = "docs" },
+	{ include-group = "lint" },
+	{ include-group = "spacy" },
+	{ include-group = "tests" },
+	{ include-group = "traintools" },
+]
+ci = ["pytest-github-actions-annotate-failures", { include-group = "tests" }]
+docs = ["mkdocs", "pygments", "pymdown-extensions"]
+lint = ["ruff"]
+nox = ["nox>=2026.2.9"]
+spacy = ["spacy >= 3.8, < 4.0"]
+tests = [
+    "hypothesis >= 6.0, < 7.0",
+    "httpx2", # Weird startlette testclient dependency
+    "networkx >= 3.2, < 3.6",
+    "pytest >= 7.0 , < 9.0",
+    "pytest-assert-utils",
+    "pytest-console-scripts >= 1.4, < 1.5",
+    "pytest-github-actions-annotate-failures",
+    "pytest-lazy-fixtures >= 1.1, < 2",
+]
+traintools = [
+    "aiofiles",
+    "asyncclick",
+    "httpx2",
+    "lightning",
+    "polars >= 1.12, < 1.35",
+    "pytorch-lightning >= 2.4, < 3.0",
+    "tensorboardx",
+    "torchmetrics",
 ]
