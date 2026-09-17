@@ -33,8 +33,9 @@ jobs:
         uses: actions/configure-pages@v5.0.0
 
       - name: Upload artifact ⬆️
-        uses: actions/upload-pages-artifact@v3 # This will automatically upload an artifact from the '/_site' directory
+        uses: actions/upload-artifact@v5
         with:
+          name: docs-build
           path: _build
 
   deploy-docs:
@@ -48,12 +49,17 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write      # to deploy to Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
     runs-on: ubuntu-latest
     needs: docs
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: docs-build
 
   lint:
     strategy:
