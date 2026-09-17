@@ -1,4 +1,3 @@
-import time
 import asyncio
 import hashlib
 import pathlib

@@ -541,11 +541,7 @@ class BiAffineParser(nn.Module):
         else:
             raise ValueError(f"Unknown loss type {self.multitask_loss}")
 
-    def eval_model(
-        self, dev_set: Iterable[DependencyBatch], batch_size: int | None = None
-    ) -> ParserEvalOutput:
-        if batch_size is None:
-            batch_size = self.default_batch_size
+    def eval_model(self, dev_set: Iterable[DependencyBatch]) -> ParserEvalOutput:
 
         self.eval()
         device = next(self.parameters()).device
