@@ -1,0 +1,185 @@
+@import "normalize.css";
+@import "fonts.css";
+@import "typography.css";
+@import "highlight.css";
+
+:root {
+    --accent-color: light-dark(oklch(0.5 100% 280), oklch(0.9 100% 280));
+    --background-color: light-dark(oklch(1 0% 360), oklch(0.34 5% 294));
+    --blockquote-grey: light-dark(oklch(0.33 0% 280), oklch(0.8 0% 280));
+    --font-sans: OpenMoji, Atkinson Hyperlegible Next, ui-sans-serif, sans-serif;
+    --font-serif: OpenMoji, Libertinus, ui-serif, serif;
+    --font-mono:
+        OpenMoji, Fantasque Sans Mono, Atkinson Hyperlegible Mono, Julia Mono, ui-monospace,
+        monospace;
+    --grey-borders: light-dark(oklch(0.86 2% 277), oklch(0.45 2% 277));
+    --side-background: light-dark(oklch(0.98 0% 360), oklch(0.3 5% 294));
+    --slate-text: light-dark(oklch(0.55 1% 251), oklch(0.9 1% 251));
+    --text-color: light-dark(oklch(0 0% 360), oklch(1 0% 360));
+    color-scheme: light dark;
+    --sidebar-width: 13rem;
+}
+
+html {
+    background-color: var(--background-color);
+}
+
+body {
+    color: var(--text-color);
+    container: page / inline-size;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-sans);
+    height: max-content;
+    hyphens: auto;
+    justify-content: space-between;
+    line-height: 1.5;
+    min-height: 100vh;
+    padding-right: 2rem;
+    text-align: justify;
+    word-wrap: break-word;
+
+    & > *:first-child {
+        margin-top: 0;
+    }
+    & > *:last-child {
+        margin-bottom: 0;
+    }
+}
+
+#content {
+    align-items: stretch;
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: start;
+    p {
+        min-width: 30ex;
+    }
+
+    #main {
+        max-width: 100rex;
+        padding: 1rem 2rex 2rex 2rex;
+        /* FIXME: how to infer this from par min width? */
+        min-width: 30ex;
+
+        #nav-prev-next {
+            font-size: larger;
+            margin-top: 3rem;
+            padding-bottom: 3rem;
+        }
+        #nav-prev,
+        #nav-next {
+            display: inline-block;
+        }
+        #nav-prev {
+            float: left;
+        }
+        #nav-next {
+            float: right;
+            text-align: right;
+        }
+        #nav-prev::before {
+            content: "↫";
+            padding-right: 0.5em;
+        }
+        #nav-next::after {
+            content: "↬";
+            padding-left: 0.5em;
+        }
+    }
+
+    #sidebar {
+        background-color: var(--side-background);
+        border: 0;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        gap: 3ex;
+        height: 100vh;
+        justify-content: space-between;
+        padding-bottom: 1ex;
+        padding-left: 1.5ex;
+        padding-right: 1.5ex;
+        position: sticky;
+        top: 0;
+        width: var(--sidebar-width);
+
+        #toc {
+            display: flex;
+            flex-direction: column-reverse;
+            .toc-section {
+                font-weight: bold;
+            }
+            ul {
+                margin-bottom: 0;
+                padding-left: 0;
+            }
+            li {
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            li ul {
+                padding-top: 0.5rem;
+                padding-bottom: 1rem;
+            }
+            li.toc-section {
+                margin-top: 2rem;
+            }
+            li.toc-section {
+                color: var(--accent-color);
+            }
+            li.current,
+            li ul {
+                border-left: 0.5ex solid var(--accent-color);
+                padding-left: 1em;
+                margin-left: -1em;
+            }
+            li.toc-chapter.current {
+                font-weight: bold;
+            }
+            li.toc-heading {
+                padding-left: 1em;
+                padding-right: 0.5em;
+            }
+        }
+        #page-footer {
+            border-top: 1px solid var(--grey-borders);
+            filter: grayscale(0.125);
+            font-size: small;
+            margin-bottom: 1rem;
+            margin-left: auto;
+            margin-right: auto;
+            opacity: 0.75;
+            text-align: left;
+
+            #links {
+                margin-top: 2em;
+            }
+            #licence {
+                margin-top: 1em;
+            }
+        }
+    }
+}
+
+/* For small sizes, the sidebar becomes a bottomlist */
+
+@container page (width < 100ex) {
+    #content {
+        flex-direction: column;
+
+        #sidebar {
+            align-items: center;
+            min-height: auto;
+            height: unset;
+            position: unset;
+            top: unset;
+            width: 100%;
+
+            #toc {
+                flex-direction: column;
+            }
+        }
+    }
+}

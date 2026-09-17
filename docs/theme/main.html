@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="{{ page.lang | default(config.extra.lang) | default('en-US') }}">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="description" content="{{ page.description | default(config.site_description) }}" />
+
+	<title>{% if page.title %}{{ page.title }} — {% endif %}{{ config.site_name }}</title>
+
+	<link href="{{ page.canonical_url }}" rel="canonical">
+
+	<meta property="og:description" content="{{ page.description | default(config.site_description) }}" />
+	<meta property="og:image" content="{{ 'assets/icon.svg' | url }}" />
+	<meta property="og:site_name" content="{{ config.site_name }}" />
+	<meta property="og:title" content="{{ page.title }}" />
+	<meta property="og:type" content="website" />
+
+	<script type="application/ld+json">
+	      {
+	        "@context":"https://schema.org",
+	        "@type":"WebSite",
+	        "description":"{{ page.description | default(config.site_description) }}",
+	        "headline":"{{ page.title }}",
+	        "image": "{{ 'assets/icon.svg' | url }}"",
+	        "name":"{{ config.site_name }}",
+	      }
+	</script>
+	<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+	<script>
+		window.MathJax = {
+			tex: {
+				inlineMath: [["\\(", "\\)"]],
+				displayMath: [["\\[", "\\]"]],
+				processEscapes: true,
+				processEnvironments: true
+			},
+			options: {
+				ignoreHtmlClass: ".*",
+				processHtmlClass: "arithmatex"
+			}
+		};
+	</script>
+	<link rel="icon" type="image/svg+xml" href="{{'assets/icon.svg' | url }}" />
+	<link rel="stylesheet" href="{{ 'style.css' | url }}">
+</head>
+
+<body>
+	<div id="content">
+		<div id="main">
+			<article id="text">
+				{{ page.content }}
+			</article>
+			{% if page.next_page or page.previous_page -%}
+			<nav id="nav-prev-next">
+				{% if page.previous_page -%}
+				<a id="nav-prev" href="{{ page.previous_page.url|url }}"
+					title="{{ page.previous_page.title }}">Previous</a>
+				{% endif -%}
+				{% if page.next_page -%}
+				<a id="nav-next" href="{{ page.next_page.url|url }}" title="{{ page.next_page.title }}">Next</a>
+				{% endif -%}
+			</nav>
+			{% endif -%}
+		</div>
+		<aside id="sidebar">
+			<nav id="toc">
+				<ul>
+					{% for section in nav -%}
+					{% if section.children -%}
+					<li class="toc-section {% if section.active and page.is_index %} current{% endif -%}">
+						<a href="{{ section.children[0].url | url }}">{{ section.title }}</a>
+					</li>
+					{% for chapter in section.children -%}
+					{% if not chapter.is_index %}
+					<li class="toc-chapter {% if chapter.active %} current{% endif -%}">
+						<a href="{{ chapter.url | url }}">{{ chapter.title }}</a>
+					</li>
+					{% if chapter.active -%}
+					{% for toc_item in page.toc -%}
+					{% if toc_item.children -%}
+					<li>
+						<ul>
+							{% for toc_item in toc_item.children -%}
+							<li class="toc-heading"><a href="{{ toc_item.url }}">{{ toc_item.title }}</a></li>
+							{% endfor -%}
+						</ul>
+					</li>
+					{% endif -%}
+					{% endfor -%}
+					{% endif -%}
+					{% endif -%}
+					{% endfor -%}
+					{% else -%}
+					<li class="toc-section"><a href="{{ section.url | url }}">{{ section.title }}</a></li>
+					{% endif -%}
+					{% endfor -%}
+				</ul>
+				<a href="{{ config.site_url }}"><img src="{{ 'assets/icon.svg' | url }}" alt="Rose emoji" /></a>
+			</nav>
+
+			<footer id="page-footer">
+				<!-- <div id="links">
+					See my source on <a href="{{ config.repo_url}}"><img src="{{ 'assets/codeberg.svg' | url }}"
+							class="inline-badge" alt="Codeberg logo" />
+						Codeberg</a>.
+				</div> -->
+				<div id="licence">
+					Copyright © 2026 Morgan Grobol, see <a href="{{ 'pages/licences' | url }}">licences.</a>
+					<img src="{{ 'assets/by-sa.svg' | url }}" class="inline-badge" alt="CC-BY-SA" />
+				</div>
+			</footer>
+		</aside>
+	</div>
+</body>
+
+</html>

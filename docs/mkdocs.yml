@@ -1,0 +1,35 @@
+# Metadata
+
+repo_name: "Github"
+repo_url: "https://github.com/hopsparser/hopsparsere"
+site_name: "HOPS Documentation"
+site_author: "Morgan Grobol"
+site_description: "A honest parser of sentences "
+site_url: "https://hopsparser.github.io/hopsparser"
+
+# Config
+docs_dir: "contents/"
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.quotes
+  - pymdownx.superfences
+
+theme:
+  name: null
+  custom_dir: "theme/"
+
+# Extras
+extra: 
+  lang: "en"
+
+# Contents
+
+nav:
+  - "pages/get_started.md"
+  - "pages/models.md"
+  - "pages/server.md"
+
