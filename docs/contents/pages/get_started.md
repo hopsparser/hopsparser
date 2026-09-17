@@ -83,7 +83,7 @@ See [the server mode documentation](server.md).
 
 ## Pretrained models
 
-We provide some pretrained models, see the list in [models.md](models.md).
+We provide some pretrained models, see [the list](models.md).
 
 ## Training
 

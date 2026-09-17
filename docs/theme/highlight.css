@@ -1,0 +1,423 @@
+/* Poor man's Pygmentize styling to get easier light/dark switch */
+
+/* Dark theme inspired from <https://github.com/givensuman/colorblind-theme> */
+
+:root {
+    --code-color-linenos: light-dark(#000, #000);
+    --code-color-linenos-special: light-dark(#000, #000);
+    --code-color-linenos-special-background: light-dark(#000, #000);
+    --code-color-background: light-dark(#000, #000);
+    --code-color-default: light-dark(#000, #000);
+    --code-color-hll: light-dark(#000, #000);
+    --code-color-c: light-dark(#000, #000);
+    --code-color-err: light-dark(#000, #000);
+    --code-color-k: light-dark(#000, #000);
+    --code-color-l: light-dark(#000, #000);
+    --code-color-o: light-dark(#000, #000);
+    --code-color-p: light-dark(#000, #000);
+    --code-color-ch: light-dark(#000, #000);
+    --code-color-cm: light-dark(#000, #000);
+    --code-color-cp: light-dark(#000, #000);
+    --code-color-cpf: light-dark(#000, #000);
+    --code-color-c1: light-dark(#000, #000);
+    --code-color-cs: light-dark(#000, #000);
+    --code-color-gd: light-dark(#000, #000);
+    --code-color-gr: light-dark(#000, #000);
+    --code-color-gh: light-dark(#000, #000);
+    --code-color-gi: light-dark(#000, #000);
+    --code-color-go: light-dark(#000, #000);
+    --code-color-gp: light-dark(#000, #000);
+    --code-color-gt: light-dark(#000, #000);
+    --code-color-kc: light-dark(#000, #000);
+    --code-color-kd: light-dark(#000, #000);
+    --code-color-kn: light-dark(#000, #000);
+    --code-color-kp: light-dark(#000, #000);
+    --code-color-kr: light-dark(#000, #000);
+    --code-color-kt: light-dark(#000, #000);
+    --code-color-ld: light-dark(#000, #000);
+    --code-color-m: light-dark(#000, #000);
+    --code-color-s: light-dark(#000, #000);
+    --code-color-na: light-dark(#000, #000);
+    --code-color-nb: light-dark(#000, #000);
+    --code-color-nc: light-dark(#000, #000);
+    --code-color-no: light-dark(#000, #000);
+    --code-color-nd: light-dark(#000, #000);
+    --code-color-nf: light-dark(#000, #000);
+    --code-color-nl: light-dark(#000, #000);
+    --code-color-py: light-dark(#000, #000);
+    --code-color-nt: light-dark(#000, #000);
+    --code-color-ow: light-dark(#000, #000);
+    --code-color-pm: light-dark(#000, #000);
+    --code-color-w: light-dark(#000, #000);
+    --code-color-mb: light-dark(#000, #000);
+    --code-color-mf: light-dark(#000, #000);
+    --code-color-mh: light-dark(#000, #000);
+    --code-color-mi: light-dark(#000, #000);
+    --code-color-mo: light-dark(#000, #000);
+    --code-color-sa: light-dark(#000, #000);
+    --code-color-sb: light-dark(#000, #000);
+    --code-color-sc: light-dark(#000, #000);
+    --code-color-dl: light-dark(#000, #000);
+    --code-color-sd: light-dark(#000, #000);
+    --code-color-s2: light-dark(#000, #000);
+    --code-color-se: light-dark(#000, #000);
+    --code-color-sh: light-dark(#000, #000);
+    --code-color-si: light-dark(#000, #000);
+    --code-color-sx: light-dark(#000, #000);
+    --code-color-sr: light-dark(#000, #000);
+    --code-color-s1: light-dark(#000, #000);
+    --code-color-ss: light-dark(#000, #000);
+    --code-color-bp: light-dark(#000, #000);
+    --code-color-fm: light-dark(#000, #000);
+    --code-color-il: light-dark(#000, #000);
+}
+
+td.linenos .normal,
+span.linenos {
+    color: var(--code-color-linenos);
+    background-color: transparent;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+td.linenos .special,
+span.linenos.special {
+    color: var(--code-color-linenos-special);
+    background-color: var(--code-color-linenos-special-background);
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
+.highlight {
+    background: var(--code-color-background);
+    color: var(--code-color-default);
+    hll {
+        background-color: var(--code-color-hll);
+    }
+
+    /* Comment */
+    c {
+        color: var(--code-color-c);
+    }
+
+    /* Error */
+    err {
+        color: var(--code-color-err);
+    }
+
+    /* Keyword */
+    k {
+        color: var(--code-color-k);
+    }
+
+    /* Literal */
+    l {
+        color: var(--code-color-l);
+    }
+
+    /* Operator */
+    o {
+        color: var(--code-color-o);
+    }
+
+    /* Punctuation */
+    p {
+        color: var(--code-color-p);
+    }
+
+    /* Comment.Hashbang */
+    ch {
+        color: var(--code-color-ch);
+    }
+
+    /* Comment.Multiline */
+    cm {
+        color: var(--code-color-cm);
+    }
+
+    /* Comment.Preproc */
+    cp {
+        color: var(--code-color-cp);
+    }
+
+    /* Comment.PreprocFile */
+    cpf {
+        color: var(--code-color-cpf);
+    }
+
+    /* Comment.Single */
+    c1 {
+        color: var(--code-color-c1);
+    }
+
+    /* Comment.Special */
+    cs {
+        color: var(--code-color-cs);
+    }
+
+    /* Generic.Deleted */
+    gd {
+        color: var(--code-color-gd);
+    }
+
+    /* Generic.Emph */
+    ge {
+        font-style: italic;
+    }
+
+    /* Generic.EmphStrong */
+    ges {
+        font-weight: bold;
+        font-style: italic;
+    }
+
+    /* Generic.Error */
+    gr {
+        color: var(--code-color-gr);
+    }
+
+    /* Generic.Heading */
+    gh {
+        color: var(--code-color-gh);
+        font-weight: bold;
+    }
+
+    /* Generic.Inserted */
+    gi {
+        color: var(--code-color-gi);
+    }
+
+    /* Generic.Output */
+    go {
+        color: var(--code-color-go);
+    }
+
+    /* Generic.Prompt */
+    gp {
+        color: var(--code-color-gp);
+    }
+
+    /* Generic.Strong */
+    gs {
+        font-weight: bold;
+    }
+
+    /* Generic.Subheading */
+    gu {
+        font-weight: bold;
+    }
+
+    /* Generic.Traceback */
+    gt {
+        color: var(--code-color-gt);
+    }
+
+    /* Keyword.Constant */
+    kc {
+        color: var(--code-color-kc);
+    }
+
+    /* Keyword.Declaration */
+    kd {
+        color: var(--code-color-kd);
+    }
+
+    /* Keyword.Namespace */
+    kn {
+        color: var(--code-color-kn);
+    }
+
+    /* Keyword.Pseudo */
+    kp {
+        color: var(--code-color-kp);
+    }
+
+    /* Keyword.Reserved */
+    kr {
+        color: var(--code-color-kr);
+    }
+
+    /* Keyword.Type */
+    kt {
+        color: var(--code-color-kt);
+    }
+
+    /* Literal.Date */
+    ld {
+        color: var(--code-color-ld);
+    }
+
+    /* Literal.Number */
+    m {
+        color: var(--code-color-m);
+    }
+
+    /* Literal.String */
+    s {
+        color: var(--code-color-s);
+    }
+
+    /* Name.Attribute */
+    na {
+        color: var(--code-color-na);
+    }
+
+    /* Name.Builtin */
+    nb {
+        color: var(--code-color-nb);
+    }
+
+    /* Name.Class */
+    nc {
+        color: var(--code-color-nc);
+    }
+
+    /* Name.Constant */
+    no {
+        color: var(--code-color-no);
+    }
+
+    /* Name.Decorator */
+    nd {
+        color: var(--code-color-nd);
+    }
+
+    /* Name.Function */
+    nf {
+        color: var(--code-color-nf);
+    }
+
+    /* Name.Label */
+    nl {
+        color: var(--code-color-nl);
+    }
+
+    /* Name.Property */
+    py {
+        color: var(--code-color-py);
+    }
+
+    /* Name.Tag */
+    nt {
+        color: var(--code-color-nt);
+    }
+
+    /* Operator.Word */
+    ow {
+        color: var(--code-color-ow);
+    }
+
+    /* Punctuation.Marker */
+    pm {
+        color: var(--code-color-pm);
+    }
+
+    /* Text.Whitespace */
+    w {
+        color: var(--code-color-w);
+    }
+
+    /* Literal.Number.Bin */
+    mb {
+        color: var(--code-color-mb);
+    }
+
+    /* Literal.Number.Float */
+    mf {
+        color: var(--code-color-mf);
+    }
+
+    /* Literal.Number.Hex */
+    mh {
+        color: var(--code-color-mh);
+    }
+
+    /* Literal.Number.Integer */
+    mi {
+        color: var(--code-color-mi);
+    }
+
+    /* Literal.Number.Oct */
+    mo {
+        color: var(--code-color-mo);
+    }
+
+    /* Literal.String.Affix */
+    sa {
+        color: var(--code-color-sa);
+    }
+
+    /* Literal.String.Backtick */
+    sb {
+        color: var(--code-color-sb);
+    }
+
+    /* Literal.String.Char */
+    sc {
+        color: var(--code-color-sc);
+    }
+
+    /* Literal.String.Delimiter */
+    dl {
+        color: var(--code-color-dl);
+    }
+
+    /* Literal.String.Doc */
+    sd {
+        color: var(--code-color-sd);
+    }
+
+    /* Literal.String.Double */
+    s2 {
+        color: var(--code-color-s2);
+    }
+
+    /* Literal.String.Escape */
+    se {
+        color: var(--code-color-se);
+    }
+
+    /* Literal.String.Heredoc */
+    sh {
+        color: var(--code-color-sh);
+    }
+
+    /* Literal.String.Interpol */
+    si {
+        color: var(--code-color-si);
+    }
+
+    /* Literal.String.Other */
+    sx {
+        color: var(--code-color-sx);
+    }
+
+    /* Literal.String.Regex */
+    sr {
+        color: var(--code-color-sr);
+    }
+
+    /* Literal.String.Single */
+    s1 {
+        color: var(--code-color-s1);
+    }
+
+    /* Literal.String.Symbol */
+    ss {
+        color: var(--code-color-ss);
+    }
+
+    /* Name.Builtin.Pseudo */
+    bp {
+        color: var(--code-color-bp);
+    }
+
+    /* Name.Function.Magic */
+    fm {
+        color: var(--code-color-fm);
+    }
+
+    /* Literal.Number.Integer.Long */
+    il {
+        color: var(--code-color-il);
+    }
+}
