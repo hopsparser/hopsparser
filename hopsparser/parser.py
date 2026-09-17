@@ -542,6 +542,7 @@ class BiAffineParser(nn.Module):
             raise ValueError(f"Unknown loss type {self.multitask_loss}")
 
     def eval_model(self, dev_set: Iterable[DependencyBatch]) -> ParserEvalOutput:
+        """Greedy evaluation for fast but inaccurate eval during training."""
 
         self.eval()
         device = next(self.parameters()).device
@@ -634,6 +635,7 @@ class BiAffineParser(nn.Module):
             },
         )
 
+    # NOTE: train and eval batch size are the same, that's ok.
     def train_model(
         self,
         epochs: int,
@@ -728,7 +730,7 @@ class BiAffineParser(nn.Module):
                 scheduler.step()
 
             if dev_loader is not None:
-                dev_scores = self.eval_model(dev_loader, batch_size=batch_size)
+                dev_scores = self.eval_model(dev_loader)
                 # FIXME: this is not very elegant (2022-07)
                 # FIXME: really not (2022-09)
                 # FIXME: it's ok, lightning will save us (2023-03)
@@ -1302,22 +1304,22 @@ def train(
         train_trees,
         skip_unencodable=skip_unencodable,
     )
-    devset: DependencyDataset | None
+    dev_set: DependencyDataset | None
     if dev_file is not None:
         with open(dev_file) as in_stream:
             # NOTE: skip_unencodable here **could** make sense, but in most cases we will want to
             # parse the whole dev set to get comparable global metrics anyway, so it's better to
             # fail here.
-            devset = DependencyDataset(
+            dev_set = DependencyDataset(
                 parser,
                 list(DepGraph.read_conll(in_stream)),
             )
     else:
-        devset = None
+        dev_set = None
 
     parser.train_model(
         batch_size=hp["batch_size"],
-        dev_set=devset,
+        dev_set=dev_set,
         epochs=hp["epochs"],
         log_epoch=log_epoch,
         lr_schedule=LRSchedule.model_validate(hp["lr"]),
