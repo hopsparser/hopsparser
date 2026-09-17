@@ -102,7 +102,7 @@ traintools = [
     "asyncclick",
     "httpx2",
     "lightning",
-    "polars >= 1.12, < 1.35",
+    "polars >= 1.12, < 1.45",
     "pytorch-lightning >= 2.4, < 3.0",
     "tensorboardx",
     "torchmetrics",
