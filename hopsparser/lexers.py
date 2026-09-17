@@ -18,7 +18,6 @@ from annotated_types import Ge, Gt
 from fasttextlt import fasttext
 import pydantic
 import torch
-import torch.jit
 import transformers
 from bidict import BidirectionalMapping, bidict
 from huggingface_hub import hf_hub_download
