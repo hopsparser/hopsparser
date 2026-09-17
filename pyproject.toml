@@ -13,13 +13,13 @@ dependencies = [
     "loguru",
     "numpy >= 2.1",
     "pooch",
-    "pydantic >= 2.0, < 2.12",
-    "pydantic-settings >= 2.0, < 2.10",
+    "pydantic >= 2.0, < 2.14",
+    "pydantic-settings >= 2.0, < 2.14",
     "pyyaml",
     "rich",
     "sacremoses",
     "tabulate2",
-    "torch >= 2.0.0, < 2.10.0",
+    "torch >= 2.0.0, < 2.11.0",
     "transformers >= 4.19.0, < 5.0.0, != 4.23.0, != 4.23.1, != 4.51.0",
     "uvicorn",
 ]
@@ -50,6 +50,8 @@ tests = [
     "pytest-lazy-fixtures >= 1.1, < 2",
 ]
 traintools = [
+    "aiofiles",
+    "asyncclick",
     "httpx[http2]",
     "lightning",
     "polars >= 1.12, < 1.35",
