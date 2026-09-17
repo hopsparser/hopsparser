@@ -41,7 +41,7 @@ class LexingError(Exception):
         super().__init__(self.message)
 
 
-@torch.jit.script
+@torch.compile
 def integer_dropout(t: torch.Tensor, fill_value: int, p: float) -> torch.Tensor:
     mask = torch.empty_like(t, dtype=torch.bool).bernoulli_(p)
     return t.masked_fill(mask, fill_value)

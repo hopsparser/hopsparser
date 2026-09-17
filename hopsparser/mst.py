@@ -77,15 +77,27 @@ def detect_cycle(
     - `cycle`: A 1d bool arrays such that `cycle[j]` is true iff node `j` in the graph is in the
       cycle. If there is no cycle in the graph, this is `None`.
     """
+    # The stack is not an actual stack (sorry) but the nodes we haven't verified yet. To make it
+    # faster, we just implement it as an indicator array.
     on_stack = np.ones_like(heads, dtype=bool)
     on_stack[0] = False
+    # Current stack top
     pointer = 1
     while True:
+        # Skip until we find a not we yet have to visit
         while not on_stack[pointer]:
             pointer += 1
             # We could stop one step before that if we know there are no self-loops but eh.
             if pointer == len(heads):
                 return None
+
+        # We follow the out edges recursively, removing nodes from the stack as we go until we get
+        # to a node that's already off the stack. At which point, if that node has a parent that we
+        # have already visited in this iteration, we have found a cycle. Otherwise, it's verified
+        # and we can escape.
+
+        # Again, the node we visit are stored as an indicator array. We could reuse a single array
+        # and zero it at each iteration to squeeze a femtosecond but I couldn't be bothered.
         current = np.zeros_like(heads, dtype=bool)
         parent = pointer
         while on_stack[parent]:
@@ -93,7 +105,7 @@ def detect_cycle(
             current[parent] = True
             parent = heads[parent]
         if current[parent]:
-            # Found a cycle!
+            # Found a cycle! Reconstruct it.
             cycle_start = parent
             cycle_pointer = parent
             # Pyright isn't good at propagating shape typing yet
