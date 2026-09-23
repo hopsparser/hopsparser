@@ -20,7 +20,7 @@ dependencies = [
     "sacremoses",
     "tabulate2",
     "torch >= 2.0.0, < 2.15.0",
-    "transformers >= 4.19.0, < 5.0.0, != 4.23.0, != 4.23.1, != 4.51.0",
+    "transformers >= 4.19.0, != 4.23.0, != 4.23.1, != 4.51.0, < 6.0.0",
     "uvicorn",
 ]
 description = "A graph dependency parser to tinker with"
