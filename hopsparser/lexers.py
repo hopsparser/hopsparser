@@ -965,8 +965,8 @@ class BertLexer(nn.Module):
         # their parameter's dtype, which makes more sense but breaks compatibility for our
         # existing models. See <https://github.com/huggingface/transformers/pull/42805> for the
         # change. This might have to change in the future.
-        if not hasattr(config, "dtype"):
-            config.dtype = torch.get_default_dtype()
+        if not hasattr(bert_config, "dtype"):
+            bert_config.dtype = torch.get_default_dtype()
 
         model = transformers.AutoModel.from_config(bert_config, dtype=torch.get_default_dtype())
         tokenizer = transformers.AutoTokenizer.from_pretrained(bert_model_path, use_fast=True)
