@@ -781,11 +781,13 @@ class BertLexer(nn.Module):
             subword_embeddings = selected_layers.mean(dim=0)
         # We already know the shape the BERT embeddings should have and we pad with zeros
         # shape: batch×sentence(WITH ROOT TOKEN)×features
-        word_embeddings = subword_embeddings.new_zeros((
-            len(inpt.subword_alignments),
-            max(len(s) for s in inpt.subword_alignments) + 1,
-            subword_embeddings.shape[2],
-        ))
+        word_embeddings = subword_embeddings.new_zeros(
+            (
+                len(inpt.subword_alignments),
+                max(len(s) for s in inpt.subword_alignments) + 1,
+                subword_embeddings.shape[2],
+            )
+        )
         # FIXME: this loop is embarassingly parallel, there must be a way to parallelize it
         for sent_n, alignment in enumerate(inpt.subword_alignments):
             # TODO: If we revise the alignment format, this could probably be made faster using
@@ -957,7 +959,16 @@ class BertLexer(nn.Module):
             config = json.load(in_stream)
         bert_model_path = model_path / "model"
         bert_config = transformers.AutoConfig.from_pretrained(bert_model_path)
-        model = transformers.AutoModel.from_config(bert_config)
+
+        # Fix for breaking changes in transformers 5: models without a dtype in config used to
+        # be loaded with the default dtype (usually float16) but are now loaded according to
+        # their parameter's dtype, which makes more sense but breaks compatibility for our
+        # existing models. See <https://github.com/huggingface/transformers/pull/42805> for the
+        # change. This might have to change in the future.
+        if not hasattr(config, "dtype"):
+            config.dtype = torch.get_default_dtype()
+
+        model = transformers.AutoModel.from_config(bert_config, dtype=torch.get_default_dtype())
         tokenizer = transformers.AutoTokenizer.from_pretrained(bert_model_path, use_fast=True)
         # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
         if isinstance(
@@ -976,9 +987,23 @@ class BertLexer(nn.Module):
     @classmethod
     def from_pretrained(cls, model_name_or_path: str | pathlib.Path, **kwargs) -> Self:
         try:
-            model = transformers.AutoModel.from_pretrained(model_name_or_path)
+            # Fix for breaking changes in transformers 5: models without a dtype in config used to
+            # be loaded with the default dtype (usually float16) but are now loaded according to
+            # their parameter's dtype, which makes more sense but breaks compatibility for our
+            # existing models. See <https://github.com/huggingface/transformers/pull/42805> for the
+            # change. This might have to change in the future.
+            model = transformers.AutoModel.from_pretrained(
+                model_name_or_path, dtype=torch.get_default_dtype()
+            )
         except OSError:
             config = transformers.AutoConfig.from_pretrained(model_name_or_path)
+            # Fix for breaking changes in transformers 5: models without a dtype in config used to
+            # be loaded with the default dtype (usually float16) but are now loaded according to
+            # their parameter's dtype, which makes more sense but breaks compatibility for our
+            # existing models. See <https://github.com/huggingface/transformers/pull/42805> for the
+            # change. This might have to change in the future.
+            if not hasattr(config, "dtype"):
+                config.dtype = torch.get_default_dtype()
             model = transformers.AutoModel.from_config(config)
 
         tokenizer = transformers.AutoTokenizer.from_pretrained(model_name_or_path, use_fast=True)
@@ -1016,9 +1041,11 @@ class BertLexer(nn.Module):
         )
 
 
-LEXER_TYPES: BidirectionalMapping[str, type[Lexer]] = bidict({
-    "bert": BertLexer,
-    "chars_rnn": CharRNNLexer,
-    "fasttext": FastTextLexer,
-    "words": WordEmbeddingsLexer,
-})
+LEXER_TYPES: BidirectionalMapping[str, type[Lexer]] = bidict(
+    {
+        "bert": BertLexer,
+        "chars_rnn": CharRNNLexer,
+        "fasttext": FastTextLexer,
+        "words": WordEmbeddingsLexer,
+    }
+)

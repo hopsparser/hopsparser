@@ -222,7 +222,7 @@ def train_single_model(
     # TODO: allow multi-device training? seems overkill for now but
     device_info = torch.device(device)
     accelerator = device_info.type
-    devices = 1 if accelerator == "cpu" else [cast(int, device_info.index)]
+    devices = 1 if accelerator == "cpu" else [device_info.index]
     trainer.train(
         accelerator=accelerator,
         callbacks=[EpochFeedbackCallback(message_queue=message_queue, run_name=run_name)],
