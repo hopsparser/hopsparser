@@ -104,9 +104,9 @@ jobs:
         id: transfo-install
         run: |
           source .venv/bin/activate
-          uv pip install --upgrade "transformers < 6"
-          python -c "from transformers.file_utils import TRANSFORMERS_CACHE; print(f'dir={TRANSFORMERS_CACHE}')" >> $GITHUB_OUTPUT
-          echo "version=$(pip show transformers | grep Version)" >> $GITHUB_OUTPUT
+          uv pip install --upgrade "transformers" "huggingface_hub"
+          python -c "from huggingface_hub.constants import HF_HOME; print(f'dir={HF_HOME}')" >> $GITHUB_OUTPUT
+          echo "version=$(uv pip show transformers | grep Version)" >> $GITHUB_OUTPUT
       - uses: actions/cache@v6
         with:
           path: ${{ steps.transfo-install.outputs.dir }}
