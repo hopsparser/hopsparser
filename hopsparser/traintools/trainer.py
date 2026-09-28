@@ -376,7 +376,7 @@ def train(
         batch_size=train_config.batch_size,
         collate_fn=parser.batch_trees,
         shuffle=True,
-        num_workers=2,
+        num_workers=0,
     )
     dev_loaders: list[torch.utils.data.DataLoader] = []
     if dev_file is not None:
@@ -395,7 +395,7 @@ def train(
                     dataset=dev_set,
                     batch_size=train_config.batch_size,
                     collate_fn=parser.batch_trees,
-                    num_workers=2,
+                    num_workers=0,
                 )
             )
     train_module = ParserTrainingModule(config=train_config, n_dev=len(dev_loaders), parser=parser)
