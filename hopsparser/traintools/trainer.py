@@ -288,7 +288,7 @@ class SaveModelCallback(pl.Callback):
         self.save_dir = save_dir
 
     @rank_zero_only
-    def on_save_checkpoint(  # type: ignore[override]
+    def on_save_checkpoint(
         self, trainer: pl.Trainer, pl_module: ParserTrainingModule, checkpoint: dict[str, Any]
     ):
         logger.info(f"Saving model to {self.save_dir}")
@@ -399,7 +399,7 @@ def train(
                 )
             )
     train_module = ParserTrainingModule(config=train_config, n_dev=len(dev_loaders), parser=parser)
-    all_callbacks = [
+    all_callbacks: list[pl.Callback] = [
         pl_callbacks.LearningRateMonitor("step"),
         SaveModelCallback(save_dir=model_path),
     ]

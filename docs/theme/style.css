@@ -118,16 +118,15 @@ body {
             li {
                 overflow: hidden;
                 text-overflow: ellipsis;
+                text-align: left;
             }
             li ul {
                 padding-top: 0.5rem;
                 padding-bottom: 1rem;
             }
             li.toc-section {
-                margin-top: 2rem;
-            }
-            li.toc-section {
                 color: var(--accent-color);
+                margin-top: 2rem;
             }
             li.current,
             li ul {
