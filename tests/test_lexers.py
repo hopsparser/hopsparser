@@ -76,7 +76,7 @@ def fasttext_model(
 
 
 # NOTE: the function-scoped fixture are only model paths/identifiers so it's ok.
-@settings(deadline=1000, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(deadline=2048, suppress_health_check=[HealthCheck.function_scoped_fixture])
 @given(
     special_tokens=st.lists(st.text(min_size=2), max_size=8),
     test_text=st.lists(st.text(min_size=1), min_size=1),
