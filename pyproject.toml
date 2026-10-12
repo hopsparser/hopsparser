@@ -27,7 +27,7 @@ description = "A graph dependency parser to tinker with"
 keywords = ["nlp", "parsing"]
 license = "MIT"
 name = "hopsparser"
-requires-python = ">= 3.11"
+requires-python = ">= 3.13"
 version = "0.8.0"
 
 [project.urls]
