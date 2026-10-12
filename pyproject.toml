@@ -1,27 +1,27 @@
 [project]
 authors = [
-    { name = "Benoît Crabbé", email = "benoit.crabbe@univ-paris-diderot.fr" },
-    { name = "Loïc Grobol", email = "lgrobol@parisnanterre.fr" },
+	{ name = "Benoît Crabbé", email = "benoit.crabbe@univ-paris-diderot.fr" },
+	{ name = "Loïc Grobol", email = "lgrobol@parisnanterre.fr" },
 ]
 dependencies = [
-    "bidict",
-    "boltons",
-    "click >= 8.0.4, < 9.0.0",
-    "fastapi",
-    "fasttextlt",
-    "huggingface-hub",
-    "loguru",
-    "numpy >= 2.1",
-    "pooch",
-    "pydantic >= 2.0, < 2.14",
-    "pydantic-settings >= 2.0, < 2.16",
-    "pyyaml",
-    "rich",
-    "sacremoses",
-    "tabulate2",
-    "torch >= 2.0.0, < 2.15.0",
-    "transformers >= 4.19.0, != 4.23.0, != 4.23.1, != 4.51.0, < 6.0.0",
-    "uvicorn",
+	"bidict",
+	"boltons",
+	"click >= 8.0.4, < 9.0.0",
+	"fastapi",
+	"fasttextlt",
+	"huggingface-hub",
+	"loguru",
+	"numpy >= 2.1",
+	"pooch",
+	"pydantic >= 2.0, < 2.14",
+	"pydantic-settings >= 2.0, < 2.16",
+	"pyyaml",
+	"rich",
+	"sacremoses",
+	"tabulate2",
+	"torch >= 2.0.0, < 2.15.0",
+	"transformers >= 4.19.0, != 4.23.0, != 4.23.1, != 4.51.0, < 6.0.0",
+	"uvicorn",
 ]
 description = "A graph dependency parser to tinker with"
 keywords = ["nlp", "parsing"]
@@ -70,8 +70,8 @@ select = ["A", "B", "C90", "E", "F", "N", "NPY", "PT", "PTH", "PYI", "S", "W"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [
-    "S101", # asserts allowed in tests
-    "ARG",  # Unused function args -> fixtures nevertheless are functionally relevant
+	"S101", # asserts allowed in tests
+	"ARG",  # Unused function args -> fixtures nevertheless are functionally relevant
 ]
 
 [dependency-groups]
@@ -88,22 +88,22 @@ lint = ["ruff"]
 nox = ["nox>=2026.2.9"]
 spacy = ["spacy >= 3.8, < 4.0"]
 tests = [
-    "hypothesis >= 6.0, < 7.0",
-    "networkx >= 3.2, < 3.7",
-    "pytest >= 7.0, < 10.0",
-    "pytest-assert-utils",
-    "pytest-console-scripts >= 1.4, < 1.5",
-    "pytest-github-actions-annotate-failures",
-    "pytest-lazy-fixtures >= 1.1, < 2",
-    { include-group = "traintools" },
+	"hypothesis >= 6.0, < 7.0",
+	"networkx >= 3.2, < 3.7",
+	"pytest >= 7.0, < 10.0",
+	"pytest-assert-utils",
+	"pytest-console-scripts >= 1.4, < 1.5",
+	"pytest-github-actions-annotate-failures",
+	"pytest-lazy-fixtures >= 1.1, < 2",
+	{ include-group = "traintools" },
 ]
 traintools = [
-    "aiofiles",
-    "asyncclick",
-    "httpx2",
-    "lightning",
-    "polars >= 1.12, < 1.45",
-    "pytorch-lightning >= 2.4, < 3.0",
-    "tensorboardx",
-    "torchmetrics",
+	"aiofiles",
+	"asyncclick",
+	"httpx2",
+	"lightning",
+	"polars >= 1.12, < 3",
+	"pytorch-lightning >= 2.4, < 3.0",
+	"tensorboardx",
+	"torchmetrics",
 ]
