@@ -8,7 +8,7 @@ options.default_venv_backend = "uv"
 ci = environ.get("CI")
 
 
-@session(python=["3.11", "3.12", "3.13", "3.14"])
+@session(python=["3.13", "3.14", "3.15"])
 def tests(s: Session):
     if ci:
         s.install(".", "--group", "ci")
