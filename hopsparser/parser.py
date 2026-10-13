@@ -243,7 +243,7 @@ class BiaffineParserOutput(NamedTuple):
     deprel_scores: torch.Tensor
     extra_labels_scores: dict[str, torch.Tensor]
 
-    def unbatch(self, sentence_lengths: Sequence[int]) -> list["BiaffineParserOutput"]:
+    def unbatch(self, sentence_lengths: Sequence[int]) -> list[Self]:
         """Return individual scores for every sentence in the batch, properly truncated to the
         sentence length."""
         transposed_extra_labels_scores: list[dict[str, torch.Tensor]] = [

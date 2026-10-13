@@ -1,62 +1,6 @@
-from typing import Literal, cast
+from typing import cast
 
 import numpy as np
-
-
-# FIXME: we don't actually need this in CLE: we only need one critical cycle
-def tarjan(tree: np.ndarray) -> list[np.ndarray]:
-    """Use Tarjan's SCC algorithm to find cycles in a tree
-
-    ## Input
-
-    - `tree`: A 1d integer array such that `tree[i]` is the head of the `i`-th node
-
-    ## Output
-
-    - `cycles`: A list of 1d bool arrays such that `cycles[i][j]` is true iff the `j`-th node of
-      `tree` is in the `i`-th cycle
-    """
-    indices = -np.ones_like(tree)
-    lowlinks = -np.ones_like(tree)
-    onstack = np.zeros_like(tree, dtype=bool)
-    stack = list()
-    # I think this is in a list to be able to mutate it in the closure, even though `nonlocal` exists
-    _index = [0]
-    cycles = []
-
-    def strong_connect(i):
-        _index[0] += 1
-        index = _index[-1]  # `_index` is of length 1 so this is also `_index[0]`???
-        indices[i] = lowlinks[i] = index - 1
-        stack.append(i)
-        onstack[i] = True
-        dependents = np.where(np.equal(tree, i))[0]
-        for j in dependents:
-            if indices[j] == -1:
-                strong_connect(j)
-                lowlinks[i] = min(lowlinks[i], lowlinks[j])  # type: ignore
-            elif onstack[j]:
-                lowlinks[i] = min(lowlinks[i], indices[j])  # type: ignore
-
-        # There's a cycle!
-        if lowlinks[i] == indices[i]:
-            cycle = np.zeros_like(indices, dtype=bool)
-            while stack[-1] != i:
-                j = stack.pop()
-                onstack[j] = False
-                cycle[j] = True
-            stack.pop()
-            onstack[i] = False
-            cycle[i] = True
-            if cycle.sum() > 1:
-                cycles.append(cycle)
-        return
-
-    # -------------------------------------------------------------
-    for i in range(len(tree)):
-        if indices[i] == -1:
-            strong_connect(i)
-    return cycles
 
 
 # Floyd's etc cycle-finding algos are useless here: the function is already fully tabulated so
@@ -152,7 +96,7 @@ def chuliu_edmonds(
         # scores of cycle in original tree; (c) in R
         cycle_scores = scores[cycle, cycle_subtree]
         # total score of cycle; () in R
-        total_cycle_score: np.ndarray[tuple[Literal[1]], np.dtype[np.floating]] = cycle_scores.sum()
+        total_cycle_score = cycle_scores.sum()
 
         # locations of noncycle; (t) in [0,1]
         noncycle = np.logical_not(cycle)
@@ -256,16 +200,13 @@ def chuliu_edmonds_one_root(
         return tree
 
     # We find the maximum spanning dependency_tree by trying every possible root
-    best_score, best_tree = None, None  # This is what's causing it to crash
+    best_score, best_tree = -np.inf, None  # This is what's causing it to crash
     for root in roots_to_try:
         _scores, root_score = _set_root(scores, root)
         _tree = chuliu_edmonds(_scores)
         tree_probs = _scores[np.arange(len(_scores)), _tree]
         tree_score = tree_probs.sum() + root_score
-        if best_score is None:
-            best_score = tree_score
-            best_tree = _tree
-        elif tree_score > best_score:
+        if tree_score > best_score:
             best_score = tree_score
             best_tree = _tree
 

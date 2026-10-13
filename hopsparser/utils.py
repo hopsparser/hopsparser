@@ -200,7 +200,14 @@ def setup_logging(
         logger.debug(f"Intercepting logging from {libname}")
 
     # Deal with stdlib.warnings
-    def showwarning(message, category, filename, lineno, file=None, line=None):
+    def showwarning(
+        message: Warning | str,
+        category: type[Warning],
+        filename: str,
+        lineno: int,
+        file: TextIO | None = None,
+        line: str | None = None,
+    ) -> None:
         logger.warning(warnings.formatwarning(message, category, filename, lineno, None).strip())
 
     if replace_warnings:
@@ -259,8 +266,8 @@ class SeparatedTuple(click.ParamType):
         info_dict["types"] = [t.to_info_dict() for t in self.types]
         return info_dict
 
-    @property  # type: ignore[no-redef]
-    def name(self) -> str:  # type: ignore[override]  # noqa: F811
+    @property
+    def name(self) -> str:  # noqa: F811
         return f"<{' '.join(ty.name for ty in self.types)}>"
 
     # NOTE: the way this is written forbids using the separator character in the values at all.
