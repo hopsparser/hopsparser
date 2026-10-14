@@ -66,16 +66,17 @@ def chu_liu_edmonds(
     ## Input
 
     - `scores`: A 2d numeric array such that `scores[i, j]` is the weight of the `$j→i$` edge (i.e.
-      for `j` being the head of `i`) in the graph.
+      for `j` being the head of `i`) in the graph. It must not have any optimal self-loops, i.e. for
+      all `i != j`, `scores[i, i] < scores[i, j]` (i.e. there is no optimal self-loops). An easy way
+      to do that is to fill the diagonal of `scores` with `-np.inf`
 
     ## Output
 
-    - `tree`: A 1d integer array such that `tree[i]` is the head of the `i`-th node.
+    - `heads` A 1d integer array such that `heads[i]` is the head of the `i`-th node in a maximum
+      spanning arborescence of the graph rooted at `0`.
     """
-    np.fill_diagonal(scores, -np.inf)
-    scores[0, 0] = 0.0
-
     tree = cast(np.ndarray[tuple[int], np.dtype[np.intp]], np.argmax(scores, axis=1))
+    # The root is self-looping
     tree[0] = 0
     cycle = detect_cycle(tree)
 
@@ -199,6 +200,8 @@ def maximum_spanning_dependency_tree(
     """
 
     scores = scores.astype(np.float64, copy=not in_place)
+    # Cheap way to prevent self-loops
+    np.fill_diagonal(scores, -np.inf)
 
     tree = chu_liu_edmonds(scores)
 
