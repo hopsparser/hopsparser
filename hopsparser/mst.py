@@ -202,6 +202,7 @@ def maximum_spanning_dependency_tree(
     scores = scores.astype(np.float64, copy=not in_place)
     # Cheap way to prevent self-loops
     np.fill_diagonal(scores, -np.inf)
+    scores[0, 0] = 0.0
 
     tree = chu_liu_edmonds(scores)
 
