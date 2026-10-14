@@ -72,6 +72,9 @@ def chu_liu_edmonds(
 
     - `tree`: A 1d integer array such that `tree[i]` is the head of the `i`-th node.
     """
+    np.fill_diagonal(scores, -np.inf)
+    scores[0, 0] = 0.0
+
     tree = cast(np.ndarray[tuple[int], np.dtype[np.intp]], np.argmax(scores, axis=1))
     tree[0] = 0
     cycle = detect_cycle(tree)
@@ -196,8 +199,6 @@ def maximum_spanning_dependency_tree(
     """
 
     scores = scores.astype(np.float64, copy=not in_place)
-    np.fill_diagonal(scores, -np.inf)
-    scores[0, 0] = 0.0
 
     tree = chu_liu_edmonds(scores)
 
