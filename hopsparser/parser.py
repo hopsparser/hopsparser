@@ -31,7 +31,7 @@ from typing import Self
 from hopsparser import lexers, utils
 from hopsparser.deptree import DepGraph
 from hopsparser.lexers import Lexer, SupportsTo, freeze_module
-from hopsparser.mst import chuliu_edmonds_one_root as chuliu_edmonds
+from hopsparser.mst import maximum_spanning_dependency_tree as chuliu_edmonds
 from hopsparser.utils import smart_open
 
 
