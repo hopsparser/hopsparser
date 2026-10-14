@@ -55,6 +55,8 @@ def detect_cycle(
 
 
 # TODO: split out a `contraction` function to make this more readable
+#
+# TODO: remove the constraint on the diagonal, it's annoying
 def chu_liu_edmonds(
     scores: np.ndarray[tuple[int, int], np.dtype[np.floating]],
 ) -> np.ndarray[tuple[int], np.dtype[np.intp]]:
@@ -146,7 +148,7 @@ def chu_liu_edmonds(
 
 
 def _set_root(
-    scores: np.ndarray[tuple[int, int], np.dtype[np.floating]], root: int
+    scores: np.ndarray[tuple[int, int], np.dtype[np.floating]], root: np.integer
 ) -> tuple[
     np.ndarray[tuple[int, int], np.dtype[np.floating]],
     np.ndarray[tuple[int], np.dtype[np.floating]],
@@ -172,7 +174,8 @@ def maximum_spanning_dependency_tree(
     ## Input
 
     - `scores`: A 2d numeric array such that `scores[i, j]` is the weight of the `$j→i$` edge (i.e.
-      for `j` being the head of `i`) in the graph and the 0-th node is the root.
+      for `j` being the head of `i`) in the graph and the 0-th node is the root. `scores[0, 0]` must
+      be 0 and `scores[i, i]` must be -inf for i≠0.
     - `in_place`: if True, `scores` will be preserved, otherwise this functions might modify it
       in-place.
 
@@ -193,13 +196,17 @@ def maximum_spanning_dependency_tree(
     """
 
     scores = scores.astype(np.float64, copy=not in_place)
+    np.fill_diagonal(scores, -np.inf)
+    scores[0, 0] = 0.0
+
     tree = chu_liu_edmonds(scores)
 
-    unconstrained_roots = np.where(np.equal(tree[1:], 0))[0] + 1
+    unconstrained_roots = np.argwhere(np.equal(tree[1:], 0)).reshape(-1) + 1
     if unconstrained_roots.shape[0] == 1:
         return tree
 
-    # We find the maximum spanning dependency_tree by trying every possible root
+    # To find a dependency tree, we run our msa algorithm once per every unconstrained root, setting
+    # that root as the only possible one.
     best_score, best_tree = -np.inf, None
     for root in unconstrained_roots:
         _scores, root_score = _set_root(scores, root)
