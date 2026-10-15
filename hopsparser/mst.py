@@ -68,7 +68,7 @@ def chu_liu_edmonds(
     - `scores`: A 2d numeric array such that `scores[i, j]` is the weight of the `$j→i$` edge (i.e.
       for `j` being the head of `i`) in the graph. It must not have any optimal self-loops, i.e. for
       all `i != j`, `scores[i, i] < scores[i, j]` (i.e. there is no optimal self-loops). An easy way
-      to do that is to fill the diagonal of `scores` with `-np.inf`
+      to do that is to fill the diagonal of `scores` with `-np.inf`.
 
     ## Output
 

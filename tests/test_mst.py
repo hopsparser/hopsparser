@@ -71,7 +71,7 @@ def test_maximum_spanning_dependency_tree(
 
     # No cycle
     assert mst.detect_cycle(mst_heads) is None
+    # No self-loop except 0
+    assert np.argwhere(np.equal(mst_heads, np.arange(mst_heads.shape[0]))) == [0]
     # One root
     assert np.sum(mst_heads[1:] == 0) == 1
-    # Just in case
-    assert mst_heads[0] == 0
