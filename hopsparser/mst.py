@@ -33,7 +33,7 @@ def detect_cycle(
                 return None
 
         # We follow the out edges recursively, visiting nodes as we go until we get to a node that
-        # we have already visited. At which point, if we have also visited this parent during the
+        # we have already visited. At which point, if we have also visited its parent during the
         # current tour, we have found a cycle. Otherwise, it's verified and we can escape.
 
         current_tour.fill(False)
@@ -151,22 +151,6 @@ def chu_liu_edmonds(
         return new_tree
 
 
-def _set_root(
-    scores: np.ndarray[tuple[int, int], np.dtype[np.floating]], root: np.integer
-) -> tuple[
-    np.ndarray[tuple[int, int], np.dtype[np.floating]],
-    np.ndarray[tuple[int], np.dtype[np.floating]],
-]:
-    """Force the `root`-th node to be the only node under the root by overwriting the weights of
-    the other children of the root."""
-    root_score = scores[root, 0]
-    scores = scores.copy()
-    scores[1:, 0] = -np.inf
-    scores[root, 1:] = -np.inf
-    scores[root, 0] = 0.0
-    return scores, root_score
-
-
 def maximum_spanning_dependency_tree(
     scores: np.ndarray[tuple[int, int], np.dtype[np.floating]],
     in_place: bool = False,
@@ -185,7 +169,8 @@ def maximum_spanning_dependency_tree(
 
     ## Output
 
-    - `tree`: A 1d integer array such that `tree[i]` is the head of the `i`-th node
+    - `tree`: A 1d integer array such that `tree[i]` is the head of the `i`-th node in a maximal
+      dependency tree rooted at 0.
 
     ## References
 
@@ -206,23 +191,32 @@ def maximum_spanning_dependency_tree(
 
     tree = chu_liu_edmonds(scores)
 
+    # NOTE: in the following “root” means “child of the 0-th node” because I don't have a better
+    # name for it. Sorry, I know it's confusing.
     unconstrained_roots = np.argwhere(np.equal(tree[1:], 0)).reshape(-1) + 1
+
+    # If there is only one root, we can escape here
     if unconstrained_roots.shape[0] == 1:
         return tree
 
     # To find a dependency tree, we run our msa algorithm once per every unconstrained root, setting
     # that root as the only possible one.
+    forced_root_scores = np.empty_like(scores)
     best_score, best_tree = -np.inf, None
     for root in unconstrained_roots:
-        _scores, root_score = _set_root(scores, root)
-        _tree = chu_liu_edmonds(_scores)
-        tree_probs = _scores[np.arange(len(_scores)), _tree]
-        tree_score = tree_probs.sum() + root_score
-        if tree_score > best_score:
-            best_score = tree_score
-            best_tree = _tree
+        np.copyto(forced_root_scores, scores)
+        forced_root_scores[1:, 0] = -np.inf
+        # This is not strictly necessary, but it will make CLE faster because it ensures that `root`
+        # will directly attach to 0 in the argmax phase instead of after breaking it out of a cycle.
+        forced_root_scores[root, 1:] = -np.inf
+        forced_root_scores[root, 0] = scores[root, 0]
+        forced_root_tree = chu_liu_edmonds(forced_root_scores)
+        forced_root_tree_total_score = forced_root_scores[
+            np.arange(forced_root_tree.shape[0]), forced_root_tree
+        ].sum()
+        if forced_root_tree_total_score > best_score:
+            best_score = forced_root_tree_total_score
+            best_tree = forced_root_tree
 
     assert best_tree is not None
     return best_tree
-
-    return chu_liu_edmonds(scores)
