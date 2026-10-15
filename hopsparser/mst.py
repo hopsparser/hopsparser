@@ -207,7 +207,7 @@ def maximum_spanning_dependency_tree(
         np.copyto(forced_root_scores, scores)
         forced_root_scores[1:, 0] = -np.inf
         # This is not strictly necessary, but it will make CLE faster because it ensures that `root`
-        # will directly attach to 0 in the argmax phase instead of after breaking it out of a cycle.
+        # will directly attach to 0 in the arcmax phase instead of after breaking it out of a cycle.
         forced_root_scores[root, 1:] = -np.inf
         forced_root_scores[root, 0] = scores[root, 0]
         forced_root_tree = chu_liu_edmonds(forced_root_scores)

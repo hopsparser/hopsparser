@@ -17,7 +17,7 @@ UD_URLS = {
         "url": "https://lindat.mff.cuni.cz/repository/server/api/core/bitstreams/handle/11234/1-5901/ud-treebanks-v2.16.tgz",
         "hash": "md5:e871b9ae93e56bc980a36b6aef6a65aa",
     },
-    "2.18": {
+    "2.17": {
         "url": "https://lindat.mff.cuni.cz/repository/server/api/core/bitstreams/handle/11234/1-6036/ud-treebanks-v2.17.tgz",
         "hash": "md5:445ecb45263040b72f715fa0857703bb",
     },
