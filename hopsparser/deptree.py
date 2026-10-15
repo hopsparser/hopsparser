@@ -320,8 +320,8 @@ class DepGraph:
                 )
                 continue
             node = DepNode(
-                identifier=int(cast(str, processed_row[0])),
-                form=cast(str, processed_row[1]),
+                identifier=int(processed_row[0]),
+                form=processed_row[1],
                 lemma=processed_row[2],
                 upos=processed_row[3],
                 xpos=processed_row[4],
@@ -329,7 +329,7 @@ class DepGraph:
                 head=int(processed_row[6]) if processed_row[6] is not None else None,
                 deprel=processed_row[7],
                 deps=processed_row[8],
-                misc=Misc.from_string(cast(str, processed_row[9])),
+                misc=Misc.from_string(processed_row[9]),
             )
             if node.head is None and node.deprel is not None:
                 logger.warning(f"Node with empty head and nonempty deprel: {node}")
@@ -371,7 +371,6 @@ class DepGraph:
     def read_conll(
         cls,
         lines: Iterable[str],
-        max_tree_length: int | None = None,
     ) -> Iterable[Self]:
         current_tree_lines: list[str] = []
         # Add a dummy empty line to flush the last tree even if the CoNLL-U mandatory empty last
@@ -379,12 +378,7 @@ class DepGraph:
         for line in itertools.chain(lines, [""]):
             if not line or line.isspace():
                 if current_tree_lines:
-                    if max_tree_length is None or len(current_tree_lines) <= max_tree_length:
-                        yield cls.from_conllu(current_tree_lines)
-                    else:
-                        logger.info(
-                            f"Dropped tree with length {len(current_tree_lines)} > {max_tree_length}",
-                        )
+                    yield cls.from_conllu(current_tree_lines)
                     current_tree_lines = []
             else:
                 current_tree_lines.append(line)

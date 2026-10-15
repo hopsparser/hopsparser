@@ -3,7 +3,6 @@ import math
 import pathlib
 import random
 import shutil
-import warnings
 from typing import (
     Any,
     BinaryIO,
@@ -25,7 +24,6 @@ from boltons import iterutils as itu
 from loguru import logger
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
-from typing_extensions import deprecated
 from typing import Self
 
 from hopsparser import lexers, utils
@@ -1222,36 +1220,6 @@ class DependencyDataset(torch.utils.data.Dataset[EncodedTree]):
         return len(self.encoded_trees)
 
 
-@overload
-@deprecated("`max_tree_length` is deprecated, use `skip_unencodable` or pre-filter trees instead.")
-def train(
-    config_file: pathlib.Path,
-    model_path: pathlib.Path,
-    train_file: pathlib.Path,
-    dev_file: pathlib.Path | None,
-    skip_unencodable: bool,
-    device: str | torch.device,
-    log_epoch: Callable[[str, dict[str, str]], Any],
-    max_tree_length: int | None,
-    overwrite: bool,
-    rand_seed: int | None,
-): ...
-
-
-@overload
-def train(
-    config_file: pathlib.Path,
-    model_path: pathlib.Path,
-    train_file: pathlib.Path,
-    dev_file: pathlib.Path | None,
-    skip_unencodable: bool,
-    device: str | torch.device,
-    log_epoch: Callable[[str, dict[str, str]], Any],
-    overwrite: bool,
-    rand_seed: int | None,
-): ...
-
-
 def train(
     config_file: pathlib.Path,
     model_path: pathlib.Path,
@@ -1259,7 +1227,6 @@ def train(
     dev_file: pathlib.Path | None = None,
     skip_unencodable: bool = True,
     device: str | torch.device = "cpu",
-    max_tree_length: int | None = None,
     log_epoch: Callable[[str, dict[str, str]], Any] = utils.log_epoch,
     overwrite: bool = False,
     rand_seed: int | None = None,
@@ -1272,7 +1239,7 @@ def train(
         hp = yaml.load(in_stream, Loader=yaml.SafeLoader)
 
     with open(train_file) as in_stream:
-        train_trees = list(DepGraph.read_conll(in_stream, max_tree_length=max_tree_length))
+        train_trees = list(DepGraph.read_conll(in_stream))
     model_path_not_empty = model_path.exists() and any(model_path.iterdir())
     if model_path_not_empty and not overwrite:
         logger.info(f"Continuing training from {model_path}")
@@ -1296,7 +1263,7 @@ def train(
             # TODO: remove the cast once we've figured out how to require our lexers to be modules
             freeze_module(cast(nn.Module, lexer))
         else:
-            warnings.warn(f"I can't freeze a {lexer_to_freeze_name!r} lexer that does not exist")
+            logger.warning(f"I can't freeze a {lexer_to_freeze_name!r} lexer that does not exist")
     parser.save(model_path)
 
     trainset = DependencyDataset(

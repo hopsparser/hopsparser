@@ -62,12 +62,18 @@ def cli():
 @click.option(
     "--ignore-unencodable",
     is_flag=True,
-    help="In raw mode, silently ignore sentences that can't be encoded (for instance too long sentences when using a transformer model).",
+    help=(
+        "In raw mode, silently ignore sentences that can't be encoded"
+        " (for instance too long sentences when using a transformer model)."
+    ),
 )
 @click.option(
     "--raw",
     is_flag=True,
-    help="Instead of a CoNLL-U file, take as input a document with one sentence per line, with tokens separated by spaces.",
+    help=(
+        "Instead of a CoNLL-U file, take as input a document with one sentence per line, with"
+        " tokens separated by spaces."
+    ),
 )
 def parse(
     batch_size: int | None,
@@ -112,15 +118,12 @@ def parse(
     help="A CoNLL-U treebank to use as a development dataset.",
 )
 @click.option(
-    "--max-tree-length",
-    deprecated=True,
-    help="The maximum length for trees to be taken into account in the training dataset.",
-    type=int,
-)
-@click.option(
     "--rand-seed",
     default=0,
-    help="Force the random seed for Python and Pytorch (see <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)",
+    help=(
+        "Force the random seed for Python and Pytorch (see"
+        " <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)"
+    ),
     show_default=True,
     type=int,
 )
@@ -132,7 +135,10 @@ def parse(
 @click.option(
     "--overwrite",
     is_flag=True,
-    help="If a model already in the output directory, restart training from scratch instead of continuing.",
+    help=(
+        "If a model already in the output directory,"
+        " restart training from scratch instead of continuing."
+    ),
 )
 @device_opt
 @verbose_opt
@@ -140,7 +146,6 @@ def train(
     config_file: pathlib.Path,
     dev_file: pathlib.Path | None,
     device: str,
-    max_tree_length: int | None,
     output_dir: pathlib.Path,
     overwrite: bool,
     rand_seed: int,
@@ -157,7 +162,6 @@ def train(
         dev_file=dev_file,
         device=device,
         train_file=train_file,
-        max_tree_length=max_tree_length,
         model_path=model_path,
         overwrite=overwrite,
         rand_seed=rand_seed,
@@ -226,12 +230,6 @@ def train(
     show_default=True,
 )
 @click.option(
-    "--max-tree-length",
-    deprecated=True,
-    help="The maximum length for trees to be taken into account in the training dataset.",
-    type=int,
-)
-@click.option(
     "--rand-seed",
     default=0,
     help="Force the random seed fo Python and Pytorch (see <https://pytorch.org/docs/stable/notes/randomness.html> for notes on reproducibility)",
@@ -258,7 +256,6 @@ def train_multi(
     config_file: pathlib.Path,
     dev_file: Sequence[tuple[str, pathlib.Path]],
     device: str,
-    max_tree_length: int | None,
     origin_label_name: str,
     output_dir: pathlib.Path,
     overwrite: bool,
@@ -275,7 +272,7 @@ def train_multi(
     concat_train_file = output_dir / "train.conllu"
     with open(concat_train_file, "w") as out_stream:
         for label, f in train_file:
-            for tree in deptree.DepGraph.read_conll(f, max_tree_length=max_tree_length):
+            for tree in deptree.DepGraph.read_conll(f):
                 labelled_tree = tree.replace(
                     misc={node.identifier: {origin_label_name: label} for node in tree.nodes}
                 )
@@ -287,9 +284,7 @@ def train_multi(
         with open(concat_dev_file, "w") as out_stream:
             for label, path in dev_file:
                 with open(path) as in_stream:
-                    for tree in deptree.DepGraph.read_conll(
-                        in_stream, max_tree_length=max_tree_length
-                    ):
+                    for tree in deptree.DepGraph.read_conll(in_stream):
                         labelled_tree = tree.replace(
                             misc={
                                 node.identifier: {origin_label_name: label} for node in tree.nodes
@@ -305,7 +300,6 @@ def train_multi(
         dev_file=concat_dev_file,
         device=device,
         train_file=concat_train_file,
-        max_tree_length=max_tree_length,
         model_path=model_path,
         overwrite=overwrite,
         rand_seed=rand_seed,
