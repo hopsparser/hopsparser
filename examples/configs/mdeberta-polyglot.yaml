@@ -1,30 +1,21 @@
-# This one is made to work with the `train_multi` command. If you run it on unmodified UD treebank
-# files with the `train` command it WILL **FAIL**
-# Layer dimensions
-mlp_input: 1024
-mlp_tag_hidden: 16
-mlp_arc_hidden: 512
-mlp_lab_hidden: 128
-# Lexers
-lexers:
-  - name: mdeberta_base
-    type: bert
-    model: "microsoft/mdeberta-v3-base"
-    layers: "*"
-    subwords_reduction: "mean"
-# Training hyperparameters
-encoder_dropout: 0.5
-mlp_dropout: 0.5
 batch_size: 8
+biaffine_dim: 1024
+deprels_hidden_dim: 128
+dropout: 0.5
+encoder:
+  dropout: 0.5
+  lexers:
+  - layers: '*'
+    model: microsoft/mdeberta-v3-base
+    name: mdeberta_base
+    subwords_reduction: mean
+    type: bert
+  rnn_dim: 512
 epochs: 64
-multitask_loss: "weighted"
+heads_hidden_dim: 512
 lr:
-  base: 0.00003
+  base: 3.0e-05
   shape: linear
   warmup_steps: 1000
-max_gradient_norm: 1.0
-extra_annotations:
-  # This is the default name used by the `train_multi` command
-  original_treebank:
-    hidden_layer_dim: 16
-    loss_weight: 0.5
+pos_hidden_dim: 16
+version: 2

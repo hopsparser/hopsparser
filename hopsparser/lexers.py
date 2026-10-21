@@ -469,7 +469,11 @@ class FastTextLexer(nn.Module):
 
         # Try to load a local model
         local_fasttext_model_path = pathlib.Path(parsed_config.source)
-        if not local_fasttext_model_path.exists() and not local_fasttext_model_path.is_absolute():
+        if (
+            root_path is not None
+            and not local_fasttext_model_path.exists()
+            and not local_fasttext_model_path.is_absolute()
+        ):
             local_fasttext_model_path = (root_path / local_fasttext_model_path).resolve()
         if local_fasttext_model_path.exists():
             lexer = cls.from_fasttext_model(

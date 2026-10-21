@@ -1,20 +1,22 @@
-# Layer dimensions
-mlp_input: 1024
-mlp_tag_hidden: 16
-mlp_arc_hidden: 512
-mlp_lab_hidden: 128
-# Lexers
-lexers:
-  - name: bertrade_base
-    type: bert
-    model: "lgrobol/BERTrade-base"
-    layers: "*"
-    subwords_reduction: "mean"
+pos_hidden_dim: 16
+heads_hidden_dim: 512
+deprels_hidden_dim: 128
+biaffine_dim: 1024
+dropout: 0.5
+encoder:
+  dropout: 0.5
+  rnn_dim: 512
+  lexers:
+    - name: bertrade_base
+      type: bert
+      model: "lgrobol/BERTrade-base"
+      layers: "*"
+      subwords_reduction: "mean"
 # Training hyperparameters
-encoder_dropout: 0.5
-mlp_dropout: 0.5
 batch_size: 8
 epochs: 64
 lr:
   base: 0.00003
   shape: constant
+# Config Metadata
+version: 2

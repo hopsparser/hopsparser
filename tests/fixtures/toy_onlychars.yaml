@@ -1,17 +1,18 @@
-# Layer dimensions
-mlp_input: 64
-mlp_tag_hidden: 16
-mlp_arc_hidden: 128
-mlp_lab_hidden: 32
-# Training hyperparameters
-encoder_dropout: 0.6
-mlp_dropout: 0.5
 batch_size: 32
+biaffine_dim: 64
+deprels_hidden_dim: 32
+dropout: 0.5
+encoder:
+  dropout: 0.6
+  lexers:
+  - embedding_size: 4
+    lstm_output_size: 8
+    name: char_level_embeddings
+    type: chars_rnn
+  rnn_dim: 32
 epochs: 2
+heads_hidden_dim: 128
 lr:
   base: 0.001
-lexers:
-  - name: char_level_embeddings
-    type: chars_rnn
-    embedding_size: 4
-    lstm_output_size: 8
+pos_hidden_dim: 16
+version: 2

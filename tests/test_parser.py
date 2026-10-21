@@ -1,3 +1,4 @@
+from typing import cast
 import pathlib
 import tempfile
 
@@ -121,25 +122,27 @@ def test_batch_invariance(
     parser = parser.to(device)
     parser.eval()
     try:
-        encoded_stable_text = parser.encode_sentence(stable_text, strict=True)
-        encoded_distractor_text_1 = parser.encode_sentence(distractor_text_1, strict=True)
-        encoded_distractor_text_2 = parser.encode_sentence(distractor_text_2, strict=True)
+        encoded_stable_text = parser.encoder.encode_sentence(stable_text, strict=True)
+        encoded_distractor_text_1 = parser.encoder.encode_sentence(distractor_text_1, strict=True)
+        encoded_distractor_text_2 = parser.encoder.encode_sentence(distractor_text_2, strict=True)
     except LexingError:
         assume(False)
         return
     with torch.inference_mode():
         stable_length = len(stable_text) + 1
-        batch_stable = parser.batch_sentences([encoded_stable_text]).to(device)
+        batch_stable = parser.encoder.batch_sentences([encoded_stable_text]).to(device)
         text_s1 = [encoded_stable_text, encoded_distractor_text_1]
         text_1s = [encoded_distractor_text_1, encoded_stable_text]
         text_s2 = [encoded_stable_text, encoded_distractor_text_2]
-        ref_output: BiaffineParserOutput = parser(batch_stable.encodings, batch_stable.sent_lengths)
+        ref_output = cast(
+            BiaffineParserOutput, parser(batch_stable.encodings, batch_stable.sent_lengths)
+        )
         for text, idx in ((text_s1, 0), (text_1s, 1), (text_s2, 0)):
-            batch = parser.batch_sentences(text).to(device)
-            output: BiaffineParserOutput = parser(batch.encodings, batch.sent_lengths)
+            batch = parser.encoder.batch_sentences(text).to(device)
+            output = cast(BiaffineParserOutput, parser(batch.encodings, batch.sent_lengths))
             assert_close(
-                ref_output.tag_scores[0, :stable_length, :],
-                output.tag_scores[idx, :stable_length, :],
+                ref_output.pos_scores[0, :stable_length, :],
+                output.pos_scores[idx, :stable_length, :],
             )
             assert_close(
                 ref_output.head_scores[0, :stable_length, :stable_length],

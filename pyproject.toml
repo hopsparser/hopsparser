@@ -6,7 +6,7 @@ authors = [
 dependencies = [
 	"bidict",
 	"boltons",
-	"click >= 8.0.4, < 9.0.0",
+	"click >= 8.5.0, < 9.0.0",
 	"fastapi",
 	"fasttextlt",
 	"huggingface-hub",

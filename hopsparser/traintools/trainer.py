@@ -116,7 +116,7 @@ class ParserTrainingModule(pl.LightningModule):
             n_datasets=n_dev,
             metric_class=torchmetrics.Accuracy,
             ignore_index=self.parser.LABEL_PADDING,
-            num_classes=len(self.parser.tagset),
+            num_classes=len(self.parser.pos_set),
             task="multiclass",
         )
 
@@ -127,7 +127,7 @@ class ParserTrainingModule(pl.LightningModule):
             n_datasets=n_dev,
             metric_class=torchmetrics.Accuracy,
             ignore_index=self.parser.LABEL_PADDING,
-            num_classes=len(self.parser.labels),
+            num_classes=len(self.parser.deprels_set),
             task="multiclass",
         )
         # We need a cast here because ModuleDict does not subclass dict
@@ -214,7 +214,7 @@ class ParserTrainingModule(pl.LightningModule):
         self.val_loss(dataloader_idx, output.loss)
 
         tags_pred = output.output.tag_scores.argmax(dim=-1)
-        self.val_tags_accuracy(dataloader_idx, tags_pred, batch.tags)
+        self.val_tags_accuracy(dataloader_idx, tags_pred, batch.pos)
 
         # greedy head accuracy (without parsing)
         heads_preds = output.output.head_scores.argmax(dim=-1)
@@ -244,7 +244,7 @@ class ParserTrainingModule(pl.LightningModule):
             output.output.deprel_scores, -2, gold_heads_select
         ).squeeze(-2)
         deprels_pred = gold_head_deprels_scores.argmax(dim=-1)
-        self.val_deprel_accuracy(dataloader_idx, deprels_pred, batch.labels)
+        self.val_deprel_accuracy(dataloader_idx, deprels_pred, batch.deprels)
 
         # extra labels accuracy
         for name, scores in output.output.extra_labels_scores.items():
