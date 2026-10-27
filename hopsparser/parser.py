@@ -116,7 +116,10 @@ class BiAffine(nn.Module):
         self.output_dim: Final[int] = output_dim
         self.bias: Final[bool] = bias
         weight_input = input_dim + 1 if bias else input_dim
-        self.weight = nn.Parameter(torch.empty(output_dim, weight_input, weight_input))
+        self.weight = nn.Parameter(
+            torch.empty(output_dim, weight_input, weight_input),
+            requires_grad=True,
+        )
         nn.init.xavier_uniform_(self.weight)
 
     def forward(self, d: torch.Tensor, h: torch.Tensor) -> torch.Tensor:
@@ -288,11 +291,12 @@ class ContextualEncoder(nn.Module):
         A tensor of shape `(batch_size, max_sentence_length, self.output_dim)`.
         """
         embeddings = [
-            self.lexers[lexer_name](lexer_inputs[lexer_name]) for lexer_name in self.lexers_order
+            self.lexers[lexer_name](lexer_inputs[lexer_name])[:, 1:, :]
+            for lexer_name in self.lexers_order
         ]
         inpt = torch.cat(embeddings, dim=-1)
         packed_inpt = pack_padded_sequence(
-            inpt, sent_lengths, batch_first=True, enforce_sorted=False
+            inpt, sent_lengths - 1, batch_first=True, enforce_sorted=False
         )
         packed_dep_embeddings, _ = self.rnn(packed_inpt)
         embeddings, _ = pad_packed_sequence(packed_dep_embeddings, batch_first=True)
@@ -556,8 +560,11 @@ class BiAffineParser(nn.Module):
             self.dropout,
         )
 
-        self.root_embedding = nn.Parameter(torch.empty(size=(1, self.encoder.output_dim)))
-        nn.init.normal_(self.root_embedding)
+        self.root_embedding = nn.Parameter(
+            torch.empty(size=(1, self.encoder.output_dim)), requires_grad=True
+        )
+        # According to torch's doc, that's the default initialization for embedding layers.
+        nn.init.normal_(self.root_embedding, mean=0.0, std=1.0)
 
         # BiAffine layers
         self.arc_biaffine = BiAffine(self.biaffine_dim, 1, bias=biased_biaffine)
@@ -643,7 +650,7 @@ class BiAffineParser(nn.Module):
         """
         dep_embeddings = self.encoder(encodings, sent_lengths=sent_lengths)
         dep_embeddings = torch.cat(
-            [self.root_embedding.expand(dep_embeddings.shape[0], 1, -1), dep_embeddings[:, 1:, :]],
+            [self.root_embedding.expand(dep_embeddings.shape[0], 1, -1), dep_embeddings],
             dim=1,
         )
 
