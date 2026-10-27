@@ -556,6 +556,9 @@ class BiAffineParser(nn.Module):
             self.dropout,
         )
 
+        self.root_embedding = nn.Parameter(torch.empty(size=(1, self.encoder.output_dim)))
+        nn.init.normal_(self.root_embedding)
+
         # BiAffine layers
         self.arc_biaffine = BiAffine(self.biaffine_dim, 1, bias=biased_biaffine)
         self.lab_biaffine = BiAffine(self.biaffine_dim, len(self.deprels_set), bias=biased_biaffine)
@@ -639,6 +642,10 @@ class BiAffineParser(nn.Module):
         - `extra_label_scores`: str→tensor of shape $`batch_size×max_sent_length×num_labels`$
         """
         dep_embeddings = self.encoder(encodings, sent_lengths=sent_lengths)
+        dep_embeddings = torch.cat(
+            [self.root_embedding.expand(dep_embeddings.shape[0], 1, -1), dep_embeddings[:, 1:, :]],
+            dim=1,
+        )
 
         # TODO: everything after this point could be jitted
         # maybe use an auxilary private module?
