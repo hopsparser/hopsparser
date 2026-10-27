@@ -29,7 +29,7 @@ from hopsparser import utils
 from hopsparser.deptree import DepGraph
 from hopsparser.parser import (
     BiAffineParser,
-    BiaffineParserOutput,
+    BiAffineParserOutput,
     DependencyBatch,
     DependencyDataset,
     LRSchedule,
@@ -97,7 +97,7 @@ class TrainConfig(pydantic.BaseModel):
 
 
 class ParserTrainingModuleForwardOutput(NamedTuple):
-    output: BiaffineParserOutput
+    output: BiAffineParserOutput
     loss: torch.Tensor
 
 

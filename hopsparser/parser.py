@@ -219,7 +219,7 @@ class DependencyBatch(NamedTuple):
 
 
 class LRSchedule(pydantic.BaseModel):
-    base: float
+    base: float = 1e-4
     shape: Literal["exponential", "linear", "constant"] = "constant"
     warmup_steps: int = 0
     model_config = pydantic.ConfigDict(extra="forbid")
@@ -282,7 +282,11 @@ class ContextualEncoder(nn.Module):
         lexer_inputs: dict[str, Any],
         sent_lengths: torch.Tensor,
     ) -> torch.Tensor:
-        """Compute contextual embeddings from symbol-level embeddings."""
+        """Compute contextual embeddings from symbol-level embeddings.
+
+        ## Outputs
+        A tensor of shape `(batch_size, max_sentence_length, self.output_dim)`.
+        """
         embeddings = [
             self.lexers[lexer_name](lexer_inputs[lexer_name]) for lexer_name in self.lexers_order
         ]
@@ -426,7 +430,7 @@ class ContextualEncoder(nn.Module):
         return res
 
 
-class BiaffineParserOutput(NamedTuple):
+class BiAffineParserOutput(NamedTuple):
     pos_scores: torch.Tensor
     head_scores: torch.Tensor
     deprel_scores: torch.Tensor
@@ -624,7 +628,7 @@ class BiAffineParser(nn.Module):
         self,
         encodings: dict[str, Any],
         sent_lengths: torch.Tensor,
-    ) -> BiaffineParserOutput:
+    ) -> BiAffineParserOutput:
         """Predict POS, heads and deprel scores.
 
         ## Outputs
@@ -653,7 +657,7 @@ class BiAffineParser(nn.Module):
         for name, annotator in self.annotators.items():
             extra_labels_scores[name] = annotator(dep_embeddings)
 
-        return BiaffineParserOutput(
+        return BiAffineParserOutput(
             pos_scores=pos_scores,
             head_scores=head_scores,
             deprel_scores=deprel_scores,
@@ -666,7 +670,7 @@ class BiAffineParser(nn.Module):
     # (annotated words), not the number of trees
     def parser_loss(
         self,
-        parser_output: BiaffineParserOutput,
+        parser_output: BiAffineParserOutput,
         batch: DependencyBatch,
     ) -> torch.Tensor:
         all_loss: dict[str, torch.Tensor] = dict()
@@ -753,7 +757,7 @@ class BiAffineParser(nn.Module):
                 batch = batch.to(device)
 
                 output = cast(
-                    BiaffineParserOutput,
+                    BiAffineParserOutput,
                     self(batch.sentences.encodings, batch.sentences.sent_lengths),
                 )
 
@@ -897,7 +901,7 @@ class BiAffineParser(nn.Module):
                 batch = batch.to(device)
 
                 # FORWARD
-                output: BiaffineParserOutput = self(
+                output: BiAffineParserOutput = self(
                     batch.sentences.encodings, batch.sentences.sent_lengths
                 )
 
@@ -910,6 +914,7 @@ class BiAffineParser(nn.Module):
                 loss.backward()
                 if max_grad_norm is not None:
                     nn.utils.clip_grad_norm_(self.parameters(), max_norm=max_grad_norm)
+
                 optimizer.step()
                 scheduler.step()
 
@@ -1071,7 +1076,7 @@ class BiAffineParser(nn.Module):
                 else:
                     batch_sentences = batch
                 # batch prediction
-                output: BiaffineParserOutput = self(
+                output: BiAffineParserOutput = self(
                     batch_sentences.encodings, batch_sentences.sent_lengths
                 )
 
@@ -1096,7 +1101,7 @@ class BiAffineParser(nn.Module):
     def _scores_to_tree(
         self,
         greedy: bool,
-        scores: BiaffineParserOutput,
+        scores: BiAffineParserOutput,
         tree: DepGraph,
     ):
         sentence_length = scores.deprel_scores.shape[0]
@@ -1231,9 +1236,11 @@ class BiAffineParser(nn.Module):
     @classmethod
     def initialize(
         cls,
-        config_path: pathlib.Path,
+        config_path: str | pathlib.Path,
         treebank: list[DepGraph],
     ) -> Self:
+        if not isinstance(config_path, pathlib.Path):
+            config_path = pathlib.Path(config_path)
         logger.info(f"Initializing a parser from {config_path}")
         with open(config_path) as in_stream:
             config = yaml.load(in_stream, Loader=yaml.SafeLoader)
