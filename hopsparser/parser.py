@@ -34,8 +34,8 @@ from hopsparser.utils import smart_open
 
 
 def gen_pos_set(treelist: Iterable[DepGraph]) -> list[str]:
-    tagset = {tag for tree in treelist for tag in tree.pos_tags[1:] if tag is not None}
-    return sorted(tagset)
+    pos_set = {tag for tree in treelist for tag in tree.pos_tags[1:] if tag is not None}
+    return sorted(pos_set)
 
 
 def gen_annotations_labels(
@@ -466,7 +466,7 @@ class BiaffineParserOutput(NamedTuple):
 
 class ParserEvalOutput(NamedTuple):
     loss: float
-    tag_accuracy: float
+    pos_accuracy: float
     head_accuracy: float
     deprel_accuracy: float
     extra_annotations_accuracy: dict[str, float]
@@ -558,7 +558,7 @@ class BiAffineParser(nn.Module):
 
         # Extra annotations
         _loss_weights = {
-            "tag": 1.0,
+            "pos": 1.0,
             "head": 1.0,
             "deprel": 1.0,
         }
@@ -568,7 +568,7 @@ class BiAffineParser(nn.Module):
         if extra_annotations is not None:
             if (
                 reserved := next(
-                    (a for a in {"tag", "head", "deprel"} if a in extra_annotations), None
+                    (a for a in {"pos", "head", "deprel"} if a in extra_annotations), None
                 )
             ) is not None:
                 raise ValueError(f"Reserved name used in extra annotations: {reserved!r}")
@@ -600,7 +600,7 @@ class BiAffineParser(nn.Module):
         self.marginal_loss = nn.CrossEntropyLoss(reduction="sum", ignore_index=self.LABEL_PADDING)
         self.multitask_loss: Literal["adaptative", "mean", "sum", "weighted"] = multitask_loss
         self.loss_weights = torch.tensor(
-            [_loss_weights[name] for name in ["tag", "head", "deprel", *self.annotations_order]],
+            [_loss_weights[name] for name in ["pos", "head", "deprel", *self.annotations_order]],
         )
         # NOTE: we really don't use the weights in the same way in adaptive mode, see
         # <https://aclanthology.org/2022.findings-acl.190>
@@ -628,7 +628,7 @@ class BiAffineParser(nn.Module):
         """Predict POS, heads and deprel scores.
 
         ## Outputs
-        
+
         - `pos_score`: $`batch_size×max_sent_length×num_pos_tags`$
         - `head_scores`: $`batch_size×n_deps×n_possible_heads`$
         - `deprel_scores`: $`batch_size×n_deps×n_possible_heads×num_deprels`$
@@ -677,8 +677,8 @@ class BiAffineParser(nn.Module):
 
         # TAGGER_LOSS
         # [batch×sent_length, num_tags]
-        tagger_scores_flat = parser_output.pos_scores.view(-1, parser_output.pos_scores.size(-1))
-        all_loss["tag"] = self.marginal_loss(tagger_scores_flat, batch.pos.view(-1))
+        pos_scores_flat = parser_output.pos_scores.view(-1, parser_output.pos_scores.size(-1))
+        all_loss["pos"] = self.marginal_loss(pos_scores_flat, batch.pos.view(-1))
 
         # ARC LOSS
         # [batch×num_deps, num_heads]
@@ -711,7 +711,7 @@ class BiAffineParser(nn.Module):
             all_loss[annotation_name] = self.marginal_loss(labels_scores_flat, labels.view(-1))
 
         loss = torch.stack(
-            [all_loss[name] for name in ["tag", "head", "deprel", *self.annotations_order]]
+            [all_loss[name] for name in ["pos", "head", "deprel", *self.annotations_order]]
         )
 
         if self.multitask_loss == "sum":
@@ -809,7 +809,7 @@ class BiAffineParser(nn.Module):
             loss=global_loss.true_divide(
                 overall_pos_size + overall_heads_size + overall_deprels_size
             ).item(),
-            tag_accuracy=pos.true_divide(overall_pos_size).item(),
+            pos_accuracy=pos.true_divide(overall_pos_size).item(),
             head_accuracy=heads_tp.true_divide(overall_heads_size).item(),
             deprel_accuracy=deprels_tp.true_divide(overall_deprels_size).item(),
             extra_annotations_accuracy={
@@ -927,7 +927,7 @@ class BiAffineParser(nn.Module):
                         **{
                             k: f"{v:06.2%}"
                             for k, v in (
-                                ("dev tag acc", dev_scores.tag_accuracy),
+                                ("dev pos acc", dev_scores.pos_accuracy),
                                 ("dev head acc", dev_scores.head_accuracy),
                                 ("dev deprel acc", dev_scores.deprel_accuracy),
                                 *(
@@ -1120,7 +1120,7 @@ class BiAffineParser(nn.Module):
         mst_labels = selected.argmax(dim=-1)
 
         # Predict tags
-        tag_idxes = scores.pos_scores.argmax(dim=1)
+        pos_idxes = scores.pos_scores.argmax(dim=1)
 
         # Predict extra annotations
         # `[1:]` to ignore the root node's labels
@@ -1133,7 +1133,7 @@ class BiAffineParser(nn.Module):
         # identifiers in the future
         pos_tags = {
             node.identifier: self.pos_set.inverse[idx]
-            for node, idx in zip(tree.nodes, tag_idxes[1:].tolist(), strict=True)
+            for node, idx in zip(tree.nodes, pos_idxes[1:].tolist(), strict=True)
         }
         # `[1:]` to ignore the root node's head
         heads = {

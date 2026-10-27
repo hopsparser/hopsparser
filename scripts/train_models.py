@@ -142,7 +142,7 @@ def parse(
                 parsed_path.open("w") as out_stream,
             ):
                 with torch.inference_mode():
-                    for tree in model.parse(inpt=in_stream, batch_size=None):
+                    for tree in model.parse(inpt=in_stream):
                         out_stream.write(tree.to_conllu())
                         out_stream.write("\n\n")
         res[treebank_name] = (treebank_path, parsed_path)
