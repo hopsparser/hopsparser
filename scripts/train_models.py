@@ -34,6 +34,7 @@ from hopsparser import parser, utils
 # Grey magic, see <https://github.com/pytorch/pytorch/issues/973#issue-213381000>
 torch.multiprocessing.set_sharing_strategy("file_system")
 
+
 class Messages(enum.Enum):
     CLOSE = enum.auto()
     LOG = enum.auto()
@@ -537,6 +538,11 @@ def eval_runs(
     metavar="INT,...",
     show_default=True,
 )
+@click.option(
+    "--reset-incomplete",
+    help="Delete and restart incomplete runs",
+    is_flag=True,
+)
 def main(
     config_file: pathlib.Path,
     devices: list[str],
@@ -544,6 +550,7 @@ def main(
     out_dir: pathlib.Path,
     prefix: str,
     rand_seeds: list[int],
+    reset_incomplete: bool,
     treebanks_dir: pathlib.Path,
 ):
     logger.remove()
@@ -581,28 +588,35 @@ def main(
                     f"Incomplete or corrupted run in {train_out_dir}, skipping it."
                     " You probably want to delete it and rerun."
                 )
-                continue
+                if reset_incomplete:
+                    logger.warning(
+                        f"Deleting {train_out_dir} and training anew since"
+                        " `--reset-incomplete` was asked."
+                    )
+                    shutil.rmtree(train_out_dir)
+                    # TODO: better run args/metadata separation
+                    missing_runs[run_name] = {k: v for k, v in run_args.items() if k != "metadata"}
+            else:
+                try:
+                    # FIXME: don't hardcode the model path this way?
+                    prev_metrics = evaluate_model(
+                        metrics=metrics,
+                        model_path=train_out_dir / "model",
+                        parsed_dir=train_parsed_dir,
+                        treebanks={
+                            **{(f.stem, "dev"): f for f in run_args["dev_files"]},
+                            **{(f.stem, "test"): f for f in run_args["test_files"]},
+                        },
+                        reparse=False,
+                    )
+                except evaluator.UDError as e:
+                    raise ValueError(f"Corrupted parsed file for {train_out_dir}") from e
 
-            try:
-                # FIXME: don't hardcode the model path this way?
-                prev_metrics = evaluate_model(
-                    metrics=metrics,
-                    model_path=train_out_dir / "model",
-                    parsed_dir=train_parsed_dir,
-                    treebanks={
-                        **{(f.stem, "dev"): f for f in run_args["dev_files"]},
-                        **{(f.stem, "test"): f for f in run_args["test_files"]},
-                    },
-                    reparse=False,
+                train_results[run_name] = prev_metrics
+                logger.info(
+                    f"{train_out_dir} already exists, skipping run {run_name}."
+                    f" Results were {prev_metrics}"
                 )
-            except evaluator.UDError as e:
-                raise ValueError(f"Corrupted parsed file for {train_out_dir}") from e
-
-            train_results[run_name] = prev_metrics
-            logger.info(
-                f"{train_out_dir} already exists, skipping run {run_name}."
-                f" Results were {prev_metrics}"
-            )
         else:
             # TODO: better run args/metadata separation
             missing_runs[run_name] = {k: v for k, v in run_args.items() if k != "metadata"}
