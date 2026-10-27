@@ -645,7 +645,7 @@ def freeze_module(module: nn.Module, freezing: bool = True):
         module.requires_grad_(False)
     else:
         module.requires_grad_(True)
-        module.train = type(module).train  # type: ignore[assignment]
+        module.train = type(module).train
 
 
 class BertLexerBatch(NamedTuple):
@@ -959,6 +959,8 @@ class BertLexer(nn.Module):
         if save_weights:
             torch.save(self.state_dict(), model_path / "weights.pt")
 
+    # FIXME: factor code between this and from_pretrained and also do we need so many dtype
+    # management stuff?
     @classmethod
     def load(cls, model_path: pathlib.Path) -> Self:
         with open(model_path / "config.json") as in_stream:
@@ -974,7 +976,16 @@ class BertLexer(nn.Module):
         if not hasattr(bert_config, "dtype"):
             bert_config.dtype = torch.get_default_dtype()
 
-        model = transformers.AutoModel.from_config(bert_config, dtype=torch.get_default_dtype())
+        # Some models can be initialized with a pooling layer that we don't want (it's useless for
+        # us and makes testing harder). Of course since it's hf the only way to know if the model
+        # we're trying to load has one if to try to disable it and back off if the constructor
+        # doesn't understand the parameter…
+        try:
+            model = transformers.AutoModel.from_config(
+                bert_config, dtype=torch.get_default_dtype(), add_pooling_layer=False
+            )
+        except TypeError:
+            model = transformers.AutoModel.from_config(bert_config, dtype=torch.get_default_dtype())
         tokenizer = transformers.AutoTokenizer.from_pretrained(bert_model_path, use_fast=True)
         # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
         if isinstance(
@@ -998,19 +1009,43 @@ class BertLexer(nn.Module):
             # their parameter's dtype, which makes more sense but breaks compatibility for our
             # existing models. See <https://github.com/huggingface/transformers/pull/42805> for the
             # change. This might have to change in the future.
-            model = transformers.AutoModel.from_pretrained(
-                model_name_or_path, dtype=torch.get_default_dtype()
-            )
+
+            # Some models can be initialized with a pooling layer that we don't want (it's useless for
+            # us and makes testing harder). Of course since it's hf the only way to know if the model
+            # we're trying to load has one if to try to disable it and back off if the constructor
+            # doesn't understand the parameter…
+            try:
+                model = transformers.AutoModel.from_pretrained(
+                    model_name_or_path,
+                    add_pooling_layer=False,
+                    dtype=torch.get_default_dtype(),
+                )
+            except TypeError:
+                model = transformers.AutoModel.from_pretrained(
+                    model_name_or_path, dtype=torch.get_default_dtype()
+                )
         except OSError:
-            config = transformers.AutoConfig.from_pretrained(model_name_or_path)
+            bert_config = transformers.AutoConfig.from_pretrained(model_name_or_path)
             # Fix for breaking changes in transformers 5: models without a dtype in config used to
             # be loaded with the default dtype (usually float16) but are now loaded according to
             # their parameter's dtype, which makes more sense but breaks compatibility for our
             # existing models. See <https://github.com/huggingface/transformers/pull/42805> for the
             # change. This might have to change in the future.
-            if not hasattr(config, "dtype"):
-                config.dtype = torch.get_default_dtype()
-            model = transformers.AutoModel.from_config(config)
+            if not hasattr(bert_config, "dtype"):
+                bert_config.dtype = torch.get_default_dtype()
+
+            # Some models can be initialized with a pooling layer that we don't want (it's useless for
+            # us and makes testing harder). Of course since it's hf the only way to know if the model
+            # we're trying to load has one if to try to disable it and back off if the constructor
+            # doesn't understand the parameter…
+            try:
+                model = transformers.AutoModel.from_config(
+                    bert_config, dtype=torch.get_default_dtype(), add_pooling_layer=False
+                )
+            except TypeError:
+                model = transformers.AutoModel.from_config(
+                    bert_config, dtype=torch.get_default_dtype()
+                )
 
         tokenizer = transformers.AutoTokenizer.from_pretrained(model_name_or_path, use_fast=True)
         # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
