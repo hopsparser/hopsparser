@@ -213,7 +213,7 @@ class ParserTrainingModule(pl.LightningModule):
 
         self.val_loss(dataloader_idx, output.loss)
 
-        tags_pred = output.output.tag_scores.argmax(dim=-1)
+        tags_pred = output.output.pos_scores.argmax(dim=-1)
         self.val_tags_accuracy(dataloader_idx, tags_pred, batch.pos)
 
         # greedy head accuracy (without parsing)

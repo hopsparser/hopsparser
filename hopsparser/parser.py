@@ -628,9 +628,7 @@ class BiAffineParser(nn.Module):
         """Predict POS, heads and deprel scores.
 
         ## Outputs
-
-        `tag_scores, arc_scores, lab_scores` with shapes
-
+        
         - `pos_score`: $`batch_size×max_sent_length×num_pos_tags`$
         - `head_scores`: $`batch_size×n_deps×n_possible_heads`$
         - `deprel_scores`: $`batch_size×n_deps×n_possible_heads×num_deprels`$
