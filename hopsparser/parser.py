@@ -279,12 +279,12 @@ class ContextualEncoder(nn.Module):
 
     def forward(
         self,
-        encodings: dict[str, Any],
+        lexer_inputs: dict[str, Any],
         sent_lengths: torch.Tensor,
     ) -> torch.Tensor:
         """Compute contextual embeddings from symbol-level embeddings."""
         embeddings = [
-            self.lexers[lexer_name](encodings[lexer_name]) for lexer_name in self.lexers_order
+            self.lexers[lexer_name](lexer_inputs[lexer_name]) for lexer_name in self.lexers_order
         ]
         inpt = torch.cat(embeddings, dim=-1)
         packed_inpt = pack_padded_sequence(
