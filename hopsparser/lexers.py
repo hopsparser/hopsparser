@@ -726,13 +726,15 @@ class BertLexer(nn.Module):
 
         self.output_dim: Final[int] = self.model.config.hidden_size
 
-        # 🤗 has no unified API for the number of layers
+        # 🤗 has no unified API for the number of layers, +1 because it includes the base embedding
+        # layer
         num_layers = cast(
             int,
             min(
                 getattr(model.config, param_name, math.inf)
                 for param_name in ("num_layers", "n_layers", "num_hidden_layers")
-            ),
+            )
+            + 1,
         )
         if layers is None:
             layers = list(range(num_layers))
