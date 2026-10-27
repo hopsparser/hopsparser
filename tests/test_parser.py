@@ -10,7 +10,13 @@ from torch.testing import assert_close
 
 from hopsparser.deptree import DepGraph
 from hopsparser.lexers import LexingError
-from hopsparser.parser import BiAffineParser, BiaffineParserOutput, train
+from hopsparser.parser import (
+    BiAffineParser,
+    BiAffineParserOutput,
+    LRSchedule,
+    train,
+    DependencyDataset,
+)
 
 devices = ["cpu"]
 if torch.cuda.is_available():
@@ -91,6 +97,41 @@ def test_train(
     )
 
 
+def test_train_variation(
+    tmp_path: pathlib.Path,
+    train_config: pathlib.Path,
+    treebank_path: pathlib.Path,
+):
+    treebank = list(DepGraph.read_conll(open(treebank_path)))
+    parser_static = BiAffineParser.initialize(
+        config_path=train_config,
+        treebank=treebank,
+    )
+    parser_trainable = BiAffineParser.initialize(
+        config_path=train_config,
+        treebank=treebank,
+    )
+    parser_trainable.load_state_dict(parser_static.state_dict())
+
+    # We just copied so they should be equal
+    for n, v in parser_static.named_parameters():
+        assert v.equal(parser_trainable.get_parameter(n))
+
+    parser_trainable.train_model(
+        epochs=1,
+        lr_schedule=LRSchedule(),
+        model_path=tmp_path,
+        train_set=DependencyDataset(
+            parser_trainable,
+            treebank,
+        ),
+    )
+    # We have just trained them so they should all have changed
+    for n, v in parser_static.named_parameters():
+        if v.requires_grad:
+            assert not v.equal(parser_trainable.get_parameter(n))
+
+
 @pytest.mark.parametrize("device", devices)
 @settings(deadline=8192)
 # FIXME: should we really skip control characters and whitespaces? We do now because most 🤗
@@ -135,11 +176,11 @@ def test_batch_invariance(
         text_1s = [encoded_distractor_text_1, encoded_stable_text]
         text_s2 = [encoded_stable_text, encoded_distractor_text_2]
         ref_output = cast(
-            BiaffineParserOutput, parser(batch_stable.encodings, batch_stable.sent_lengths)
+            BiAffineParserOutput, parser(batch_stable.encodings, batch_stable.sent_lengths)
         )
         for text, idx in ((text_s1, 0), (text_1s, 1), (text_s2, 0)):
             batch = parser.encoder.batch_sentences(text).to(device)
-            output = cast(BiaffineParserOutput, parser(batch.encodings, batch.sent_lengths))
+            output = cast(BiAffineParserOutput, parser(batch.encodings, batch.sent_lengths))
             assert_close(
                 ref_output.pos_scores[0, :stable_length, :],
                 output.pos_scores[idx, :stable_length, :],
