@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Epoch logging is no longer off by one epoch when using the trainer.
+- **BREAKING** Instead of including all hidden layers, the default BERT layer selection was omitting
+  the top hidden layer and included the base embedding layer. It now includes both. This could
+  significantly change train results for configs using that default.
 
 ## [0.8.0] - 2025-06-04
 
