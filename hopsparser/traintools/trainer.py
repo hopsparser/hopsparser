@@ -150,7 +150,7 @@ class ParserTrainingModule(pl.LightningModule):
         self.save_hyperparameters("config")
 
     def forward(self, batch: DependencyBatch) -> ParserTrainingModuleForwardOutput:
-        output = self.parser(batch.sentences.encodings, batch.sentences.lengths)
+        output = self.parser(batch.sentences)
         loss = self.parser.parser_loss(output, batch)
         return ParserTrainingModuleForwardOutput(output=output, loss=loss)
 
