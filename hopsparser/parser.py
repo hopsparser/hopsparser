@@ -133,7 +133,6 @@ class BiAffine(nn.Module):
 class EncodedSentence(NamedTuple):
     words: Sequence[str]
     encodings: dict[str, SupportsTo]
-    sent_len: int
 
 
 class SentencesBatch(NamedTuple):
@@ -149,7 +148,7 @@ class SentencesBatch(NamedTuple):
 
     words: Sequence[Sequence[str]]
     encodings: dict[str, SupportsTo]
-    sent_lengths: torch.Tensor
+    lengths: torch.Tensor
 
     def to(self: Self, device: str | torch.device) -> Self:
         return type(self)(
@@ -157,7 +156,7 @@ class SentencesBatch(NamedTuple):
                 lexer_name: encoded_batch.to(device)
                 for lexer_name, encoded_batch in self.encodings.items()
             },
-            sent_lengths=self.sent_lengths,
+            lengths=self.lengths,
             words=self.words,
         )
 
@@ -280,22 +279,19 @@ class ContextualEncoder(nn.Module):
     def output_dim(self):
         return 2 * self.rnn_dim
 
-    def forward(
-        self,
-        lexer_inputs: dict[str, Any],
-        sent_lengths: torch.Tensor,
-    ) -> torch.Tensor:
+    def forward(self, sentences: SentencesBatch) -> torch.Tensor:
         """Compute contextual embeddings from symbol-level embeddings.
 
         ## Outputs
         A tensor of shape `(batch_size, max_sentence_length, self.output_dim)`.
         """
         embeddings = [
-            self.lexers[lexer_name](lexer_inputs[lexer_name]) for lexer_name in self.lexers_order
+            self.lexers[lexer_name](sentences.encodings[lexer_name])
+            for lexer_name in self.lexers_order
         ]
         inpt = torch.cat(embeddings, dim=-1)
         packed_inpt = pack_padded_sequence(
-            inpt, sent_lengths, batch_first=True, enforce_sorted=False
+            inpt, sentences.lengths, batch_first=True, enforce_sorted=False
         )
         packed_dep_embeddings, _ = self.rnn(packed_inpt)
         embeddings, _ = pad_packed_sequence(packed_dep_embeddings, batch_first=True)
@@ -327,7 +323,6 @@ class ContextualEncoder(nn.Module):
         encoded = EncodedSentence(
             words=words,
             encodings=encodings,
-            sent_len=len(words),
         )
         return encoded
 
@@ -338,12 +333,12 @@ class ContextualEncoder(nn.Module):
             for lexer_name, lexer in self.lexers.items()
         }
 
-        sent_lengths = torch.tensor([sent.sent_len for sent in sentences], dtype=torch.long)
+        lengths = torch.tensor([len(sent.words) for sent in sentences], dtype=torch.long)
 
         return SentencesBatch(
             words=words,
             encodings=encodings,
-            sent_lengths=sent_lengths,
+            lengths=lengths,
         )
 
     def save(self, model_path: pathlib.Path, save_weights: bool = True):
@@ -437,22 +432,33 @@ class BiAffineParserOutput(NamedTuple):
     deprel_scores: torch.Tensor
     extra_labels_scores: dict[str, torch.Tensor]
 
-    def unbatch(self, sentence_lengths: Sequence[int]) -> list[Self]:
+
+class BiAffineParserOutputBatch(NamedTuple):
+    pos_scores: torch.Tensor
+    head_scores: torch.Tensor
+    deprel_scores: torch.Tensor
+    extra_labels_scores: dict[str, torch.Tensor]
+    sentence_lengths: torch.Tensor
+
+    def unbatch(self) -> list[BiAffineParserOutput]:
         """Return individual scores for every sentence in the batch, properly truncated to the
         sentence length."""
         transposed_extra_labels_scores: list[dict[str, torch.Tensor]] = [
-            dict() for _ in sentence_lengths
+            dict() for _ in self.sentence_lengths
         ]
         # FIXME: this is too clunky
         if self.extra_labels_scores:
             for name, scores in self.extra_labels_scores.items():
                 for scores_dict, label_scores, sent_len in zip(
-                    transposed_extra_labels_scores, scores.unbind(0), sentence_lengths, strict=True
+                    transposed_extra_labels_scores,
+                    scores.unbind(0),
+                    self.sentence_lengths,
+                    strict=True,
                 ):
                     scores_dict[name] = label_scores[:sent_len, :]
 
         return [
-            type(self)(
+            BiAffineParserOutput(
                 pos_scores=pos_scores[:sent_len, :],
                 head_scores=head_scores[:sent_len, :sent_len],
                 deprel_scores=deprel_scores[:sent_len, :sent_len, :],
@@ -463,7 +469,7 @@ class BiAffineParserOutput(NamedTuple):
                 self.head_scores.unbind(0),
                 self.deprel_scores.unbind(0),
                 transposed_extra_labels_scores,
-                sentence_lengths,
+                self.sentence_lengths,
                 strict=True,
             )
         ]
@@ -631,11 +637,7 @@ class BiAffineParser(nn.Module):
         if incompatible_keys.missing_keys:
             raise ValueError(f"Missing weights in saved model: {incompatible_keys.missing_keys}")
 
-    def forward(
-        self,
-        encodings: dict[str, Any],
-        sent_lengths: torch.Tensor,
-    ) -> BiAffineParserOutput:
+    def forward(self, sentences: SentencesBatch) -> BiAffineParserOutputBatch:
         """Predict POS, heads and deprel scores.
 
         ## Outputs
@@ -645,7 +647,7 @@ class BiAffineParser(nn.Module):
         - `deprel_scores`: $`batch_size×n_deps×n_possible_heads×num_deprels`$
         - `extra_label_scores`: str→tensor of shape $`batch_size×max_sent_length×num_labels`$
         """
-        dep_embeddings = self.encoder(encodings, sent_lengths=sent_lengths)
+        dep_embeddings = self.encoder(sentences)
         dep_embeddings = torch.cat(
             [self.root_embedding.expand(dep_embeddings.shape[0], 1, -1), dep_embeddings],
             dim=1,
@@ -668,11 +670,12 @@ class BiAffineParser(nn.Module):
         for name, annotator in self.annotators.items():
             extra_labels_scores[name] = annotator(dep_embeddings)
 
-        return BiAffineParserOutput(
+        return BiAffineParserOutputBatch(
             pos_scores=pos_scores,
             head_scores=head_scores,
             deprel_scores=deprel_scores,
             extra_labels_scores=extra_labels_scores,
+            sentence_lengths=1 + sentences.lengths,
         )
 
     # TODO: make this an independent function
@@ -681,7 +684,7 @@ class BiAffineParser(nn.Module):
     # (annotated words), not the number of trees
     def parser_loss(
         self,
-        parser_output: BiAffineParserOutput,
+        parser_output: BiAffineParserOutputBatch,
         batch: DependencyBatch,
     ) -> torch.Tensor:
         all_loss: dict[str, torch.Tensor] = dict()
@@ -767,10 +770,7 @@ class BiAffineParser(nn.Module):
             for batch in dev_set:
                 batch = batch.to(device)
 
-                output = cast(
-                    BiAffineParserOutput,
-                    self(batch.sentences.encodings, batch.sentences.sent_lengths),
-                )
+                output = cast(BiAffineParserOutputBatch, self(batch.sentences))
 
                 global_loss += self.parser_loss(output, batch)
 
@@ -912,9 +912,7 @@ class BiAffineParser(nn.Module):
                 batch = batch.to(device)
 
                 # FORWARD
-                output: BiAffineParserOutput = self(
-                    batch.sentences.encodings, batch.sentences.sent_lengths
-                )
+                output = cast(BiAffineParserOutputBatch, self(batch.sentences))
 
                 loss = self.parser_loss(output, batch)
 
@@ -1087,9 +1085,7 @@ class BiAffineParser(nn.Module):
                 else:
                     batch_sentences = batch
                 # batch prediction
-                output: BiAffineParserOutput = self(
-                    batch_sentences.encodings, batch_sentences.sent_lengths
-                )
+                output = cast(BiAffineParserOutputBatch, self(batch_sentences))
 
                 if isinstance(batch, DependencyBatch):
                     trees = batch.trees
@@ -1100,7 +1096,7 @@ class BiAffineParser(nn.Module):
                 # lengths.
                 for tree, tree_scores in zip(
                     trees,
-                    output.unbatch(sentence_lengths=(1 + batch_sentences.sent_lengths).tolist()),
+                    output.unbatch(),
                     strict=True,
                 ):
                     result_tree = self._scores_to_tree(
@@ -1117,7 +1113,7 @@ class BiAffineParser(nn.Module):
         greedy: bool,
         scores: BiAffineParserOutput,
         tree: DepGraph,
-    ):
+    ) -> DepGraph:
         sentence_length = scores.deprel_scores.shape[0]
 
         # Predict heads

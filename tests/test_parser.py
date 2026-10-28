@@ -12,7 +12,7 @@ from hopsparser.deptree import DepGraph
 from hopsparser.lexers import LexingError
 from hopsparser.parser import (
     BiAffineParser,
-    BiAffineParserOutput,
+    BiAffineParserOutputBatch,
     LRSchedule,
     train,
     DependencyDataset,
@@ -175,12 +175,10 @@ def test_batch_invariance(
         text_s1 = [encoded_stable_text, encoded_distractor_text_1]
         text_1s = [encoded_distractor_text_1, encoded_stable_text]
         text_s2 = [encoded_stable_text, encoded_distractor_text_2]
-        ref_output = cast(
-            BiAffineParserOutput, parser(batch_stable.encodings, batch_stable.sent_lengths)
-        )
+        ref_output = cast(BiAffineParserOutputBatch, parser(batch_stable))
         for text, idx in ((text_s1, 0), (text_1s, 1), (text_s2, 0)):
             batch = parser.encoder.batch_sentences(text).to(device)
-            output = cast(BiAffineParserOutput, parser(batch.encodings, batch.sent_lengths))
+            output = cast(BiAffineParserOutputBatch, parser(batch))
             assert_close(
                 ref_output.pos_scores[0, :stable_length, :],
                 output.pos_scores[idx, :stable_length, :],
