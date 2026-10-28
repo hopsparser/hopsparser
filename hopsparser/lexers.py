@@ -290,7 +290,7 @@ class FastTextLexer(nn.Module):
         # Note: `vocab_size` is the size of the actual fasttext vocabulary. In pratice, the
         # embeddings here have two more tokens in their vocabulary: one for padding (embedding fixed
         # at 0, since the padding embedding never receive gradient in `nn.Embedding`) and one for
-        # the special (root) tokens, with values sampled accross the vocabulary
+        # possible special tokens, with values sampled accross the vocabulary
         self.vocab_size: Final[int] = len(fasttext_vocab.words) + fasttext_vocab.n_ngram_buckets
         self.output_dim: Final[int] = output_dim
         self.embeddings = nn.Embedding(
@@ -435,18 +435,18 @@ class FastTextLexer(nn.Module):
 
         weight = weights = torch.from_numpy(model.embedding_matrix)
         output_dim = weight.shape[1]
-        # FIXME: this should really be called `special_tokens_embedding`
+
         # NOTE: I haven't thought too hard about this, maybe it's a bad idea.
-        root_embedding = weights[
+        special_tokens_embedding = weights[
             torch.randint(
                 high=weight.shape[0],
                 size=(output_dim,),
             ),
             torch.arange(output_dim),
         ].unsqueeze(0)
-        weight = torch.cat((weight, torch.zeros((1, output_dim)), root_embedding), dim=0).to(
-            torch.float
-        )
+        weight = torch.cat(
+            (weight, torch.zeros((1, output_dim)), special_tokens_embedding), dim=0
+        ).to(torch.float)
         res = cls(model.vocabulary, output_dim=output_dim, **kwargs)
         res.embeddings.weight = torch.nn.Parameter(weight, requires_grad=True)
         return res
@@ -493,7 +493,7 @@ class FastTextLexer(nn.Module):
         return lexer
 
 
-# FIXME: The way we deal with the root token, the unk marker and padding in this is ~bad~
+# FIXME: The way we deal with the unk marker and padding in this is ~bad~
 class WordEmbeddingsLexer(nn.Module):
     """
     This is the basic lexer wrapping an embedding layer.
@@ -799,8 +799,7 @@ class BertLexer(nn.Module):
             # TODO: If we revise the alignment format, this could probably be made faster using
             # <https://pytorch.org/docs/stable/generated/torch.scatter.html> or
             # <https://pytorch-scatter.readthedocs.io/en/latest/functions/scatter.html>
-            # The word indices start at 1 because word 0 is the root token
-            for word_n, span in enumerate(alignment, start=1):
+            for word_n, span in enumerate(alignment):
                 # shape: `span.end-span.start×features`
                 this_word_subword_embeddings = subword_embeddings[
                     sent_n, span.start : span.end, ...
@@ -812,10 +811,6 @@ class BertLexer(nn.Module):
                 else:
                     raise ValueError(f"Unknown reduction {self.subwords_reduction}")
                 word_embeddings[sent_n, word_n, ...] = reduced_bert_word_embedding
-            # Now do the root token as the average of (non-padding words) embeddings.
-            word_embeddings[sent_n, 0, ...] = word_embeddings[sent_n, ...].sum(dim=0) / len(
-                alignment
-            )
 
         return word_embeddings
 
@@ -838,16 +833,12 @@ class BertLexer(nn.Module):
         )
 
     def encode(self, tokens_sequence: Sequence[str]) -> BertLexerSentence:
-        # The root token is removed here since the BERT model has no reason to know of it
-        # FIXME: this means that this lexer is not really reusable, we should find a better way to
-        # get a representations for ROOT
-        unrooted_tok_sequence = tokens_sequence[1:]
         # NOTE: for now the 🤗 tokenizer interface is not unified between fast and non-fast
         # tokenizers AND not all tokenizers support the fast mode, so we have to do this little
         # awkward dance. Eventually we should be able to remove the non-fast branch here.
         if self.tokenizer.is_fast:
             bert_encoding = self.tokenizer(
-                cast(PreTokenizedInput, unrooted_tok_sequence),
+                cast(PreTokenizedInput, tokens_sequence),
                 is_split_into_words=True,
                 return_length=True,
                 return_special_tokens_mask=True,
@@ -861,18 +852,16 @@ class BertLexer(nn.Module):
                 raise LexingError(
                     f"Sentence too long for this transformer model ({bert_encoding.length}"
                     f" tokens > {self.max_length})",
-                    str(unrooted_tok_sequence),
+                    str(tokens_sequence),
                 )
             # TODO: there might be a better way to do this?
-            alignments = [
-                bert_encoding.word_to_tokens(i) for i in range(len(unrooted_tok_sequence))
-            ]
+            alignments = [bert_encoding.word_to_tokens(i) for i in range(len(tokens_sequence))]
             i = next((i for i, a in enumerate(alignments) if a is None), None)
             if i is None:
                 return BertLexerSentence(bert_encoding, cast(list[TokenSpan], alignments))
             logger.debug(
                 f"Unencodable tokens, switching to non-fast tokenization for"
-                f" sentence {unrooted_tok_sequence[i]!r}."
+                f" sentence {tokens_sequence[i]!r}."
             )
 
         # We end up there in two situations: when the tokenizer is not fast, or when it is fast but
@@ -881,25 +870,24 @@ class BertLexer(nn.Module):
 
         # It's annoying to have to tokenize twice but we have not better way at this point to align
         # subtokens with the original tokens
-        bert_tokens = [self.tokenizer.tokenize(token) for token in unrooted_tok_sequence]
-        cleaned_up_unrooted_tok_sequence: Sequence[str]
+        bert_tokens = [self.tokenizer.tokenize(token) for token in tokens_sequence]
+        cleaned_up_token_sequence: Sequence[str]
         # Maybe a list comprehension here instead to get all of them idk
         if (i := next((i for i, s in enumerate(bert_tokens) if not s), None)) is not None:
             if self.tokenizer.unk_token is None:
                 raise LexingError(
-                    f"Unencodable token {unrooted_tok_sequence[i]!r} at {i}",
-                    str(unrooted_tok_sequence),
+                    f"Unencodable token {tokens_sequence[i]!r} at {i}",
+                    str(tokens_sequence),
                 )
             else:
                 logger.warning(
-                    f"Replacing empty words by {self.tokenizer.unk_token!r}"
-                    f" in {unrooted_tok_sequence}"
+                    f"Replacing empty words by {self.tokenizer.unk_token!r} in {tokens_sequence}"
                 )
-                cleaned_up_unrooted_tok_sequence = cast(
+                cleaned_up_token_sequence = cast(
                     list[str],
                     [
                         token if subtokens else self.tokenizer.unk_token
-                        for token, subtokens in zip(unrooted_tok_sequence, bert_tokens, strict=True)
+                        for token, subtokens in zip(tokens_sequence, bert_tokens, strict=True)
                     ],
                 )
                 bert_tokens = [
@@ -907,9 +895,9 @@ class BertLexer(nn.Module):
                     for subtokens in bert_tokens
                 ]
         else:
-            cleaned_up_unrooted_tok_sequence = unrooted_tok_sequence
+            cleaned_up_token_sequence = tokens_sequence
         bert_encoding = self.tokenizer(
-            cast(PreTokenizedInput, cleaned_up_unrooted_tok_sequence),
+            cast(PreTokenizedInput, cleaned_up_token_sequence),
             is_split_into_words=True,
             return_length=True,
             return_special_tokens_mask=True,
@@ -922,7 +910,7 @@ class BertLexer(nn.Module):
             raise LexingError(
                 f"Sentence too long for this transformer model ({bert_encoding.length}"
                 f" subtokens > {self.max_length})",
-                str(unrooted_tok_sequence),
+                str(tokens_sequence),
             )
         bert_word_lengths = [len(word) for word in bert_tokens]
         try:
@@ -934,7 +922,7 @@ class BertLexer(nn.Module):
             # Non-fast tokenizers shouldn't be prone to this
             raise LexingError(
                 "Sentence level tokenization different from aggregated token-level tokenization.",
-                str(unrooted_tok_sequence),
+                str(tokens_sequence),
             ) from e
         return BertLexerSentence(bert_encoding, alignments)
 

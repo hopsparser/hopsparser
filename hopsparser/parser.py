@@ -291,12 +291,12 @@ class ContextualEncoder(nn.Module):
         A tensor of shape `(batch_size, max_sentence_length, self.output_dim)`.
         """
         embeddings = [
-            self.lexers[lexer_name](lexer_inputs[lexer_name])[:, 1:, :]
+            self.lexers[lexer_name](lexer_inputs[lexer_name])
             for lexer_name in self.lexers_order
         ]
         inpt = torch.cat(embeddings, dim=-1)
         packed_inpt = pack_padded_sequence(
-            inpt, sent_lengths - 1, batch_first=True, enforce_sorted=False
+            inpt, sent_lengths, batch_first=True, enforce_sorted=False
         )
         packed_dep_embeddings, _ = self.rnn(packed_inpt)
         embeddings, _ = pad_packed_sequence(packed_dep_embeddings, batch_first=True)
@@ -313,10 +313,9 @@ class ContextualEncoder(nn.Module):
         pass
 
     def encode_sentence(self, words: Sequence[str], strict: bool = True) -> EncodedSentence | None:
-        words_with_root = [DepGraph.ROOT_TOKEN, *words]
         try:
             encodings = {
-                lexer_name: lexer.encode(words_with_root)
+                lexer_name: lexer.encode(words)
                 for lexer_name, lexer in self.lexers.items()
             }
         except lexers.LexingError as e:
@@ -330,7 +329,7 @@ class ContextualEncoder(nn.Module):
         encoded = EncodedSentence(
             words=words,
             encodings=encodings,
-            sent_len=len(words_with_root),
+            sent_len=len(words),
         )
         return encoded
 
