@@ -786,11 +786,11 @@ class BertLexer(nn.Module):
         else:
             subword_embeddings = selected_layers.mean(dim=0)
         # We already know the shape the BERT embeddings should have and we pad with zeros
-        # shape: batch×sentence(WITH ROOT TOKEN)×features
+        # shape: batch×sentence×features
         word_embeddings = subword_embeddings.new_zeros(
             (
                 len(inpt.subword_alignments),
-                max(len(s) for s in inpt.subword_alignments) + 1,
+                max(len(s) for s in inpt.subword_alignments),
                 subword_embeddings.shape[2],
             )
         )
