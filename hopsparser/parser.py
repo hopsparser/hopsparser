@@ -291,8 +291,7 @@ class ContextualEncoder(nn.Module):
         A tensor of shape `(batch_size, max_sentence_length, self.output_dim)`.
         """
         embeddings = [
-            self.lexers[lexer_name](lexer_inputs[lexer_name])
-            for lexer_name in self.lexers_order
+            self.lexers[lexer_name](lexer_inputs[lexer_name]) for lexer_name in self.lexers_order
         ]
         inpt = torch.cat(embeddings, dim=-1)
         packed_inpt = pack_padded_sequence(
@@ -315,8 +314,7 @@ class ContextualEncoder(nn.Module):
     def encode_sentence(self, words: Sequence[str], strict: bool = True) -> EncodedSentence | None:
         try:
             encodings = {
-                lexer_name: lexer.encode(words)
-                for lexer_name, lexer in self.lexers.items()
+                lexer_name: lexer.encode(words) for lexer_name, lexer in self.lexers.items()
             }
         except lexers.LexingError as e:
             if strict:
@@ -1097,9 +1095,12 @@ class BiAffineParser(nn.Module):
                     trees = batch.trees
                 else:
                     trees = [DepGraph.from_words(words) for words in batch.words]
+                # FIXME: the parser adds a root node, so all sentences length are increased by 1. A
+                # better solution would be to have the output object itself keep track of the
+                # lengths.
                 for tree, tree_scores in zip(
                     trees,
-                    output.unbatch(sentence_lengths=batch_sentences.sent_lengths.tolist()),
+                    output.unbatch(sentence_lengths=(1 + batch_sentences.sent_lengths).tolist()),
                     strict=True,
                 ):
                     result_tree = self._scores_to_tree(
