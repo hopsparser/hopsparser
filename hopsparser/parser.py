@@ -29,7 +29,7 @@ from typing import Self
 from hopsparser import lexers, utils
 from hopsparser.deptree import DepGraph
 from hopsparser.lexers import Lexer, SupportsTo, freeze_module
-from hopsparser.mst import maximum_spanning_dependency_tree as chuliu_edmonds
+from hopsparser.mst import maximum_spanning_dependency_tree as msdt
 from hopsparser.utils import smart_open
 
 
@@ -457,11 +457,12 @@ class BiAffineParserOutputBatch(NamedTuple):
                 ):
                     scores_dict[name] = label_scores[:sent_len, :]
 
+        # Head and deprel scores have an extra row and column for the root node
         return [
             BiAffineParserOutput(
                 pos_scores=pos_scores[:sent_len, :],
-                head_scores=head_scores[:sent_len, :sent_len],
-                deprel_scores=deprel_scores[:sent_len, :sent_len, :],
+                head_scores=head_scores[: 1 + sent_len, : 1 + sent_len],
+                deprel_scores=deprel_scores[: 1 + sent_len, : 1 + sent_len, :],
                 extra_labels_scores=extra_labels_scores,
             )
             for pos_scores, head_scores, deprel_scores, extra_labels_scores, sent_len in zip(
@@ -647,17 +648,21 @@ class BiAffineParser(nn.Module):
         - `deprel_scores`: $`batch_size×n_deps×n_possible_heads×num_deprels`$
         - `extra_label_scores`: str→tensor of shape $`batch_size×max_sent_length×num_labels`$
         """
-        dep_embeddings = self.encoder(sentences)
-        dep_embeddings = torch.cat(
-            [self.root_embedding.expand(dep_embeddings.shape[0], 1, -1), dep_embeddings],
-            dim=1,
-        )
+        embeddings = self.encoder(sentences)
 
         # TODO: everything after this point could be jitted
         # maybe use an auxilary private module?
         # Tagging
-        pos_scores = self.pos_tagger(dep_embeddings)
+        pos_scores = self.pos_tagger(embeddings)
 
+        extra_labels_scores = dict()
+        for name, annotator in self.annotators.items():
+            extra_labels_scores[name] = annotator(embeddings)
+
+        dep_embeddings = torch.cat(
+            [self.root_embedding.expand(embeddings.shape[0], 1, -1), embeddings],
+            dim=1,
+        )
         heads_h = self.heads_mlp_h(dep_embeddings)
         heads_d = self.heads_mlp_d(dep_embeddings)
         deprels_h = self.deprels_mlp_h(dep_embeddings)
@@ -666,16 +671,12 @@ class BiAffineParser(nn.Module):
         head_scores = self.arc_biaffine(heads_d, heads_h).squeeze(-1)
         deprel_scores = self.lab_biaffine(deprels_d, deprels_h)
 
-        extra_labels_scores = dict()
-        for name, annotator in self.annotators.items():
-            extra_labels_scores[name] = annotator(dep_embeddings)
-
         return BiAffineParserOutputBatch(
             pos_scores=pos_scores,
             head_scores=head_scores,
             deprel_scores=deprel_scores,
             extra_labels_scores=extra_labels_scores,
-            sentence_lengths=1 + sentences.lengths,
+            sentence_lengths=sentences.lengths,
         )
 
     # TODO: make this an independent function
@@ -972,14 +973,38 @@ class BiAffineParser(nn.Module):
         self.load_params(weights_file)
 
     def encode_tree(self, tree: DepGraph) -> EncodedTree:
+        # Remember to skip the root node here
         sentence = self.encoder.encode_sentence(tree.words[1:])
         pos_ids = torch.tensor(
             [
                 self.pos_set.get(tag, self.LABEL_PADDING) if tag is not None else self.LABEL_PADDING
-                for tag in tree.pos_tags
+                for tag in tree.pos_tags[1:]
             ],
             dtype=torch.long,
         )
+
+        # TODO: at this point we probably want to implement a strict mode to be safe
+        # Double get here: this way, if the annotation isn't present in the MISC column OR if it's
+        # present but with an unknown value
+        # FIXME: maybe not a good idea actually since some labels might be implicit (like
+        # SpaceAfter=yes)
+        # FIXME: Padding for the root node, but probably a better idea to not even predict any label
+        # for it if we can avoid it
+        annotations = {
+            name: torch.tensor(
+                [
+                    self.annotation_lexicons[name].get(  # type: ignore
+                        # This is funky but ok, since get(None) will always fail
+                        node.misc.mapping.get(name),
+                        self.LABEL_PADDING,
+                    )
+                    for node in tree.nodes
+                ]
+            )
+            for name in self.annotations_order
+        }
+
+        # But keep the root node here, sorry
         heads = torch.tensor(
             [h if h is not None else self.LABEL_PADDING for h in tree.heads],
             dtype=torch.long,
@@ -994,28 +1019,6 @@ class BiAffineParser(nn.Module):
             ],
             dtype=torch.long,
         )
-        # TODO: at this point we probably want to implement a strict mode to be safe
-        # Double get here: this way, if the annotation isn't present in the MISC column OR if it's
-        # present but with an unknown value
-        # FIXME: maybe not a good idea actually since some labels might be implicit (like
-        # SpaceAfter=yes)
-        # FIXME: Padding for the root node, but probably a better idea to not even predict any label
-        # for it if we can avoid it
-        annotations = {
-            name: torch.tensor(
-                [
-                    self.LABEL_PADDING,
-                    *(
-                        self.annotation_lexicons[name].get(
-                            node.misc.mapping.get(name),  # type: ignore  # This is funky but ok, since get(None) will always fail
-                            self.LABEL_PADDING,
-                        )
-                        for node in tree.nodes
-                    ),
-                ]
-            )
-            for name in self.annotations_order
-        }
 
         return EncodedTree(
             sentence=sentence,
@@ -1091,9 +1094,7 @@ class BiAffineParser(nn.Module):
                     trees = batch.trees
                 else:
                     trees = [DepGraph.from_words(words) for words in batch.words]
-                # FIXME: the parser adds a root node, so all sentences length are increased by 1. A
-                # better solution would be to have the output object itself keep track of the
-                # lengths.
+
                 for tree, tree_scores in zip(
                     trees,
                     output.unbatch(),
@@ -1114,42 +1115,41 @@ class BiAffineParser(nn.Module):
         scores: BiAffineParserOutput,
         tree: DepGraph,
     ) -> DepGraph:
-        sentence_length = scores.deprel_scores.shape[0]
+        # Predict tags
+        pos_idxes = scores.pos_scores.argmax(dim=1)
+        pos_tags = {
+            node.identifier: self.pos_set.inverse[idx]
+            for node, idx in zip(tree.nodes, pos_idxes.tolist(), strict=True)
+        }
+
+        # Predict extra annotations
+        misc_idx = {n: s.argmax(dim=1).tolist() for n, s in scores.extra_labels_scores.items()}
+        misc = {
+            node.identifier: {
+                n: self.annotation_lexicons[n].inverse[idx[i]] for n, idx in misc_idx.items()
+            }
+            for i, node in enumerate(tree.nodes, start=1)
+        }
 
         # Predict heads
+        rooted_sentence_length = scores.deprel_scores.shape[0]
         if greedy:
             # shape: num_deps
             mst_heads = scores.head_scores.argmax(dim=1)
         else:
             head_scores_np = scores.head_scores.cpu().numpy()
-            mst_heads_np = chuliu_edmonds(head_scores_np)
+            mst_heads_np = msdt(head_scores_np)
             # shape: num_deps
             mst_heads = torch.from_numpy(mst_heads_np).to(scores.deprel_scores.device)
 
-        # TODO: we should remove the root here so we have one less node to argmax on
+        # TODO: we should remove the root here already so we have one less node to argmax on
         # Predict labels
         # shape: num_deps×1×num_deprel
         select = mst_heads.view(-1, 1, 1).expand(-1, 1, scores.deprel_scores.size(-1))
         # shape: num_deps×num_deprel
-        selected = torch.gather(scores.deprel_scores, 1, select).view(sentence_length, -1)
+        selected = torch.gather(scores.deprel_scores, 1, select).view(rooted_sentence_length, -1)
         mst_labels = selected.argmax(dim=-1)
 
-        # Predict tags
-        pos_idxes = scores.pos_scores.argmax(dim=1)
-
-        # Predict extra annotations
-        # `[1:]` to ignore the root node's labels
-        misc_idx = {n: s.argmax(dim=1).tolist() for n, s in scores.extra_labels_scores.items()}
-
-        # `[1:]` to ignore the root node's tag
-        # TODO: does tolist slow us down, here?
-        # TODO: should we maintain a `node.identifier: index_in_tensor` dict for this? It's
-        # unnecsesary right now but would make the management of the root cleaner and allow non-int
-        # identifiers in the future
-        pos_tags = {
-            node.identifier: self.pos_set.inverse[idx]
-            for node, idx in zip(tree.nodes, pos_idxes[1:].tolist(), strict=True)
-        }
         # `[1:]` to ignore the root node's head
         heads = {
             node.identifier: h for node, h in zip(tree.nodes, mst_heads[1:].tolist(), strict=True)
@@ -1158,13 +1158,6 @@ class BiAffineParser(nn.Module):
         deprels = {
             node.identifier: self.deprels_set.inverse[lbl]
             for node, lbl in zip(tree.nodes, mst_labels[1:].tolist(), strict=True)
-        }
-
-        misc = {
-            node.identifier: {
-                n: self.annotation_lexicons[n].inverse[idx[i]] for n, idx in misc_idx.items()
-            }
-            for i, node in enumerate(tree.nodes, start=1)
         }
 
         result_tree = tree.replace(

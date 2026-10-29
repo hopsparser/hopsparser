@@ -170,7 +170,7 @@ def test_batch_invariance(
         assume(False)
         return
     with torch.inference_mode():
-        stable_length = len(stable_text) + 1
+        stable_length = len(stable_text)
         batch_stable = parser.encoder.batch_sentences([encoded_stable_text]).to(device)
         text_s1 = [encoded_stable_text, encoded_distractor_text_1]
         text_1s = [encoded_distractor_text_1, encoded_stable_text]
@@ -184,12 +184,12 @@ def test_batch_invariance(
                 output.pos_scores[idx, :stable_length, :],
             )
             assert_close(
-                ref_output.head_scores[0, :stable_length, :stable_length],
-                output.head_scores[idx, :stable_length, :stable_length],
+                ref_output.head_scores[0, : stable_length + 1, : stable_length + 1],
+                output.head_scores[idx, : stable_length + 1, : stable_length + 1],
             )
             assert_close(
-                ref_output.deprel_scores[0, :stable_length, :stable_length, :],
-                output.deprel_scores[idx, :stable_length, :stable_length, :],
+                ref_output.deprel_scores[0, : stable_length + 1, : stable_length + 1, :],
+                output.deprel_scores[idx, : stable_length + 1, : stable_length + 1, :],
             )
             for name, scores in output.extra_labels_scores.items():
                 assert_close(

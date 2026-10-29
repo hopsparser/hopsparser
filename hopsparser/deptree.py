@@ -96,7 +96,7 @@ class Misc(collections.abc.Sequence[str]):
         return cls(s.split("|"))
 
 
-class MWERange(NamedTuple):
+class MWTRange(NamedTuple):
     start: int
     end: int
     form: str
@@ -179,7 +179,7 @@ class DepGraph:
         self,
         nodes: Iterable[DepNode],
         empty_nodes: Iterable[EmptyNode] | None = None,
-        mwe_ranges: Iterable[MWERange] | None = None,
+        mwt_ranges: Iterable[MWTRange] | None = None,
         metadata: Iterable[str] | None = None,
     ):
         self.nodes = list(nodes)
@@ -196,7 +196,7 @@ class DepGraph:
             ):
                 raise ValueError(f"Malformed tree: unreachable heads: {unreachable_heads}")
 
-        self.mwe_ranges = [] if mwe_ranges is None else list(mwe_ranges)
+        self.mwt_ranges = [] if mwt_ranges is None else list(mwt_ranges)
         self.empty_nodes = [] if empty_nodes is None else list(empty_nodes)
         self.metadata = [] if metadata is None else list(metadata)
 
@@ -229,7 +229,7 @@ class DepGraph:
         deprels: Mapping[int, str] | None = None,
         pos_tags: Mapping[int, str] | None = None,
         misc: Mapping[int, Mapping[str, str]] | None = None,
-    ) -> "DepGraph":
+    ) -> Self:
         """Return a new `DepGraph`, identical to `self` except for its dependencies, pos tags and
         misc annotations (if specified). All parameters should be dicts mapping node identifiers
         to the new value of the corresponding feature.
@@ -267,7 +267,7 @@ class DepGraph:
             empty_nodes=self.empty_nodes[:],
             nodes=new_nodes,
             metadata=self.metadata[:],
-            mwe_ranges=self.mwe_ranges[:],
+            mwt_ranges=self.mwt_ranges[:],
         )
 
     @classmethod
@@ -275,7 +275,7 @@ class DepGraph:
         """Read a conll tree from an input stream"""
 
         metadata: list[str] = []
-        mwe_ranges = []
+        mwt_ranges = []
         empty_nodes = []
         nodes = []
         # FIXME: this is clunky, maybe write a better parser that does validation?
@@ -288,9 +288,10 @@ class DepGraph:
             row = line.rstrip(EOL_CHARS).split("\t")
 
             processed_row: list[str | None]
-            if "-" in row[0]:
-                mwe_start, mwe_end = row[0].split("-")
-                mwe_ranges.append(MWERange(int(mwe_start), int(mwe_end), row[1], row[9]))
+            if m := re.match(r"([1-9][0-9]*)-([1-9][0-9]*)", row[0]):
+                mwt_start = int(m.group(1))
+                mwt_end = int(m.group(2))
+                mwt_ranges.append(MWTRange(mwt_start, mwt_end, row[1], row[9]))
                 continue
             if len(row) < 2:
                 raise ValueError("Too few columns to build a DepNode")
@@ -337,7 +338,7 @@ class DepGraph:
         return cls(
             empty_nodes=empty_nodes,
             nodes=nodes,
-            mwe_ranges=mwe_ranges,
+            mwt_ranges=mwt_ranges,
             metadata=metadata,
         )
 
@@ -345,9 +346,9 @@ class DepGraph:
         """CoNLL-U string for the dep tree"""
         lines = self.metadata
         for n in self.nodes:
-            mwe_list = [mwe for mwe in self.mwe_ranges if mwe.start == n.identifier]
-            for mwe in mwe_list:
-                lines.append(mwe.to_conll())
+            mwt_list = [mwt for mwt in self.mwt_ranges if mwt.start == n.identifier]
+            for mwt in mwt_list:
+                lines.append(mwt.to_conll())
             lines.append(n.to_conll())
             empty_nodes_list = sorted(
                 (
