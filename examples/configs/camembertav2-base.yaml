@@ -1,0 +1,20 @@
+batch_size: 8
+biaffine_dim: 1024
+deprels_hidden_dim: 128
+dropout: 0.5
+encoder:
+  dropout: 0.5
+  lexers:
+  - layers: "*"
+    model: "almanach/camembertav2-base"
+    name: camembertav2_base
+    subwords_reduction: mean
+    type: bert
+  rnn_dim: 512
+epochs: 64
+heads_hidden_dim: 512
+lr:
+  base: 3.0e-05
+  shape: constant
+pos_hidden_dim: 16
+version: 2
