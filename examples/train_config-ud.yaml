@@ -17,6 +17,7 @@ trains:
   - group: fr
     configs:
       - "configs/camembert.yaml"
+      - "configs/camembertav2-base.yaml"
       - "configs/flaubert.yaml"
       - "configs/mdeberta.yaml"
       - "configs/nobert-fr.yaml"
