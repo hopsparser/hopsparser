@@ -95,6 +95,9 @@ class MLP(nn.Module):
     def forward(self, inpt: torch.Tensor) -> torch.Tensor:
         return self.w_up(self.dropout(self.g(self.w_down(inpt))))
 
+    def get_compiled(self) -> Self:
+        return cast(Self, torch.compile(self))
+
 
 # NOTE: This is the biaffine layer used in Qi et al. (2018) and Dozat and Manning (2017).
 class BiAffine(nn.Module):
@@ -128,6 +131,9 @@ class BiAffine(nn.Module):
             d = torch.cat((d, d.new_ones((*d.shape[:-1], 1))), dim=-1)
             h = torch.cat((h, h.new_ones((*h.shape[:-1], 1))), dim=-1)
         return torch.einsum("bxi,oij,byj->bxyo", d, self.weight, h)
+
+    def get_compiled(self) -> Self:
+        return cast(Self, torch.compile(self))
 
 
 class EncodedSentence(NamedTuple):
@@ -425,6 +431,9 @@ class ContextualEncoder(nn.Module):
 
         return res
 
+    def get_compiled(self) -> Self:
+        return cast(Self, torch.compile(self))
+
 
 class BiAffineParserOutput(NamedTuple):
     pos_scores: torch.Tensor
@@ -524,7 +533,7 @@ class BiAffineParser(nn.Module):
             (lab, i) for i, lab in enumerate(deprels_set)
         )
 
-        self.encoder = encoder
+        self.encoder = encoder.get_compiled()
 
         self.biaffine_dim = biaffine_dim
         self.deprels_hidden_dim: Final[int] = deprels_hidden_dim
@@ -535,7 +544,9 @@ class BiAffineParser(nn.Module):
 
         # POS tagger & char RNN
         # FIXME: why no dropout here?
-        self.pos_tagger = MLP(self.encoder.output_dim, self.pos_hidden_dim, len(self.pos_set))
+        self.pos_tagger = MLP(
+            self.encoder.output_dim, self.pos_hidden_dim, len(self.pos_set)
+        ).get_compiled()
 
         # Arc MLPs
         self.heads_mlp_h = MLP(
@@ -543,26 +554,26 @@ class BiAffineParser(nn.Module):
             self.heads_hidden_dim,
             self.biaffine_dim,
             self.dropout,
-        )
+        ).get_compiled()
         self.heads_mlp_d = MLP(
             self.encoder.output_dim,
             self.heads_hidden_dim,
             self.biaffine_dim,
             self.dropout,
-        )
+        ).get_compiled()
         # Label MLPs
         self.deprels_mlp_h = MLP(
             self.encoder.output_dim,
             self.deprels_hidden_dim,
             self.biaffine_dim,
             self.dropout,
-        )
+        ).get_compiled()
         self.deprels_mlp_d = MLP(
             self.encoder.output_dim,
             self.deprels_hidden_dim,
             self.biaffine_dim,
             self.dropout,
-        )
+        ).get_compiled()
 
         self.root_embedding = nn.Parameter(
             torch.empty(size=(1, self.encoder.output_dim)), requires_grad=True
@@ -571,8 +582,10 @@ class BiAffineParser(nn.Module):
         nn.init.normal_(self.root_embedding, mean=0.0, std=1.0)
 
         # BiAffine layers
-        self.arc_biaffine = BiAffine(self.biaffine_dim, 1, bias=biased_biaffine)
-        self.lab_biaffine = BiAffine(self.biaffine_dim, len(self.deprels_set), bias=biased_biaffine)
+        self.arc_biaffine = BiAffine(self.biaffine_dim, 1, bias=biased_biaffine).get_compiled()
+        self.lab_biaffine = BiAffine(
+            self.biaffine_dim, len(self.deprels_set), bias=biased_biaffine
+        ).get_compiled()
 
         # Extra annotations
         _loss_weights = {
@@ -602,7 +615,7 @@ class BiAffineParser(nn.Module):
                         hidden_dim=conf.hidden_layer_dim,
                         output_dim=len(conf.labels),
                         dropout=self.dropout,
-                    )
+                    ).get_compiled()
                     for name, conf in extra_annotations.items()
                 }
             )
