@@ -287,3 +287,17 @@ class SeparatedTuple(click.ParamType):
             )
 
         return tuple(ty(x, param, ctx) for ty, x in zip(self.types, value, strict=True))
+
+
+def timedelta_display(d: datetime.timedelta):
+    hours, seconds = divmod(d.seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
+    whole_seconds = round(seconds)
+    if d.days > 0:
+        return f"{d.days}d{hours}h{minutes}m{whole_seconds}s"
+    elif hours > 0:
+        return f"{hours}h{minutes}m{whole_seconds}s"
+    elif minutes > 0:
+        return f"{minutes}m{whole_seconds}s"
+    else:
+        return f"{seconds}s"

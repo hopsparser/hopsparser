@@ -1,3 +1,4 @@
+import datetime
 import enum
 import multiprocessing
 import multiprocessing.managers
@@ -10,7 +11,6 @@ from statistics import harmonic_mean
 from typing import (
     Any,
     TypeVar,
-    cast,
 )
 from collections.abc import Hashable
 
@@ -224,6 +224,8 @@ def train_single_model(
     device_info = torch.device(device)
     accelerator = device_info.type
     devices = 1 if accelerator == "cpu" else [device_info.index]
+
+    start_time = datetime.datetime.now()
     trainer.train(
         accelerator=accelerator,
         callbacks=[EpochFeedbackCallback(message_queue=message_queue, run_name=run_name)],
@@ -235,8 +237,12 @@ def train_single_model(
         train_file=train_file,
         **{k: v for k, v in additional_args.items()},
     )
+    duration = datetime.datetime.now() - start_time
 
-    logger.info(f"Training done for {run_name}, running a full evaluation on the dev-best model.")
+    logger.info(
+        f"Training done in {utils.timedelta_display(duration)} for {run_name},"
+        " running a full evaluation on the dev-best model."
+    )
 
     eval_res = evaluate_model(
         device=device,
