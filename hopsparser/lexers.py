@@ -34,10 +34,10 @@ from typing import Self
 
 
 class LexingError(Exception):
-    def __init__(self, message: str, sentence: str | None = None):
+    def __init__(self, message: str, sentence: Sequence[str] | None = None):
         self.message = message
         self.sentence = sentence
-        super().__init__(self.message)
+        super().__init__(self.message, self.sentence)
 
 
 @torch.compile
@@ -852,7 +852,7 @@ class BertLexer(nn.Module):
                 raise LexingError(
                     f"Sentence too long for this transformer model ({bert_encoding.length}"
                     f" tokens > {self.max_length})",
-                    str(tokens_sequence),
+                    tokens_sequence,
                 )
             # TODO: there might be a better way to do this?
             alignments = [bert_encoding.word_to_tokens(i) for i in range(len(tokens_sequence))]
@@ -877,7 +877,7 @@ class BertLexer(nn.Module):
             if self.tokenizer.unk_token is None:
                 raise LexingError(
                     f"Unencodable token {tokens_sequence[i]!r} at {i}",
-                    str(tokens_sequence),
+                    tokens_sequence,
                 )
             else:
                 logger.warning(
@@ -910,7 +910,7 @@ class BertLexer(nn.Module):
             raise LexingError(
                 f"Sentence too long for this transformer model ({bert_encoding.length}"
                 f" subtokens > {self.max_length})",
-                str(tokens_sequence),
+                tokens_sequence,
             )
         bert_word_lengths = [len(word) for word in bert_tokens]
         try:
@@ -922,7 +922,7 @@ class BertLexer(nn.Module):
             # Non-fast tokenizers shouldn't be prone to this
             raise LexingError(
                 "Sentence level tokenization different from aggregated token-level tokenization.",
-                str(tokens_sequence),
+                tokens_sequence,
             ) from e
         return BertLexerSentence(bert_encoding, alignments)
 
