@@ -6,7 +6,7 @@ trains:
       - "configs/mdeberta.yaml"
       # - "configs/modernbert-base.yaml"
       - "configs/modernbert-large.yaml"
-      - "configs/nobert-en.yaml"
+      # - "configs/nobert-en.yaml"
       # - "configs/roberta-base.yaml"
     treebanks:
       - "train_corpora/UD_English-ALL"
@@ -21,7 +21,6 @@ trains:
       - "configs/flaubert.yaml"
       - "configs/mdeberta.yaml"
       - "configs/nobert-fr.yaml"
-      - "configs/camembertav2-base.yaml"
     treebanks:
       - "train_corpora/UD_French-GSD"
       - "train_corpora/UD_French-Sequoia"
