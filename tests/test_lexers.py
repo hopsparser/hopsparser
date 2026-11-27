@@ -138,7 +138,20 @@ def test_word_embeddings_create_save_load(
 def remote_transformer_model(
     request,
 ) -> tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase]:
-    model = transformers.AutoModel.from_pretrained(request.param)
+    # Some models can be initialized with a pooling layer that we don't want (it's useless for
+    # us and makes testing harder). Of course since it's hf the only way to know if the model
+    # we're trying to load has one if to try to disable it and back off if the constructor
+    # doesn't understand the parameter…
+    try:
+        model = transformers.AutoModel.from_pretrained(
+            request.param,
+            add_pooling_layer=False,
+            dtype=torch.get_default_dtype(),
+        )
+    except TypeError:
+        model = transformers.AutoModel.from_pretrained(
+            request.param, dtype=torch.get_default_dtype()
+        )
     tokenizer = transformers.AutoTokenizer.from_pretrained(request.param, use_fast=True)
     return (model, tokenizer)
 
@@ -147,7 +160,10 @@ def remote_transformer_model(
 def local_transformer_model(
     test_data_dir: pathlib.Path,
 ) -> tuple[transformers.PreTrainedModel, transformers.PreTrainedTokenizerBase]:
-    model = transformers.AutoModel.from_pretrained(test_data_dir / "roberta-minuscule")
+    model = transformers.AutoModel.from_pretrained(
+        test_data_dir / "roberta-minuscule",
+        add_pooling_layer=False,
+    )
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         test_data_dir / "roberta-minuscule", use_fast=True, add_prefix_space=True
     )
@@ -239,8 +255,8 @@ def test_bert_embeddings_create_save_load(
         reloaded = lexers.BertLexer.load(tmp_path)
         # Should always be true but lol
         assert reloaded.model.config._attn_implementation == lexer.model.config._attn_implementation
+        assert reloaded.model.dtype == lexer.model.dtype
     # TODO: there must be a better way to deal with roots
-    test_text = ["", *test_text]
     lexer.eval()
     reloaded.eval()
     try:

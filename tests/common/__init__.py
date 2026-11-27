@@ -113,7 +113,7 @@ def heads_to_seq(
     return seq
 
 
-# We only forbid all newlines (see <https://docs.python.org/3/library/stdtypes.html#str.splitlines>
+# We only forbid all newlines (see <https://docs.python.org/3/library/stdtypes.html#str.splitlines>)
 # and the tabulator
 conllu_filled_column_st = st.text(
     alphabet=st.characters(

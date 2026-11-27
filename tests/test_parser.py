@@ -1,3 +1,4 @@
+from typing import cast
 import pathlib
 import tempfile
 
@@ -9,7 +10,13 @@ from torch.testing import assert_close
 
 from hopsparser.deptree import DepGraph
 from hopsparser.lexers import LexingError
-from hopsparser.parser import BiAffineParser, BiaffineParserOutput, train
+from hopsparser.parser import (
+    BiAffineParser,
+    BiAffineParserOutputBatch,
+    LRSchedule,
+    train,
+    DependencyDataset,
+)
 
 devices = ["cpu"]
 if torch.cuda.is_available():
@@ -90,6 +97,41 @@ def test_train(
     )
 
 
+def test_train_variation(
+    tmp_path: pathlib.Path,
+    train_config: pathlib.Path,
+    treebank_path: pathlib.Path,
+):
+    treebank = list(DepGraph.read_conll(open(treebank_path)))
+    parser_static = BiAffineParser.initialize(
+        config_path=train_config,
+        treebank=treebank,
+    )
+    parser_trainable = BiAffineParser.initialize(
+        config_path=train_config,
+        treebank=treebank,
+    )
+    parser_trainable.load_state_dict(parser_static.state_dict())
+
+    # We just copied so they should be equal
+    for n, v in parser_static.named_parameters():
+        assert v.equal(parser_trainable.get_parameter(n))
+
+    parser_trainable.train_model(
+        epochs=1,
+        lr_schedule=LRSchedule(),
+        model_path=tmp_path,
+        train_set=DependencyDataset(
+            parser_trainable,
+            treebank,
+        ),
+    )
+    # We have just trained them so they should all have changed
+    for n, v in parser_static.named_parameters():
+        if v.requires_grad:
+            assert not v.equal(parser_trainable.get_parameter(n))
+
+
 @pytest.mark.parametrize("device", devices)
 @settings(deadline=8192)
 # FIXME: should we really skip control characters and whitespaces? We do now because most 🤗
@@ -121,33 +163,33 @@ def test_batch_invariance(
     parser = parser.to(device)
     parser.eval()
     try:
-        encoded_stable_text = parser.encode_sentence(stable_text, strict=True)
-        encoded_distractor_text_1 = parser.encode_sentence(distractor_text_1, strict=True)
-        encoded_distractor_text_2 = parser.encode_sentence(distractor_text_2, strict=True)
+        encoded_stable_text = parser.encoder.encode_sentence(stable_text, strict=True)
+        encoded_distractor_text_1 = parser.encoder.encode_sentence(distractor_text_1, strict=True)
+        encoded_distractor_text_2 = parser.encoder.encode_sentence(distractor_text_2, strict=True)
     except LexingError:
         assume(False)
         return
     with torch.inference_mode():
-        stable_length = len(stable_text) + 1
-        batch_stable = parser.batch_sentences([encoded_stable_text]).to(device)
+        stable_length = len(stable_text)
+        batch_stable = parser.encoder.batch_sentences([encoded_stable_text]).to(device)
         text_s1 = [encoded_stable_text, encoded_distractor_text_1]
         text_1s = [encoded_distractor_text_1, encoded_stable_text]
         text_s2 = [encoded_stable_text, encoded_distractor_text_2]
-        ref_output: BiaffineParserOutput = parser(batch_stable.encodings, batch_stable.sent_lengths)
+        ref_output = cast(BiAffineParserOutputBatch, parser(batch_stable))
         for text, idx in ((text_s1, 0), (text_1s, 1), (text_s2, 0)):
-            batch = parser.batch_sentences(text).to(device)
-            output: BiaffineParserOutput = parser(batch.encodings, batch.sent_lengths)
+            batch = parser.encoder.batch_sentences(text).to(device)
+            output = cast(BiAffineParserOutputBatch, parser(batch))
             assert_close(
-                ref_output.tag_scores[0, :stable_length, :],
-                output.tag_scores[idx, :stable_length, :],
+                ref_output.pos_scores[0, :stable_length, :],
+                output.pos_scores[idx, :stable_length, :],
             )
             assert_close(
-                ref_output.head_scores[0, :stable_length, :stable_length],
-                output.head_scores[idx, :stable_length, :stable_length],
+                ref_output.head_scores[0, : stable_length + 1, : stable_length + 1],
+                output.head_scores[idx, : stable_length + 1, : stable_length + 1],
             )
             assert_close(
-                ref_output.deprel_scores[0, :stable_length, :stable_length, :],
-                output.deprel_scores[idx, :stable_length, :stable_length, :],
+                ref_output.deprel_scores[0, : stable_length + 1, : stable_length + 1, :],
+                output.deprel_scores[idx, : stable_length + 1, : stable_length + 1, :],
             )
             for name, scores in output.extra_labels_scores.items():
                 assert_close(

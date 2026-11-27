@@ -57,6 +57,7 @@ def cli():
 @device_opt
 @click.option(
     "--batch-size",
+    default=1,
     type=click.IntRange(min=1),
 )
 @click.option(

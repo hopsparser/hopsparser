@@ -6,9 +6,8 @@ trains:
       - "configs/mdeberta.yaml"
       # - "configs/modernbert-base.yaml"
       - "configs/modernbert-large.yaml"
-      - "configs/nobert-en.yaml"
+      # - "configs/nobert-en.yaml"
       # - "configs/roberta-base.yaml"
-      # - "configs/xlm-r-base.yaml"
     treebanks:
       - "train_corpora/UD_English-ALL"
       - "train_corpora/UD_English-Atis"
@@ -18,10 +17,10 @@ trains:
   - group: fr
     configs:
       - "configs/camembert.yaml"
+      - "configs/camembertav2-base.yaml"
       - "configs/flaubert.yaml"
       - "configs/mdeberta.yaml"
       - "configs/nobert-fr.yaml"
-      - "configs/xlm-r-base.yaml"
     treebanks:
       - "train_corpora/UD_French-GSD"
       - "train_corpora/UD_French-Sequoia"
@@ -30,7 +29,6 @@ trains:
     configs:
       - "configs/nobert-fr.yaml"
       - "configs/mdeberta.yaml"
-      - "configs/xlm-r-base.yaml"
       - "configs/bertrade_base.yaml"
       - "configs/BERTrade-camemBERT.yaml"
       - "configs/BERTrade-FlauBERT.yaml"

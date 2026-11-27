@@ -8,6 +8,10 @@ have additional dependencies that you can install using `pip install hopsparser[
 
 Download Universal Dependencies treebanks and prepare them for model training.
 
+## `update_config.py`
+
+Convert between training configuration formats
+
 ## `zenodo_upload.py`
 
 Upload files to a Zenodo deposit.
